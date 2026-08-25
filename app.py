@@ -74,7 +74,7 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
     # AIの返答を取得
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.6-flash',
             contents=chat_contents,
         )
         ai_response = response.text
