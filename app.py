@@ -13,24 +13,31 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ==========================================
 # 【重要】あなたのAPIキー
 API_KEY = "AQ.Ab8RN6JHvTGeeRAdCrrAWzh8SsmEUM6Iv0UGrFzgwr2YewsWxQ"
+# 【コスト削減設定】AIに一度に送る直近の会話数（例: 直近10件＝5往復分）
+MAX_CONTEXT_MESSAGES = 10 
 # ==========================================
 
 st.title("個別相談ＡＩ")
-st.caption("※Supabaseクラウド永久記憶モード")
+st.caption("※Supabaseクラウド永久記憶（コスト最適化モード）")
 
 # AIクライアントの初期化
 client = genai.Client(api_key=API_KEY)
 
-# 【新機能・クラウド版】起動時に、Supabaseから過去の会話履歴をすべて読み込んで復活させる
+# 起動時に、Supabaseから直近の会話履歴（最大50件）を取得して画面に復元
 if "messages" not in st.session_state:
     st.session_state.messages = []
     try:
-        # Supabaseの chat_history テーブルから古い順に全データを取得
-        response = supabase.table("chat_history").select("role, content").order("created_at", desc=False).execute()
+        # 直近50件を取得（古い順に並べ替え）
+        response = supabase.table("chat_history") \
+            .select("role, content") \
+            .order("created_at", desc=True) \
+            .limit(50) \
+            .execute()
+
         data = response.data
         if data:
-            for row in data:
-                # roleがuserかassistantかを判別してセッションに格納
+            # 取得したデータを古い順（時系列順）に戻してセッションに格納
+            for row in reversed(data):
                 st.session_state.messages.append({"role": row["role"], "content": row["content"]})
     except Exception as e:
         st.error(f"クラウドからの履歴読み込みエラー: {e}")
@@ -54,16 +61,18 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
     except Exception as e:
         st.error(f"クラウド保存エラー(user): {e}")
 
-    # AIにこれまでの全履歴をセットにして送る
+    # 【重要：コスト削減】全履歴ではなく「直近N件」だけを切り出してAIに送る
+    recent_messages = st.session_state.messages[-MAX_CONTEXT_MESSAGES:]
+
     chat_contents = []
-    for msg in st.session_state.messages:
+    for msg in recent_messages:
         role_name = "user" if msg["role"] == "user" else "model"
         chat_contents.append({"role": role_name, "parts": [{"text": msg["content"]}]})
 
     # AIの返答を取得
     try:
         response = client.models.generate_content(
-            model='gemini-3.6-flash', # ご自身の環境で正常動作する指定
+            model='gemini-3.6-flash',
             contents=chat_contents,
         )
         ai_response = response.text
@@ -84,14 +93,12 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
 st.markdown(
     """
     <style>
-    /* チャット内の見出し（###など）の大きさを指定 */
     .stChatMessage h1, .stChatMessage h2, .stChatMessage h3, .stChatMessage h4 {
         font-size: 18.5px !important;
         font-weight: bold !important;
         margin-top: 14px !important;
         margin-bottom: 6px !important;
     }
-    /* 本文の中の太字（**の部分）を正しく太字として表示させる記述を追加 */
     .stChatMessage p strong {
         font-weight: bold !important;
         font-size: inherit !important;
