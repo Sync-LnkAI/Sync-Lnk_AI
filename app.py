@@ -13,25 +13,27 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ==========================================
 # 【重要】あなたのAPIキー
 API_KEY = "AQ.Ab8RN6JHvTGeeRAdCrrAWzh8SsmEUM6Iv0UGrFzgwr2YewsWxQ"
-# 【コスト削減設定】AIに一度に送る直近の会話数（例: 直近10件＝5往復分）
-MAX_CONTEXT_MESSAGES = 10 
+
+# 【バランス調整】AIに送る直近の会話数（100件＝50往復分）
+# これにより、過去の細かい物件情報や新しい変更点もAIがしっかり記憶・理解します
+MAX_CONTEXT_MESSAGES = 100 
 # ==========================================
 
 st.title("個別相談ＡＩ")
-st.caption("※Supabaseクラウド永久記憶（コスト最適化モード）")
+st.caption("※Supabaseクラウド永久記憶（コンテキスト100件拡張モード）")
 
 # AIクライアントの初期化
 client = genai.Client(api_key=API_KEY)
 
-# 起動時に、Supabaseから直近の会話履歴（最大50件）を取得して画面に復元
+# 起動時に、Supabaseから直近の会話履歴（最大200件）を取得して画面に復元
 if "messages" not in st.session_state:
     st.session_state.messages = []
     try:
-        # 直近50件を取得（古い順に並べ替え）
+        # 直近200件を取得（古い順に並べ替え）
         response = supabase.table("chat_history") \
             .select("role, content") \
             .order("created_at", desc=True) \
-            .limit(50) \
+            .limit(200) \
             .execute()
 
         data = response.data
@@ -61,7 +63,7 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
     except Exception as e:
         st.error(f"クラウド保存エラー(user): {e}")
 
-    # 【重要：コスト削減】全履歴ではなく「直近N件」だけを切り出してAIに送る
+    # 【記憶拡張】直近100件（50往復）の文脈をまるごとAIに送る
     recent_messages = st.session_state.messages[-MAX_CONTEXT_MESSAGES:]
 
     chat_contents = []
@@ -72,7 +74,7 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
     # AIの返答を取得
     try:
         response = client.models.generate_content(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             contents=chat_contents,
         )
         ai_response = response.text
@@ -90,6 +92,7 @@ if user_input := st.chat_input("AIに相談したいことを入力してくだ�
     except Exception as e:
         st.error(f"クラウド保存エラー(assistant): {e}")
 
+# フォントサイズ調整などの装飾（CSS）
 st.markdown(
     """
     <style>
