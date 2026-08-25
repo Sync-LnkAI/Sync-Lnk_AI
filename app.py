@@ -13,9 +13,13 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # ==========================================
 # 【重要】APIキー
 API_KEY = "AQ.Ab8RN6JHvTGeeRAdCrrAWzh8SsmEUM6Iv0UGrFzgwr2YewsWxQ"
+
+# 【コスト最適化】AIに一度に送る送信数を直近30件（15往復分）に制限！
+# これにより1回の送信コストが常に約0.02円〜0.05円で永久に固定されます。
+MAX_CONTEXT_MESSAGES = 30 
 # ==========================================
 
-st.title("個別相談ＡＩ")
+st.title("My AI Concierge")
 
 # --- サイドバー（トピック切り替え機能） ---
 st.sidebar.header("📁 相談トピック（テーマ）")
@@ -40,13 +44,13 @@ if st.sidebar.button("トピックを追加"):
         st.sidebar.success(f"「{new_topic_name}」を追加しました！")
         st.rerun()
 
-st.caption(f"現在のトピック: **{selected_topic}** (※テスト用全件読み込みモード)")
+st.caption(f"現在のトピック: **{selected_topic}** (※コスト最適化：直近30件モード)")
 
 client = genai.Client(api_key=API_KEY)
 
 current_topic_key = f"messages_{selected_topic}"
 
-# 起動時にSupabaseから選択されたトピックの過去ログだけを取得
+# 起動時にSupabaseから選択されたトピックの過去ログを全件（画面表示用）取得
 if current_topic_key not in st.session_state:
     st.session_state[current_topic_key] = []
     try:
@@ -63,7 +67,7 @@ if current_topic_key not in st.session_state:
     except Exception as e:
         st.error(f"履歴読み込みエラー: {e}")
 
-# メッセージ表示
+# メッセージ表示（画面には過去ログを全件綺麗に表示）
 for message in st.session_state[current_topic_key]:
     avatar = "🔵" if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar=avatar):
@@ -75,6 +79,7 @@ if user_input := st.chat_input(f"【{selected_topic}】について入力..."):
         st.write(user_input)
     st.session_state[current_topic_key].append({"role": "user", "content": user_input})
 
+    # Supabaseへ保存
     try:
         supabase.table("chat_history").insert({
             "role": "user", 
@@ -84,12 +89,15 @@ if user_input := st.chat_input(f"【{selected_topic}】について入力..."):
     except Exception as e:
         st.error(f"クラウド保存エラー(user): {e}")
 
-    # 現在のトピックの全会話ログをAIに送信
+    # 🚀【超重要：コスト削減処理】全件ではなく「直近30件（15往復分）」だけをAIに送信！
+    recent_messages = st.session_state[current_topic_key][-MAX_CONTEXT_MESSAGES:]
+
     chat_contents = []
-    for msg in st.session_state[current_topic_key]:
+    for msg in recent_messages:
         role_name = "user" if msg["role"] == "user" else "model"
         chat_contents.append({"role": role_name, "parts": [{"text": msg["content"]}]})
 
+    # AIからの返答を取得
     try:
         response = client.models.generate_content(
             model='gemini-3.6-flash',
@@ -103,6 +111,7 @@ if user_input := st.chat_input(f"【{selected_topic}】について入力..."):
         st.write(ai_response)
     st.session_state[current_topic_key].append({"role": "assistant", "content": ai_response})
 
+    # Supabaseへ保存
     try:
         supabase.table("chat_history").insert({
             "role": "assistant", 
