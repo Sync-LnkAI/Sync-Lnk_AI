@@ -168,16 +168,18 @@ def delete_memory(memory_id: int) -> bool:
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
-def get_embedding(text):
+def get_embedding(text: str):
+    """過去検索用Embeddingの生成（エラー時安全ガード付き）"""
     try:
         response = genai.embed_content(
-            model="models/embedding-004",
+            model="models/text-embedding-004",
             content=text,
             task_type="retrieval_document"
         )
         return response['embedding']
     except Exception as e:
-        st.error(f"Embedding生成エラー: {e}")
+        # Embedding取得に失敗してもアプリを止めずNoneを返す
+        print(f"Embedding生成スキップ: {e}")
         return None
 
 # ベクトル検索（RAG）を行う関数
