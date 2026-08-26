@@ -362,18 +362,26 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 
 st.sidebar.title("🤖 My AI Concierge")
 
-# トークン消費量のリアルタイム表示（どの画面でも見れるようにここに配置）
+# トークン消費量のリアルタイム表示（プレースホルダー化）
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 トークン消費状況")
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    st.caption("【前回】")
-    st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
-    st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
-with col2:
-    st.caption("【累計】")
-    st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
-    st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
+token_container = st.sidebar.empty()  # ←★後から中身をリアルタイム書き換えできる枠を作成
+
+# トークン表示を更新する関数
+def render_token_info():
+    with token_container.container():
+        col1, col2 = st.columns(2)
+        with col1:
+            st.caption("【前回】")
+            st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
+            st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
+        with col2:
+            st.caption("【累計】")
+            st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
+            st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
+
+# 初回描画
+render_token_info()
 st.sidebar.markdown("---")
 
 themes = get_themes()
@@ -603,7 +611,7 @@ else:
                 try:
                     response = model.generate_content(contents_for_gemini)
                    
-                    # ▼▼▼ トークン数をカウントして記録（ここを追加！） ▼▼▼
+                    # ▼▼▼ トークン数をカウントして記録＆画面の即時更新 ▼▼▼
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
                         in_t = response.usage_metadata.prompt_token_count
                         out_t = response.usage_metadata.candidates_token_count
@@ -613,6 +621,9 @@ else:
 
                         st.session_state.total_in_tokens += in_t
                         st.session_state.total_out_tokens += out_t
+
+                        # ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
+                        render_token_info()
                     # ▲▲▲ ここまで ▲▲▲
                     
                     ai_reply = response.text
