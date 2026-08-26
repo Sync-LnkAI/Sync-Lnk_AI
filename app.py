@@ -7,6 +7,27 @@ from supabase import create_client, Client
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
+# 📱 スマホ用・横揺れ防止 & デザイン最適化CSS
+st.markdown("""
+<style>
+    /* 全体の横スクロール（揺れ）を完全に防止 */
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        overflow-x: hidden !important;
+    }
+    /* チャット本文やテキストの自動折り返し */
+    div[data-testid="stMarkdownContainer"] p {
+        word-break: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+    /* スマホ表示時のメインエリア余白調整 */
+    .main .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 MAX_CONTEXT_MESSAGES = 30  # 直近30件を保持
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -72,7 +93,6 @@ def get_memories(theme_id=None, source=None):
         return []
 
 def save_memory(fact: str, theme_id=None, category="基本情報", source="manual") -> bool:
-    """記憶の保存（成功判定付き）"""
     try:
         data = {
             "user_id": "default_user",
@@ -90,7 +110,6 @@ def save_memory(fact: str, theme_id=None, category="基本情報", source="manua
         return False
 
 def delete_memory(memory_id: int) -> bool:
-    """記憶の削除（成功判定付き）"""
     try:
         supabase.table("user_memories").delete().eq("id", memory_id).execute()
         return True
@@ -186,13 +205,11 @@ if app_mode == "⚙️ ユーザー設定":
         submitted = st.form_submit_button("基本設定を保存")
         if submitted:
             success = True
-            # 古い設定の削除
             for m in manual_memories:
                 if any(m["fact"].startswith(prefix) for prefix in ["AIの名前:", "ユーザー名:", "応答方針:"]):
                     if not delete_memory(m["id"]):
                         success = False
 
-            # 新しい設定の保存
             r1 = save_memory(f"AIの名前: {new_concierge_name}", theme_id=None, category="プロフィール", source="manual")
             r2 = save_memory(f"ユーザー名: {new_user_name}", theme_id=None, category="プロフィール", source="manual")
             r3 = save_memory(f"応答方針: {new_instruction}", theme_id=None, category="プロフィール", source="manual")
@@ -209,7 +226,7 @@ if app_mode == "⚙️ ユーザー設定":
     auto_memories = get_memories(theme_id=None, source="auto")
     if auto_memories:
         for mem in auto_memories:
-            col1, col2 = st.columns([5, 1])
+            col1, col2 = st.columns([3, 1])  # スマホ幅を考慮して比率調整
             with col1:
                 st.info(f"📌 {mem['fact']}")
             with col2:
