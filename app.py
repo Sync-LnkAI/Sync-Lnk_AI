@@ -113,11 +113,15 @@ def get_messages(theme_id: int):
     return res.data if res.data else []
 
 def save_message(theme_id: int, role: str, content: str):
+    # 発言内容をベクトルデータに変換
+    embedding_data = get_embedding(content)
+
     data = {
         "user_id": "default_user",
         "theme_id": theme_id,
         "role": role,
-        "content": content
+        "content": content,
+        "embedding": embedding_data  # ←★ベクトルデータを追加
     }
     supabase.table("messages").insert(data).execute()
 
@@ -163,39 +167,42 @@ def delete_memory(memory_id: int) -> bool:
         st.error(f"❌ 記憶削除エラー: {e}")
         return False
 
-def search_past_logs(theme_id: int, user_input: str, limit=3) -> str:
-    """ユーザーの入力に関連する過去の会話ログをSupabaseから検索して返す"""
+# テキストをベクトル（数値配列）に変換する関数
+def get_embedding(text):
     try:
-        keywords = [w for w in user_input.split() if len(w) >= 2]
-        if not keywords:
-            return ""
-
-        # 直近の会話（15件）より前の古いログから検索
-        res = (
-            supabase.table("messages")
-            .select("role, content")
-            .eq("theme_id", theme_id)
-            .order("created_at", desc=True)
-            .range(15, 100)
-            .execute()
+        response = genai.embed_content(
+            model="models/text-embedding-004",
+            content=text,
+            task_type="retrieval_document"
         )
-        logs = res.data if res.data else []
-        if not logs:
-            return ""
-
-        matched_logs = []
-        for log in logs:
-            content = log.get("content", "")
-            if any(kw.lower() in content.lower() for kw in keywords):
-                role_name = "ユーザー" if log["role"] == "user" else "AI"
-                matched_logs.append(f"[{role_name}]: {clean_bold_markdown(content)}")
-                if len(matched_logs) >= limit:
-                    break
-
-        return "\n".join(matched_logs) if matched_logs else ""
+        return response['embedding']
     except Exception as e:
-        print(f"過去ログ検索エラー: {e}")
-        return ""
+        st.error(f"Embedding生成エラー: {e}")
+        return None
+
+# ベクトル検索（RAG）を行う関数
+def search_past_logs(current_theme_id, query_text):
+    try:
+        # クエリテキストをベクトル化
+        query_embedding = get_embedding(query_text)
+        if not query_embedding:
+            return []
+
+        # Supabaseのmatch_messages関数（RPC）を呼び出し
+        response = supabase.rpc(
+            "match_messages",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": 0.3, # 類似度のしきい値（必要に応じて調整）
+                "match_count": 5,        # 抽出する件数
+                "filter_theme_id": current_theme_id
+            }
+        ).execute()
+
+        return response.data if response.data else []
+    except Exception as e:
+        st.error(f"過去ログ検索エラー: {e}")
+        return []
 
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
