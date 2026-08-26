@@ -25,6 +25,10 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-3.6-flash")
 
 # --- セッション状態の初期化 ---
+if "last_in_tokens" not in st.session_state:
+    st.session_state.last_in_tokens = 0
+if "last_out_tokens" not in st.session_state:
+    st.session_state.last_out_tokens = 0
 if "total_in_tokens" not in st.session_state:
     st.session_state.total_in_tokens = 0
 if "total_out_tokens" not in st.session_state:
@@ -96,6 +100,11 @@ def update_theme(theme_id: int, name: str, icon: str):
     supabase.table("themes").update({"name": name, "icon": icon_val}).eq("id", theme_id).execute()
 
 def delete_theme(theme_id: int):
+    # IDが1（メインテーマ）の場合は削除をブロック！
+    if theme_id == 1:
+        st.warning("「メインテーマ」は削除できません！")
+        return
+
     supabase.table("messages").delete().eq("theme_id", theme_id).execute()
     supabase.table("themes").delete().eq("id", theme_id).execute()
 
@@ -196,6 +205,9 @@ def search_past_logs(current_theme_id, query_text):
         if not query_embedding:
             return []
 
+        # 【ここを追加！】IDが1（メイン）の場合は None にして全体検索にする！
+        theme_filter = None if current_theme_id == 1 else current_theme_id
+
         # Supabaseのmatch_messages関数（RPC）を呼び出し
         response = supabase.rpc(
             "match_messages",
@@ -203,15 +215,17 @@ def search_past_logs(current_theme_id, query_text):
                 "query_embedding": query_embedding,
                 "match_threshold": 0.3, # 類似度のしきい値（必要に応じて調整）
                 "match_count": 5,        # 抽出する件数
-                "filter_theme_id": current_theme_id
+                "filter_theme_id": theme_filter # ここを theme_filter に変更！
             }
         ).execute()
 
         return response.data if response.data else []
-    except Exception as e:
-        st.error(f"過去ログ検索エラー: {e}")
-        return []
 
+    except Exception as e:
+        # エラー処理（ターミナル出力にする場合は下のコメントアウトを外してね）
+        print(f"⚠️ 過去ログ検索エラー: {e}")
+        return []
+    
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
 # ==========================================
@@ -559,15 +573,11 @@ else:
 
     # 高速チャット送信処理
     if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
-        # ① ユーザーのメッセージを即時表示＆保存
+        # ① 画面表示　ユーザーのメッセージを即時表示
         with st.chat_message("user", avatar=current_user_avatar):
             st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-        save_message(current_theme_id, "user", user_input)
-        all_messages.append({"role": "user", "content": user_input})
 
-        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
-
-                # 過去ログ検索の実行（コメントアウトを解除！）
+        # ★【ポイント2対策】DBに保存する前に、まず過去ログを検索する！
         past_logs_context = search_past_logs(current_theme_id, user_input)
 
         # 検索結果を文字列としてまとめる
@@ -575,12 +585,21 @@ else:
         if past_logs_context:
             logs_text = []
             for log in past_logs_context:
-                # 検索結果からロールと発言内容を取り出す
+            　　# 検索結果からロールと発言内容を取り出す
                 role_name = display_user_name if log.get("role") == "user" else current_concierge_name
                 logs_text.append(f"・{role_name}: {log.get('content')}")
             past_logs_str = "\n".join(logs_text)
         else:
             past_logs_str = "該当する過去ログなし"
+
+        # ★検索が終わったので、ここでDB保存＆リスト追加をする！
+        save_message(current_theme_id, "user", user_input)
+        all_messages.append({"role": "user", "content": user_input})
+
+        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+        
+        # 過去ログ検索の実行
+        past_logs_context = search_past_logs(current_theme_id, user_input)
 
         # システム指示に「関連する過去ログ」を組み込む！
         system_instruction = f"""
