@@ -20,10 +20,6 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# 指定モデル: gemini-3.6-flash
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-3.6-flash")
-
 # --- セッション状態の初期化 ---
 if "total_in_tokens" not in st.session_state:
     st.session_state.total_in_tokens = 0
@@ -481,6 +477,24 @@ elif app_mode == "⚙️ ユーザー設定":
         st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
         st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
     # ▲▲▲ ここまで ▲▲▲
+
+# 1. サイドバーなどでモデルタイプを選択してもらう
+selected_model_type = st.sidebar.radio(
+    "モデル切り替え",
+    ["有料版KYE", "無料版KYE"]
+)
+
+# 2. 【ここに入れる！】選択結果からAPIキーを切り替えて初期設定する
+if selected_model_type == "有料版KYE":
+    active_api_key = st.secrets["GEMINI_API_KEY_PRO"]
+else:
+    active_api_key = st.secrets["GEMINI_API_KEY_FREE"]
+
+genai.configure(api_key=active_api_key)
+
+# 3. この後でモデルの呼び出しや生成処理を行う
+target_model = "gemini-3.6-flash"
+model = genai.GenerativeModel(model_name=target_model)
 
     st.divider()
 
