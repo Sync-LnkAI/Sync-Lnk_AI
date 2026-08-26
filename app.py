@@ -20,9 +20,24 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
+# 選択に応じてAPIキーを決定
+if selected_model_type == "無料・軽快用 (Flash)":
+    active_api_key = st.secrets["GEMINI_API_KEY_FREE"]  # 無料用のキー名
+else:
+    active_api_key = st.secrets["GEMINI_API_KEY_PRO"]   # 本命・高精度用のキー名
+
+# 選択されたAPIキーを初期設定にセット
+genai.configure(api_key=active_api_key)
+
 # 指定モデル: gemini-3.6-flash
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-3.6-flash")
+
+# --- セッション状態の初期化 ---
+if "total_in_tokens" not in st.session_state:
+    st.session_state.total_in_tokens = 0
+if "total_out_tokens" not in st.session_state:
+    st.session_state.total_out_tokens = 0
 
 # プリセット定義
 STYLE_PRESETS = {
@@ -461,6 +476,21 @@ elif app_mode == "⚙️ ユーザー設定":
             st.success("基本設定を更新しました！")
             st.rerun()
 
+  # ▼▼▼ 3. トークン消費量のリアルタイム表示（ここを追加！） ▼▼▼
+    st.markdown("### 📊 トークン消費状況")
+
+    # 前回と累計を分かりやすく表示
+    col1, col2 = st.columns(2)
+    with col1:
+        st.caption("【前回】")
+        st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
+        st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
+    with col2:
+        st.caption("【累計】")
+        st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
+        st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
+    # ▲▲▲ ここまで ▲▲▲
+
     st.divider()
 
     st.subheader("🧠 自動学習された長期記憶")
@@ -560,6 +590,19 @@ else:
             with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
                     response = model.generate_content(contents_for_gemini)
+                   
+                    # ▼▼▼ トークン数をカウントして記録（ここを追加！） ▼▼▼
+                    if hasattr(response, "usage_metadata") and response.usage_metadata:
+                        in_t = response.usage_metadata.prompt_token_count
+                        out_t = response.usage_metadata.candidates_token_count
+
+                        st.session_state.last_in_tokens = in_t
+                        st.session_state.last_out_tokens = out_t
+
+                        st.session_state.total_in_tokens += in_t
+                        st.session_state.total_out_tokens += out_t
+                    # ▲▲▲ ここまで ▲▲▲
+                    
                     ai_reply = response.text
                     clean_reply = clean_bold_markdown(ai_reply)
                     st.write(f"【{current_concierge_name}】: {clean_reply}")
