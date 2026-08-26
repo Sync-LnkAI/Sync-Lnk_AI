@@ -555,13 +555,6 @@ else:
         【🗣️ 応答スタイル指示】
         {current_user_instruction}
         ※回答を作成する際、太字装飾記号「  」は絶対に使用しないでください。強調したい単語がある場合は「」や【】などの記号を使用してください。
-
-        【🌐 あなたが知っているユーザーの全般的な記憶（全テーマ共通・長期記憶）】
-        ・設定プロフィール: {', '.join(manual_facts) if manual_facts else '特になし'}
-        ・会話から覚えた記憶: {', '.join(auto_facts) if auto_facts else '特になし'}
-
-        【📜 このテーマの流れ（中期記憶・要約）】
-        {current_summary if current_summary else '（まだ要約はありません）'}
         """
 
         contents_for_gemini = [
