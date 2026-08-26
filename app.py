@@ -13,7 +13,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 # Supabase & Gemini 初期化
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-3.6-flash")
 
 USER_ID = "default_user"
 
