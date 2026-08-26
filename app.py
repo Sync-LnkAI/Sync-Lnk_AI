@@ -32,11 +32,11 @@ STYLE_PRESETS = {
     "✍️ カスタム（自由記述）": ""
 }
 
-FIRST_PERSON_PRESETS = ["僕", "私", "俺", "自分"]
+FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
 
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
 
-# ★画像エラーを起こさない安全なアバター定義（絵文字）
+# 安全な絵文字アバター定義
 AVATAR_PRESETS_AI = {
     "🤖 ロボット": "🤖",
     "👾 レトロドット": "👾",
@@ -53,12 +53,12 @@ AVATAR_PRESETS_USER = {
     "👑 キング": "👑"
 }
 
-# ★文字と背景が見やすく差別化されたカラーテーマ定義
+# カラーテーマ定義（デフォルト：ライドモード）
 COLOR_THEMES = {
-    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff"},
-    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff"},
-    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff"},
-    "☀ ライトモード（白）": {"bg": "#f8fafc", "card_bg": "#ffffff", "input_border": "#0288d1", "text": "#0f172a"}
+    "☀ ライドモード（白）": {"bg": "#ffffff", "card_bg": "#f8fafc", "input_border": "#0288d1", "text": "#0f172a", "dropdown_text": "#0f172a", "scrollbar": "#94a3b8", "scrollbar_hover": "#64748b"},
+    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#3b82f6", "scrollbar_hover": "#60a5fa"},
+    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#10b981", "scrollbar_hover": "#34d399"},
+    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#a855f7", "scrollbar_hover": "#c084fc"}
 }
 
 # ==========================================
@@ -154,11 +154,11 @@ def delete_memory(memory_id: int) -> bool:
 # ==========================================
 manual_memories = get_memories(theme_id=None, source="manual")
 
-current_theme_color = "🔷 ダークブルー（濃紺）"
+current_theme_color = "☀ ライドモード（白）"
 current_concierge_name = "ハヤト"
 current_user_name = "リュウ"
 current_user_honorific = "さん"
-current_first_person = "僕"
+current_first_person = "私"
 current_style_preset = "🤝 フランク＆対等（相棒）"
 current_user_instruction = STYLE_PRESETS["🤝 フランク＆対等（相棒）"]
 current_ai_avatar = "🤖"
@@ -185,10 +185,12 @@ for m in manual_memories:
     elif fact.startswith("ユーザーアバター:"):
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
 
-# CSSダイナミック適用
-theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["🔷 ダークブルー（濃紺）"])
+theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
+
+# ★画面最適化CSS（横揺れ防止 & Manage App等UI消去 & ドロップダウン補正 & 太いスクロールバー）
 st.markdown(f"""
 <style>
+    /* 1. 全体レイアウト & 横揺れ防止 */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
         color: {theme_cfg["text"]} !important;
@@ -202,12 +204,23 @@ st.markdown(f"""
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
     }}
-    p, span, div, h1, h2, h3, h4, h5, h6 {{
+    p, span, div, h1, h2, h3, h4, h5, h6, label {{
         color: {theme_cfg["text"]} !important;
         word-break: break-word !important;
         overflow-wrap: anywhere !important;
     }}
-    /* メッセージ入力枠スタイル */
+
+    /* 2. ドロップダウン（選択肢）＆入力欄の文字色補正 */
+    div[data-baseweb="select"] * {{
+        color: {theme_cfg["dropdown_text"]} !important;
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+    div[role="listbox"] li {{
+        color: {theme_cfg["dropdown_text"]} !important;
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+
+    /* 3. チャット入力枠スタイル */
     div[data-testid="stChatInput"] {{
         max-width: 100% !important;
         box-sizing: border-box !important;
@@ -219,6 +232,33 @@ st.markdown(f"""
     }}
     div[data-testid="stChatInput"] textarea {{
         color: {theme_cfg["text"]} !important;
+    }}
+
+    /* 4. 不要な標準UI（Manage app、右下ロゴ、ヘッダー、メニュー）完全非表示化 */
+    #MainMenu {{visibility: hidden !important;}}
+    header {{visibility: hidden !important;}}
+    footer {{visibility: hidden !important;}}
+    div[data-testid="stDecoration"] {{display: none !important;}}
+    div[data-testid="stStatusWidget"] {{display: none !important;}}
+    div[data-testid="stToolbar"] {{display: none !important;}}
+    .stActionButton {{display: none !important;}}
+    button[title="Manage app"] {{display: none !important;}}
+
+    /* 5. ↕️ スクロールバーのカスタマイズ（太く・操作しやすく） */
+    ::-webkit-scrollbar {{
+        width: 14px !important;
+        height: 14px !important;
+    }}
+    ::-webkit-scrollbar-track {{
+        background: {theme_cfg["bg"]} !important;
+    }}
+    ::-webkit-scrollbar-thumb {{
+        background: {theme_cfg["scrollbar"]} !important;
+        border-radius: 8px !important;
+        border: 3px solid {theme_cfg["bg"]} !important;
+    }}
+    ::-webkit-scrollbar-thumb:hover {{
+        background: {theme_cfg["scrollbar_hover"]} !important;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -406,7 +446,7 @@ elif app_mode == "⚙️ ユーザー設定":
         st.caption("自動抽出された記憶はまだありません。")
 
 # ==========================================
-# 💬 画面3: メインチャット画面（高速化ロジック適用）
+# 💬 画面3: メインチャット画面
 # ==========================================
 else:
     all_common_memories = get_memories(theme_id=None)
@@ -443,7 +483,7 @@ else:
         with st.chat_message(msg["role"], avatar=avatar_img):
             st.write(f"**{role_label}**: {msg['content']}")
 
-    # ★高速化チャット送信処理
+    # 高速チャット送信処理
     if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
         # ① ユーザーのメッセージを即時表示＆保存
         with st.chat_message("user", avatar=current_user_avatar):
@@ -478,7 +518,7 @@ else:
             role = "user" if m["role"] == "user" else "model"
             contents_for_gemini.append({"role": role, "parts": [m["content"]]})
 
-        # ② 画面上に即時「思考中...」を表示し、メイン応答を最速生成！
+        # ② 即時「思考中...」表示 & 返答生成
         with st.chat_message("assistant", avatar=current_ai_avatar):
             with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
@@ -489,7 +529,7 @@ else:
                 except Exception as e:
                     st.error(f"Gemini API エラー: {e}")
 
-        # ③ 返答完了後に裏で要約更新・記憶抽出を実行（体感速度に影響なし！）
+        # ③ 非同期風に裏で要約更新・記憶抽出を実行
         check_and_summarize_history(current_theme_id, all_messages, current_summary)
         extract_and_save_long_term_memory(user_input, current_theme_id)
 
