@@ -7,44 +7,6 @@ from supabase import create_client, Client
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
-# 📱 スマホ用・画面幅固定 & 横揺れ完全防止CSS（強力版）
-st.markdown("""
-<style>
-    /* 画面全体の横揺れ・横スクロールを強制的に禁止 */
-    html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {
-        max-width: 100vw !important;
-        overflow-x: hidden !important;
-        box-sizing: border-box !important;
-    }
-
-    /* メインコンテンツエリアの余白・横幅調整 */
-    .main .block-container {
-        max-width: 100vw !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
-        padding-top: 1rem !important;
-    }
-
-    /* 長いテキストやURLの強制折り返し */
-    p, span, div, h1, h2, h3, h4, h5, h6 {
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-    }
-
-    /* チャット入力エリアの横幅固定 */
-    div[data-testid="stChatInput"] {
-        max-width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* コードブロックやテーブルの横溢れ防止 */
-    pre, code {
-        white-space: pre-wrap !important;
-        word-break: break-all !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 MAX_CONTEXT_MESSAGES = 30  # 直近30件を保持
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
@@ -61,13 +23,66 @@ supabase = init_supabase()
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-3.6-flash")
 
+# プリセット定義
+STYLE_PRESETS = {
+    "🤝 フランク＆対等（相棒）": "フレンドリーで親しみやすく、敬語を使わずに丁寧かつ対等なタメ口でフランクに対話してください。",
+    "💼 丁寧＆親切（プロフェッショナル）": "礼儀正しく丁寧な敬語（です・ます調）で、親切かつ正確に回答してください。",
+    "🧠 論理的＆簡潔（アドバイザー）": "結論から述べ、箇条書きを活用して無駄なく論理的・簡潔に回答してください。",
+    "🌟 超ポジティブ＆熱血（応援団）": "常にポジティブで情熱的に、ユーザーの味方として全力で応援・肯定しながら対話してください。",
+    "✍️ カスタム（自由記述）": ""
+}
+
+FIRST_PERSON_PRESETS = ["僕", "私", "俺", "自分"]
+
+THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
+
+AVATAR_PRESETS_AI = {
+    "🤖 ロボット（標準）": "🤖",
+    "💫 キラキラアニメ": "https://media.giphy.com/media/3o7TKsjRrfIPjeiVyM/giphy.gif",
+    "👾 レトロドットGIF": "https://media.giphy.com/media/26n6Wywq41V5x6M36/giphy.gif",
+    "🦊 きつね": "🦊",
+    "🦉 ふくろう": "🦉"
+}
+
+AVATAR_PRESETS_USER = {
+    "🧑‍💻 エンジニア（標準）": "🧑‍💻",
+    "🐉 ドラゴンGIF": "https://media.giphy.com/media/l41K3tOKuM6vfM4C4/giphy.gif",
+    "⚡ 電撃GIF": "https://media.giphy.com/media/xT0xezQGU5xCDJuCPe/giphy.gif",
+    "🦁 らいおん": "🦁",
+    "👑 きんぐ": "👑"
+}
+
+COLOR_THEMES = {
+    "🔷 ダークブルー": {"bg": "#0e1117", "input_border": "#2b5c8f", "accent": "#1f77b4", "text": "#ffffff"},
+    "🌙 サイバーネオン": {"bg": "#050811", "input_border": "#00f0ff", "accent": "#00f0ff", "text": "#e0f7fc"},
+    "🌿 ナチュラルグリーン": {"bg": "#0c1810", "input_border": "#2e7d32", "accent": "#4caf50", "text": "#e8f5e9"},
+    "💜 ディープパープル": {"bg": "#120a21", "input_border": "#7b1fa2", "accent": "#ab47bc", "text": "#f3e5f5"},
+    "☀ ライトモード": {"bg": "#ffffff", "input_border": "#0288d1", "accent": "#0288d1", "text": "#212121"}
+}
+
 # ==========================================
 # 🗄️ Supabase データベース操作関数
 # ==========================================
 
 def get_themes():
-    res = supabase.table("themes").select("*").order("id", desc=False).execute()
-    return res.data if res.data else []
+    try:
+        res = supabase.table("themes").select("*").order("id", desc=False).execute()
+        return res.data if res.data else []
+    except Exception as e:
+        st.error(f"テーマ取得エラー: {e}")
+        return []
+
+def add_theme(name: str, icon: str):
+    icon_val = "" if icon == "なし" else icon
+    supabase.table("themes").insert({"name": name, "icon": icon_val, "summary": ""}).execute()
+
+def update_theme(theme_id: int, name: str, icon: str):
+    icon_val = "" if icon == "なし" else icon
+    supabase.table("themes").update({"name": name, "icon": icon_val}).eq("id", theme_id).execute()
+
+def delete_theme(theme_id: int):
+    supabase.table("messages").delete().eq("theme_id", theme_id).execute()
+    supabase.table("themes").delete().eq("id", theme_id).execute()
 
 def get_theme_summary(theme_id: int) -> str:
     res = supabase.table("themes").select("summary").eq("id", theme_id).execute()
@@ -135,7 +150,83 @@ def delete_memory(memory_id: int) -> bool:
         return False
 
 # ==========================================
-# 🧠 記憶ロジック（自動要約 & 長期記憶の自動抽出）
+# 🧠 記憶保存値の読み込み設定
+# ==========================================
+manual_memories = get_memories(theme_id=None, source="manual")
+
+current_theme_color = "🔷 ダークブルー"
+current_concierge_name = "ハヤト"
+current_user_name = "リュウ"
+current_user_honorific = "さん"
+current_first_person = "僕"
+current_style_preset = "🤝 フランク＆対等（相棒）"
+current_user_instruction = STYLE_PRESETS["🤝 フランク＆対等（相棒）"]
+current_ai_avatar = AVATAR_PRESETS_AI["🤖 ロボット（標準）"]
+current_user_avatar = AVATAR_PRESETS_USER["🧑‍💻 エンジニア（標準）"]
+
+for m in manual_memories:
+    fact = m["fact"]
+    if fact.startswith("カラーテーマ:"):
+        current_theme_color = fact.replace("カラーテーマ:", "").strip()
+    elif fact.startswith("AIの名前:"):
+        current_concierge_name = fact.replace("AIの名前:", "").strip()
+    elif fact.startswith("ユーザー名:"):
+        current_user_name = fact.replace("ユーザー名:", "").strip()
+    elif fact.startswith("ユーザー敬称:"):
+        current_user_honorific = fact.replace("ユーザー敬称:", "").strip()
+    elif fact.startswith("AI一人称:"):
+        current_first_person = fact.replace("AI一人称:", "").strip()
+    elif fact.startswith("口調プリセット:"):
+        current_style_preset = fact.replace("口調プリセット:", "").strip()
+    elif fact.startswith("応答方針:"):
+        current_user_instruction = fact.replace("応答方針:", "").strip()
+    elif fact.startswith("AIアバター:"):
+        current_ai_avatar = fact.replace("AIアバター:", "").strip()
+    elif fact.startswith("ユーザーアバター:"):
+        current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
+
+# CSSダイナミック適用
+theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["🔷 ダークブルー"])
+st.markdown(f"""
+<style>
+    html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
+        background-color: {theme_cfg["bg"]} !important;
+        color: {theme_cfg["text"]} !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }}
+    .main .block-container {{
+        max-width: 100vw !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+        padding-top: 1rem !important;
+    }}
+    p, span, div, h1, h2, h3, h4, h5, h6 {{
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+    }}
+    /* メッセージ入力枠のスタイルカスタム（連動カラー） */
+    div[data-testid="stChatInput"] {{
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }}
+    div[data-testid="stChatInput"] > div {{
+        border: 2px solid {theme_cfg["input_border"]} !important;
+        border-radius: 12px !important;
+    }}
+    div[data-testid="stChatInput"] textarea {{
+        color: {theme_cfg["text"]} !important;
+    }}
+    pre, code {{
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+    }}
+</style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 🧠 AI要約＆自動抽出ロジック
 # ==========================================
 
 def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
@@ -176,118 +267,167 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         print(f"長期記憶抽出エラー: {e}")
 
 # ==========================================
-# 🖥️ サイドバー & 画面切替
+# 🖥️ サイドバー & 画面ナビゲーション
 # ==========================================
 
 st.sidebar.title("🤖 My AI Concierge")
 
-app_mode = st.sidebar.radio("メニュー", ["💬 チャット", "⚙️ ユーザー設定"])
-
 themes = get_themes()
 if not themes:
-    st.sidebar.warning("テーマが存在しません。")
-    st.stop()
+    add_theme("メインテーマ", "💬")
+    themes = get_themes()
 
-theme_options = {f"{t['icon']} {t['name']}": t['id'] for t in themes}
-selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_options.keys()))
-current_theme_id = theme_options[selected_theme_label]
+theme_map = {f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}": t for t in themes}
+selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_map.keys()))
+current_theme = theme_map[selected_theme_label]
+current_theme_id = current_theme["id"]
+
+st.sidebar.divider()
+
+# サイドバー下部に「⚙️ ユーザー設定」を配置
+app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"], index=0)
 
 # ==========================================
-# ⚙️ 画面1: ユーザー設定画面
+# 📁 画面1: テーマ管理画面
 # ==========================================
-if app_mode == "⚙️ ユーザー設定":
+if app_mode == "📁 テーマ管理":
+    st.title("📁 テーマの作成・編集・削除")
+    st.caption("会話のテーマを整理・カスタマイズできます。")
+
+    st.subheader("➕ 新しいテーマを追加")
+    with st.form("add_theme_form"):
+        new_name = st.text_input("テーマ名")
+        new_icon = st.selectbox("アイコン（「なし」も可能）", THEME_ICON_CANDIDATES)
+        if st.form_submit_button("テーマを作成"):
+            if new_name:
+                add_theme(new_name, new_icon)
+                st.success(f"テーマ「{new_name}」を作成しました！")
+                st.rerun()
+
+    st.divider()
+
+    st.subheader("✏️ 既存テーマの編集・削除")
+    for t in themes:
+        with st.expander(f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}", expanded=False):
+            edit_name = st.text_input("テーマ名変更", value=t['name'], key=f"name_{t['id']}")
+            current_icon_idx = THEME_ICON_CANDIDATES.index(t['icon']) if t['icon'] in THEME_ICON_CANDIDATES else 0
+            edit_icon = st.selectbox("アイコン変更", THEME_ICON_CANDIDATES, index=current_icon_idx, key=f"icon_{t['id']}")
+
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("更新", key=f"update_{t['id']}"):
+                    update_theme(t['id'], edit_name, edit_icon)
+                    st.toast("テーマを更新しました！")
+                    st.rerun()
+            with col2:
+                if st.button("削除", key=f"del_{t['id']}"):
+                    if len(themes) <= 1:
+                        st.error("最後の1つのテーマは削除できません。")
+                    else:
+                        delete_theme(t['id'])
+                        st.toast("テーマを削除しました。")
+                        st.rerun()
+
+# ==========================================
+# ⚙️ 画面2: ユーザー設定画面
+# ==========================================
+elif app_mode == "⚙️ ユーザー設定":
     st.title("⚙️ ユーザー設定 & 記憶管理")
-    st.caption("AIコンシェルジュの設定や、全テーマ共通の長期記憶（プロフィール・自動学習）を管理します。")
+    st.caption("AIの振る舞い・外観デザイン・全テーマ共通の記憶を管理します。")
 
-    st.subheader("👤 基本設定")
-    manual_memories = get_memories(theme_id=None, source="manual")
+    st.subheader("🎨 アプリの外観＆カラー")
+    with st.form("color_form"):
+        selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
+        if st.form_submit_button("カラー設定を保存"):
+            for m in manual_memories:
+                if m["fact"].startswith("カラーテーマ:"):
+                    delete_memory(m["id"])
+            save_memory(f"カラーテーマ: {selected_color}", theme_id=None, category="プロフィール", source="manual")
+            st.success("カラーテーマを保存しました！")
+            st.rerun()
 
-    current_concierge_name = "ハヤト"
-    current_user_name = "ユーザー"
-    current_user_instruction = "丁寧かつ簡潔に回答してください。"
+    st.divider()
 
-    for m in manual_memories:
-        if m["fact"].startswith("AIの名前:"):
-            current_concierge_name = m["fact"].replace("AIの名前:", "").strip()
-        elif m["fact"].startswith("ユーザー名:"):
-            current_user_name = m["fact"].replace("ユーザー名:", "").strip()
-        elif m["fact"].startswith("応答方針:"):
-            current_user_instruction = m["fact"].replace("応答方針:", "").strip()
+    st.subheader("👤 AIコンシェルジュ & プロフィール設定")
+
+    honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
+    default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
+
+    preset_keys = list(STYLE_PRESETS.keys())
+    default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
+
+    default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
 
     with st.form("profile_form"):
         new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
         new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-        new_instruction = st.text_area("AIへの口調・振る舞いの指示", value=current_user_instruction)
+        new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
+        new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
 
-        submitted = st.form_submit_button("基本設定を保存")
-        if submitted:
-            success = True
+        st.markdown("**🖼️ アバター（アイコン）設定**")
+        col_a, col_u = st.columns(2)
+        with col_a:
+            ai_avatar_sel = st.selectbox("AIのアバター選択", list(AVATAR_PRESETS_AI.keys()))
+            ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
+        with col_u:
+            user_avatar_sel = st.selectbox("あなたのアバター選択", list(AVATAR_PRESETS_USER.keys()))
+            user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
+
+        selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
+        initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
+        new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
+
+        if st.form_submit_button("基本設定を保存"):
             for m in manual_memories:
-                if any(m["fact"].startswith(prefix) for prefix in ["AIの名前:", "ユーザー名:", "応答方針:"]):
-                    if not delete_memory(m["id"]):
-                        success = False
+                if any(m["fact"].startswith(p) for p in ["AIの名前:", "ユーザー名:", "ユーザー敬称:", "AI一人称:", "口調プリセット:", "応答方針:", "AIアバター:", "ユーザーアバター:"]):
+                    delete_memory(m["id"])
 
-            r1 = save_memory(f"AIの名前: {new_concierge_name}", theme_id=None, category="プロフィール", source="manual")
-            r2 = save_memory(f"ユーザー名: {new_user_name}", theme_id=None, category="プロフィール", source="manual")
-            r3 = save_memory(f"応答方針: {new_instruction}", theme_id=None, category="プロフィール", source="manual")
+            save_memory(f"AIの名前: {new_concierge_name}", source="manual")
+            save_memory(f"ユーザー名: {new_user_name}", source="manual")
+            save_memory(f"ユーザー敬称: {new_user_honorific}", source="manual")
+            save_memory(f"AI一人称: {new_first_person}", source="manual")
+            save_memory(f"口調プリセット: {selected_preset}", source="manual")
+            save_memory(f"応答方針: {new_instruction}", source="manual")
+            save_memory(f"AIアバター: {ai_avatar_val}", source="manual")
+            save_memory(f"ユーザーアバター: {user_avatar_val}", source="manual")
 
-            if success and r1 and r2 and r3:
-                st.success("基本設定を更新しました！")
-                st.rerun()
+            st.success("基本設定を更新しました！")
+            st.rerun()
 
     st.divider()
 
-    st.subheader("🧠 AIが自動で学習した記憶（全テーマ共通）")
-    st.caption("ハヤトが会話の中から自動的に覚えたあなたの属性や重要ファクトです。不要なものは削除できます。")
-
+    st.subheader("🧠 自動学習された長期記憶")
     auto_memories = get_memories(theme_id=None, source="auto")
     if auto_memories:
         for mem in auto_memories:
-            # スマホでレイアウトが崩れないようコンテナ区切りに変更
-            with st.container():
-                st.info(f"📌 {mem['fact']}")
-                if st.button("この記憶を削除", key=f"del_auto_{mem['id']}"):
-                    if delete_memory(mem["id"]):
-                        st.toast("記憶を削除しました。")
-                        st.rerun()
-    else:
-        st.caption("まだ自動抽出された記憶はありません。会話を重ねるとここに自動蓄積されます。")
-
-    st.divider()
-
-    st.subheader("📝 手動で記憶を追加（全テーマ共通）")
-    with st.form("add_manual_memory"):
-        new_fact = st.text_input("ハヤトに常に覚えておいてほしい事実や前提")
-        add_btn = st.form_submit_button("記憶を追加")
-        if add_btn and new_fact:
-            if save_memory(fact=new_fact, theme_id=None, category="手動登録", source="manual"):
-                st.success("長期記憶を追加しました！")
+            st.info(f"📌 {mem['fact']}")
+            if st.button("削除", key=f"del_auto_{mem['id']}"):
+                delete_memory(mem["id"])
+                st.toast("記憶を削除しました。")
                 st.rerun()
+    else:
+        st.caption("自動抽出された記憶はまだありません。")
 
 # ==========================================
-# 💬 画面2: メインチャット画面
+# 💬 画面3: メインチャット画面
 # ==========================================
 else:
     all_common_memories = get_memories(theme_id=None)
-    concierge_name = "ハヤト"
-    user_name = "ユーザー"
-
     manual_facts = []
     auto_facts = []
 
     for m in all_common_memories:
-        if m["fact"].startswith("AIの名前:"):
-            concierge_name = m["fact"].replace("AIの名前:", "").strip()
-        elif m["fact"].startswith("ユーザー名:"):
-            user_name = m["fact"].replace("ユーザー名:", "").strip()
-        else:
+        if not any(m["fact"].startswith(p) for p in ["AIの名前:", "ユーザー名:", "ユーザー敬称:", "AI一人称:", "口調プリセット:", "応答方針:", "AIアバター:", "ユーザーアバター:", "カラーテーマ:"]):
             if m["source"] == "manual":
                 manual_facts.append(m["fact"])
             else:
                 auto_facts.append(m["fact"])
 
-    st.title(f"{selected_theme_label}")
-    st.caption(f"担当AIコンシェルジュ: **{concierge_name}** | 使用モデル: **gemini-3.6-flash**")
+    display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
+
+    theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
+    st.title(theme_title)
+    st.caption(f"担当コンシェルジュ: **{current_concierge_name}** | モデル: **gemini-3.6-flash**")
 
     current_summary = get_theme_summary(current_theme_id)
     with st.sidebar.expander("🧠 現在のテーマ記憶（要約）", expanded=False):
@@ -298,25 +438,35 @@ else:
 
     all_messages = get_messages(current_theme_id)
 
+    # 過去ログ描画
     for msg in all_messages:
-        role_label = user_name if msg["role"] == "user" else concierge_name
-        with st.chat_message(msg["role"]):
+        role_label = display_user_name if msg["role"] == "user" else current_concierge_name
+        avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
+
+        with st.chat_message(msg["role"], avatar=avatar_img):
             st.write(f"**{role_label}**: {msg['content']}")
 
-    if user_input := st.chat_input(f"{concierge_name}にメッセージを送信..."):
-        with st.chat_message("user"):
-            st.write(f"**{user_name}**: {user_input}")
+    # チャット入力
+    if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
+        # ユーザー発言描画
+        with st.chat_message("user", avatar=current_user_avatar):
+            st.write(f"**{display_user_name}**: {user_input}")
         save_message(current_theme_id, "user", user_input)
         all_messages.append({"role": "user", "content": user_input})
 
+        # 記憶ロジック更新
         updated_summary = check_and_summarize_history(current_theme_id, all_messages, current_summary)
         extract_and_save_long_term_memory(user_input, current_theme_id)
 
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
         system_instruction = f"""
-        あなたの名前は「{concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
-        対話相手のユーザー名は「{user_name}」です。
+        あなたの名前は「{current_concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
+        対話相手のユーザー名は「{display_user_name}」です。
+        あなたの一人称は「{current_first_person}」を使用してください。
+
+        【🗣️ 応答スタイル指示】
+        {current_user_instruction}
 
         【🌐 あなたが知っているユーザーの全般的な記憶（全テーマ共通・長期記憶）】
         ・設定プロフィール: {', '.join(manual_facts) if manual_facts else '特になし'}
@@ -328,19 +478,20 @@ else:
 
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
-            {"role": "model", "parts": [f"承知いたしました。私、{concierge_name}が前提記憶を理解した上で対応いたします。"]}
+            {"role": "model", "parts": [f"了解、{display_user_name}！{current_first_person}がしっかりサポートするよ！"]}
         ]
 
         for m in recent_messages:
             role = "user" if m["role"] == "user" else "model"
             contents_for_gemini.append({"role": role, "parts": [m["content"]]})
 
-        with st.chat_message("assistant"):
-            with st.spinner(f"{concierge_name}が考え中..."):
+        # ⚡ 即時「思考中...」スピナー表示
+        with st.chat_message("assistant", avatar=current_ai_avatar):
+            with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
                     response = model.generate_content(contents_for_gemini)
                     ai_reply = response.text
-                    st.write(f"**{concierge_name}**: {ai_reply}")
+                    st.write(f"**{current_concierge_name}**: {ai_reply}")
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     st.error(f"Gemini API エラー: {e}")
