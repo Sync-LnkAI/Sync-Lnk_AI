@@ -562,6 +562,7 @@ else:
 
         【📜 このテーマの流れ（中期記憶・要約）】
         {current_summary if current_summary else '（まだ要約はありません）'}
+        """
 
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
