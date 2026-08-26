@@ -171,7 +171,7 @@ def delete_memory(memory_id: int) -> bool:
 def get_embedding(text):
     try:
         response = genai.embed_content(
-            model="models/embedding-001",
+            model="models/embedding-004",
             content=text,
             task_type="retrieval_document"
         )
