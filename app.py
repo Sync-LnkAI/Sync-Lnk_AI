@@ -59,19 +59,21 @@ def save_message(theme_id: int, role: str, content: str):
     supabase.table("messages").insert(data).execute()
 
 # --- 長期記憶 (user_memories) 関連 ---
-def get_memories(theme_id=None, source=None):
-    """記憶の取得（theme_idがNoneなら全社共通記憶）"""
-    query = supabase.table("user_memories").select("*")
-    if theme_id is None:
-        query = query.is_("theme_id", "null")
-    else:
-        query = query.eq("theme_id", theme_id)
+def get_memories(theme_id=None):
+    """記憶一覧を取得（エラー発生時は安全に空リストを返す）"""
+    try:
+        query = supabase.table("memories").select("*").eq("user_id", USER_ID)
+        if theme_id is not None:
+            query = query.eq("theme_id", theme_id)
+        else:
+            query = query.is_("theme_id", "null")
 
-    if source:
-        query = query.eq("source", source)
-
-    res = query.order("id", desc=False).execute()
-    return res.data if res.data else []
+        res = query.order("id", desc=False).execute()
+        return res.data if res.data else []
+    except Exception as e:
+        # 万が一DBエラーが起きてもアプリを落とさず空リストを返す
+        print(f"Memory Fetch Warning: {e}")
+        return []
 
 def save_memory(fact: str, theme_id=None, category="基本情報", source="manual"):
     data = {
