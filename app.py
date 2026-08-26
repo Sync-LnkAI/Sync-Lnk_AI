@@ -20,15 +20,6 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# 選択に応じてAPIキーを決定
-if selected_model_type == "無料・軽快用 (Flash)":
-    active_api_key = st.secrets["GEMINI_API_KEY_FREE"]  # 無料用のキー名
-else:
-    active_api_key = st.secrets["GEMINI_API_KEY_PRO"]   # 本命・高精度用のキー名
-
-# 選択されたAPIキーを初期設定にセット
-genai.configure(api_key=active_api_key)
-
 # 指定モデル: gemini-3.6-flash
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-3.6-flash")
