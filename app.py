@@ -8,7 +8,7 @@ import re
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
-MAX_CONTEXT_MESSAGES = 5  # 直近30件を保持
+MAX_CONTEXT_MESSAGES = 10  # 直近10件を保持
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -346,6 +346,20 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 
 st.sidebar.title("🤖 My AI Concierge")
 
+# トークン消費量のリアルタイム表示（どの画面でも見れるようにここに配置）
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 トークン消費状況")
+col1, col2 = st.sidebar.columns(2)
+with col1:
+    st.caption("【前回】")
+    st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
+    st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
+with col2:
+    st.caption("【累計】")
+    st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
+    st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
+st.sidebar.markdown("---")
+
 themes = get_themes()
 if not themes:
     add_theme("メインテーマ", "💬")
@@ -467,21 +481,6 @@ elif app_mode == "⚙️ ユーザー設定":
             st.success("基本設定を更新しました！")
             st.rerun()
 
-  # ▼▼▼ 3. トークン消費量のリアルタイム表示（ここを追加！） ▼▼▼
-    st.markdown("### 📊 トークン消費状況")
-
-    # 前回と累計を分かりやすく表示
-    col1, col2 = st.columns(2)
-    with col1:
-        st.caption("【前回】")
-        st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
-        st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
-    with col2:
-        st.caption("【累計】")
-        st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
-        st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
-    # ▲▲▲ ここまで ▲▲▲
-
     st.divider()
 
     st.subheader("🧠 自動学習された長期記憶")
@@ -545,8 +544,9 @@ else:
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
         # 過去ログ検索の実行
-        past_logs_context = search_past_logs(current_theme_id, user_input)
-
+        #past_logs_context = search_past_logs(current_theme_id, user_input)
+        past_logs_context = []
+    
         system_instruction = f"""
         あなたの名前は「{current_concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
         対話相手のユーザー名は「{display_user_name}」です。
@@ -562,10 +562,6 @@ else:
 
         【📜 このテーマの流れ（中期記憶・要約）】
         {current_summary if current_summary else '（まだ要約はありません）'}
-
-        【🔍 関連する過去の会話ログ（過去ログ検索結果）】
-        {past_logs_context if past_logs_context else '特になし'}
-        """
 
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
