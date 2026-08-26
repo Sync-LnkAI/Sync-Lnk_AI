@@ -8,7 +8,7 @@ import re
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
-MAX_CONTEXT_MESSAGES = 30  # 直近30件を保持
+MAX_CONTEXT_MESSAGES = 15  # 直近30件を保持
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
