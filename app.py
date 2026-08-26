@@ -7,23 +7,40 @@ from supabase import create_client, Client
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
-# 📱 スマホ用・横揺れ防止 & デザイン最適化CSS
+# 📱 スマホ用・画面幅固定 & 横揺れ完全防止CSS（強力版）
 st.markdown("""
 <style>
-    /* 全体の横スクロール（揺れ）を完全に防止 */
-    html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    /* 画面全体の横揺れ・横スクロールを強制的に禁止 */
+    html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {
+        max-width: 100vw !important;
         overflow-x: hidden !important;
+        box-sizing: border-box !important;
     }
-    /* チャット本文やテキストの自動折り返し */
-    div[data-testid="stMarkdownContainer"] p {
-        word-break: break-word !important;
-        overflow-wrap: break-word !important;
-    }
-    /* スマホ表示時のメインエリア余白調整 */
+
+    /* メインコンテンツエリアの余白・横幅調整 */
     .main .block-container {
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        padding-top: 2rem !important;
+        max-width: 100vw !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+        padding-top: 1rem !important;
+    }
+
+    /* 長いテキストやURLの強制折り返し */
+    p, span, div, h1, h2, h3, h4, h5, h6 {
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    /* チャット入力エリアの横幅固定 */
+    div[data-testid="stChatInput"] {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* コードブロックやテーブルの横溢れ防止 */
+    pre, code {
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -226,11 +243,10 @@ if app_mode == "⚙️ ユーザー設定":
     auto_memories = get_memories(theme_id=None, source="auto")
     if auto_memories:
         for mem in auto_memories:
-            col1, col2 = st.columns([3, 1])  # スマホ幅を考慮して比率調整
-            with col1:
+            # スマホでレイアウトが崩れないようコンテナ区切りに変更
+            with st.container():
                 st.info(f"📌 {mem['fact']}")
-            with col2:
-                if st.button("削除", key=f"del_auto_{mem['id']}"):
+                if st.button("この記憶を削除", key=f"del_auto_{mem['id']}"):
                     if delete_memory(mem["id"]):
                         st.toast("記憶を削除しました。")
                         st.rerun()
