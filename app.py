@@ -585,7 +585,7 @@ else:
         if past_logs_context:
             logs_text = []
             for log in past_logs_context:
-            　　# 検索結果からロールと発言内容を取り出す
+                # 検索結果からロールと発言内容を取り出す
                 role_name = display_user_name if log.get("role") == "user" else current_concierge_name
                 logs_text.append(f"・{role_name}: {log.get('content')}")
             past_logs_str = "\n".join(logs_text)
