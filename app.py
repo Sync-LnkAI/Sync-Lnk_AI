@@ -7,10 +7,8 @@ from supabase import create_client, Client
 # ==========================================
 st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
 
-# 将来のプラン変更に対応できるコンテキスト上限設定
 MAX_CONTEXT_MESSAGES = 30  # 直近30件を保持
 
-# Supabase & Gemini API 設定（st.secrets から取得）
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
@@ -29,7 +27,6 @@ model = genai.GenerativeModel("gemini-3.6-flash")
 # 🗄️ Supabase データベース操作関数
 # ==========================================
 
-# --- テーマ関連 ---
 def get_themes():
     res = supabase.table("themes").select("*").order("id", desc=False).execute()
     return res.data if res.data else []
@@ -43,7 +40,6 @@ def get_theme_summary(theme_id: int) -> str:
 def update_theme_summary(theme_id: int, new_summary: str):
     supabase.table("themes").update({"summary": new_summary}).eq("id", theme_id).execute()
 
-# --- メッセージ関連 ---
 def get_messages(theme_id: int):
     res = supabase.table("messages").select("*").eq("theme_id", theme_id).order("created_at", desc=False).execute()
     return res.data if res.data else []
@@ -59,7 +55,6 @@ def save_message(theme_id: int, role: str, content: str):
 
 # --- 長期記憶 (user_memories) 関連 ---
 def get_memories(theme_id=None, source=None):
-    """記憶の取得（theme_idがNoneなら全社共通記憶）"""
     try:
         query = supabase.table("user_memories").select("*")
         if theme_id is None:
@@ -77,24 +72,31 @@ def get_memories(theme_id=None, source=None):
         return []
 
 def save_memory(fact: str, theme_id=None, category="基本情報", source="manual"):
-    data = {
-        "user_id": "default_user",
-        "theme_id": theme_id,
-        "category": category,
-        "fact": fact,
-        "source": source
-    }
-    supabase.table("user_memories").insert(data).execute()
+    try:
+        data = {
+            "user_id": "default_user",
+            "category": category,
+            "fact": fact,
+            "source": source
+        }
+        if theme_id is not None:
+            data["theme_id"] = theme_id
+
+        supabase.table("user_memories").insert(data).execute()
+    except Exception as e:
+        st.error(f"記憶保存エラー: {e}")
 
 def delete_memory(memory_id: int):
-    supabase.table("user_memories").delete().eq("id", memory_id).execute()
+    try:
+        supabase.table("user_memories").delete().eq("id", memory_id).execute()
+    except Exception as e:
+        st.error(f"記憶削除エラー: {e}")
 
 # ==========================================
 # 🧠 記憶ロジック（自動要約 & 長期記憶の自動抽出）
 # ==========================================
 
 def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
-    """30件超過時に中期記憶（テーマ要約）を生成"""
     if len(all_messages) <= MAX_CONTEXT_MESSAGES:
         return current_summary
 
@@ -116,7 +118,6 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
         return current_summary
 
 def extract_and_save_long_term_memory(user_text: str, theme_id: int):
-    """gemini-3.6-flash を使って会話から永続的なファクトを裏で自動抽出"""
     prompt = f"""
     以下のユーザーの発言から、今後永久に保持すべき「ユーザーの属性・嗜好・重要データ」が含まれているか判定してください。
     含まれている場合は、簡潔な事実（1〜2文）として抽出してください。
@@ -138,7 +139,6 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 
 st.sidebar.title("🤖 My AI Concierge")
 
-# モード選択（チャット画面 or ユーザー設定画面）
 app_mode = st.sidebar.radio("メニュー", ["💬 チャット", "⚙️ ユーザー設定"])
 
 themes = get_themes()
@@ -157,9 +157,7 @@ if app_mode == "⚙️ ユーザー設定":
     st.title("⚙️ ユーザー設定 & 記憶管理")
     st.caption("AIコンシェルジュの設定や、全テーマ共通の長期記憶（プロフィール・自動学習）を管理します。")
 
-    # --- 1. AIコンシェルジュ & プロフィール基本設定 ---
     st.subheader("👤 基本設定")
-
     manual_memories = get_memories(theme_id=None, source="manual")
 
     current_concierge_name = "ハヤト"
@@ -193,7 +191,6 @@ if app_mode == "⚙️ ユーザー設定":
 
     st.divider()
 
-    # --- 2. 🤖 AIが自動で覚えた記憶 ---
     st.subheader("🧠 AIが自動で学習した記憶（全テーマ共通）")
     st.caption("ハヤトが会話の中から自動的に覚えたあなたの属性や重要ファクトです。不要なものは削除できます。")
 
@@ -213,7 +210,6 @@ if app_mode == "⚙️ ユーザー設定":
 
     st.divider()
 
-    # --- 3. 📝 手動で追加する永久記憶 ---
     st.subheader("📝 手動で記憶を追加（全テーマ共通）")
     with st.form("add_manual_memory"):
         new_fact = st.text_input("ハヤトに常に覚えておいてほしい事実や前提")
