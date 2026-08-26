@@ -62,11 +62,11 @@ COLOR_THEMES = {
     "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_bg": "#321b4a", "dropdown_text": "#ffffff"}
 }
 
-# 画面上の不要な記号を除去する関数
+# 画面上の不要な  記号を除去する関数
 def clean_bold_markdown(text: str) -> str:
     if not text:
         return text
-    return text.replace("**", "")
+    return text.replace("", "")
 
 # ==========================================
 # 🗄️ Supabase データベース操作関数
@@ -82,8 +82,8 @@ def get_themes():
 
 def add_theme(name: str, icon: str):
     icon_val = "" if icon == "なし" else icon
-    # エラー防止のためシンプルな構成で追加
-    supabase.table("themes").insert({"name": name, "icon": icon_val}).execute()
+    # user_id を追加してエラーを防止
+    supabase.table("themes").insert({"user_id": "default_user", "name": name, "icon": icon_val}).execute()
 
 def update_theme(theme_id: int, name: str, icon: str):
     icon_val = "" if icon == "なし" else icon
@@ -201,7 +201,7 @@ for m in manual_memories:
 
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
-# ★画面最適化CSS（スマホメニュー表示維持 & 選択肢の文字色全枠補正）
+# ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
 st.markdown(f"""
 <style>
     /* 1. 全体背景＆文字色 */
@@ -224,15 +224,12 @@ st.markdown(f"""
         overflow-wrap: anywhere !important;
     }}
 
-    /* 2. ドロップダウン（選択肢）の浮き上がるポップアップ全網羅指定 */
-    div[data-baseweb="select"] * {{
-        color: {theme_cfg["dropdown_text"]} !important;
-        background-color: {theme_cfg["dropdown_bg"]} !important;
-    }}
-    div[data-baseweb="popover"], 
+    /* 2. 🎯 ドロップダウン（選択肢）のポップアップ要素を全子要素まで全網羅指定 */
+    div[data-baseweb="select"] *,
     div[data-baseweb="popover"] *,
-    div[data-baseweb="menu"],
-    div[data-baseweb="menu"] * {{
+    div[data-baseweb="menu"] *,
+    ul[role="listbox"] *,
+    li[role="option"] * {{
         background-color: {theme_cfg["dropdown_bg"]} !important;
         color: {theme_cfg["dropdown_text"]} !important;
     }}
@@ -465,7 +462,7 @@ else:
 
     all_messages = get_messages(current_theme_id)
 
-    # 過去ログ描画（名前表示からを完全除去）
+    # 過去ログ描画（名前表示から  を完全除去）
     for msg in all_messages:
         role_label = display_user_name if msg["role"] == "user" else current_concierge_name
         avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
@@ -490,7 +487,7 @@ else:
 
         【🗣️ 応答スタイル指示】
         {current_user_instruction}
-        ※回答を作成する際、太字装飾記号「」は絶対に使用しないでください。強調したい単語がある場合は「」や【】などの記号を使用してください。
+        ※回答を作成する際、太字装飾記号「  」は絶対に使用しないでください。強調したい単語がある場合は「」や【】などの記号を使用してください。
 
         【🌐 あなたが知っているユーザーの全般的な記憶（全テーマ共通・長期記憶）】
         ・設定プロフィール: {', '.join(manual_facts) if manual_facts else '特になし'}
