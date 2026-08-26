@@ -36,28 +36,29 @@ FIRST_PERSON_PRESETS = ["僕", "私", "俺", "自分"]
 
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
 
+# ★画像エラーを起こさない安全なアバター定義（絵文字）
 AVATAR_PRESETS_AI = {
-    "🤖 ロボット（標準）": "🤖",
-    "💫 キラキラアニメ": "https://media.giphy.com/media/3o7TKsjRrfIPjeiVyM/giphy.gif",
-    "👾 レトロドットGIF": "https://media.giphy.com/media/26n6Wywq41V5x6M36/giphy.gif",
+    "🤖 ロボット": "🤖",
+    "👾 レトロドット": "👾",
     "🦊 きつね": "🦊",
-    "🦉 ふくろう": "🦉"
+    "🦉 ふくろう": "🦉",
+    "🔮 魔法の水晶": "🔮"
 }
 
 AVATAR_PRESETS_USER = {
-    "🧑‍💻 エンジニア（標準）": "🧑‍💻",
-    "🐉 ドラゴンGIF": "https://media.giphy.com/media/l41K3tOKuM6vfM4C4/giphy.gif",
-    "⚡ 電撃GIF": "https://media.giphy.com/media/xT0xezQGU5xCDJuCPe/giphy.gif",
-    "🦁 らいおん": "🦁",
-    "👑 きんぐ": "👑"
+    "💫 キラキラ星": "💫",
+    "🧑‍💻 エンジニア": "🧑‍💻",
+    "🐉 ドラゴン": "🐉",
+    "⚡ サンダー": "⚡",
+    "👑 キング": "👑"
 }
 
+# ★文字と背景が見やすく差別化されたカラーテーマ定義
 COLOR_THEMES = {
-    "🔷 ダークブルー": {"bg": "#0e1117", "input_border": "#2b5c8f", "accent": "#1f77b4", "text": "#ffffff"},
-    "🌙 サイバーネオン": {"bg": "#050811", "input_border": "#00f0ff", "accent": "#00f0ff", "text": "#e0f7fc"},
-    "🌿 ナチュラルグリーン": {"bg": "#0c1810", "input_border": "#2e7d32", "accent": "#4caf50", "text": "#e8f5e9"},
-    "💜 ディープパープル": {"bg": "#120a21", "input_border": "#7b1fa2", "accent": "#ab47bc", "text": "#f3e5f5"},
-    "☀ ライトモード": {"bg": "#ffffff", "input_border": "#0288d1", "accent": "#0288d1", "text": "#212121"}
+    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff"},
+    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff"},
+    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff"},
+    "☀ ライトモード（白）": {"bg": "#f8fafc", "card_bg": "#ffffff", "input_border": "#0288d1", "text": "#0f172a"}
 }
 
 # ==========================================
@@ -106,7 +107,6 @@ def save_message(theme_id: int, role: str, content: str):
     }
     supabase.table("messages").insert(data).execute()
 
-# --- 長期記憶 (user_memories) 関連 ---
 def get_memories(theme_id=None, source=None):
     try:
         query = supabase.table("user_memories").select("*")
@@ -154,15 +154,15 @@ def delete_memory(memory_id: int) -> bool:
 # ==========================================
 manual_memories = get_memories(theme_id=None, source="manual")
 
-current_theme_color = "🔷 ダークブルー"
+current_theme_color = "🔷 ダークブルー（濃紺）"
 current_concierge_name = "ハヤト"
 current_user_name = "リュウ"
 current_user_honorific = "さん"
 current_first_person = "僕"
 current_style_preset = "🤝 フランク＆対等（相棒）"
 current_user_instruction = STYLE_PRESETS["🤝 フランク＆対等（相棒）"]
-current_ai_avatar = AVATAR_PRESETS_AI["🤖 ロボット（標準）"]
-current_user_avatar = AVATAR_PRESETS_USER["🧑‍💻 エンジニア（標準）"]
+current_ai_avatar = "🤖"
+current_user_avatar = "💫"
 
 for m in manual_memories:
     fact = m["fact"]
@@ -186,7 +186,7 @@ for m in manual_memories:
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
 
 # CSSダイナミック適用
-theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["🔷 ダークブルー"])
+theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["🔷 ダークブルー（濃紺）"])
 st.markdown(f"""
 <style>
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
@@ -203,10 +203,11 @@ st.markdown(f"""
         padding-top: 1rem !important;
     }}
     p, span, div, h1, h2, h3, h4, h5, h6 {{
+        color: {theme_cfg["text"]} !important;
         word-break: break-word !important;
         overflow-wrap: anywhere !important;
     }}
-    /* メッセージ入力枠のスタイルカスタム（連動カラー） */
+    /* メッセージ入力枠スタイル */
     div[data-testid="stChatInput"] {{
         max-width: 100% !important;
         box-sizing: border-box !important;
@@ -214,19 +215,16 @@ st.markdown(f"""
     div[data-testid="stChatInput"] > div {{
         border: 2px solid {theme_cfg["input_border"]} !important;
         border-radius: 12px !important;
+        background-color: {theme_cfg["card_bg"]} !important;
     }}
     div[data-testid="stChatInput"] textarea {{
         color: {theme_cfg["text"]} !important;
-    }}
-    pre, code {{
-        white-space: pre-wrap !important;
-        word-break: break-all !important;
     }}
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 AI要約＆自動抽出ロジック
+# 🧠 AI要約＆自動抽出ロジック（高速化対応）
 # ==========================================
 
 def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
@@ -247,7 +245,7 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
         update_theme_summary(theme_id, new_summary)
         return new_summary
     except Exception as e:
-        st.error(f"要約更新エラー: {e}")
+        print(f"要約更新エラー: {e}")
         return current_summary
 
 def extract_and_save_long_term_memory(user_text: str, theme_id: int):
@@ -284,7 +282,6 @@ current_theme_id = current_theme["id"]
 
 st.sidebar.divider()
 
-# サイドバー下部に「⚙️ ユーザー設定」を配置
 app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"], index=0)
 
 # ==========================================
@@ -367,10 +364,10 @@ elif app_mode == "⚙️ ユーザー設定":
         st.markdown("**🖼️ アバター（アイコン）設定**")
         col_a, col_u = st.columns(2)
         with col_a:
-            ai_avatar_sel = st.selectbox("AIのアバター選択", list(AVATAR_PRESETS_AI.keys()))
+            ai_avatar_sel = st.selectbox("AIのアバター", list(AVATAR_PRESETS_AI.keys()))
             ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
         with col_u:
-            user_avatar_sel = st.selectbox("あなたのアバター選択", list(AVATAR_PRESETS_USER.keys()))
+            user_avatar_sel = st.selectbox("あなたのアバター", list(AVATAR_PRESETS_USER.keys()))
             user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
 
         selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
@@ -409,7 +406,7 @@ elif app_mode == "⚙️ ユーザー設定":
         st.caption("自動抽出された記憶はまだありません。")
 
 # ==========================================
-# 💬 画面3: メインチャット画面
+# 💬 画面3: メインチャット画面（高速化ロジック適用）
 # ==========================================
 else:
     all_common_memories = get_memories(theme_id=None)
@@ -446,17 +443,13 @@ else:
         with st.chat_message(msg["role"], avatar=avatar_img):
             st.write(f"**{role_label}**: {msg['content']}")
 
-    # チャット入力
+    # ★高速化チャット送信処理
     if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
-        # ユーザー発言描画
+        # ① ユーザーのメッセージを即時表示＆保存
         with st.chat_message("user", avatar=current_user_avatar):
             st.write(f"**{display_user_name}**: {user_input}")
         save_message(current_theme_id, "user", user_input)
         all_messages.append({"role": "user", "content": user_input})
-
-        # 記憶ロジック更新
-        updated_summary = check_and_summarize_history(current_theme_id, all_messages, current_summary)
-        extract_and_save_long_term_memory(user_input, current_theme_id)
 
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
@@ -473,7 +466,7 @@ else:
         ・会話から覚えた記憶: {', '.join(auto_facts) if auto_facts else '特になし'}
 
         【📜 このテーマの流れ（中期記憶・要約）】
-        {updated_summary if updated_summary else '（まだ要約はありません）'}
+        {current_summary if current_summary else '（まだ要約はありません）'}
         """
 
         contents_for_gemini = [
@@ -485,7 +478,7 @@ else:
             role = "user" if m["role"] == "user" else "model"
             contents_for_gemini.append({"role": role, "parts": [m["content"]]})
 
-        # ⚡ 即時「思考中...」スピナー表示
+        # ② 画面上に即時「思考中...」を表示し、メイン応答を最速生成！
         with st.chat_message("assistant", avatar=current_ai_avatar):
             with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
@@ -495,5 +488,9 @@ else:
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     st.error(f"Gemini API エラー: {e}")
+
+        # ③ 返答完了後に裏で要約更新・記憶抽出を実行（体感速度に影響なし！）
+        check_and_summarize_history(current_theme_id, all_messages, current_summary)
+        extract_and_save_long_term_memory(user_input, current_theme_id)
 
         st.rerun()
