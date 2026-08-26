@@ -23,7 +23,21 @@ supabase = init_supabase()
 
 # Geminiの初期化
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-pro")
+# ノートの仕様通り gemini-3.6-flash を指定
+model = genai.GenerativeModel("gemini-3.6-flash")
+
+import time
+
+def generate_with_retry(contents, retries=3, delay=2):
+    """503エラー等の一次通信障害時に自動リトライする関数"""
+    for i in range(retries):
+        try:
+            return model.generate_content(contents)
+        except Exception as e:
+            if "503" in str(e) and i < retries - 1:
+                time.sleep(delay)  # 2秒待って再試行
+                continue
+            raise e
 
 USER_ID = "default_user"
 
