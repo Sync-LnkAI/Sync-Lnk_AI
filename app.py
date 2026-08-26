@@ -8,10 +8,15 @@ supabase = create_client(supabase_url, supabase_key)
 
 USER_ID = "default_user"
 
-# --- DB操作関数 ---
+# --- DB操作関数（エラー詳細表示版） ---
 def get_themes():
-    res = supabase.table("themes").select("*").eq("user_id", USER_ID).order("created_at").execute()
-    return res.data
+    try:
+        res = supabase.table("themes").select("*").eq("user_id", USER_ID).order("created_at").execute()
+        return res.data
+    except Exception as e:
+        # エラーの本当の中身を画面に表示します
+        st.error(f"🚨 Supabase接続エラーの詳細:\n{e}")
+        return []
 
 def add_theme(name, icon):
     if name:
