@@ -71,7 +71,8 @@ def get_memories(theme_id=None, source=None):
         print(f"記憶取得エラー: {e}")
         return []
 
-def save_memory(fact: str, theme_id=None, category="基本情報", source="manual"):
+def save_memory(fact: str, theme_id=None, category="基本情報", source="manual") -> bool:
+    """記憶の保存（成功判定付き）"""
     try:
         data = {
             "user_id": "default_user",
@@ -83,14 +84,19 @@ def save_memory(fact: str, theme_id=None, category="基本情報", source="manua
             data["theme_id"] = theme_id
 
         supabase.table("user_memories").insert(data).execute()
+        return True
     except Exception as e:
-        st.error(f"記憶保存エラー: {e}")
+        st.error(f"❌ 記憶保存エラー: {e}")
+        return False
 
-def delete_memory(memory_id: int):
+def delete_memory(memory_id: int) -> bool:
+    """記憶の削除（成功判定付き）"""
     try:
         supabase.table("user_memories").delete().eq("id", memory_id).execute()
+        return True
     except Exception as e:
-        st.error(f"記憶削除エラー: {e}")
+        st.error(f"❌ 記憶削除エラー: {e}")
+        return False
 
 # ==========================================
 # 🧠 記憶ロジック（自動要約 & 長期記憶の自動抽出）
@@ -179,15 +185,21 @@ if app_mode == "⚙️ ユーザー設定":
 
         submitted = st.form_submit_button("基本設定を保存")
         if submitted:
+            success = True
+            # 古い設定の削除
             for m in manual_memories:
                 if any(m["fact"].startswith(prefix) for prefix in ["AIの名前:", "ユーザー名:", "応答方針:"]):
-                    delete_memory(m["id"])
+                    if not delete_memory(m["id"]):
+                        success = False
 
-            save_memory(f"AIの名前: {new_concierge_name}", theme_id=None, category="プロフィール", source="manual")
-            save_memory(f"ユーザー名: {new_user_name}", theme_id=None, category="プロフィール", source="manual")
-            save_memory(f"応答方針: {new_instruction}", theme_id=None, category="プロフィール", source="manual")
-            st.success("基本設定を更新しました！")
-            st.rerun()
+            # 新しい設定の保存
+            r1 = save_memory(f"AIの名前: {new_concierge_name}", theme_id=None, category="プロフィール", source="manual")
+            r2 = save_memory(f"ユーザー名: {new_user_name}", theme_id=None, category="プロフィール", source="manual")
+            r3 = save_memory(f"応答方針: {new_instruction}", theme_id=None, category="プロフィール", source="manual")
+
+            if success and r1 and r2 and r3:
+                st.success("基本設定を更新しました！")
+                st.rerun()
 
     st.divider()
 
@@ -202,9 +214,9 @@ if app_mode == "⚙️ ユーザー設定":
                 st.info(f"📌 {mem['fact']}")
             with col2:
                 if st.button("削除", key=f"del_auto_{mem['id']}"):
-                    delete_memory(mem["id"])
-                    st.toast("記憶を削除しました。")
-                    st.rerun()
+                    if delete_memory(mem["id"]):
+                        st.toast("記憶を削除しました。")
+                        st.rerun()
     else:
         st.caption("まだ自動抽出された記憶はありません。会話を重ねるとここに自動蓄積されます。")
 
@@ -215,9 +227,9 @@ if app_mode == "⚙️ ユーザー設定":
         new_fact = st.text_input("ハヤトに常に覚えておいてほしい事実や前提")
         add_btn = st.form_submit_button("記憶を追加")
         if add_btn and new_fact:
-            save_memory(fact=new_fact, theme_id=None, category="手動登録", source="manual")
-            st.success("長期記憶を追加しました！")
-            st.rerun()
+            if save_memory(fact=new_fact, theme_id=None, category="手動登録", source="manual"):
+                st.success("長期記憶を追加しました！")
+                st.rerun()
 
 # ==========================================
 # 💬 画面2: メインチャット画面
