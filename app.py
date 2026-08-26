@@ -304,6 +304,12 @@ st.markdown(f"""
 # ==========================================
 
 def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
+    # 古いログが5件以上溜まっていないなら要約しない（無駄呼び出し防止）
+    old_messages_count = len(all_messages) - MAX_CONTEXT_MESSAGES
+    if old_messages_count < 5: 
+        return current_summary
+
+    # 5件以上溜まったら要約を実行...
     if len(all_messages) <= MAX_CONTEXT_MESSAGES:
         return current_summary
 
@@ -325,6 +331,16 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
         return current_summary
 
 def extract_and_save_long_term_memory(user_text: str, theme_id: int):
+    # ▼▼▼ガード処理を追加▼▼▼
+    # 8文字未満は記憶抽出しない
+    if len(user_text.strip()) < 8:
+        return
+
+    # 定型フレーズはスキップ
+    ignore_words = ["ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうなんだ", "はい", "わかった"]
+    if user_text.strip() in ignore_words:
+        return
+    # ▲▲▲ ここまで ▲▲▲
     prompt = f"""
     以下のユーザーの発言から、今後永久に保持すべき「ユーザーの属性・嗜好・重要データ」が含まれているか判定してください。
     含まれている場合は、簡潔な事実（1〜2文）として抽出してください。
@@ -543,14 +559,29 @@ else:
 
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-        # 過去ログ検索の実行
-        #past_logs_context = search_past_logs(current_theme_id, user_input)
-        past_logs_context = []
-    
+                # 過去ログ検索の実行（コメントアウトを解除！）
+        past_logs_context = search_past_logs(current_theme_id, user_input)
+
+        # 検索結果を文字列としてまとめる
+        past_logs_str = ""
+        if past_logs_context:
+            logs_text = []
+            for log in past_logs_context:
+                # 検索結果からロールと発言内容を取り出す
+                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
+                logs_text.append(f"・{role_name}: {log.get('content')}")
+            past_logs_str = "\n".join(logs_text)
+        else:
+            past_logs_str = "該当する過去ログなし"
+
+        # システム指示に「関連する過去ログ」を組み込む！
         system_instruction = f"""
         あなたの名前は「{current_concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
         対話相手のユーザー名は「{display_user_name}」です。
         あなたの一人称は「{current_first_person}」を使用してください。
+
+        【🔍 関連する過去の会話ログ】
+        {past_logs_str}
 
         【🗣️ 応答スタイル指示】
         {current_user_instruction}
