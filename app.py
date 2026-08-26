@@ -1,7 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
-import json
 
 # ==========================================
 # ⚙️ 設定・初期化
@@ -59,20 +58,22 @@ def save_message(theme_id: int, role: str, content: str):
     supabase.table("messages").insert(data).execute()
 
 # --- 長期記憶 (user_memories) 関連 ---
-def get_memories(theme_id=None):
-    """記憶一覧を取得（エラー発生時は安全に空リストを返す）"""
+def get_memories(theme_id=None, source=None):
+    """記憶の取得（theme_idがNoneなら全社共通記憶）"""
     try:
-        query = supabase.table("memories").select("*").eq("user_id", USER_ID)
-        if theme_id is not None:
-            query = query.eq("theme_id", theme_id)
+        query = supabase.table("user_memories").select("*")
+        if theme_id is None:
+            query = query.filter("theme_id", "is", "null")
         else:
-            query = query.is_("theme_id", "null")
+            query = query.eq("theme_id", theme_id)
+
+        if source:
+            query = query.eq("source", source)
 
         res = query.order("id", desc=False).execute()
         return res.data if res.data else []
     except Exception as e:
-        # 万が一DBエラーが起きてもアプリを落とさず空リストを返す
-        print(f"Memory Fetch Warning: {e}")
+        print(f"記憶取得エラー: {e}")
         return []
 
 def save_memory(fact: str, theme_id=None, category="基本情報", source="manual"):
@@ -127,7 +128,6 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         res = model.generate_content(prompt)
         text = res.text.strip()
         if text and text != "NONE" and "NONE" not in text:
-            # 会話から自動抽出された長期記憶として保存
             save_memory(fact=text, theme_id=None, category="AI自動抽出", source="auto")
     except Exception as e:
         print(f"長期記憶抽出エラー: {e}")
@@ -160,10 +160,8 @@ if app_mode == "⚙️ ユーザー設定":
     # --- 1. AIコンシェルジュ & プロフィール基本設定 ---
     st.subheader("👤 基本設定")
 
-    # 現在のコンシェルジュ名・ユーザー名の取得（設定用記憶から取得）
     manual_memories = get_memories(theme_id=None, source="manual")
 
-    # 初期値の設定
     current_concierge_name = "ハヤト"
     current_user_name = "ユーザー"
     current_user_instruction = "丁寧かつ簡潔に回答してください。"
@@ -183,7 +181,6 @@ if app_mode == "⚙️ ユーザー設定":
 
         submitted = st.form_submit_button("基本設定を保存")
         if submitted:
-            # 既存の基本設定記憶をクリーンアップして再保存
             for m in manual_memories:
                 if any(m["fact"].startswith(prefix) for prefix in ["AIの名前:", "ユーザー名:", "応答方針:"]):
                     delete_memory(m["id"])
@@ -196,7 +193,7 @@ if app_mode == "⚙️ ユーザー設定":
 
     st.divider()
 
-    # --- 2. 🤖 AIが自動で覚えた記憶（自動抽出ログの確認・削除） ---
+    # --- 2. 🤖 AIが自動で覚えた記憶 ---
     st.subheader("🧠 AIが自動で学習した記憶（全テーマ共通）")
     st.caption("ハヤトが会話の中から自動的に覚えたあなたの属性や重要ファクトです。不要なものは削除できます。")
 
@@ -216,7 +213,7 @@ if app_mode == "⚙️ ユーザー設定":
 
     st.divider()
 
-    # --- 3. ➕ 手動で追加する永久記憶 ---
+    # --- 3. 📝 手動で追加する永久記憶 ---
     st.subheader("📝 手動で記憶を追加（全テーマ共通）")
     with st.form("add_manual_memory"):
         new_fact = st.text_input("ハヤトに常に覚えておいてほしい事実や前提")
@@ -230,7 +227,6 @@ if app_mode == "⚙️ ユーザー設定":
 # 💬 画面2: メインチャット画面
 # ==========================================
 else:
-    # 現在のAIコンシェルジュ名・プロフィールの読み込み
     all_common_memories = get_memories(theme_id=None)
     concierge_name = "ハヤト"
     user_name = "ユーザー"
@@ -252,7 +248,6 @@ else:
     st.title(f"{selected_theme_label}")
     st.caption(f"担当AIコンシェルジュ: **{concierge_name}** | 使用モデル: **gemini-3.6-flash**")
 
-    # サイドバーに現在のテーマ要約（中期記憶）を表示
     current_summary = get_theme_summary(current_theme_id)
     with st.sidebar.expander("🧠 現在のテーマ記憶（要約）", expanded=False):
         if current_summary:
@@ -260,30 +255,22 @@ else:
         else:
             st.caption("会話が30件を超えると自動要約されます。")
 
-    # Supabaseから全メッセージを取得
     all_messages = get_messages(current_theme_id)
 
-    # チャットログ表示
     for msg in all_messages:
         role_label = user_name if msg["role"] == "user" else concierge_name
         with st.chat_message(msg["role"]):
             st.write(f"**{role_label}**: {msg['content']}")
 
-    # ユーザー入力処理
     if user_input := st.chat_input(f"{concierge_name}にメッセージを送信..."):
-        # 1. ユーザーメッセージを画面表示 & 保存
         with st.chat_message("user"):
             st.write(f"**{user_name}**: {user_input}")
         save_message(current_theme_id, "user", user_input)
         all_messages.append({"role": "user", "content": user_input})
 
-        # 2. 30件超えの中期記憶（要約）の自動更新チェック
         updated_summary = check_and_summarize_history(current_theme_id, all_messages, current_summary)
-
-        # 3. 裏で長期記憶の自動抽出を実行
         extract_and_save_long_term_memory(user_input, current_theme_id)
 
-        # 4. プロンプト（全4層記憶）の組み立て
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
         system_instruction = f"""
@@ -298,26 +285,21 @@ else:
         {updated_summary if updated_summary else '（まだ要約はありません）'}
         """
 
-        # Gemini 3.6 Flash 送信用メッセージ構築
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
             {"role": "model", "parts": [f"承知いたしました。私、{concierge_name}が前提記憶を理解した上で対応いたします。"]}
         ]
 
-        # 直近30件（短期記憶）を結合
         for m in recent_messages:
             role = "user" if m["role"] == "user" else "model"
             contents_for_gemini.append({"role": role, "parts": [m["content"]]})
 
-        # 5. gemini-3.6-flash による回答生成
         with st.chat_message("assistant"):
             with st.spinner(f"{concierge_name}が考え中..."):
                 try:
                     response = model.generate_content(contents_for_gemini)
                     ai_reply = response.text
                     st.write(f"**{concierge_name}**: {ai_reply}")
-
-                    # 回答の保存
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     st.error(f"Gemini API エラー: {e}")
