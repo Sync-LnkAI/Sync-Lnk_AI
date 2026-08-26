@@ -187,7 +187,7 @@ for m in manual_memories:
 
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
-# ★画面最適化CSS（横揺れ防止 & Manage App等UI消去 & ドロップダウン補正 & 太いスクロールバー）
+# ★画面最適化CSS（スマホメニュー復活 & ピンポイントUI消去 & スクロールバー太化）
 st.markdown(f"""
 <style>
     /* 1. 全体レイアウト & 横揺れ防止 */
@@ -234,30 +234,39 @@ st.markdown(f"""
         color: {theme_cfg["text"]} !important;
     }}
 
-    /* 4. 不要な標準UI（Manage app、右下ロゴ、ヘッダー、メニュー）完全非表示化 */
+    /* 4. ピンポイント非表示（スマホメニューボタンは維持し、余計なバッジ・ボタンだけ削除） */
     #MainMenu {{visibility: hidden !important;}}
-    header {{visibility: hidden !important;}}
-    footer {{visibility: hidden !important;}}
+    footer {{display: none !important;}}
     div[data-testid="stDecoration"] {{display: none !important;}}
     div[data-testid="stStatusWidget"] {{display: none !important;}}
     div[data-testid="stToolbar"] {{display: none !important;}}
-    .stActionButton {{display: none !important;}}
+    div[data-testid="stViewerBadge"] {{display: none !important;}}
+    a[href*="streamlit.io"] {{display: none !important;}}
     button[title="Manage app"] {{display: none !important;}}
+    .stActionButton {{display: none !important;}}
 
-    /* 5. ↕️ スクロールバーのカスタマイズ（太く・操作しやすく） */
-    ::-webkit-scrollbar {{
+    /* 5. ↕️ 内部スクロールバーのカスタマイズ（メイン・サイドバー両方を太く） */
+    ::-webkit-scrollbar, 
+    div[data-testid="stAppViewContainer"] ::-webkit-scrollbar, 
+    section[data-testid="stSidebar"] ::-webkit-scrollbar {{
         width: 14px !important;
         height: 14px !important;
     }}
-    ::-webkit-scrollbar-track {{
+    ::-webkit-scrollbar-track, 
+    div[data-testid="stAppViewContainer"] ::-webkit-scrollbar-track, 
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-track {{
         background: {theme_cfg["bg"]} !important;
     }}
-    ::-webkit-scrollbar-thumb {{
+    ::-webkit-scrollbar-thumb, 
+    div[data-testid="stAppViewContainer"] ::-webkit-scrollbar-thumb, 
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb {{
         background: {theme_cfg["scrollbar"]} !important;
         border-radius: 8px !important;
         border: 3px solid {theme_cfg["bg"]} !important;
     }}
-    ::-webkit-scrollbar-thumb:hover {{
+    ::-webkit-scrollbar-thumb:hover, 
+    div[data-testid="stAppViewContainer"] ::-webkit-scrollbar-thumb:hover, 
+    section[data-testid="stSidebar"] ::-webkit-scrollbar-thumb:hover {{
         background: {theme_cfg["scrollbar_hover"]} !important;
     }}
 </style>
