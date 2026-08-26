@@ -163,6 +163,40 @@ def delete_memory(memory_id: int) -> bool:
         st.error(f"❌ 記憶削除エラー: {e}")
         return False
 
+def search_past_logs(theme_id: int, user_input: str, limit=3) -> str:
+    """ユーザーの入力に関連する過去の会話ログをSupabaseから検索して返す"""
+    try:
+        keywords = [w for w in user_input.split() if len(w) >= 2]
+        if not keywords:
+            return ""
+
+        # 直近の会話（15件）より前の古いログから検索
+        res = (
+            supabase.table("messages")
+            .select("role, content")
+            .eq("theme_id", theme_id)
+            .order("created_at", desc=True)
+            .range(15, 100)
+            .execute()
+        )
+        logs = res.data if res.data else []
+        if not logs:
+            return ""
+
+        matched_logs = []
+        for log in logs:
+            content = log.get("content", "")
+            if any(kw.lower() in content.lower() for kw in keywords):
+                role_name = "ユーザー" if log["role"] == "user" else "AI"
+                matched_logs.append(f"[{role_name}]: {clean_bold_markdown(content)}")
+                if len(matched_logs) >= limit:
+                    break
+
+        return "\n".join(matched_logs) if matched_logs else ""
+    except Exception as e:
+        print(f"過去ログ検索エラー: {e}")
+        return ""
+
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
 # ==========================================
@@ -480,6 +514,9 @@ else:
 
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
+        # 過去ログ検索の実行
+        past_logs_context = search_past_logs(current_theme_id, user_input)
+
         system_instruction = f"""
         あなたの名前は「{current_concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
         対話相手のユーザー名は「{display_user_name}」です。
@@ -495,6 +532,9 @@ else:
 
         【📜 このテーマの流れ（中期記憶・要約）】
         {current_summary if current_summary else '（まだ要約はありません）'}
+
+        【🔍 関連する過去の会話ログ（過去ログ検索結果）】
+        {past_logs_context if past_logs_context else '特になし'}
         """
 
         contents_for_gemini = [
