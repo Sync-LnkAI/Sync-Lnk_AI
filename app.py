@@ -56,18 +56,18 @@ AVATAR_PRESETS_USER = {
 
 # カラーテーマ定義（デフォルト：ライドモード）
 COLOR_THEMES = {
-    "☀ ライドモード（白）": {"bg": "#ffffff", "card_bg": "#f8fafc", "input_border": "#0288d1", "text": "#0f172a", "dropdown_text": "#0f172a", "scrollbar": "#94a3b8", "scrollbar_hover": "#64748b"},
-    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#3b82f6", "scrollbar_hover": "#60a5fa"},
-    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#10b981", "scrollbar_hover": "#34d399"},
-    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_text": "#ffffff", "scrollbar": "#a855f7", "scrollbar_hover": "#c084fc"}
+    "☀ ライドモード（白）": {"bg": "#ffffff", "card_bg": "#f8fafc", "input_border": "#0288d1", "text": "#0f172a", "dropdown_bg": "#ffffff", "dropdown_text": "#0f172a"},
+    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff", "dropdown_bg": "#1a2d47", "dropdown_text": "#ffffff"},
+    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff", "dropdown_bg": "#194328", "dropdown_text": "#ffffff"},
+    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_bg": "#321b4a", "dropdown_text": "#ffffff"}
 }
 
-# ✨ マークダウン太字崩れ（**がそのまま出る現象）を自動修正する関数
-def fix_markdown_bold(text: str) -> str:
+# ✨ 太字記号  **  が画面にそのまま文字として表示されるのを防止する関数
+def clean_bold_markdown(text: str) -> str:
     if not text:
         return text
-    # **の前後にスペースを自動挿入してStreamlitのパースバグを防止
-    return re.sub(r'\*\*', r' ** ', text)
+    # 描画時に  **  を取り除き、「」や文字だけで安全に表示
+    return text.replace(" ** ", "")
 
 # ==========================================
 # 🗄️ Supabase データベース操作関数
@@ -195,10 +195,10 @@ for m in manual_memories:
 
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
-# ★画面最適化CSS（スマホメニュー強制表示 & 右下アイコン徹底消去 & スクロールバー強化）
+# ★画面最適化CSS（スマホメニューの安定化 & ドロップダウン浮き上がり枠の文字色確実補正）
 st.markdown(f"""
 <style>
-    /* 1. 全体レイアウト & 横揺れ防止 */
+    /* 1. 全体背景＆文字色 */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
         color: {theme_cfg["text"]} !important;
@@ -218,14 +218,18 @@ st.markdown(f"""
         overflow-wrap: anywhere !important;
     }}
 
-    /* 2. ドロップダウン（選択肢）＆入力欄の文字色補正 */
+    /* 2. 🎯 ドロップダウン（選択肢）の浮き上がるメニュー（ポップアップ）視認性向上 */
     div[data-baseweb="select"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
-        background-color: {theme_cfg["card_bg"]} !important;
+        background-color: {theme_cfg["dropdown_bg"]} !important;
     }}
-    div[role="listbox"] li {{
+    div[data-baseweb="popover"], div[data-baseweb="popover"] * {{
+        background-color: {theme_cfg["dropdown_bg"]} !important;
         color: {theme_cfg["dropdown_text"]} !important;
-        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+    ul[role="listbox"] li, ul[role="listbox"] li * {{
+        background-color: {theme_cfg["dropdown_bg"]} !important;
+        color: {theme_cfg["dropdown_text"]} !important;
     }}
 
     /* 3. チャット入力枠スタイル */
@@ -240,49 +244,6 @@ st.markdown(f"""
     }}
     div[data-testid="stChatInput"] textarea {{
         color: {theme_cfg["text"]} !important;
-    }}
-
-    /* 4. スマホ用サイドバー開閉ボタンの強制表示（絶対消さない） */
-    div[data-testid="collapsedControl"], button[aria-label="Open sidebar"] {{
-        display: flex !important;
-        visibility: visible !important;
-        z-index: 999999 !important;
-    }}
-    header {{
-        background-color: transparent !important;
-    }}
-
-    /* 5. 不要なバッジ・管理ボタン・フッターのピンポイント徹底消去 */
-    #MainMenu {{visibility: hidden !important;}}
-    footer {{display: none !important; opacity: 0 !important;}}
-    div[data-testid="stDecoration"] {{display: none !important;}}
-    div[data-testid="stStatusWidget"] {{display: none !important;}}
-    div[data-testid="stToolbar"] {{display: none !important;}}
-    div[data-testid="stViewerBadge"] {{display: none !important;}}
-    a[href*="streamlit.io"] {{display: none !important;}}
-    a[href*="share.streamlit.io"] {{display: none !important;}}
-    button[title="Manage app"] {{display: none !important;}}
-    .stActionButton {{display: none !important;}}
-
-    /* 6. ↕️ 全エリアのスクロールバー太化（14px） */
-    ::-webkit-scrollbar, 
-    *::-webkit-scrollbar {{
-        width: 14px !important;
-        height: 14px !important;
-    }}
-    ::-webkit-scrollbar-track, 
-    *::-webkit-scrollbar-track {{
-        background: {theme_cfg["bg"]} !important;
-    }}
-    ::-webkit-scrollbar-thumb, 
-    *::-webkit-scrollbar-thumb {{
-        background: {theme_cfg["scrollbar"]} !important;
-        border-radius: 8px !important;
-        border: 3px solid {theme_cfg["bg"]} !important;
-    }}
-    ::-webkit-scrollbar-thumb:hover, 
-    *::-webkit-scrollbar-thumb:hover {{
-        background: {theme_cfg["scrollbar_hover"]} !important;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -425,7 +386,7 @@ elif app_mode == "⚙️ ユーザー設定":
         new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
         new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
 
-        st.markdown("**🖼️ アバター（アイコン）設定**")
+        st.markdown(" ** 🖼️ アバター（アイコン）設定 ** ")
         col_a, col_u = st.columns(2)
         with col_a:
             ai_avatar_sel = st.selectbox("AIのアバター", list(AVATAR_PRESETS_AI.keys()))
@@ -488,30 +449,30 @@ else:
 
     theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
     st.title(theme_title)
-    st.caption(f"担当コンシェルジュ: **{current_concierge_name}** | モデル: **gemini-3.6-flash**")
+    st.caption(f"担当コンシェルジュ:  ** {current_concierge_name} **  | モデル:  ** gemini-3.6-flash ** ")
 
     current_summary = get_theme_summary(current_theme_id)
     with st.sidebar.expander("🧠 現在のテーマ記憶（要約）", expanded=False):
         if current_summary:
-            st.info(fix_markdown_bold(current_summary))
+            st.info(clean_bold_markdown(current_summary))
         else:
             st.caption("会話が30件を超えると自動要約されます。")
 
     all_messages = get_messages(current_theme_id)
 
-    # 過去ログ描画（太字補正関数を通す）
+    # 過去ログ描画（太字記号  **  除去処理を通す）
     for msg in all_messages:
         role_label = display_user_name if msg["role"] == "user" else current_concierge_name
         avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
 
         with st.chat_message(msg["role"], avatar=avatar_img):
-            st.write(f"**{role_label}**: {fix_markdown_bold(msg['content'])}")
+            st.write(f" ** {role_label} ** : {clean_bold_markdown(msg['content'])}")
 
     # 高速チャット送信処理
     if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
         # ① ユーザーのメッセージを即時表示＆保存
         with st.chat_message("user", avatar=current_user_avatar):
-            st.write(f"**{display_user_name}**: {fix_markdown_bold(user_input)}")
+            st.write(f" ** {display_user_name} ** : {clean_bold_markdown(user_input)}")
         save_message(current_theme_id, "user", user_input)
         all_messages.append({"role": "user", "content": user_input})
 
@@ -524,6 +485,7 @@ else:
 
         【🗣️ 応答スタイル指示】
         {current_user_instruction}
+        ※回答を作成する際、太字装飾記号「 ** 」は絶対に使用しないでください。強調したい単語がある場合は「」や【】などの記号を使用してください。
 
         【🌐 あなたが知っているユーザーの全般的な記憶（全テーマ共通・長期記憶）】
         ・設定プロフィール: {', '.join(manual_facts) if manual_facts else '特になし'}
@@ -548,7 +510,8 @@ else:
                 try:
                     response = model.generate_content(contents_for_gemini)
                     ai_reply = response.text
-                    st.write(f"**{current_concierge_name}**: {fix_markdown_bold(ai_reply)}")
+                    clean_reply = clean_bold_markdown(ai_reply)
+                    st.write(f" ** {current_concierge_name} ** : {clean_reply}")
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     st.error(f"Gemini API エラー: {e}")
