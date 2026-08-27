@@ -1141,9 +1141,7 @@ else:
 
                         st.session_state.total_in_tokens += in_t
                         st.session_state.total_out_tokens += out_t
-
-                        # ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
-                        render_token_info()
+                   
                     # ▲▲▲ ここまで ▲▲▲
                     
                     ai_reply = response.text
@@ -1153,7 +1151,10 @@ else:
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     error_msg = f"Gemini API エラー: {e}"
-
+　　　　　　　　　
+         　　　　　　# ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
+                    render_token_info()
+                
                     log_debug(error_msg)
 
                     st.error(error_msg)
