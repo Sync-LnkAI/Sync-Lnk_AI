@@ -464,6 +464,12 @@ st.markdown(f"""
     button {{
         outline: 3px solid yellow !important;
     }}
+    /* ボタン内部の白背景を消す */
+    button div,
+    button span,
+    button p {{
+        background-color: lime !important;
+    }}
 
 </style>
 """, unsafe_allow_html=True)
