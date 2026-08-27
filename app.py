@@ -433,9 +433,15 @@ st.markdown(f"""
         background-color: {theme_cfg["card_bg"]} !important;
     }}
 
-    section[data-testid="stSidebar"] * {{
-        outline: 1px solid red !important;
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {{
+        color: {theme_cfg["text"]} !important;
     }}
+
     /* Streamlit 1.6x系向け */
     div[role="listbox"] {{
         background-color: {theme_cfg["dropdown_bg"]} !important;
