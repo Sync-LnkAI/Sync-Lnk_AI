@@ -394,11 +394,11 @@ st.markdown(f"""
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
     }}
-    p, span, h1, h2, h3, h4, h5, h6, label {{
+    /*p, span, h1, h2, h3, h4, h5, h6, label {{
         color: {theme_cfg["text"]} !important;
         word-break: break-word !important;
         overflow-wrap: anywhere !important;
-    }}
+    }}*/
 
     /* 2. 🎯 ドロップダウン（選択肢）のポップアップ要素を全子要素まで全網羅指定 */
     /*div[data-baseweb="select"] *,
