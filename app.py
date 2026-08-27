@@ -593,6 +593,29 @@ app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 �
 
 st.sidebar.markdown("---")
 
+with st.sidebar.expander(
+    "🧠 長期記憶",
+    expanded=False
+):
+
+    if auto_facts or manual_facts:
+
+        for fact in manual_facts:
+            st.write(f"👤 {fact}")
+
+        for fact in auto_facts[-10:]:
+            st.write(f"🤖 {fact}")
+
+    else:
+        st.caption("長期記憶なし")
+
+current_summary = get_theme_summary(current_theme_id)
+with st.sidebar.expander("📖 このテーマの記憶", expanded=False):
+    if current_summary:
+        st.info(clean_bold_markdown(current_summary))
+    else:
+        st.caption("会話が設定件数を超えると自動要約されます。")
+
 # トークン消費量のリアルタイム表示（プレースホルダー化）
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 トークン消費状況")
@@ -839,13 +862,6 @@ else:
     theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
     st.title(theme_title)
     st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【{GEMINI_MODEL_NAME}】")
-
-    current_summary = get_theme_summary(current_theme_id)
-    with st.sidebar.expander("🧠 現在のテーマ記憶（要約）", expanded=False):
-        if current_summary:
-            st.info(clean_bold_markdown(current_summary))
-        else:
-            st.caption("会話が設定件数を超えると自動要約されます。")
 
     all_messages = get_messages(current_theme_id)
 
