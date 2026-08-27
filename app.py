@@ -798,7 +798,7 @@ else:
         """
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
-            {"role": "model", "parts": ["了解しました。指定された情報とルールに従って対話します。"]}
+            {"role": "model", "parts": [f"了解だよ、{display_user_name}。"]}
         ]
 
         for m in recent_messages:
