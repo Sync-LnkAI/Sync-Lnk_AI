@@ -423,6 +423,14 @@ st.markdown(f"""
     div[data-testid="stChatInput"] textarea {{
         color: {theme_cfg["text"]} !important;
     }}
+    /* Selectboxの選択肢文字色強制 */
+    div[data-baseweb="select"] span,
+    div[data-baseweb="popover"] span,
+    div[data-baseweb="menu"] span,
+    ul[role="listbox"] li,
+    ul[role="listbox"] div {
+        color: {theme_cfg["dropdown_text"]} !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
