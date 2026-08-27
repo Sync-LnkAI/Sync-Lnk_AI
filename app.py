@@ -53,6 +53,9 @@ if "summary_in_tokens" not in st.session_state:
 if "summary_out_tokens" not in st.session_state:
     st.session_state.summary_out_tokens = 0
 
+if "debug_logs" not in st.session_state:
+    st.session_state.error_logs = []
+
 # プリセット定義
 STYLE_PRESETS = {
     "🤝 フランク＆対等（相棒）": "フレンドリーで親しみやすく、敬語を使わずに丁寧かつ対等なタメ口でフランクに対話してください。",
@@ -96,9 +99,6 @@ def clean_bold_markdown(text: str) -> str:
     if not text:
         return text
     return text.replace("**", "")
-
-if "debug_logs" not in st.session_state:
-    st.session_state.error_logs = []
 
 # ==========================================
 # 🗄️ Supabase データベース操作関数
@@ -579,6 +579,8 @@ token_container = st.sidebar.empty()  # ←★後から中身をリアルタイ�
 from datetime import datetime
 
 def log_debug(message):
+    if "debug_logs" not in st.session_state:
+        st.session_state.debug_logs = []
 
     timestamp = datetime.now().strftime("%H:%M:%S")
 
@@ -642,8 +644,7 @@ with st.sidebar.expander(
     expanded=False
 ):
 
-    if st.session_state.debug_logs:
-
+    if "debug_logs" in st.session_state and st.session_state.debug_logs:
         for log in reversed(
             st.session_state.debug_logs[-30:]
         ):
