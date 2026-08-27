@@ -1151,14 +1151,14 @@ else:
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     error_msg = f"Gemini API エラー: {e}"
-　　　　　　　　　
-         　　　　　　# ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
-                    render_token_info()
                 
                     log_debug(error_msg)
 
                     st.error(error_msg)
 
+        # ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
+        render_token_info()
+        
         # ③ 非同期風に裏で要約更新・記憶抽出を実行
         check_and_summarize_history(current_theme_id, all_messages, current_summary)
         extract_and_save_long_term_memory(user_input, current_theme_id)
