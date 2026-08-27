@@ -577,6 +577,22 @@ def extract_and_save_long_term_memory(
 
 st.sidebar.title("🤖 My AI Concierge")
 
+themes = get_themes()
+if not themes:
+    add_theme("メインテーマ", "💬")
+    themes = get_themes()
+
+theme_map = {f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}": t for t in themes}
+selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_map.keys()))
+current_theme = theme_map[selected_theme_label]
+current_theme_id = current_theme["id"]
+
+st.sidebar.divider()
+
+app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"], index=0)
+
+st.sidebar.markdown("---")
+
 # トークン消費量のリアルタイム表示（プレースホルダー化）
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 トークン消費状況")
@@ -665,9 +681,8 @@ def render_token_info():
             f"平均コスト : ¥{avg_cost:.5f}/回"
         )
 
-# 初回描画
+# トークン表示
 render_token_info()
-st.sidebar.markdown("---")
 
 with st.sidebar.expander(
     "🛠 開発者ログ",
@@ -682,20 +697,6 @@ with st.sidebar.expander(
 
     else:
         st.caption("ログはまだありません")
-
-themes = get_themes()
-if not themes:
-    add_theme("メインテーマ", "💬")
-    themes = get_themes()
-
-theme_map = {f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}": t for t in themes}
-selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_map.keys()))
-current_theme = theme_map[selected_theme_label]
-current_theme_id = current_theme["id"]
-
-st.sidebar.divider()
-
-app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"], index=0)
 
 # ==========================================
 # 📁 画面1: テーマ管理画面
