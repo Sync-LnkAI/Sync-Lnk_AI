@@ -440,6 +440,22 @@ st.markdown(f"""
     section[data-testid="stSidebar"] * {{
         color: {theme_cfg["text"]} !important;
     }}
+    /* Streamlit 1.6x系向け */
+    div[role="listbox"] {{
+        background-color: {theme_cfg["dropdown_bg"]} !important;
+    }}
+
+    div[role="option"] {{
+        background-color: {theme_cfg["dropdown_bg"]} !important;
+        color: {theme_cfg["dropdown_text"]} !important;
+    }}
+
+    div[role="option"] * {{
+        color: {theme_cfg["dropdown_text"]} !important;
+    }}
+    "dropdown_bg": "#000000",
+    "dropdown_text": "#ff0000"
+
 </style>
 """, unsafe_allow_html=True)
 
