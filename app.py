@@ -770,12 +770,14 @@ else:
         対話相手のユーザー名は「{display_user_name}」です。
         あなたの一人称は「{current_first_person}」を使用してください。
 
+       【応答スタイル】
+        {current_user_instruction}
+
         【ユーザーが手動登録した基本情報】
          {manual_memory_context}
 
         【AIが抽出した長期記憶】
         {auto_memory_context}
-
 
         【現在の発言に関連する過去の会話】
         {past_logs_str}
@@ -783,8 +785,7 @@ else:
         【現在のテーマの会話要約】
         {current_summary if current_summary else "なし"}
 
-       【応答スタイル】
-        {current_user_instruction}
+
         
         【記憶の利用ルール】
         ・記憶や過去ログは、現在の話題と自然な関連がある場合だけ使ってください。
