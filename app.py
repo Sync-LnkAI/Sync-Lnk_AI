@@ -457,6 +457,13 @@ st.markdown(f"""
     div.stButton > button p {{
         color: yellow !important;
     }}
+    button:hover {{
+        outline: 3px solid red !important;
+    }}
+
+    button {{
+        outline: 3px solid yellow !important;
+    }}
 
 </style>
 """, unsafe_allow_html=True)
