@@ -536,15 +536,12 @@ def extract_and_save_long_term_memory(
     try:
         response = model.generate_content(prompt)
         if hasattr(response, "usage_metadata"):
-
-        st.session_state.memory_in_tokens += (
-            response.usage_metadata.prompt_token_count
-        )
-
-        st.session_state.memory_out_tokens += (
-            response.usage_metadata.candidates_token_count
-        )
-        
+            st.session_state.memory_in_tokens += (
+                response.usage_metadata.prompt_token_count
+            )
+            st.session_state.memory_out_tokens += (
+                response.usage_metadata.candidates_token_count
+            )
         extracted_memory = response.text.strip()
 
         if (
