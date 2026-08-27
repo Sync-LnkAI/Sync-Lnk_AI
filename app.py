@@ -527,19 +527,7 @@ button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
     border-color: {theme_cfg["input_border"]} !important;
     box-shadow: none !important;
 }}
-/* Streamlit Cloud の Manage App ボタン非表示 */
-[data-testid="manage-app-button"] {{
-    display: none !important;
-}}
-/* Manage App コンテナごと非表示 */
-[data-testid="manage-app-button"] {{
-    display: none !important;
-    visibility: hidden !important;
-}}
 
-[class*="_terminalButton_"] {{
-    display: none !important;
-}}
 </style>
 """, unsafe_allow_html=True)
 
