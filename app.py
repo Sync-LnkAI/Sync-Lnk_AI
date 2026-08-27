@@ -476,14 +476,20 @@ st.markdown(f"""
         outline: 3px solid yellow !important;
     }}
     
-    /* フォーム送信ボタン本体 */
-    [data-testid="stBaseButton-secondaryFormSubmit"] {{
-        background-color: #ff0000 !important;
+    /* 通常ボタン */
+    [data-testid="stBaseButton-secondary"] {{
+        background-color: {theme_cfg["card_bg"]} !important;
+        color: {theme_cfg["text"]} !important;
+        border: 1px solid {theme_cfg["input_border"]} !important;
     }}
 
-    /* ホバー時 */
-    [data-testid="stBaseButton-secondaryFormSubmit"]:hover {{
-        background-color: #00ff00 !important;
+    [data-testid="stBaseButton-secondary"] p,
+    [data-testid="stBaseButton-secondary"] span {{
+        color: {theme_cfg["text"]} !important;
+    }}
+
+    [data-testid="stBaseButton-secondary"]:hover {{
+        background-color: {theme_cfg["input_border"]} !important;
     }}
 
 </style>
