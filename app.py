@@ -401,14 +401,14 @@ st.markdown(f"""
     }}
 
     /* 2. 🎯 ドロップダウン（選択肢）のポップアップ要素を全子要素まで全網羅指定 */
-    div[data-baseweb="select"] *,
+    /*div[data-baseweb="select"] *,
     div[data-baseweb="popover"] *,
     div[data-baseweb="menu"] *,
     ul[role="listbox"] *,
     li[role="option"] * {{
         background-color: {theme_cfg["dropdown_bg"]} !important;
         color: {theme_cfg["dropdown_text"]} !important;
-    }}
+    }}*/
 
     /* 3. チャット入力枠スタイル */
     div[data-testid="stChatInput"] {{
