@@ -475,7 +475,16 @@ st.markdown(f"""
     button[kind="secondary"] {{
         outline: 3px solid yellow !important;
     }}
+    
+    /* フォーム送信ボタン本体 */
+    [data-testid="stBaseButton-secondaryFormSubmit"] {{
+        background-color: #ff0000 !important;
+    }}
 
+    /* ホバー時 */
+    [data-testid="stBaseButton-secondaryFormSubmit"]:hover {{
+        background-color: #00ff00 !important;
+    }}
 
 </style>
 """, unsafe_allow_html=True)
