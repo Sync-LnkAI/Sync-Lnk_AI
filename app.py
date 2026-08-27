@@ -470,7 +470,7 @@ st.markdown(f"""
     button p {{
         background-color: lime !important;
     }}
-    button [data-testid="stMarkdownContainer"] {{
+    button > div {{
         background-color: cyan !important;
     }}
 
