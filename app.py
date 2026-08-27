@@ -593,21 +593,23 @@ app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 �
 
 st.sidebar.markdown("---")
 
+sidebar_memories = get_memories(
+    theme_id=None,
+    source="auto"
+)
+
 with st.sidebar.expander(
     "🧠 長期記憶",
     expanded=False
 ):
 
-    if auto_facts or manual_facts:
+    if sidebar_memories:
 
-        for fact in manual_facts:
-            st.write(f"👤 {fact}")
-
-        for fact in auto_facts[-10:]:
-            st.write(f"🤖 {fact}")
+        for mem in sidebar_memories[-10:]:
+            st.write(f"・{mem['fact']}")
 
     else:
-        st.caption("長期記憶なし")
+        st.caption("長期記憶はまだありません")
 
 current_summary = get_theme_summary(current_theme_id)
 with st.sidebar.expander("📖 このテーマの記憶", expanded=False):
