@@ -26,6 +26,10 @@ GEMINI_MODEL_NAME = "gemini-3.6-flash"
 model = genai.GenerativeModel(
     GEMINI_MODEL_NAME
 )
+# Gemini 3.6 Flash料金(2026年時点想定)
+PRICE_INPUT_PER_MILLION = 1.50
+PRICE_OUTPUT_PER_MILLION = 7.50
+USD_TO_JPY = 150
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -55,6 +59,8 @@ if "summary_out_tokens" not in st.session_state:
 
 if "debug_logs" not in st.session_state:
     st.session_state.error_logs = []
+if "conversation_count" not in st.session_state:
+    st.session_state.conversation_count = 0
 
 # プリセット定義
 STYLE_PRESETS = {
@@ -629,11 +635,35 @@ def render_token_info():
             + st.session_state.memory_out_tokens
             + st.session_state.summary_out_tokens
         )
+        cost_usd = (
+            (total_in / 1_000_000) * PRICE_INPUT_PER_MILLION
+            +
+            (total_out / 1_000_000) * PRICE_OUTPUT_PER_MILLION
+        )
+
+        cost_jpy = cost_usd * USD_TO_JPY
 
         st.divider()
 
-        st.metric("総入力", f"{total_in:,}")
-        st.metric("総出力", f"{total_out:,}")
+        st.text(f"総入力 : {total_in:,}")
+        st.text(f"総出力 : {total_out:,}")
+        st.text(
+            f"推定コスト : ¥{cost_jpy:.4f}"
+        )
+        avg_cost = 0
+
+        if st.session_state.conversation_count > 0:
+            avg_cost = (
+                cost_jpy /
+                st.session_state.conversation_count
+            )
+        st.text(
+            f"会話回数 : {st.session_state.conversation_count}"
+        )
+
+        st.text(
+            f"平均コスト : ¥{avg_cost:.5f}/回"
+        )
 
 # 初回描画
 render_token_info()
@@ -966,6 +996,7 @@ else:
                     # ▲▲▲ ここまで ▲▲▲
                     
                     ai_reply = response.text
+                    st.session_state.conversation_count += 1
                     clean_reply = clean_bold_markdown(ai_reply)
                     st.write(f"【{current_concierge_name}】: {clean_reply}")
                     save_message(current_theme_id, "assistant", ai_reply)
