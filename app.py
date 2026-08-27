@@ -593,7 +593,7 @@ def extract_and_save_long_term_memory(
 # ==========================================
 
 st.sidebar.title("🤖 My AI Concierge")
-
+st.write(st.__version__)
 themes = get_themes()
 if not themes:
     add_theme("メインテーマ", "💬")
