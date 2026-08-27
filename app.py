@@ -450,9 +450,12 @@ st.markdown(f"""
         color: {theme_cfg["dropdown_text"]} !important;
     }}
 
-    /* ボタン内部テキストのみ */
-    button p {{
-        color: {theme_cfg["text"]} !important;
+    div.stButton > button {{
+        background-color: red !important;
+    }}
+
+    div.stButton > button p {{
+        color: yellow !important;
     }}
 
 </style>
