@@ -441,6 +441,13 @@ st.markdown(f"""
     section[data-testid="stSidebar"] h3 {{
         color: {theme_cfg["text"]} !important;
     }}
+    section[data-testid="stSidebar"] button span {{
+        color: {theme_cfg["text"]} !important;
+    }}
+
+    section[data-testid="stSidebar"] button p {{
+        color: {theme_cfg["text"]} !important;
+    }}
 
     /* Streamlit 1.6x系向け */
     div[role="listbox"] {{
@@ -456,29 +463,6 @@ st.markdown(f"""
         color: {theme_cfg["dropdown_text"]} !important;
     }}
 
-    div.stButton > button {{
-        background-color: red !important;
-    }}
-
-    div.stButton > button p {{
-        color: yellow !important;
-    }}
-    button:hover {{
-        outline: 3px solid red !important;
-    }}
-
-    button {{
-        outline: 3px solid yellow !important;
-    }}
-    /* ボタン内部の白背景を消す */
-    button div,
-    button span,
-    button p {{
-        background-color: lime !important;
-    }}
-    button > div {{
-        background-color: cyan !important;
-    }}
 
 </style>
 """, unsafe_allow_html=True)
