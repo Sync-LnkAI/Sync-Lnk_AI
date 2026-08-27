@@ -536,6 +536,27 @@ label {{
 [data-testid="stMarkdownContainer"] p {{
     color: {theme_cfg["text"]} !important;
 }}
+/* divider */
+hr {{
+    border-color: {theme_cfg["input_border"]} !important;
+}}
+/* Expander */
+[data-testid="stExpander"] {{
+    border: 1px solid {theme_cfg["input_border"]} !important;
+    border-radius: 8px !important;
+}}
+div[data-baseweb="select"] {{
+    border: 1px solid {theme_cfg["input_border"]} !important;
+    border-radius: 8px !important;
+}}
+textarea,
+input {{
+    border: 1px solid {theme_cfg["input_border"]} !important;
+}}
+section[data-testid="stSidebar"] {{
+    border-right: 1px solid {theme_cfg["input_border"]} !important;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
