@@ -22,7 +22,10 @@ supabase = init_supabase()
 
 # 指定モデル: gemini-2.5-flash
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+GEMINI_MODEL_NAME = "gemini-2.5-flash"
+model = genai.GenerativeModel(
+    GEMINI_MODEL_NAME
+)
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -76,7 +79,7 @@ COLOR_THEMES = {
 def clean_bold_markdown(text: str) -> str:
     if not text:
         return text
-    return text.replace("", "")
+    return text.replace("**", "")
 
 # ==========================================
 # 🗄️ Supabase データベース操作関数
@@ -124,74 +127,155 @@ def update_theme_summary(theme_id: int, new_summary: str):
         print(f"要約更新エラー: {e}")
 
 def get_messages(theme_id: int):
-    res = supabase.table("messages").select("*").eq("theme_id", theme_id).order("created_at", desc=False).execute()
-    return res.data if res.data else []
+    try:
+        res = (
+            supabase
+            .table("messages")
+            .select("*")
+            .eq("theme_id", theme_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
 
-def save_message(theme_id: int, role: str, content: str):
-    # 発言内容をベクトルデータに変換
-    embedding_data = get_embedding(content)
+        return res.data if res.data else []
 
-    data = {
-        "user_id": "default_user",
-        "theme_id": theme_id,
-        "role": role,
-        "content": content,
-        "embedding": embedding_data  # ←★ベクトルデータを追加
-    }
-    supabase.table("messages").insert(data).execute()
+    except Exception as e:
+        st.error(f"メッセージ取得エラー: {e}")
+        return []
+
+def save_message(
+    theme_id: int,
+    role: str,
+    content: str
+) -> bool:
+    try:
+        embedding_data = get_embedding(
+            content,
+            task_type="retrieval_document"
+        )
+
+        data = {
+            "user_id": "default_user",
+            "theme_id": theme_id,
+            "role": role,
+            "content": content,
+            "embedding": embedding_data
+        }
+
+        supabase.table("messages").insert(data).execute()
+
+        return True
+
+    except Exception as e:
+        st.error(f"メッセージ保存エラー: {e}")
+        return False
 
 def get_memories(theme_id=None, source=None):
     try:
         query = supabase.table("user_memories").select("*")
+
         if theme_id is None:
-            query = query.filter("theme_id", "is", "null")
+            query = query.filter(
+                "theme_id",
+                "is",
+                "null"
+            )
         else:
-            query = query.eq("theme_id", theme_id)
+            query = query.eq(
+                "theme_id",
+                theme_id
+            )
 
         if source:
-            query = query.eq("source", source)
+            query = query.eq(
+                "source",
+                source
+            )
 
-        res = query.order("id", desc=False).execute()
+        res = query.order(
+            "id",
+            desc=False
+        ).execute()
+
         return res.data if res.data else []
+
     except Exception as e:
         print(f"記憶取得エラー: {e}")
         return []
 
-def save_memory(fact: str, theme_id=None, category="基本情報", source="manual") -> bool:
+def save_memory(
+    fact: str,
+    theme_id=None,
+    category="基本情報",
+    source="manual"
+) -> bool:
     try:
+        embedding_data = get_embedding(
+            fact,
+            task_type="retrieval_document"
+        )
+
         data = {
             "user_id": "default_user",
             "category": category,
             "fact": fact,
-            "source": source
+            "source": source,
+            "embedding": embedding_data
         }
+
         if theme_id is not None:
             data["theme_id"] = theme_id
 
-        supabase.table("user_memories").insert(data).execute()
+        supabase.table(
+            "user_memories"
+        ).insert(data).execute()
+
         return True
+
     except Exception as e:
-        st.error(f"❌ 記憶保存エラー: {e}")
+        st.error(f"記憶保存エラー: {e}")
         return False
 
 def delete_memory(memory_id: int) -> bool:
     try:
-        supabase.table("user_memories").delete().eq("id", memory_id).execute()
+        (
+            supabase
+            .table("user_memories")
+            .delete()
+            .eq("id", memory_id)
+            .execute()
+        )
+
         return True
+
     except Exception as e:
-        st.error(f"❌ 記憶削除エラー: {e}")
+        st.error(f"記憶削除エラー: {e}")
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
-def get_embedding(text: str):
-    """過去検索用Embeddingの生成（エラー時安全ガード付き）"""
+def get_embedding(
+    text: str,
+    task_type: str = "retrieval_document"
+):
+    """Embedding生成。保存時と検索時でtask_typeを分ける。"""
+    if not text or not text.strip():
+        return None
+
     try:
         response = genai.embed_content(
             model="models/text-embedding-004",
-            content=text,
-            task_type="retrieval_document"
+            content=text.strip(),
+            task_type=task_type
         )
-        return response['embedding']
+
+        embedding = response.get("embedding")
+
+        if not embedding:
+            print("Embeddingが空でした")
+            return None
+
+        return embedding
+
     except Exception as e:
         # Embedding取得に失敗してもアプリを止めずNoneを返す
         print(f"Embedding生成スキップ: {e}")
@@ -201,7 +285,11 @@ def get_embedding(text: str):
 def search_past_logs(current_theme_id, query_text):
     try:
         # クエリテキストをベクトル化
-        query_embedding = get_embedding(query_text)
+        query_embedding = get_embedding(
+            query_text,
+            task_type="retrieval_query"
+        )
+        
         if not query_embedding:
             return []
 
@@ -344,32 +432,80 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
         print(f"要約更新エラー: {e}")
         return current_summary
 
-def extract_and_save_long_term_memory(user_text: str, theme_id: int):
-    # ▼▼▼ガード処理を追加▼▼▼
-    # 8文字未満は記憶抽出しない
-    if len(user_text.strip()) < 8:
+
+def extract_and_save_long_term_memory(
+    user_text: str,
+    theme_id: int
+):
+    cleaned_text = user_text.strip()
+
+    if len(cleaned_text) < 8:
         return
 
-    # 定型フレーズはスキップ
-    ignore_words = ["ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうなんだ", "はい", "わかった"]
-    if user_text.strip() in ignore_words:
+    ignore_words = {
+        "ありがとう",
+        "ありがとう！",
+        "了解",
+        "了解です",
+        "うん",
+        "そうなんだ",
+        "はい",
+        "わかった"
+    }
+
+    if cleaned_text in ignore_words:
         return
-    # ▲▲▲ ここまで ▲▲▲
+
     prompt = f"""
-    以下のユーザーの発言から、今後永久に保持すべき「ユーザーの属性・嗜好・重要データ」が含まれているか判定してください。
-    含まれている場合は、簡潔な事実（1〜2文）として抽出してください。
-    新情報がない場合は「NONE」とだけ返してください。
+次のユーザー発言から、今後の会話で役立つ、
+ユーザー自身についての情報または重要な出来事を
+1件だけ抽出してください。
 
-    ユーザーの発言: "{user_text}"
-    """
+保存対象:
+・ユーザーのプロフィール
+・継続的な好み
+・家族、友人、ペットなどの関係
+・重要な生活上の出来事
+・継続している悩みや目標
+・最近始まった生活上の変化
+
+保存しないもの:
+・挨拶
+・その場限りの質問
+・AIへの指示
+・一般知識
+・根拠のない推測
+・AIの回答内容
+
+ルール:
+・ユーザーが明言した内容だけを抽出してください。
+・情報を補ったり、原因を推測したりしないでください。
+・簡潔な1文にしてください。
+・保存対象がなければNONEだけを返してください。
+
+ユーザー発言:
+"{cleaned_text}"
+"""
+
     try:
-        res = model.generate_content(prompt)
-        text = res.text.strip()
-        if text and text != "NONE" and "NONE" not in text:
-            save_memory(fact=text, theme_id=None, category="AI自動抽出", source="auto")
+        response = model.generate_content(prompt)
+        extracted_memory = response.text.strip()
+
+        if (
+            extracted_memory
+            and extracted_memory.upper() != "NONE"
+            and "NONE" not in extracted_memory.upper()
+        ):
+            save_memory(
+                fact=extracted_memory,
+                theme_id=None,
+                category="AI自動抽出",
+                source="auto"
+            )
+
     except Exception as e:
         print(f"長期記憶抽出エラー: {e}")
-
+        
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
 # ==========================================
@@ -552,14 +688,14 @@ else:
 
     theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
     st.title(theme_title)
-    st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【gemini-3.6-flash】")
+    st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【{GEMINI_MODEL_NAME}】")
 
     current_summary = get_theme_summary(current_theme_id)
     with st.sidebar.expander("🧠 現在のテーマ記憶（要約）", expanded=False):
         if current_summary:
             st.info(clean_bold_markdown(current_summary))
         else:
-            st.caption("会話が30件を超えると自動要約されます。")
+            st.caption("会話が設定件数を超えると自動要約されます。")
 
     all_messages = get_messages(current_theme_id)
 
@@ -571,53 +707,97 @@ else:
         with st.chat_message(msg["role"], avatar=avatar_img):
             st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
-    # 高速チャット送信処理
+    # チャット送信処理
     if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
         # ① 画面表示　ユーザーのメッセージを即時表示
         with st.chat_message("user", avatar=current_user_avatar):
             st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
 
-        # ★【ポイント2対策】DBに保存する前に、まず過去ログを検索する！
-        past_logs_context = search_past_logs(current_theme_id, user_input)
+        # 1. 今回の発言を保存する前に、過去ログを検索
+        past_logs_context = search_past_logs(
+            current_theme_id,
+            user_input
+        )
 
-        # 検索結果を文字列としてまとめる
-        past_logs_str = ""
+        # 2. 検索結果を文字列化
         if past_logs_context:
             logs_text = []
+
             for log in past_logs_context:
-                # 検索結果からロールと発言内容を取り出す
-                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                logs_text.append(f"・{role_name}: {log.get('content')}")
+                role_name = (
+                    display_user_name
+                    if log.get("role") == "user"
+                    else current_concierge_name
+                )
+
+                logs_text.append(
+                   f"・{role_name}: {log.get('content', '')}"
+                )
+
             past_logs_str = "\n".join(logs_text)
         else:
             past_logs_str = "該当する過去ログなし"
 
-        # ★検索が終わったので、ここでDB保存＆リスト追加をする！
-        save_message(current_theme_id, "user", user_input)
-        all_messages.append({"role": "user", "content": user_input})
+        # 3. 過去検索完了後に今回の発言を保存
+        save_message(
+           current_theme_id,
+           "user",
+           user_input
+        )
+
+        all_messages.append({
+            "role": "user",
+            "content": user_input
+        })
 
         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
         
-        # 過去ログ検索の実行
-        past_logs_context = search_past_logs(current_theme_id, user_input)
+        manual_memory_context = (
+            "\n".join([f"・{fact}" for fact in manual_facts])
+            if manual_facts
+            else "なし"
+        )
 
-        # システム指示に「関連する過去ログ」を組み込む！
+        auto_memory_context = (
+             "\n".join([f"・{fact}" for fact in auto_facts[-20:]])
+             if auto_facts
+             else "なし"
+        )
+
+        # システム指示に関連情報を組み込む！
         system_instruction = f"""
-        あなたの名前は「{current_concierge_name}」です。優秀で親切なAIコンシェルジュとして行動してください。
+        あなたの名前は「{current_concierge_name}」です。
         対話相手のユーザー名は「{display_user_name}」です。
         あなたの一人称は「{current_first_person}」を使用してください。
 
-        【🔍 関連する過去の会話ログ】
+        【ユーザーが手動登録した基本情報】
+         {manual_memory_context}
+
+        【AIが抽出した長期記憶】
+        {auto_memory_context}
+
+
+        【現在の発言に関連する過去の会話】
         {past_logs_str}
 
-        【🗣️ 応答スタイル指示】
-        {current_user_instruction}
-        ※回答を作成する際、太字装飾記号「  」は絶対に使用しないでください。強調したい単語がある場合は「」や【】などの記号を使用してください。
-        """
+        【現在のテーマの会話要約】
+        {current_summary if current_summary else "なし"}
 
+       【応答スタイル】
+        {current_user_instruction}
+        
+        【記憶の利用ルール】
+        ・記憶や過去ログは、現在の話題と自然な関連がある場合だけ使ってください。
+        ・記憶にない内容を作らないでください。
+        ・記憶と現在の状態の因果関係を断定しないでください。
+        ・関連が考えられる場合は、自然な確認質問として触れてください。
+        ・すべての回答で無理に過去の記憶を持ち出さないでください。
+        ・ユーザーが明確に話していない感情や事情を決めつけないでください。
+        ・回答では太字装飾記号を使わないでください。
+        """
         contents_for_gemini = [
             {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
-            {"role": "model", "parts": [f"了解、{display_user_name}！{current_first_person}がしっかりサポートするよ！"]}
+            {"role": "model", "parts": [f"了解しました。指定された情報と""ルールに従って対話します。"]}
         ]
 
         for m in recent_messages:
