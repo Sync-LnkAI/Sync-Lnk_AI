@@ -527,18 +527,8 @@ button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
     border-color: {theme_cfg["input_border"]} !important;
     box-shadow: none !important;
 }}
-/* Manage App ボタン */
-[data-testid="stStatusWidget"] {{
-    display: none !important;
-}}
-
-/* 右下固定系 */
-[data-testid="stFloatingButton"] {{
-    display: none !important;
-}}
-
-/* デプロイ関連 */
-[data-testid="stDeploymentManager"] {{
+/* Streamlit Cloud の Manage App ボタン非表示 */
+[data-testid="manage-app-button"] {{
     display: none !important;
 }}
 </style>
