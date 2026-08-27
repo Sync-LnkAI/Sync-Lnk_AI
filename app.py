@@ -434,7 +434,7 @@ st.markdown(f"""
     }}
 
     section[data-testid="stSidebar"] * {{
-        color: {theme_cfg["text"]} !important;
+        outline: 1px solid red !important;
     }}
     /* Streamlit 1.6x系向け */
     div[role="listbox"] {{
