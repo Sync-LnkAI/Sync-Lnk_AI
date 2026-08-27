@@ -527,7 +527,15 @@ button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
     border-color: {theme_cfg["input_border"]} !important;
     box-shadow: none !important;
 }}
+/* フォームラベル */
+label {{
+    color: {theme_cfg["text"]} !important;
+}}
 
+/* 設定画面の見出し */
+[data-testid="stMarkdownContainer"] p {{
+    color: {theme_cfg["text"]} !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
