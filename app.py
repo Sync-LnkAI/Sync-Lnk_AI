@@ -470,9 +470,9 @@ st.markdown(f"""
     button p {{
         background-color: lime !important;
     }}
-    button [data-testid="stMarkdownContainer"] {
+    button [data-testid="stMarkdownContainer"] {{
         background-color: cyan !important;
-    }
+    }}
 
 </style>
 """, unsafe_allow_html=True)
