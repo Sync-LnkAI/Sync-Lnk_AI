@@ -462,6 +462,16 @@ st.markdown(f"""
     div[role="option"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
+    /* Streamlitボタン本体 */
+    button[kind="secondary"] {{
+        color: {theme_cfg["text"]} !important;
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+
+    /* ボタンホバー */
+    button[kind="secondary"]:hover {{
+        background-color: {theme_cfg["input_border"]} !important;
+    }}
 
 
 </style>
