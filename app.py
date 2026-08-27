@@ -426,7 +426,9 @@ st.markdown(f"""
     /* Selectboxの選択肢文字色強制 */
     div[data-baseweb="select"] span,
     div[data-baseweb="popover"] span,
-    div[data-baseweb="menu"] span,
+    div[data-baseweb="menu"] span {{
+        color: {theme_cfg["dropdown_text"]} !important;
+    }}
     
     /* サイドバー */
     section[data-testid="stSidebar"] {{
@@ -462,35 +464,7 @@ st.markdown(f"""
     div[role="option"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
-    /* Streamlitボタン本体 */
-    button[kind="secondary"] {{
-        color: {theme_cfg["text"]} !important;
-        background-color: {theme_cfg["card_bg"]} !important;
-    }}
-
-    /* ボタンホバー */
-    button[kind="secondary"]:hover {{
-        background-color: {theme_cfg["input_border"]} !important;
-    }}
-    button[kind="secondary"] {{
-        outline: 3px solid yellow !important;
-    }}
-    
-    /* 通常ボタン */
-    [data-testid="stBaseButton-secondary"] {{
-        background-color: {theme_cfg["card_bg"]} !important;
-        color: {theme_cfg["text"]} !important;
-        border: 1px solid {theme_cfg["input_border"]} !important;
-    }}
-
-    [data-testid="stBaseButton-secondary"] p,
-    [data-testid="stBaseButton-secondary"] span {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
-    [data-testid="stBaseButton-secondary"]:hover {{
-        background-color: {theme_cfg["input_border"]} !important;
-    }}
+  
     /* ==========================================
    通常ボタンとフォーム送信ボタン
    ========================================== */
