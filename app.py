@@ -449,22 +449,9 @@ st.markdown(f"""
     div[role="option"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
-    /* ボタン文字色 */
-    div.stButton > button {{
-        color: {theme_cfg["text"]} !important;
-    }}
 
-    /* ボタン内部文字 */
-    div.stButton > button p {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
-    /* Formボタン */
-    div[data-testid="stForm"] button {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
-    div[data-testid="stForm"] button p {{
+    /* ボタン内部テキストのみ */
+    button p {{
         color: {theme_cfg["text"]} !important;
     }}
 
