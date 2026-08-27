@@ -427,10 +427,6 @@ st.markdown(f"""
     div[data-baseweb="select"] span,
     div[data-baseweb="popover"] span,
     div[data-baseweb="menu"] span,
-    ul[role="listbox"] li,
-    ul[role="listbox"] div {{
-        color: {theme_cfg["dropdown_text"]} !important;
-    }}
     
     /* サイドバー */
     section[data-testid="stSidebar"] {{
@@ -453,8 +449,6 @@ st.markdown(f"""
     div[role="option"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
-    "dropdown_bg": "#000000",
-    "dropdown_text": "#ff0000"
 
 </style>
 """, unsafe_allow_html=True)
@@ -609,7 +603,7 @@ def extract_and_save_long_term_memory(
 # ==========================================
 
 st.sidebar.title("🤖 My AI Concierge")
-st.write(st.__version__)
+
 themes = get_themes()
 if not themes:
     add_theme("メインテーマ", "💬")
