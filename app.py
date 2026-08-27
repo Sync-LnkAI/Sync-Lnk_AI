@@ -431,6 +431,7 @@ st.markdown(f"""
     ul[role="listbox"] div {
         color: {theme_cfg["dropdown_text"]} !important;
     }
+
 </style>
 """, unsafe_allow_html=True)
 
