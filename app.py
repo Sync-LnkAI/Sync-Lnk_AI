@@ -531,6 +531,15 @@ button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
 [data-testid="manage-app-button"] {{
     display: none !important;
 }}
+/* Manage App コンテナごと非表示 */
+[data-testid="manage-app-button"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+[class*="_terminalButton_"] {{
+    display: none !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
