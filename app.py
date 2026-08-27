@@ -472,6 +472,9 @@ st.markdown(f"""
     button[kind="secondary"]:hover {{
         background-color: {theme_cfg["input_border"]} !important;
     }}
+    button[kind="secondary"] {{
+        outline: 3px solid yellow !important;
+    }}
 
 
 </style>
