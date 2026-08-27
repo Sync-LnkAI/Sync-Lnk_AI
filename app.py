@@ -431,7 +431,15 @@ st.markdown(f"""
     ul[role="listbox"] div {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
+    
+    /* サイドバー */
+    section[data-testid="stSidebar"] {{
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
 
+    section[data-testid="stSidebar"] * {{
+        color: {theme_cfg["text"]} !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
