@@ -491,6 +491,60 @@ st.markdown(f"""
     [data-testid="stBaseButton-secondary"]:hover {{
         background-color: {theme_cfg["input_border"]} !important;
     }}
+    /* ==========================================
+   通常ボタンとフォーム送信ボタン
+   ========================================== */
+
+    /* 通常ボタンとフォーム送信ボタンの通常表示 */
+    button[data-testid="stBaseButton-secondary"],
+    button[data-testid="stBaseButton-secondaryFormSubmit"] {{
+        background: {theme_cfg["card_bg"]} !important;
+        background-color: {theme_cfg["card_bg"]} !important;
+        color: {theme_cfg["text"]} !important;
+        border: 1px solid {theme_cfg["input_border"]} !important;
+        opacity: 1 !important;
+    }}
+
+    /* ボタン内の文字 */
+    button[data-testid="stBaseButton-secondary"] p,
+    button[data-testid="stBaseButton-secondary"] span,
+    button[data-testid="stBaseButton-secondaryFormSubmit"] p,
+    button[data-testid="stBaseButton-secondaryFormSubmit"] span {{
+        color: {theme_cfg["text"]} !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        opacity: 1 !important;
+    }}
+
+/* ホバー時 */
+button[data-testid="stBaseButton-secondary"]:hover,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {{
+    background: {theme_cfg["input_border"]} !important;
+    background-color: {theme_cfg["input_border"]} !important;
+    color: #ffffff !important;
+    border-color: {theme_cfg["input_border"]} !important;
+}}
+
+/* ホバー時の文字 */
+button[data-testid="stBaseButton-secondary"]:hover p,
+button[data-testid="stBaseButton-secondary"]:hover span,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:hover p,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:hover span {{
+    color: #ffffff !important;
+    background: transparent !important;
+}}
+
+/* フォーカス・クリック時 */
+button[data-testid="stBaseButton-secondary"]:focus,
+button[data-testid="stBaseButton-secondary"]:active,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:focus,
+button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
+    background: {theme_cfg["input_border"]} !important;
+    background-color: {theme_cfg["input_border"]} !important;
+    color: #ffffff !important;
+    border-color: {theme_cfg["input_border"]} !important;
+    box-shadow: none !important;
+}}
 
 </style>
 """, unsafe_allow_html=True)
