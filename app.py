@@ -550,9 +550,7 @@ div[data-baseweb="select"] {{
     border-radius: 8px !important;
 }}
 textarea,
-input {{
-    border: 1px solid {theme_cfg["input_border"]} !important;
-}}
+
 section[data-testid="stSidebar"] {{
     border-right: 1px solid {theme_cfg["input_border"]} !important;
 }}
