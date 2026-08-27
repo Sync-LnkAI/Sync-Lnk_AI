@@ -394,7 +394,7 @@ st.markdown(f"""
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
     }}
-    p, span, div, h1, h2, h3, h4, h5, h6, label {{
+    p, span, h1, h2, h3, h4, h5, h6, label {{
         color: {theme_cfg["text"]} !important;
         word-break: break-word !important;
         overflow-wrap: anywhere !important;
@@ -448,14 +448,6 @@ st.markdown(f"""
 
     div[role="option"] * {{
         color: {theme_cfg["dropdown_text"]} !important;
-    }}
-
-    div.stButton > button {{
-        background-color: red !important;
-    }}
-
-    div.stButton > button p {{
-        color: yellow !important;
     }}
 
 </style>
