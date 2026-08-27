@@ -528,19 +528,19 @@ button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
     box-shadow: none !important;
 }}
 /* Manage App ボタン */
-[data-testid="stStatusWidget"] {[
+[data-testid="stStatusWidget"] {{
     display: none !important;
-}]
+}}
 
 /* 右下固定系 */
-[data-testid="stFloatingButton"] {[
+[data-testid="stFloatingButton"] {{
     display: none !important;
-}]
+}}
 
 /* デプロイ関連 */
-[data-testid="stDeploymentManager"] {[
+[data-testid="stDeploymentManager"] {{
     display: none !important;
-}]
+}}
 </style>
 """, unsafe_allow_html=True)
 
