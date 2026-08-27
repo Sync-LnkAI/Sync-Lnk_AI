@@ -377,14 +377,13 @@ for m in manual_memories:
 
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
-/* 上部ツールバー非表示 */
-[data-testid="stToolbar"] {
-    display: none !important;
-}
-
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
 st.markdown(f"""
 <style>
+/* 上部ツールバー非表示 */
+[data-testid="stToolbar"] {{
+    display: none !important;
+}}
     /* 1. 全体背景＆文字色 */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
