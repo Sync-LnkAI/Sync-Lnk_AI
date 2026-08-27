@@ -20,9 +20,9 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# 指定モデル: gemini-3.6-flash
+# 指定モデル: gemini-2.5-flash
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-3.6-flash")
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
