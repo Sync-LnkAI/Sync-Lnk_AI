@@ -97,6 +97,9 @@ def clean_bold_markdown(text: str) -> str:
         return text
     return text.replace("**", "")
 
+if "debug_logs" not in st.session_state:
+    st.session_state.error_logs = []
+
 # ==========================================
 # 🗄️ Supabase データベース操作関数
 # ==========================================
@@ -555,6 +558,9 @@ def extract_and_save_long_term_memory(
                 category="AI自動抽出",
                 source="auto"
             )
+            log_debug(
+                f"長期記憶保存: {extracted_memory}"
+            )
 
     except Exception as e:
         print(f"長期記憶抽出エラー: {e}")
@@ -569,6 +575,22 @@ st.sidebar.title("🤖 My AI Concierge")
 st.sidebar.markdown("---")
 st.sidebar.subheader("📊 トークン消費状況")
 token_container = st.sidebar.empty()  # ←★後から中身をリアルタイム書き換えできる枠を作成
+
+from datetime import datetime
+
+def log_debug(message):
+
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    st.session_state.debug_logs.append(
+        f"[{timestamp}] {message}"
+    )
+
+    # 最大100件だけ保持
+    if len(st.session_state.debug_logs) > 100:
+        st.session_state.debug_logs = (
+            st.session_state.debug_logs[-100:]
+        )
 
 # トークン表示を更新する関数
 def render_token_info():
@@ -614,6 +636,21 @@ def render_token_info():
 # 初回描画
 render_token_info()
 st.sidebar.markdown("---")
+
+with st.sidebar.expander(
+    "🛠 開発者ログ",
+    expanded=False
+):
+
+    if st.session_state.debug_logs:
+
+        for log in reversed(
+            st.session_state.debug_logs[-30:]
+        ):
+            st.text(log)
+
+    else:
+        st.caption("ログはまだありません")
 
 themes = get_themes()
 if not themes:
@@ -799,6 +836,9 @@ else:
             current_theme_id,
             user_input
         )
+        log_debug(
+            f"過去ログ検索結果: {len(past_logs_context)}件"
+        )
 
         # 2. 検索結果を文字列化
         if past_logs_context:
@@ -900,7 +940,9 @@ else:
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
                         in_t = response.usage_metadata.prompt_token_count
                         out_t = response.usage_metadata.candidates_token_count
-                        
+                        log_debug(
+                            f"チャットトークン In={in_t} Out={out_t}"
+                        )
                         st.session_state.chat_in_tokens += in_t
                         st.session_state.chat_out_tokens += out_t
 
@@ -919,7 +961,11 @@ else:
                     st.write(f"【{current_concierge_name}】: {clean_reply}")
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
-                    st.error(f"Gemini API エラー: {e}")
+                    error_msg = f"Gemini API エラー: {e}"
+
+                    log_debug(error_msg)
+
+                    st.error(error_msg)
 
         # ③ 非同期風に裏で要約更新・記憶抽出を実行
         check_and_summarize_history(current_theme_id, all_messages, current_summary)
