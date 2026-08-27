@@ -384,6 +384,10 @@ st.markdown(f"""
 [data-testid="stToolbar"] {{
     display: none !important;
 }}
+/* Streamlit上部ヘッダー全体を非表示 */
+[data-testid="stHeader"] {{
+    display: none !important;
+}}
     /* 1. 全体背景＆文字色 */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
