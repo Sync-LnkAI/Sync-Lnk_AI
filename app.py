@@ -22,7 +22,7 @@ supabase = init_supabase()
 
 # 指定モデル: gemini-3.6-flash
 genai.configure(api_key=GEMINI_API_KEY)
-GEMINI_MODEL_NAME = "gemini-2.5-flash"
+GEMINI_MODEL_NAME = "gemini-3.6-flash"
 model = genai.GenerativeModel(
     GEMINI_MODEL_NAME
 )
