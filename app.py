@@ -37,6 +37,22 @@ if "total_in_tokens" not in st.session_state:
 if "total_out_tokens" not in st.session_state:
     st.session_state.total_out_tokens = 0
 
+# チャット
+if "chat_in_tokens" not in st.session_state:
+    st.session_state.chat_in_tokens = 0
+if "chat_out_tokens" not in st.session_state:
+    st.session_state.chat_out_tokens = 0
+# 記憶抽出
+if "memory_in_tokens" not in st.session_state:
+    st.session_state.memory_in_tokens = 0
+if "memory_out_tokens" not in st.session_state:
+    st.session_state.memory_out_tokens = 0
+# 要約
+if "summary_in_tokens" not in st.session_state:
+    st.session_state.summary_in_tokens = 0
+if "summary_out_tokens" not in st.session_state:
+    st.session_state.summary_out_tokens = 0
+
 # プリセット定義
 STYLE_PRESETS = {
     "🤝 フランク＆対等（相棒）": "フレンドリーで親しみやすく、敬語を使わずに丁寧かつ対等なタメ口でフランクに対話してください。",
@@ -419,12 +435,21 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
     formatted_old_text = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
 
     prompt = f"""
-    以下はこれまでの要約と溢れた会話ログです。統合した新しい要約を日本語300字程度で作成してください。
+    以下はこれまでの要約と溢れた会話ログです。統合した新しい要約を日本語100字程度で作成してください。
     【既存要約】: {current_summary if current_summary else "なし"}
     【過去ログ】: {formatted_old_text}
     """
     try:
         response = model.generate_content(prompt)
+        if hasattr(response, "usage_metadata"):
+
+            st.session_state.summary_in_tokens += (
+                response.usage_metadata.prompt_token_count
+            )
+
+            st.session_state.summary_out_tokens += (
+            response.usage_metadata.candidates_token_count
+            )
         new_summary = response.text.strip()
         update_theme_summary(theme_id, new_summary)
         return new_summary
@@ -456,6 +481,27 @@ def extract_and_save_long_term_memory(
     if cleaned_text in ignore_words:
         return
 
+    memory_keywords = [
+        "好き",
+        "嫌い",
+        "飼っている",
+        "飼い始めた",
+        "始めた",
+        "引っ越し",
+        "転職",
+        "家族",
+        "友人",
+        "目標",
+        "悩み",
+        "趣味"
+    ]
+
+    if not any(
+        keyword in cleaned_text
+        for keyword in memory_keywords
+    ):
+        return
+    
     prompt = f"""
 次のユーザー発言から、今後の会話で役立つ、
 ユーザー自身についての情報または重要な出来事を
@@ -489,6 +535,16 @@ def extract_and_save_long_term_memory(
 
     try:
         response = model.generate_content(prompt)
+        if hasattr(response, "usage_metadata"):
+
+        st.session_state.memory_in_tokens += (
+            response.usage_metadata.prompt_token_count
+        )
+
+        st.session_state.memory_out_tokens += (
+            response.usage_metadata.candidates_token_count
+        )
+        
         extracted_memory = response.text.strip()
 
         if (
@@ -520,15 +576,43 @@ token_container = st.sidebar.empty()  # ←★後から中身をリアルタイ�
 # トークン表示を更新する関数
 def render_token_info():
     with token_container.container():
-        col1, col2 = st.columns(2)
-        with col1:
-            st.caption("【前回】")
-            st.text(f"In:  {st.session_state.get('last_in_tokens', 0):,}")
-            st.text(f"Out: {st.session_state.get('last_out_tokens', 0):,}")
-        with col2:
-            st.caption("【累計】")
-            st.text(f"In:  {st.session_state.get('total_in_tokens', 0):,}")
-            st.text(f"Out: {st.session_state.get('total_out_tokens', 0):,}")
+
+        st.caption("【累計トークン】")
+
+        st.write(
+            f"💬 チャット\n"
+            f"In: {st.session_state.chat_in_tokens:,}\n"
+            f"Out: {st.session_state.chat_out_tokens:,}"
+        )
+
+        st.write(
+            f"🧠 記憶抽出\n"
+            f"In: {st.session_state.memory_in_tokens:,}\n"
+            f"Out: {st.session_state.memory_out_tokens:,}"
+        )
+
+        st.write(
+            f"📝 要約\n"
+            f"In: {st.session_state.summary_in_tokens:,}\n"
+            f"Out: {st.session_state.summary_out_tokens:,}"
+        )
+
+        total_in = (
+            st.session_state.chat_in_tokens
+            + st.session_state.memory_in_tokens
+            + st.session_state.summary_in_tokens
+        )
+
+        total_out = (
+            st.session_state.chat_out_tokens
+            + st.session_state.memory_out_tokens
+            + st.session_state.summary_out_tokens
+        )
+
+        st.divider()
+
+        st.metric("総入力", f"{total_in:,}")
+        st.metric("総出力", f"{total_out:,}")
 
 # 初回描画
 render_token_info()
@@ -759,9 +843,15 @@ else:
         )
 
         auto_memory_context = (
-             "\n".join([f"・{fact}" for fact in auto_facts[-20:]])
+             "\n".join([f"・{fact}" for fact in auto_facts[-5:]])
              if auto_facts
              else "なし"
+        )
+
+        short_summary = (
+            current_summary[:150]
+            if current_summary
+            else "なし"
         )
 
         # システム指示に関連情報を組み込む！
@@ -783,9 +873,7 @@ else:
         {past_logs_str}
 
         【現在のテーマの会話要約】
-        {current_summary if current_summary else "なし"}
-
-
+        {current_summary}
         
         【記憶の利用ルール】
         ・記憶や過去ログは、現在の話題と自然な関連がある場合だけ使ってください。
@@ -815,6 +903,9 @@ else:
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
                         in_t = response.usage_metadata.prompt_token_count
                         out_t = response.usage_metadata.candidates_token_count
+                        
+                        st.session_state.chat_in_tokens += in_t
+                        st.session_state.chat_out_tokens += out_t
 
                         st.session_state.last_in_tokens = in_t
                         st.session_state.last_out_tokens = out_t
