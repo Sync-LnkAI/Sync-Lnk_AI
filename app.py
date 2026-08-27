@@ -428,7 +428,7 @@ st.markdown(f"""
     div[data-baseweb="popover"] span,
     div[data-baseweb="menu"] span,
     ul[role="listbox"] li,
-    ul[role="listbox"] div {
+    ul[role="listbox"] div {{
         color: {theme_cfg["dropdown_text"]} !important;
     }}
 
