@@ -1144,12 +1144,18 @@ else:
         with st.chat_message("assistant", avatar=current_ai_avatar):
             with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
+                    log_debug(
+                        f"送信トークン数:{len(str(contents_for_gemini))}"
+                    )
+                    log_debug(
+                        f"プロンプト文字数={len(str(contents_for_gemini))}"
+                    )
                     # チャット応答計測開始
                     start = time.time()
                     response = model.generate_content(contents_for_gemini)
                     # チャット応答計測表示
                     log_debug(
-                        f"Gemini回答: {time.time()-start:.2f}秒"
+                        f"チャットGemini回答: {time.time()-start:.2f}秒"
                     )
 
                     # ▼▼▼ トークン数をカウントして記録＆画面の即時更新 ▼▼▼
