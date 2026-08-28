@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 from supabase import create_client, Client
 import re
+import time
 
 # ==========================================
 # ⚙️ 設定・初期化
@@ -581,7 +582,14 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
     【過去ログ】: {formatted_old_text}
     """
     try:
+        # 要約時間計測開始
+        start = time.time()
         response = model.generate_content(prompt)
+        # 要約時間表示
+        log_debug(
+            f"記憶抽出: {time.time()-start:.2f}秒"
+        )
+    
         if hasattr(response, "usage_metadata"):
 
             st.session_state.summary_in_tokens += (
@@ -597,7 +605,6 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
     except Exception as e:
         print(f"要約更新エラー: {e}")
         return current_summary
-
 
 def extract_and_save_long_term_memory(
     user_text: str,
@@ -675,7 +682,14 @@ def extract_and_save_long_term_memory(
 """
 
     try:
+        # 記憶抽出時間計測開始
+        start = time.time()
         response = model.generate_content(prompt)
+        # 記憶抽出時間表示
+        log_debug(
+            f"記憶抽出: {time.time()-start:.2f}秒"
+        )
+
         if hasattr(response, "usage_metadata"):
             st.session_state.memory_in_tokens += (
                 response.usage_metadata.prompt_token_count
@@ -1013,6 +1027,8 @@ else:
         with st.chat_message("user", avatar=current_user_avatar):
             st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
 
+        # 過去ログ検索計測開始
+        start = time.time()
         # 1. 今回の発言を保存する前に、過去ログを検索
         past_logs_context = search_past_logs(
             current_theme_id,
@@ -1020,6 +1036,10 @@ else:
         )
         log_debug(
             f"過去ログ検索結果: {len(past_logs_context)}件"
+        )
+        # 過去ログ検索時間表示
+        log_debug(
+            f"過去ログ検索 {time.time()-start:.2f}秒"
         )
 
         # 2. 検索結果を文字列化
@@ -1124,8 +1144,14 @@ else:
         with st.chat_message("assistant", avatar=current_ai_avatar):
             with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
                 try:
+                    # チャット応答計測開始
+                    start = time.time()
                     response = model.generate_content(contents_for_gemini)
-                   
+                    # チャット応答計測表示
+                    log_debug(
+                        f"Gemini回答: {time.time()-start:.2f}秒"
+                    )
+
                     # ▼▼▼ トークン数をカウントして記録＆画面の即時更新 ▼▼▼
                     if hasattr(response, "usage_metadata") and response.usage_metadata:
                         in_t = response.usage_metadata.prompt_token_count
@@ -1151,7 +1177,7 @@ else:
                     save_message(current_theme_id, "assistant", ai_reply)
                 except Exception as e:
                     error_msg = f"Gemini API エラー: {e}"
-                
+                    
                     log_debug(error_msg)
 
                     st.error(error_msg)
