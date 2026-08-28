@@ -21,6 +21,8 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
+CURRENT_USER_ID = "default_user"
+
 genai.configure(api_key=GEMINI_API_KEY)
 # ==========================================
 # Geminiモデル設定
@@ -204,7 +206,7 @@ def save_message(
         )
 
         data = {
-            "user_id": "default_user",
+            "user_id": CURRENT_USER_ID,
             "theme_id": theme_id,
             "role": role,
             "content": content,
@@ -221,7 +223,15 @@ def save_message(
 
 def get_memories(theme_id=None, source=None):
     try:
-        query = supabase.table("user_memories").select("*")
+        query = (
+            supabase
+            .table("user_memories")
+            .select("*")
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
+        )
 
         if theme_id is None:
             query = query.filter(
@@ -265,7 +275,7 @@ def save_memory(
         )
 
         data = {
-            "user_id": "default_user",
+            "user_id": CURRENT_USER_ID,
             "category": category,
             "fact": fact,
             "source": source,
