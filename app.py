@@ -821,7 +821,7 @@ def render_token_info():
         st.text(f"総入力 : {total_in:,}")
         st.text(f"総出力 : {total_out:,}")
         st.text(
-            f"推定コスト : ¥{cost_jpy:.4f}"
+            f"推定コスト : {cost_jpy:.4f}円"
         )
         avg_cost = 0
 
