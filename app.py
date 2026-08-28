@@ -399,6 +399,104 @@ for m in manual_memories:
     elif fact.startswith("ユーザーアバター:"):
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
 
+def get_managed_user_settings() -> dict:
+    """
+    設定画面で管理している項目と現在値を返す。
+    設定値が変わると、ここから取得する内容も自動的に変わる。
+    """
+    return {
+        "AIの名前": current_concierge_name,
+        "ユーザー名": current_user_name,
+        "ユーザー敬称": current_user_honorific,
+        "AIの一人称": current_first_person,
+        "口調プリセット": current_style_preset,
+        "応答方針": current_user_instruction,
+        "AIアバター": current_ai_avatar,
+        "ユーザーアバター": current_user_avatar,
+        "カラーテーマ": current_theme_color
+    }
+
+def get_managed_settings_text() -> str:
+    """
+    記憶抽出プロンプトへ渡すための表示用テキストを作る。
+    """
+    settings = get_managed_user_settings()
+
+    return "\n".join(
+        f"・{setting_name}: {setting_value}"
+        for setting_name, setting_value in settings.items()
+    )
+
+def is_managed_setting_memory(memory_text: str) -> bool:
+    """
+    抽出された記憶が、設定画面で管理すべき内容か判定する。
+    """
+    if not memory_text:
+        return False
+
+    normalized = memory_text.strip().lower()
+
+    # 設定項目を示す表現
+    setting_field_patterns = [
+        "ユーザー名",
+        "ニックネーム",
+        "呼び名",
+        "呼ばれたい",
+        "呼んでほしい",
+        "敬称",
+        "呼び捨て",
+        "aiの名前",
+        "コンシェルジュの名前",
+        "aiの一人称",
+        "一人称",
+        "口調",
+        "話し方",
+        "応答方針",
+        "会話スタイル",
+        "敬語で",
+        "タメ口で",
+        "ため口で",
+        "アバター",
+        "カラーテーマ",
+        "背景色"
+    ]
+
+    if any(
+        pattern.lower() in normalized
+        for pattern in setting_field_patterns
+    ):
+        return True
+
+    # 現在の設定値と、それが設定変更表現と一緒に出ているか確認
+    settings = get_managed_user_settings()
+
+    setting_action_patterns = [
+        "呼んで",
+        "呼ばれたい",
+        "にして",
+        "設定して",
+        "変更して",
+        "使って",
+        "話して"
+    ]
+
+    for setting_value in settings.values():
+        value = str(setting_value).strip().lower()
+
+        if not value:
+            continue
+
+        if (
+            value in normalized
+            and any(
+                action in normalized
+                for action in setting_action_patterns
+            )
+        ):
+            return True
+
+    return False
+
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
@@ -698,16 +796,27 @@ def extract_and_save_long_term_memory(
         keyword in cleaned_text
         for keyword in memory_keywords
     ):
+        log_debug(
+            "記憶候補キーワードなし。抽出をスキップ"
+        )
         return
+
+    managed_settings_text = get_managed_settings_text()
     
     prompt = f"""
 次のユーザー発言から、今後の会話で役立つ、
 ユーザー自身についての情報または重要な出来事を
 1件だけ抽出してください。
 
+【設定画面で現在管理されている情報】
+{managed_settings_text}
+
+上記の設定画面で管理されている項目や、
+その値を変更する依頼は長期記憶として保存しないでください。
+
 保存対象:
-・ユーザーのプロフィール
-・継続的な好み
+・継続的に役立つユーザープロフィール
+・継続的な好みや苦手なもの
 ・家族、友人、ペットなどの関係
 ・重要な生活上の出来事
 ・継続している悩みや目標
@@ -716,15 +825,23 @@ def extract_and_save_long_term_memory(
 保存しないもの:
 ・挨拶
 ・その場限りの質問
-・AIへの指示
 ・一般知識
 ・根拠のない推測
 ・AIの回答内容
+・ユーザー名やニックネームの設定
+・ユーザーへの呼び方や敬称の設定
+・AIの名前や一人称の設定
+・敬語やタメ口などの口調設定
+・応答方針や会話スタイルの設定
+・アバターやカラーテーマなどの画面設定
+・上記の現在設定と同じ内容
+・上記の現在設定を変更する依頼
 
 ルール:
 ・ユーザーが明言した内容だけを抽出してください。
 ・情報を補ったり、原因を推測したりしないでください。
 ・簡潔な1文にしてください。
+・設定画面で管理すべき内容だけなら、必ずNONEを返してください。
 ・保存対象がなければNONEだけを返してください。
 
 ユーザー発言:
@@ -774,6 +891,16 @@ def extract_and_save_long_term_memory(
             and extracted_memory.upper() != "NONE"
             and "NONE" not in extracted_memory.upper()
         ):
+            # 設定画面で管理する内容なら保存しない
+            if is_managed_setting_memory(
+                 extracted_memory
+             ):
+                log_debug(
+                    "設定項目のため長期記憶保存をスキップ: "
+                    f"{extracted_memory}"
+                )
+                return
+
             saved = save_memory(
                 fact=extracted_memory,
                 theme_id=None,
@@ -789,6 +916,11 @@ def extract_and_save_long_term_memory(
                 log_debug(
                     "長期記憶のDB保存に失敗"
                 )
+
+        else:
+            log_debug(
+                "保存対象の長期記憶なし"
+            )
 
     except Exception as e:
         log_debug(
