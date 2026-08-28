@@ -383,7 +383,7 @@ def search_past_logs(current_theme_id, query_text):
 
 def search_similar_memories(
     memory_text: str,
-    threshold: float = 0.88,
+    threshold: float = 0.72,
     match_count: int = 3
 ):
     """
