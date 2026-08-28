@@ -21,15 +21,38 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-# 指定モデル: gemini-3.6-flash
 genai.configure(api_key=GEMINI_API_KEY)
-GEMINI_MODEL_NAME = "gemini-3.6-flash"
-model = genai.GenerativeModel(
-    GEMINI_MODEL_NAME
+# ==========================================
+# Geminiモデル設定
+# ==========================================
+
+CHAT_MODEL_NAME = "gemini-3.6-flash"
+MEMORY_MODEL_NAME = "gemini-3.5-flash-lite"
+SUMMARY_MODEL_NAME = "gemini-3.5-flash-lite"
+
+# 通常チャット用
+chat_model = genai.GenerativeModel(
+    CHAT_MODEL_NAME
 )
-# Gemini 3.6 Flash料金(2026年時点想定)
-PRICE_INPUT_PER_MILLION = 1.50
-PRICE_OUTPUT_PER_MILLION = 7.50
+
+# 長期記憶抽出用
+memory_model = genai.GenerativeModel(
+    MEMORY_MODEL_NAME
+)
+
+# テーマ要約用
+summary_model = genai.GenerativeModel(
+    SUMMARY_MODEL_NAME
+)
+
+# Gemini 3.6 Flash
+CHAT_INPUT_PRICE_PER_MILLION = 1.50
+CHAT_OUTPUT_PRICE_PER_MILLION = 7.50
+
+# Gemini 3.5 Flash-Lite
+LITE_INPUT_PRICE_PER_MILLION = 0.30
+LITE_OUTPUT_PRICE_PER_MILLION = 2.50
+
 USD_TO_JPY = 150
 
 # --- セッション状態の初期化 ---
@@ -582,28 +605,55 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
     【過去ログ】: {formatted_old_text}
     """
     try:
-        # 要約時間計測開始
-        start = time.time()
-        response = model.generate_content(prompt)
-        # 要約時間表示
-        log_debug(
-            f"記憶抽出: {time.time()-start:.2f}秒"
-        )
-    
-        if hasattr(response, "usage_metadata"):
+        log_debug("テーマ要約開始")
 
-            st.session_state.summary_in_tokens += (
+        start = time.time()
+
+        response = summary_model.generate_content(
+            prompt
+        )
+
+        elapsed = time.time() - start
+
+        log_debug(
+            f"テーマ要約完了: {elapsed:.2f}秒"
+        )
+
+        # 要約のトークン数を記録
+        if (
+            hasattr(response, "usage_metadata")
+            and response.usage_metadata
+        ):
+            summary_in = (
                 response.usage_metadata.prompt_token_count
             )
 
-            st.session_state.summary_out_tokens += (
-            response.usage_metadata.candidates_token_count
+            summary_out = (
+                response.usage_metadata.candidates_token_count
             )
+
+            st.session_state.summary_in_tokens += summary_in
+            st.session_state.summary_out_tokens += summary_out
+
+            log_debug(
+                f"要約トークン "
+                f"In={summary_in} Out={summary_out}"
+            )
+
         new_summary = response.text.strip()
-        update_theme_summary(theme_id, new_summary)
+
+        update_theme_summary(
+            theme_id,
+            new_summary
+        )
+
         return new_summary
+
     except Exception as e:
-        print(f"要約更新エラー: {e}")
+        log_debug(
+            f"テーマ要約エラー: {e}"
+        )
+
         return current_summary
 
 def extract_and_save_long_term_memory(
@@ -682,21 +732,41 @@ def extract_and_save_long_term_memory(
 """
 
     try:
-        # 記憶抽出時間計測開始
+        log_debug("長期記憶抽出開始")
+
         start = time.time()
-        response = model.generate_content(prompt)
-        # 記憶抽出時間表示
-        log_debug(
-            f"記憶抽出: {time.time()-start:.2f}秒"
+
+        response = memory_model.generate_content(
+            prompt
         )
 
-        if hasattr(response, "usage_metadata"):
-            st.session_state.memory_in_tokens += (
+        elapsed = time.time() - start
+
+        log_debug(
+            f"長期記憶抽出完了: {elapsed:.2f}秒"
+        )
+
+        # 記憶抽出のトークン数を記録
+        if (
+            hasattr(response, "usage_metadata")
+            and response.usage_metadata
+        ):
+            memory_in = (
                 response.usage_metadata.prompt_token_count
             )
-            st.session_state.memory_out_tokens += (
+
+            memory_out = (
                 response.usage_metadata.candidates_token_count
             )
+
+            st.session_state.memory_in_tokens += memory_in
+            st.session_state.memory_out_tokens += memory_out
+
+            log_debug(
+                f"記憶抽出トークン "
+                f"In={memory_in} Out={memory_out}"
+            )
+
         extracted_memory = response.text.strip()
 
         if (
@@ -704,18 +774,26 @@ def extract_and_save_long_term_memory(
             and extracted_memory.upper() != "NONE"
             and "NONE" not in extracted_memory.upper()
         ):
-            save_memory(
+            saved = save_memory(
                 fact=extracted_memory,
                 theme_id=None,
                 category="AI自動抽出",
                 source="auto"
             )
-            log_debug(
-                f"長期記憶保存: {extracted_memory}"
-            )
+
+            if saved:
+                log_debug(
+                    f"長期記憶保存: {extracted_memory}"
+                )
+            else:
+                log_debug(
+                    "長期記憶のDB保存に失敗"
+                )
 
     except Exception as e:
-        print(f"長期記憶抽出エラー: {e}")
+        log_debug(
+            f"長期記憶抽出エラー: {e}"
+        )
         
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
@@ -822,43 +900,107 @@ def render_token_info():
             + st.session_state.memory_out_tokens
             + st.session_state.summary_out_tokens
         )
-        cost_usd = (
-            (total_in / 1_000_000) * PRICE_INPUT_PER_MILLION
+        chat_cost_usd = (
+            (
+                st.session_state.chat_in_tokens
+                / 1_000_000
+            )
+            * CHAT_INPUT_PRICE_PER_MILLION
             +
-            (total_out / 1_000_000) * PRICE_OUTPUT_PER_MILLION
+            (
+                st.session_state.chat_out_tokens
+                / 1_000_000
+            )
+            * CHAT_OUTPUT_PRICE_PER_MILLION
         )
 
-        cost_jpy = cost_usd * USD_TO_JPY
+        memory_cost_usd = (
+            (
+                st.session_state.memory_in_tokens
+                / 1_000_000
+            )
+            * LITE_INPUT_PRICE_PER_MILLION
+            +
+            (
+                st.session_state.memory_out_tokens
+                / 1_000_000
+            )
+            * LITE_OUTPUT_PRICE_PER_MILLION
+        )
+
+        summary_cost_usd = (
+            (
+                st.session_state.summary_in_tokens
+                / 1_000_000
+            )
+            * LITE_INPUT_PRICE_PER_MILLION
+            +
+            (
+                st.session_state.summary_out_tokens
+                / 1_000_000
+            )
+            * LITE_OUTPUT_PRICE_PER_MILLION
+        )
+
+        total_cost_usd = (
+            chat_cost_usd
+            + memory_cost_usd
+            + summary_cost_usd
+        )
+
+        chat_cost_jpy = chat_cost_usd * USD_TO_JPY
+        memory_cost_jpy = memory_cost_usd * USD_TO_JPY
+        summary_cost_jpy = summary_cost_usd * USD_TO_JPY
+        total_cost_jpy = total_cost_usd * USD_TO_JPY
+
+        st.divider()
 
         st.divider()
 
         st.text(f"総入力 : {total_in:,}")
         st.text(f"総出力 : {total_out:,}")
-        st.text(
-            f"推定コスト : {cost_jpy:.4f}円"
-        )
-        avg_cost = 0
 
-        if st.session_state.conversation_count > 0:
-            avg_cost = (
-                cost_jpy /
-                st.session_state.conversation_count
-            )
         st.text(
-            f"会話回数 : {st.session_state.conversation_count}"
+            f"チャット費用 : {chat_cost_jpy:.4f}円"
         )
 
         st.text(
-            f"平均コスト : ¥{avg_cost:.5f}/回"
+            f"記憶抽出費用 : {memory_cost_jpy:.4f}円"
         )
 
-# トークン表示
-render_token_info()
+        st.text(
+            f"要約費用 : {summary_cost_jpy:.4f}円"
+        )
 
-with st.sidebar.expander(
-    "🛠 開発者ログ",
-    expanded=False
-):
+        st.text(
+            f"推定総コスト : {total_cost_jpy:.4f}円"
+        )
+
+        conversation_count = (
+            st.session_state.conversation_count
+        )
+
+        avg_cost_jpy = (
+            total_cost_jpy / conversation_count
+            if conversation_count > 0
+            else 0
+        )
+
+        st.text(
+            f"会話回数 : {conversation_count:,}"
+        )
+
+        st.text(
+            f"平均コスト : {avg_cost_jpy:.4f}円/回"
+        )
+
+        # トークン表示
+        render_token_info()
+
+        with st.sidebar.expander(
+            "🛠 開発者ログ",
+            expanded=False
+        ):
 
     if "debug_logs" in st.session_state and st.session_state.debug_logs:
         for log in reversed(
@@ -1009,7 +1151,7 @@ else:
 
     theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
     st.title(theme_title)
-    st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【{GEMINI_MODEL_NAME}】")
+    st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【{CHAT_MODEL_NAME}】")
 
     all_messages = get_messages(current_theme_id)
 
@@ -1152,7 +1294,9 @@ else:
                     )
                     # チャット応答計測開始
                     start = time.time()
-                    response = model.generate_content(contents_for_gemini)
+                    response = chat_model.generate_content(
+                        contents_for_gemini
+                    )
                     # チャット応答計測表示
                     log_debug(
                         f"チャットGemini回答: {time.time()-start:.2f}秒"
