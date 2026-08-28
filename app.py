@@ -1387,6 +1387,10 @@ else:
         log_debug(
             f"長期記憶件数: {len(auto_facts)}"
         )
+        for idx, memory in enumerate(auto_facts, start=1):
+            log_debug(
+            f"長期記憶[{idx}] {memory}"
+        )
 
         # システム指示に関連情報を組み込む！
         system_instruction = f"""
