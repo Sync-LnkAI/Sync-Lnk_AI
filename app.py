@@ -331,7 +331,7 @@ def get_embedding(
         # 404エラーを回避するため、モデル名と引数の構造をGoogle最新仕様にガチッと固定します
         response = genai.embed_content(
             model="text-embedding-004",  # models/ を外した形
-            contents=text.strip(),       # contents (複数形) に統一
+            content=text.strip(),       # contents (複数形) に統一
             task_type=formatted_task_type
         )
 
