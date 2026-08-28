@@ -372,7 +372,77 @@ def search_past_logs(current_theme_id, query_text):
         # エラー処理（ターミナル出力にする場合は下のコメントアウトを外してね）
         print(f"⚠️ 過去ログ検索エラー: {e}")
         return []
-    
+
+def search_similar_memories(
+    memory_text: str,
+    threshold: float = 0.88,
+    match_count: int = 3
+):
+    """
+    新しい記憶と意味が近い既存の長期記憶を検索する。
+
+    threshold:
+        0.88以上を類似候補とする。
+        誤判定が多ければ0.90～0.93へ上げる。
+        重複を見逃す場合は0.84～0.87へ下げる。
+    """
+    if not memory_text or not memory_text.strip():
+        return []
+
+    try:
+        query_embedding = get_embedding(
+            memory_text,
+            task_type="retrieval_query"
+        )
+
+        if not query_embedding:
+            log_debug(
+                "類似記憶検索用Embeddingを生成できませんでした"
+            )
+            return []
+
+        response = supabase.rpc(
+            "match_user_memories",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": threshold,
+                "match_count": match_count,
+                "filter_user_id": CURRENT_USER_ID
+            }
+        ).execute()
+
+        results = (
+            response.data
+            if response.data
+            else []
+        )
+
+        log_debug(
+            f"類似記憶検索結果: {len(results)}件"
+        )
+
+        for result in results:
+            similarity = float(
+                result.get("similarity", 0)
+            )
+
+            fact = result.get(
+                "fact",
+                ""
+            )
+
+            log_debug(
+                f"類似度={similarity:.3f} | {fact}"
+            )
+
+        return results
+
+    except Exception as e:
+        log_debug(
+            f"類似記憶検索エラー: {e}"
+        )
+        return []
+
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
 # ==========================================
@@ -909,16 +979,74 @@ def extract_and_save_long_term_memory(
             and extracted_memory.upper() != "NONE"
             and "NONE" not in extracted_memory.upper()
         ):
-            # 設定画面で管理する内容なら保存しない
+            log_debug(
+                f"長期記憶抽出結果: {extracted_memory}"
+            )
+
+            # 1. ユーザー設定で管理する内容は保存しない
             if is_managed_setting_memory(
-                 extracted_memory
-             ):
+                extracted_memory
+            ):
                 log_debug(
                     "設定項目のため長期記憶保存をスキップ: "
                     f"{extracted_memory}"
                 )
                 return
 
+            # 2. 完全一致を先に確認
+            existing_memories = get_memories(
+                theme_id=None,
+                source="auto"
+            )
+
+            exact_duplicate = next(
+                (
+                    memory
+                    for memory in existing_memories
+                    if memory.get("fact", "").strip()
+                    == extracted_memory.strip()
+                ),
+                None
+            )
+
+            if exact_duplicate:
+                log_debug(
+                    "完全一致する長期記憶があるため保存をスキップ: "
+                    f"{exact_duplicate.get('fact', '')}"
+                )
+                return
+
+            # 3. 意味的に近い既存記憶を検索
+            similar_memories = search_similar_memories(
+                memory_text=extracted_memory,
+                threshold=0.88,
+                match_count=3
+            )
+
+            if similar_memories:
+                most_similar = similar_memories[0]
+
+                existing_fact = most_similar.get(
+                    "fact",
+                    ""
+                )
+
+                similarity = float(
+                    most_similar.get(
+                        "similarity",
+                        0
+                    )
+                )
+
+                log_debug(
+                    "類似する長期記憶があるため保存をスキップ: "
+                    f"類似度={similarity:.3f} | "
+                    f"既存={existing_fact} | "
+                    f"新規={extracted_memory}"
+                )
+                return
+
+            # 4. 重複がなければ新規保存
             saved = save_memory(
                 fact=extracted_memory,
                 theme_id=None,
