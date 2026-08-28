@@ -1126,8 +1126,8 @@ def render_token_info():
             f"平均コスト : {avg_cost_jpy:.4f}円/回"
         )
 
-        # トークン表示
-        render_token_info()
+# トークン表示
+render_token_info()
 
 with st.sidebar.expander(
     "🛠 開発者ログ",
