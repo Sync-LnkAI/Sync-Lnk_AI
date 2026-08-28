@@ -322,7 +322,7 @@ def get_embedding(
 
     try:
         response = genai.embed_content(
-            model="models/text-embedding-004",
+            model="text-embedding-004",
             content=text.strip(),
             task_type=task_type
         )
