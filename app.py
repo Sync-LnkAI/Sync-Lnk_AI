@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import re
 import time
 import json
-import　pytz
+import pytz
 
 # ==========================================
 # ⚙️ 設定・初期化
