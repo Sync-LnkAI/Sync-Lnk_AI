@@ -955,18 +955,10 @@ def extract_and_save_long_term_memory(
         # 【あなたの環境への適合】3. Embeddingによる類似記憶検索
         # ==================================================================
         # ※ 検索（クエリ）なので task_type="retrieval_query" を明示的に指定します
-        extracted_embedding = get_embedding(extracted_memory, task_type="retrieval_query")
-        
-        if not extracted_embedding:
-            log_debug("類似記憶検索用Embeddingを生成できませんでした（Noneが返されました）")
-            return
-
-        # 既存より低めの閾値(0.72)で「意味の近い記憶」を1件だけ拾い上げて比較検証に回す
-        # ※ search_similar_memories関数が内部でRPCを叩く想定
         similar_memories = search_similar_memories(
             memory_text=extracted_memory,
-            threshold=0.72, 
-            match_count=1
+            threshold=0.88,
+            match_count=3
         )
 
         if similar_memories:
