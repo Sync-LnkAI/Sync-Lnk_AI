@@ -858,6 +858,14 @@ def extract_and_save_long_term_memory(
         )
 
         elapsed = time.time() - start
+        if not any(
+            keyword in cleaned_text
+            for keyword in memory_keywords    
+        ):
+            log_debug(
+                "記憶抽出対象外のためスキップ"
+            )
+            return
 
         log_debug(
             f"長期記憶抽出完了: {elapsed:.2f}秒"
@@ -880,7 +888,7 @@ def extract_and_save_long_term_memory(
             st.session_state.memory_out_tokens += memory_out
 
             log_debug(
-                f"記憶抽出トークン "
+                f"長期記憶抽出トークン "
                 f"In={memory_in} Out={memory_out}"
             )
 
@@ -1010,7 +1018,7 @@ def render_token_info():
         )
 
         st.write(
-            f"🧠 記憶抽出\n"
+            f"🧠 長期記憶抽出\n"
             f"In: {st.session_state.memory_in_tokens:,}\n"
             f"Out: {st.session_state.memory_out_tokens:,}"
         )
@@ -1097,7 +1105,7 @@ def render_token_info():
         )
 
         st.text(
-            f"記憶抽出費用 : {memory_cost_jpy:.4f}円"
+            f"長期記憶抽出費用 : {memory_cost_jpy:.4f}円"
         )
 
         st.text(
