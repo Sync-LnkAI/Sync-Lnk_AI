@@ -202,7 +202,7 @@ def save_message(
     try:
         embedding_data = get_embedding(
             content,
-            task_type="retrieval_document"
+            task_type="RETRIEVAL_DOCUMENT"
         )
 
         data = {
@@ -271,7 +271,7 @@ def save_memory(
     try:
         embedding_data = get_embedding(
             fact,
-            task_type="retrieval_document"
+            task_type="RETRIEVAL_DOCUMENT"
         )
 
         data = {
@@ -314,7 +314,7 @@ def delete_memory(memory_id: int) -> bool:
 # テキストをベクトル（数値配列）に変換する関数
 def get_embedding(
     text: str,
-    task_type: str = "retrieval_document"
+    task_type: str = "RETRIEVAL_DOCUMENT"
 ):
     """Embedding生成。保存時と検索時でtask_typeを分ける。"""
     if not text or not text.strip():
@@ -346,7 +346,7 @@ def search_past_logs(current_theme_id, query_text):
         # クエリテキストをベクトル化
         query_embedding = get_embedding(
             query_text,
-            task_type="retrieval_query"
+            task_type="RETRIEVAL_QUERY"
         )
         
         if not query_embedding:
@@ -392,7 +392,7 @@ def search_similar_memories(
     try:
         query_embedding = get_embedding(
             memory_text,
-            task_type="retrieval_query"
+            task_type="RETRIEVAL_QUERY"
         )
 
         log_debug(
@@ -402,12 +402,7 @@ def search_similar_memories(
         log_debug(
             f"Embedding存在: {query_embedding is not None}"
         )
-
-        query_embedding = get_embedding(
-            memory_text,
-            task_type="retrieval_query"
-        )
-
+        
         if not query_embedding:
             log_debug(
                 "類似記憶検索用Embeddingを生成できませんでした"
