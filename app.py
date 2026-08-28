@@ -857,41 +857,19 @@ def extract_and_save_long_term_memory(
         return
 
     ignore_words = {
-        "ありがとう",
-        "ありがとう！",
-        "了解",
-        "了解です",
-        "うん",
-        "そうなんだ",
-        "はい",
-        "わかった"
+        "ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうなんだ", "はい", "わかった"
     }
 
     if cleaned_text in ignore_words:
         return
 
     memory_keywords = [
-        "好き",
-        "嫌い",
-        "飼っている",
-        "飼い始めた",
-        "始めた",
-        "引っ越し",
-        "転職",
-        "家族",
-        "友人",
-        "目標",
-        "悩み",
-        "趣味"
+        "好き", "嫌い", "飼っている", "飼い始めた", "始めた", "引っ越し", 
+        "転職", "家族", "友人", "目標", "悩み", "趣味"
     ]
 
-    if not any(
-        keyword in cleaned_text
-        for keyword in memory_keywords
-    ):
-        log_debug(
-            "記憶候補キーワードなし。抽出をスキップ"
-        )
+    if not any(keyword in cleaned_text for keyword in memory_keywords):
+        log_debug("記憶候補キーワードなし。抽出をスキップ")
         return
 
     managed_settings_text = get_managed_settings_text()
@@ -916,19 +894,11 @@ def extract_and_save_long_term_memory(
 ・最近始まった生活上の変化
 
 保存しないもの:
-・挨拶
-・その場限りの質問
-・一般知識
-・根拠のない推測
-・AIの回答内容
-・ユーザー名やニックネームの設定
-・ユーザーへの呼び方や敬称の設定
-・AIの名前や一人称の設定
-・敬語やタメ口などの口調設定
-・応答方針や会話スタイルの設定
-・アバターやカラーテーマなどの画面設定
-・上記の現在設定と同じ内容
-・上記の現在設定を変更する依頼
+・挨拶 / その場限りの質問 / 一般知識 / 根拠のない推測 / AIの回答内容
+・ユーザー名やニックネームの設定 / ユーザーへの呼び方や敬称の設定
+・AIの名前や一人称の設定 / 敬語やタメ口などの口調設定
+・応答方針や会話スタイルの設定 / アバターやカラーテーマなどの画面設定
+・上記の現在設定と同じ内容 / 上記の現在設定を変更する依頼
 
 ルール:
 ・ユーザーが明言した内容だけを抽出してください。
@@ -943,172 +913,153 @@ def extract_and_save_long_term_memory(
 
     try:
         log_debug("長期記憶抽出開始")
-
         start = time.time()
-
-        response = memory_model.generate_content(
-            prompt
-        )
-
+        response = memory_model.generate_content(prompt)
         elapsed = time.time() - start
-        if not any(
-            keyword in cleaned_text
-            for keyword in memory_keywords    
-        ):
-            log_debug(
-                "記憶抽出対象外のためスキップ"
-            )
-            return
 
-        log_debug(
-            f"長期記憶抽出完了: {elapsed:.2f}秒"
-        )
+        log_debug(f"長期記憶抽出完了: {elapsed:.2f}秒")
 
-        # 記憶抽出のトークン数を記録
-        if (
-            hasattr(response, "usage_metadata")
-            and response.usage_metadata
-        ):
-            memory_in = (
-                response.usage_metadata.prompt_token_count
-            )
-
-            memory_out = (
-                response.usage_metadata.candidates_token_count
-            )
-
+        # トークン数の記録
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            memory_in = response.usage_metadata.prompt_token_count
+            memory_out = response.usage_metadata.candidates_token_count
             st.session_state.memory_in_tokens += memory_in
             st.session_state.memory_out_tokens += memory_out
-
-            log_debug(
-                f"長期記憶抽出トークン "
-                f"In={memory_in} Out={memory_out}"
-            )
+            log_debug(f"長期記憶抽出トークン In={memory_in} Out={memory_out}")
 
         extracted_memory = response.text.strip()
 
-        if (
-            extracted_memory
-            and extracted_memory.upper() != "NONE"
-            and "NONE" not in extracted_memory.upper()
-        ):
-            log_debug(
-                f"長期記憶抽出結果: {extracted_memory}"
-            )
+        # NONE 判定
+        if not extracted_memory or "NONE" in extracted_memory.upper():
+            log_debug("保存対象の長期記憶なし")
+            return
 
-            # 1. ユーザー設定で管理する内容は保存しない
-            if is_managed_setting_memory(
-                extracted_memory
-            ):
-                log_debug(
-                    "設定項目のため長期記憶保存をスキップ: "
-                    f"{extracted_memory}"
+        log_debug(f"長期記憶抽出結果: {extracted_memory}")
+
+        # 1. 設定管理対象のチェック
+        if is_managed_setting_memory(extracted_memory):
+            log_debug(f"設定項目のため長期記憶保存をスキップ: {extracted_memory}")
+            return
+
+        # 2. 完全一致チェック（DB負荷軽減のためローカルで確認）
+        existing_memories = get_memories(theme_id=None, source="auto")
+        exact_duplicate = next(
+            (m for m in existing_memories if m.get("fact", "").strip() == extracted_memory),
+            None
+        )
+        if exact_duplicate:
+            log_debug(f"完全一致する長期記憶があるため保存をスキップ: {extracted_memory}")
+            return
+
+        # ==================================================================
+        # 【あなたの環境への適合】3. Embeddingによる類似記憶検索
+        # ==================================================================
+        # ※ 検索（クエリ）なので task_type="retrieval_query" を明示的に指定します
+        extracted_embedding = get_embedding(extracted_memory, task_type="retrieval_query")
+        
+        if not extracted_embedding:
+            log_debug("類似記憶検索用Embeddingを生成できませんでした（Noneが返されました）")
+            return
+
+        # 既存より低めの閾値(0.72)で「意味の近い記憶」を1件だけ拾い上げて比較検証に回す
+        # ※ search_similar_memories関数が内部でRPCを叩く想定
+        similar_memories = search_similar_memories(
+            memory_text=extracted_memory,
+            threshold=0.72, 
+            match_count=1
+        )
+
+        if similar_memories:
+            most_similar = similar_memories[0] # 1件目を取得
+            existing_id = most_similar.get("id")
+            existing_fact = most_similar.get("fact", "").strip()
+            similarity = float(most_similar.get("similarity", 0))
+
+            log_debug(f"類似記憶検知 (類似度: {similarity:.3f}): 「{existing_fact}」")
+
+            # Gemini 3.5 Flash-Lite にコンテキスト判定（3択）をさせる
+            judge_prompt = f"""
+            あなたはユーザーの記憶データベースを整理するマネージャーです。
+            「既存の記憶」と、新しく抽出された「新しい記憶」を比較し、適切なアクションを1つ選択してください。
+
+            【既存の記憶】: {existing_fact}
+            【新しい記憶】: {extracted_memory}
+
+            【選択肢】
+            - SKIP: 新しい記憶が、既存の記憶と重複しているか、既存の記憶の方が詳細な情報を含んでいる場合。
+            - UPDATE: 新しい記憶によって、既存の記憶の内容が上書き・変更（修正）されるべき場合（情報が更新されたり矛盾する場合）。
+            - MERGE: どちらも新しい情報を含んでおり、2つの事実を1つの自然な文章に統合・補完すべき場合。
+
+            【出力フォーマット】
+            必ず以下のJSONオブジェクトのみで返答してください。余計な説明、挨拶、マークダウン(```)などは一切含めないでください。
+            {{"action": "SKIP" | "UPDATE" | "MERGE", "final_fact": "UPDATEまたはMERGEの場合に、新しく保存すべき統合・更新された文章（SKIPの場合は空欄）"}}
+            """
+
+            try:
+                judge_response = memory_model.generate_content(
+                    judge_prompt,
+                    generation_config={"response_mime_type": "application/json"}
                 )
+                
+                # トークン集計（記憶抽出用の枠に加算）
+                if hasattr(judge_response, "usage_metadata") and judge_response.usage_metadata:
+                    st.session_state.memory_in_tokens += judge_response.usage_metadata.prompt_token_count
+                    st.session_state.memory_out_tokens += judge_response.usage_metadata.candidates_token_count
+
+                result = json.loads(judge_response.text.strip())
+                action = result.get("action")
+                final_fact = result.get("final_fact", "").strip()
+
+            except Exception as e:
+                log_debug(f"Geminiによる記憶更新判定、またはJSONパースに失敗: {e}")
                 return
 
-            # 2. 完全一致を先に確認
-            existing_memories = get_memories(
-                theme_id=None,
-                source="auto"
-            )
-
-            exact_duplicate = next(
-                (
-                    memory
-                    for memory in existing_memories
-                    if memory.get("fact", "").strip()
-                    == extracted_memory.strip()
-                ),
-                None
-            )
-
-            if exact_duplicate:
-                log_debug(
-                    "完全一致する長期記憶があるため保存をスキップ: "
-                    f"{exact_duplicate.get('fact', '')}"
-                )
-                return
-            
-            # 部分一致チェック
-            for memory in existing_memories:
-
-                existing_fact = (
-                    memory.get("fact", "")
-                    .strip()
-                )
-
-                # 新規記憶が既存記憶に含まれる
-                if extracted_memory in existing_fact:
-
-                    log_debug(
-                        "既存記憶の方が詳細なため保存をスキップ: "
-                        f"{existing_fact}"
-                 )
-
+            # アクションごとの分岐処理
+            if action == "SKIP":
+                log_debug(f"長期記憶保存スキップ (判定: SKIP)")
                 return
 
-            if existing_fact in extracted_memory:
-
-                log_debug(
-                "より詳細な記憶候補を検出"
-            )
-    
-            # 3. 意味的に近い既存記憶を検索
-            similar_memories = search_similar_memories(
-                memory_text=extracted_memory,
-                threshold=0.88,
-                match_count=3
-            )
-
-            if similar_memories:
-                most_similar = similar_memories[0]
-
-                existing_fact = most_similar.get(
-                    "fact",
-                    ""
-                )
-
-                similarity = float(
-                    most_similar.get(
-                        "similarity",
-                        0
-                    )
-                )
-
-                log_debug(
-                    "類似する長期記憶があるため保存をスキップ: "
-                    f"類似度={similarity:.3f} | "
-                    f"既存={existing_fact} | "
-                    f"新規={extracted_memory}"
-                )
+            elif action == "UPDATE":
+                try:
+                    # 【適合】保存（ドキュメント）用なので task_type="retrieval_document" でベクトルを生成
+                    new_embedding = get_embedding(final_fact, task_type="retrieval_document")
+                    supabase.table("user_memories").update({
+                        "fact": final_fact,
+                        "embedding": new_embedding
+                    }).eq("id", existing_id).execute()
+                    log_debug(f"長期記憶を上書き更新しました (判定: UPDATE): 「{final_fact}」")
+                except Exception as db_err:
+                    log_debug(f"長期記憶の更新に失敗: {db_err}")
                 return
 
-            # 4. 重複がなければ新規保存
-            saved = save_memory(
-                fact=extracted_memory,
-                theme_id=None,
-                category="AI自動抽出",
-                source="auto"
-            )
+            elif action == "MERGE":
+                try:
+                    # 【適合】保存用なので task_type="retrieval_document" でベクトルを生成
+                    new_embedding = get_embedding(final_fact, task_type="retrieval_document")
+                    supabase.table("user_memories").update({
+                        "fact": final_fact,
+                        "embedding": new_embedding
+                    }).eq("id", existing_id).execute()
+                    log_debug(f"長期記憶を1つに統合しました (判定: MERGE): 「{final_fact}」")
+                except Exception as db_err:
+                    log_debug(f"長期記憶の統合に失敗: {db_err}")
+                return
 
-            if saved:
-                log_debug(
-                    f"長期記憶保存: {extracted_memory}"
-                )
-            else:
-                log_debug(
-                    "長期記憶のDB保存に失敗"
-                )
+        # 4. 類似記憶が全くなかった場合は、通常の新規保存
+        saved = save_memory(
+            fact=extracted_memory,
+            theme_id=None,
+            category="AI自動抽出",
+            source="auto"
+        )
 
+        if saved:
+            log_debug(f"新しい長期記憶を保存: {extracted_memory}")
         else:
-            log_debug(
-                "保存対象の長期記憶なし"
-            )
+            log_debug("長期記憶のDB保存に失敗")
 
     except Exception as e:
-        log_debug(
-            f"長期記憶抽出エラー: {e}"
-        )
+        log_debug(f"長期記憶抽出エラー: {e}")
         
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
