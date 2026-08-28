@@ -314,29 +314,37 @@ def delete_memory(memory_id: int) -> bool:
 # テキストをベクトル（数値配列）に変換する関数
 def get_embedding(
     text: str,
-    task_type: str = "RETRIEVAL_DOCUMENT"
+    task_type: str = "RETRIEVAL_DOCUMENT"  # デフォルトを大文字の正式名称にします
 ):
     """Embedding生成。保存時と検索時でtask_typeを分ける。"""
     if not text or not text.strip():
         return None
 
     try:
+        # 引数で渡された文字を強制的に大文字に変換 (Googleの最新仕様に適合させます)
+        formatted_task_type = task_type.upper()
+        if formatted_task_type == "RETRIEVAL_QUERY":
+            formatted_task_type = "RETRIEVAL_QUERY"
+        elif formatted_task_type == "RETRIEVAL_DOCUMENT":
+            formatted_task_type = "RETRIEVAL_DOCUMENT"
+
+        # 404エラーを回避するため、モデル名と引数の構造をGoogle最新仕様にガチッと固定します
         response = genai.embed_content(
-            model="text-embedding-004",
-            content=text.strip(),
-            task_type=task_type
+            model="text-embedding-004",  # models/ を外した形
+            contents=text.strip(),       # contents (複数形) に統一
+            task_type=formatted_task_type
         )
 
         embedding = response.get("embedding")
 
         if not embedding:
-            print("Embeddingが空でした")
+            log_debug("Embeddingが空でした")
             return None
 
         return embedding
 
     except Exception as e:
-        # Embedding取得に失敗してもアプリを止めずNoneを返す
+        # 何か問題が起きた場合は、バグの原因をログに残します
         log_debug(f"⚠️ 大元のget_embedding内でエラーが発生しました: {e}")
         return None
 
