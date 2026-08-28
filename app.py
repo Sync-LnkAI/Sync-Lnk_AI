@@ -3,6 +3,7 @@ import google.generativeai as genai
 from supabase import create_client, Client
 import re
 import time
+import json
 
 # ==========================================
 # ⚙️ 設定・初期化
