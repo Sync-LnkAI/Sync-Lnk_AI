@@ -395,6 +395,19 @@ def search_similar_memories(
             task_type="retrieval_query"
         )
 
+        log_debug(
+            f"Embedding型: {type(query_embedding)}"
+        )
+
+        log_debug(
+            f"Embedding存在: {query_embedding is not None}"
+        )
+
+        query_embedding = get_embedding(
+            memory_text,
+            task_type="retrieval_query"
+        )
+
         if not query_embedding:
             log_debug(
                 "類似記憶検索用Embeddingを生成できませんでした"
@@ -1015,7 +1028,31 @@ def extract_and_save_long_term_memory(
                     f"{exact_duplicate.get('fact', '')}"
                 )
                 return
+            
+            # 部分一致チェック
+            for memory in existing_memories:
 
+                existing_fact = (
+                    memory.get("fact", "")
+                    .strip()
+                )
+
+                # 新規記憶が既存記憶に含まれる
+                if extracted_memory in existing_fact:
+
+                    log_debug(
+                        "既存記憶の方が詳細なため保存をスキップ: "
+                        f"{existing_fact}"
+                 )
+
+                return
+
+            if existing_fact in extracted_memory:
+
+                log_debug(
+                "より詳細な記憶候補を検出"
+            )
+    
             # 3. 意味的に近い既存記憶を検索
             similar_memories = search_similar_memories(
                 memory_text=extracted_memory,
