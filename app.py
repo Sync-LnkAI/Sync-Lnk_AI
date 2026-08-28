@@ -390,9 +390,9 @@ def search_similar_memories(
     新しい記憶と意味が近い既存の長期記憶を検索する。
 
     threshold:
-        0.88以上を類似候補とする。
+        0.72以上を類似候補とする。
         誤判定が多ければ0.90～0.93へ上げる。
-        重複を見逃す場合は0.84～0.87へ下げる。
+        重複を見逃す場合は0.60～0.65へ下げる。
     """
     if not memory_text or not memory_text.strip():
         return []
@@ -960,7 +960,7 @@ def extract_and_save_long_term_memory(
         # ※ 検索（クエリ）なので task_type="retrieval_query" を明示的に指定します
         similar_memories = search_similar_memories(
             memory_text=extracted_memory,
-            threshold=0.88,
+            threshold=0.72,
             match_count=3
         )
 
