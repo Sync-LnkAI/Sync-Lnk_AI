@@ -997,10 +997,10 @@ def render_token_info():
         # トークン表示
         render_token_info()
 
-        with st.sidebar.expander(
-            "🛠 開発者ログ",
-            expanded=False
-        ):
+    with st.sidebar.expander(
+        "🛠 開発者ログ",
+        expanded=False
+    ):
 
     if "debug_logs" in st.session_state and st.session_state.debug_logs:
         for log in reversed(
