@@ -964,8 +964,9 @@ def extract_and_save_long_term_memory(
             match_count=3
         )
 
-        if similar_memories:
-            most_similar = similar_memories[0] # 1件目を取得
+        if similar_memories and len(similar_memories) > 0:
+            # 💡 リストの1件目（一番似ている記憶）を正確に指定して取得します
+            most_similar = similar_memories[0] 
             existing_id = most_similar.get("id")
             existing_fact = most_similar.get("fact", "").strip()
             similarity = float(most_similar.get("similarity", 0))
