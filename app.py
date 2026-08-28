@@ -4,6 +4,9 @@ from supabase import create_client, Client
 import re
 import time
 import json
+from datetime import datetime, timezone, timedelta
+# 日本時間（UTC+9時間）
+JST = timezone(timedelta(hours=9))
 
 # ==========================================
 # ⚙️ 設定・初期化
@@ -1117,9 +1120,7 @@ def log_debug(message):
     if "debug_logs" not in st.session_state:
         st.session_state.debug_logs = []
 
-    # 標準機能で日本時間（UTC+9時間）
-    jst = timezone(timedelta(hours=9))
-    timestamp = datetime.now(jst).strftime("%H:%M:%S")
+    timestamp = datetime.now(JST).strftime("%H:%M:%S")
 
     st.session_state.debug_logs.append(
         f"[{timestamp}] {message}"
