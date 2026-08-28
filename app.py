@@ -337,7 +337,7 @@ def get_embedding(
 
     except Exception as e:
         # Embedding取得に失敗してもアプリを止めずNoneを返す
-        print(f"Embedding生成スキップ: {e}")
+        log_debug(f"⚠️ 大元のget_embedding内でエラーが発生しました: {e}")
         return None
 
 # ベクトル検索（RAG）を行う関数
