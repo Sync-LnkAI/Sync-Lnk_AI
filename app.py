@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import re
 import time
 import json
+import　pytz
 
 # ==========================================
 # ⚙️ 設定・初期化
@@ -1057,7 +1058,8 @@ def extract_and_save_long_term_memory(
 
     except Exception as e:
         log_debug(f"長期記憶抽出エラー: {e}")
-        
+    st.rerun() 
+    
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
 # ==========================================
@@ -1116,7 +1118,9 @@ def log_debug(message):
     if "debug_logs" not in st.session_state:
         st.session_state.debug_logs = []
 
-    timestamp = datetime.now().strftime("%H:%M:%S")
+    # 日本のタイムゾーンを指定
+    jst = pytz.timezone('Asia/Tokyo')
+    timestamp = datetime.now(jst).strftime("%H:%M:%S")
 
     st.session_state.debug_logs.append(
         f"[{timestamp}] {message}"
