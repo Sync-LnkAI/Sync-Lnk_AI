@@ -1025,6 +1025,7 @@ def extract_and_save_long_term_memory(
 
 保存しないもの:
 ・挨拶 / その場限りの質問 / 一般知識 / 根拠のない推測 / AIの回答内容
+・数日〜数週間程度で解決・終了する一時的なステータスやイベント（例：夏休みの宿題、テスト勉強、風邪をひいている、今週末の旅行の予定など）
 ・ユーザー名やニックネームの設定 / ユーザーへの呼び方や敬称の設定
 ・AIの名前や一人称の設定 / 敬語やタメ口などの口調設定
 ・応答方針や会話スタイルの設定 / アバターやカラーテーマなどの画面設定
@@ -1176,20 +1177,19 @@ def extract_and_save_long_term_memory(
         log_debug(f"長期記憶抽出エラー: {e}")
 
 # ==========================================
-# 📊 永久コストメーター用 データベース関数
+# 📊 永久コストメーター用 データベース関数（完全決定版）
 # ==========================================
 
 def load_permanent_tokens(user_id: str):
     """DBからユーザーの全期間の累計トークン数を読み込んでセッションに同期する"""
     try:
-        # 一旦セッションを0リセット（データがまだない初期状態のため）
         for feature in ["chat", "memory", "summary"]:
             st.session_state[f"{feature}_in_tokens"] = 0
             st.session_state[f"{feature}_out_tokens"] = 0
             
-        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).execute()
+        # 💡【修正】str(user_id) で型を完全に固定して確実に取得
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).execute()
         
-        # 💡【修正点】res.dataが空でなく、リストの中にデータが存在する場合のみ、0番目を取得
         if res.data and len(res.data) > 0:
             for row in res.data:
                 f_type = row.get("feature_type")
@@ -1197,32 +1197,28 @@ def load_permanent_tokens(user_id: str):
                     st.session_state[f"{f_type}_in_tokens"] = row.get("in_tokens", 0)
                     st.session_state[f"{f_type}_out_tokens"] = row.get("out_tokens", 0)
     except Exception as e:
-        # 💡【強化】クラッシュさせず、エラーをログに残して安全にスルーする
-        log_debug(f"⚠️ 永久トークン読み込みスキップ（初期利用など）: {e}")
+        log_debug(f"⚠️ 永久トークン読み込みスキップ: {e}")
 
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
     """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
     try:
-        # 現在の該当行をDBから取得
+        # 💡【修正】2重加算を防ぐため、ここの最初の += 処理は完全に撤去し、DBの値を基準に計算します
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
         
         if res.data and len(res.data) > 0:
-            current_row = res.data[0]
+            current_row = res.data[0] # 💡[0]を確実に指定
             new_in = int(current_row.get("in_tokens", 0)) + in_t
             new_out = int(current_row.get("out_tokens", 0)) + out_t
             
-            # DBをアップデート
             supabase.table("user_token_stats").update({
                 "in_tokens": new_in,
                 "out_tokens": new_out,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", current_row["id"]).execute()
             
-            # 💡【完全修正】画面のセッション状態には、2重に足し算（+=）せず、最新の合計値をそのままセット（=）します
             st.session_state[f"{feature_type}_in_tokens"] = new_in
             st.session_state[f"{feature_type}_out_tokens"] = new_out
         else:
-            # 新規挿入
             supabase.table("user_token_stats").insert({
                 "user_id": str(user_id),
                 "feature_type": feature_type,
@@ -1230,7 +1226,6 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
                 "out_tokens": out_t
             }).execute()
             
-            # 💡 初回はそのまま代入
             st.session_state[f"{feature_type}_in_tokens"] = in_t
             st.session_state[f"{feature_type}_out_tokens"] = out_t
             
@@ -1238,9 +1233,11 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行をすべて削除し、セッションを初期化"""
+    """手動リセット：DBのトークン行を完全に消去し、セッションも初期化"""
     try:
-        supabase.table("user_token_stats").delete().eq("user_id", user_id).execute()
+        # 💡【最重要修正】str(user_id) にして、Supabaseのデータを「空振り」させずに根こそぎ完全物理削除します！
+        supabase.table("user_token_stats").delete().eq("user_id", str(user_id)).execute()
+        
         for feature in ["chat", "memory", "summary"]:
             st.session_state[f"{feature}_in_tokens"] = 0
             st.session_state[f"{feature}_out_tokens"] = 0
