@@ -520,7 +520,6 @@ def search_similar_memories(
 def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     """
     ユーザーの利用制限（1分3通、1日20通）をチェックし、問題なければカウントを更新する。
-    戻り値: (判定結果[True/False], エラーまたは案内メッセージ)
     """
     try:
         now = datetime.now(timezone.utc)
@@ -537,7 +536,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             }).execute()
             return True, ""
             
-        # 💡【完全修正】リストの0番目（先頭の辞書データ）を正確に指定して取得
+        # 💡 リストの0番目を正確に指定して取得
         usage = res.data[0]
         last_chat_at = datetime.fromisoformat(usage["last_chat_at"])
         daily_chat_count = usage["daily_chat_count"]
@@ -555,7 +554,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             
         # 【防壁2】 1日20通制限
         if daily_chat_count >= DAILY_LIMIT:
-            return False, "今日の会話上限（20通）に達したよ。大切な思い出はちゃんと覚えているから、また明日お話ししようね！"
+            return False, "今日の会話上限（20通）に達したよ。また明日お話ししようね！"
             
         # 2. 制限をクリアしたため、DBのカウントを更新
         supabase.table("user_usage_limits").update({
@@ -566,10 +565,12 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         return True, ""
         
     except Exception as e:
-        # 💡【強化】万が一何かが起きても、大元の通信エラー内容を「開発者ログ」に絶対に書き残す
-        log_debug(f"⚠️ ガードレール内部エラー: {e}")
-        return False, "システムの接続が不安定みたい。少し時間を置いて試してみてね。"
-
+        # 💡【完全修正】万が一ここでエラーが起きても、絶対に画面をフリーズさせずに「本物の原因」を記録する
+        try:
+            log_debug(f"⚠️ ガードレール内部エラー: {e}")
+        except Exception:
+            pass
+        return False, f"システムの接続が不安定みたい。エラー詳細: {str(e)[:50]}" # 👈 原因を画面に少しだけ露出させて確実に特定できるようにします
 
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
@@ -1305,20 +1306,19 @@ token_container = st.sidebar.empty()  # ←★後から中身をリアルタイ�
 from datetime import datetime
 
 def log_debug(message):
-    if "debug_logs" not in st.session_state:
-        st.session_state.debug_logs = []
+    # 💡【完全修正】st.session_state が初期化される前でも、絶対にクラッシュさせない安全弁
+    if st.session_state is not None:
+        if "debug_logs" not in st.session_state:
+            st.session_state["debug_logs"] = []
+            
+        from datetime import datetime
+        timestamp = datetime.now(JST).strftime("%H:%M:%S")
+        st.session_state["debug_logs"].append(f"[{timestamp}] {message}")
 
-    timestamp = datetime.now(JST).strftime("%H:%M:%S")
-
-    st.session_state.debug_logs.append(
-        f"[{timestamp}] {message}"
-    )
-
-    # 最大100件だけ保持
-    if len(st.session_state.debug_logs) > 100:
-        st.session_state.debug_logs = (
-            st.session_state.debug_logs[-100:]
-        )
+        # 最大100件だけ保持
+        if len(st.session_state["debug_logs"]) > 100:
+            st.session_state["debug_logs"] = st.session_state["debug_logs"][-100:]
+    print(message) # 念のためサーバーの標準出力（ターミナル）にもログを出しておく
 
 # トークン表示を更新する関数
 def render_token_info():
