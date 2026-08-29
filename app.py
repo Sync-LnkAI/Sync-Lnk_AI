@@ -961,14 +961,14 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
 def extract_and_save_long_term_memory(user_text: str, theme_id: int):
     cleaned_text = user_text.strip()
 
-    if len(cleaned_text) < 5: # 足切りを少し優しく
+    if len(cleaned_text) < 5:
         return
 
-    ignore_words = {"ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうなんだ", "はい", "わかった"}
+    ignore_words = {"ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうんだ", "はい", "わかった"}
     if cleaned_text in ignore_words:
         return
 
-    # 💡【修正】「宿題」や「終わった」という日常の変化も、足切りで弾かずに100%拾い上げるようにキーワードを拡張！
+    # 💡【完全修正】「宿題」や「実は」という日常のボヤキを足切りで弾かないようにキーワードを拡張！
     memory_keywords = [
         "好き", "嫌い", "飼っている", "飼い始めた", "始めた", "引っ越し", "転職", "家族", "友人", "目標", "悩み", "趣味",
         "名前", "年齢", "ペット", "仕事", "勉強", "テニス", "息子", "娘", "宿題", "終わった", "完了", "治った", "実は"
@@ -980,7 +980,7 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
     managed_settings_text = get_managed_settings_text()
     
     # 💡【大元プロンプトの超強化】
-    # AIに対し、「一時的な状況の解決（宿題完了など）が来たら、そのキーワード自体を消去した普遍的なライフデータを抽出せよ」と1手目で厳命します！
+    # 既存の長期記憶にある「一時的な状況（宿題など）」が解決、または状況が変わったという報告を1手目で確実に拾わせます
     prompt = f"""
 次のユーザー発言から、今後の会話で役立つユーザー自身についての事実を1文で抽出してください。
 
@@ -988,15 +988,15 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 {managed_settings_text}
 
 ★【最重要：一時的なワードの自動消去・クレンジングルール】
-ユーザーはあなたとの日常の雑談をしています。「宿題が終わった」「風邪が治った」のように、
-既存の長期記憶にある一時的な状況や課題が【解決・終了・クリア】したという報告があった場合は、
-その「宿題」や「風邪」といった【期間限定のノイズワード自体を完全に消去・除去】し、
+ユーザーはあなたとの日常の雑談をしています。「宿題が終わった」「宿題が実はまだだった」のように、
+既存の長期記憶にある一時的な状況や課題が変化・解決したという報告があった場合は、
+その「宿題」といった【期間限定のノイズワード自体を完全に消去・除去】し、
 今後何年も残すべき純粋な普遍的ファクト（例：趣味はテニス、息子と一緒にやっているなど）だけが残るように美しい1文に精製して抽出してください。
 ユーザーから明示的に『消して』と言われていなくても、文脈から自動でノイズワードを抹消すること。
 
 保存対象：
 ・継続的に役立つ普遍的なユーザープロフィール、好み、家族関係、趣味
-・既存の記憶にある一時的な問題（宿題など）が解決した結果、ノイズが消去された純粋な普遍的事実
+・既存の記憶にある一時的な問題（宿題など）が変化・解決した結果、ノイズが消去された純粋な普遍的事実
 
 ルール：
 ・簡潔な1文にしてください。
@@ -1011,9 +1011,10 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         response = memory_model.generate_content(prompt)
         extracted_memory = response.text.strip()
 
+        # 💡【修正】NONEで関数が途中で終わる場合も、必ず画面をリフレッシュ（st.rerun）してチャットを動かします！
         if not extracted_memory or "NONE" in extracted_memory.upper():
             log_debug("保存対象の長期記憶なし")
-            st.rerun() # NONE時も画面を動かす
+            st.rerun()
             return
 
         log_debug(f"長期記憶抽出結果: {extracted_memory}")
@@ -1038,7 +1039,7 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
             log_debug(f"類似記憶検知 (類似度: {similarity:.3f}): 「{existing_fact}」")
 
             # 💡【判定プロンプトの超強化】
-            # ここでも「宿題が終わった」などの解決報告が来たら、既存のテキストからそのノイズを跡形もなく消去せよと指示します
+            # ここでも「宿題」に関する日常のラリーを検知した場合、既存のテキストからそのノイズを跡形もなく消去せよと指示します
             judge_prompt = f"""
             あなたはユーザーの記憶データベースを整理するマネージャーです。
             「既存の記憶」と、新しく抽出された「新しい記憶」を比較し、適切なアクション（SKIP / UPDATE / MERGE）を1つ選択してください。
@@ -1046,7 +1047,7 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
             【既存の記憶】: {existing_fact}
             【新しい記憶】: {extracted_memory}
 
-            ★【一時的ワードの自動消去・クレンジング命令】
+            ★【一時前ワードの自動消去・クレンジング命令】
             「宿題が終わった」「宿題が実はまだだった」という日常のラリーを検知した場合、
             既存の記憶から「宿題」という【期間限定のノイズワードやその状態の記述自体を跡形もなく完全に消去・除去】してください。
             テニスなどの趣味や家族関係といった、今後何年も残すべき普遍的ライフデータだけが残るように美しい1文に精製してfinal_factに出力してください。
@@ -1054,7 +1055,7 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 
             【出力フォーマット】
             必ず以下のJSONオブジェクトのみで返答してください。
-            {{"action": "UPDATE", "final_fact": "宿題などの一時的なワードを完全に消去し、普遍的な事実（例：趣味はテニスで、息子と一緒にやっている……）だけに精製した文章"}}
+            {{"action": "UPDATE", "final_fact": "宿題などの一時的なワードを完全に消去し、普遍的な事実（例：趣味はテニスで、息子と一緒にやっている。最近は毎週土日の午後にテニスを行っている。）だけに精製した文章"}}
             """
 
             try:
@@ -1100,7 +1101,6 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         
     except Exception as e:
         log_debug(f"長期記憶抽出エラー: {e}")
-    st.rerun()
 
 # ==========================================
 # 📊 永久コストメーター用 データベース関数（完全決定版）
@@ -1754,5 +1754,15 @@ else:
                 st.rerun()
 
 if "tokens_loaded" not in st.session_state:
+    # 1. 永久トークン数をDBから復元
     load_permanent_tokens(CURRENT_USER_ID)
+    
+    # 2. 会話回数（履歴の総数）をDBから正確に復元して0に戻るのを防止
+    try:
+        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).execute()
+        # メッセージ総数の半分（ユーザーの発言回数＝往復数）を会話回数とする
+        st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
+    except Exception:
+        st.session_state.conversation_count = 0
+        
     st.session_state.tokens_loaded = True
