@@ -896,7 +896,7 @@ section[data-testid="stSidebar"] {{
 def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
     # 古いログが5件以上溜まっていないなら要約しない（無駄呼び出し防止）
     old_messages_count = len(all_messages) - MAX_CONTEXT_MESSAGES
-    if old_messages_count < 5: 
+    if old_messages_count < 15: 
         return current_summary
 
     # 5件以上溜まったら要約を実行...
@@ -1065,6 +1065,8 @@ def extract_and_save_long_term_memory(
         # NONE 判定
         if not extracted_memory or "NONE" in extracted_memory.upper():
             log_debug("保存対象の長期記憶なし")
+            # 💡【完全修正】関数が途中で終わる場合も、必ず画面をリフレッシュしてチャットを動かします！
+            st.rerun() 
             return
 
         log_debug(f"長期記憶抽出結果: {extracted_memory}")
@@ -1072,16 +1074,6 @@ def extract_and_save_long_term_memory(
         # 1. 設定管理対象のチェック
         if is_managed_setting_memory(extracted_memory):
             log_debug(f"設定項目のため長期記憶保存をスキップ: {extracted_memory}")
-            return
-
-        # 2. 完全一致チェック（DB負荷軽減のためローカルで確認）
-        existing_memories = get_memories(theme_id=None, source="auto")
-        exact_duplicate = next(
-            (m for m in existing_memories if m.get("fact", "").strip() == extracted_memory),
-            None
-        )
-        if exact_duplicate:
-            log_debug(f"完全一致する長期記憶があるため保存をスキップ: {extracted_memory}")
             return
 
         # ==================================================================
