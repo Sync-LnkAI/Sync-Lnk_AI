@@ -1451,7 +1451,7 @@ def render_token_info():
 
         # ─── 🛠️ 手動リセットボタンの追加 ───
         st.markdown("---")
-        if st.button("🔄 コストメーターをリセット", key="reset_token_btn", help="これまでの累計消費トークン数とコスト表示を0にクリアします。"):
+        if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="これまでの累計消費トークン数とコスト表示を0にクリアします。"):
             reset_permanent_tokens(CURRENT_USER_ID)
             st.toast("トークン消費カウンターをリセットしたよ！")
             st.rerun()
