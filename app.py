@@ -1101,7 +1101,7 @@ def extract_and_save_long_term_memory(
 
             【選択肢】
             - SKIP: 新しい記憶が、既存の記憶と重複しているか、既存の記憶の方が詳細な情報を含んでいる場合。
-            - UPDATE: 新しい記憶によって、既存の記憶の内容が上書き・変更（修正）されるべき場合（情報が更新されたり矛盾する場合）。
+            - UPDATE: 新しい記憶によって、既存の記憶の内容が上書き・変更（修正）されるべき場合（情報が更新されたり矛盾する場合や「終わっていない」が「終わった」に変わるなど、既存の記憶の一部に明確な事実の変化や修正・矛盾が含まれる場合。既存の情報がどれだけ詳細であっても、最新の事実を優先して上書きしてください。）。
             - MERGE: どちらも新しい情報を含んでおり、2つの事実を1つの自然な文章に統合・補完すべき場合。
 
             【出力フォーマット】
@@ -1203,27 +1203,36 @@ def load_permanent_tokens(user_id: str):
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
     """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
     try:
-        # 💡【修正点】万が一DB通信で詰まっても、画面上のメーターだけは絶対に即時リアルタイム加算する！
-        if f"{feature_type}_in_tokens" in st.session_state:
-            st.session_state[f"{feature_type}_in_tokens"] += in_t
-            st.session_state[f"{feature_type}_out_tokens"] += out_t
-
+        # 現在の該当行をDBから取得
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
         
         if res.data and len(res.data) > 0:
             current_row = res.data[0]
+            new_in = int(current_row.get("in_tokens", 0)) + in_t
+            new_out = int(current_row.get("out_tokens", 0)) + out_t
+            
+            # DBをアップデート
             supabase.table("user_token_stats").update({
-                "in_tokens": int(current_row.get("in_tokens", 0)) + in_t,
-                "out_tokens": int(current_row.get("out_tokens", 0)) + out_t,
+                "in_tokens": new_in,
+                "out_tokens": new_out,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", current_row["id"]).execute()
+            
+            # 💡【完全修正】画面のセッション状態には、2重に足し算（+=）せず、最新の合計値をそのままセット（=）します
+            st.session_state[f"{feature_type}_in_tokens"] = new_in
+            st.session_state[f"{feature_type}_out_tokens"] = new_out
         else:
+            # 新規挿入
             supabase.table("user_token_stats").insert({
-                "user_id": str(user_id), # 💡 明示的に型を固定
+                "user_id": str(user_id),
                 "feature_type": feature_type,
                 "in_tokens": in_t,
                 "out_tokens": out_t
             }).execute()
+            
+            # 💡 初回はそのまま代入
+            st.session_state[f"{feature_type}_in_tokens"] = in_t
+            st.session_state[f"{feature_type}_out_tokens"] = out_t
             
     except Exception as e:
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
