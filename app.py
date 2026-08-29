@@ -1418,7 +1418,7 @@ if app_mode == "📁 テーマ管理":
             if new_name:
                 add_theme(new_name, new_icon)
                 st.success(f"テーマ「{new_name}」を作成しました！")
-                # st.rerun()
+                st.rerun()
 
     st.divider()
 
@@ -1766,4 +1766,4 @@ else:
                 # --------------------------------------------------
                 st.session_state.conversation_count += 1
 
-                # st.rerun()
+                st.rerun()
