@@ -514,44 +514,46 @@ def search_similar_memories(
         return []
 
 # ==========================================
-# 🛡️ コスト・利用制限（ガードレール）関数（新規追加）
+# 🛡️ コスト・利用制限（ガードレール）関数
 # ==========================================
 
 def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     """
     ユーザーの利用制限（1分3通、1日20通）をチェックし、問題なければカウントを更新する。
+    戻り値: (判定結果[True/False], エラーまたは案内メッセージ)
     """
     try:
         now = datetime.now(timezone.utc)
         
-        # 1. 現在の利用状況を取得。データがなければ新規作成
+        # 1. 現在の利用状況を取得
         res = supabase.table("user_usage_limits").select("*").eq("user_id", user_id).execute()
         
-        if not res.data:
+        # データがまだない新規ユーザーの場合は、初期レコードを作成して安全に通す
+        if not res.data or len(res.data) == 0:
             supabase.table("user_usage_limits").insert({
                 "user_id": user_id,
-                "daily_chat_count": 1, # 初回発言なので1カウント
+                "daily_chat_count": 1,
                 "last_chat_at": now.isoformat()
             }).execute()
             return True, ""
             
-        usage = res.data[0] # single()の代わりに対象配列の先頭を取得
+        # 💡【完全修正】リストの0番目（先頭の辞書データ）を正確に指定して取得
+        usage = res.data[0]
         last_chat_at = datetime.fromisoformat(usage["last_chat_at"])
         daily_chat_count = usage["daily_chat_count"]
         
-        # 【ガードレール1】 1分3通制限（20秒以内の連投ブロック）
+        # 【防壁1】 1分3通制限（20秒以内の連投ブロック）
         if now - last_chat_at < timedelta(seconds=BURST_LIMIT_SECONDS):
             return False, "少し時間を空けてから、もう一度話しかけてね。ゆっくりお話ししよう。"
             
-        # 💡【重要】お互いのタイムスタンプをJST（日本時間）に変換して日付を比較
+        # 日本時間に変換して日付を正確に比較
         now_jst = now.astimezone(JST)
         last_chat_jst = last_chat_at.astimezone(JST)
         
-        # 日付が変わっていたらカウントをリセット（必要なら `and now_jst.hour >= 4` などでAM4時リセットにも変更可能）
         if now_jst.date() > last_chat_jst.date():
             daily_chat_count = 0
             
-        # 【ガードレール2】 1日20通制限
+        # 【防壁2】 1日20通制限
         if daily_chat_count >= DAILY_LIMIT:
             return False, "今日の会話上限（20通）に達したよ。大切な思い出はちゃんと覚えているから、また明日お話ししようね！"
             
@@ -564,10 +566,10 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         return True, ""
         
     except Exception as e:
-        # st.session_state.error_logs 等に安全に記録
-        if "error_logs" in st.session_state:
-            st.session_state.error_logs.append(f"制限チェックエラー: {e}")
+        # 💡【強化】万が一何かが起きても、大元の通信エラー内容を「開発者ログ」に絶対に書き残す
+        log_debug(f"⚠️ ガードレール内部エラー: {e}")
         return False, "システムの接続が不安定みたい。少し時間を置いて試してみてね。"
+
 
 # ==========================================
 # 🧠 記憶保存値の読み込み設定
