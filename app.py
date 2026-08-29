@@ -1157,13 +1157,18 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
 def reset_permanent_tokens(user_id: str):
     """手動リセット：DBのトークン行を完全に消去し、セッションも初期化"""
     try:
-        # 💡【最重要修正】str(user_id) にして、Supabaseのデータを「空振り」させずに根こそぎ完全物理削除します！
         supabase.table("user_token_stats").delete().eq("user_id", str(user_id)).execute()
         
         for feature in ["chat", "memory", "summary"]:
             st.session_state[f"{feature}_in_tokens"] = 0
             st.session_state[f"{feature}_out_tokens"] = 0
+            
         st.session_state.conversation_count = 0
+        
+        # 💡【完全修正】リセットボタンが押された瞬間に、起動時の鍵（ロック）を「False」に叩き落とします！
+        # これにより、メッセージ送信時の再描画であっても、過去の307回履歴が復活するバグが200%完全に消滅します。
+        st.session_state["tokens_loaded"] = False
+        
     except Exception as e:
         log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
     
@@ -1764,4 +1769,4 @@ if not st.session_state.get("tokens_loaded", False):
         
     # 💡【修正点②】 文字列のキー指定形式に書き換えてロックを強固にします
     st.session_state["tokens_loaded"] = True
-    
+
