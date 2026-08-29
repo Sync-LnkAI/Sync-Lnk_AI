@@ -84,6 +84,9 @@ if "total_in_tokens" not in st.session_state:
     st.session_state.total_in_tokens = 0
 if "total_out_tokens" not in st.session_state:
     st.session_state.total_out_tokens = 0
+if "tokens_loaded" not in st.session_state:
+    load_permanent_tokens(CURRENT_USER_ID)
+    st.session_state.tokens_loaded = True
 
 # チャット
 if "chat_in_tokens" not in st.session_state:
@@ -936,8 +939,7 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
                 response.usage_metadata.candidates_token_count
             )
 
-            st.session_state.summary_in_tokens += summary_in
-            st.session_state.summary_out_tokens += summary_out
+            add_permanent_tokens(CURRENT_USER_ID, "summary", summary_in, summary_out)
 
             log_debug(
                 f"要約トークン "
@@ -1055,8 +1057,7 @@ def extract_and_save_long_term_memory(
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             memory_in = response.usage_metadata.prompt_token_count
             memory_out = response.usage_metadata.candidates_token_count
-            st.session_state.memory_in_tokens += memory_in
-            st.session_state.memory_out_tokens += memory_out
+            add_permanent_tokens(CURRENT_USER_ID, "memory", memory_in, memory_out)
             log_debug(f"長期記憶抽出トークン In={memory_in} Out={memory_out}")
 
         extracted_memory = response.text.strip()
@@ -1185,7 +1186,67 @@ def extract_and_save_long_term_memory(
 
     except Exception as e:
         log_debug(f"長期記憶抽出エラー: {e}")
-# st.rerun() 
+
+# ==========================================
+# 📊 永久コストメーター用 データベース関数
+# ==========================================
+
+def load_permanent_tokens(user_id: str):
+    """DBからユーザーの全期間の累計トークン数を読み込んでセッションに同期する"""
+    try:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).execute()
+        
+        # 一旦セッションを0リセット（データがない場合のため）
+        for feature in ["chat", "memory", "summary"]:
+            st.session_state[f"{feature}_in_tokens"] = 0
+            st.session_state[f"{feature}_out_tokens"] = 0
+            
+        if res.data:
+            for row in res.data:
+                f_type = row["feature_type"]
+                st.session_state[f"{f_type}_in_tokens"] = row["in_tokens"]
+                st.session_state[f"{f_type}_out_tokens"] = row["out_tokens"]
+    except Exception as e:
+        print(f"永久トークン読み込みエラー: {e}")
+
+def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
+    """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
+    try:
+        # PostgreSQLの「UPSERT (ON CONFLICT)」構文を使用して、行がなければ挿入、あれば加算する
+        # ※ supabase-pyのrpcを使わず、生の入れ込みを擬似的に行うため、一度selectしてupdate/insertを分岐します
+        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).eq("feature_type", feature_type).execute()
+        
+        if res.data:
+            current_row = res.data[0]
+            supabase.table("user_token_stats").update({
+                "in_tokens": current_row["in_tokens"] + in_t,
+                "out_tokens": current_row["out_tokens"] + out_t,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", current_row["id"]).execute()
+        else:
+            supabase.table("user_token_stats").insert({
+                "user_id": user_id,
+                "feature_type": feature_type,
+                "in_tokens": in_t,
+                "out_tokens": out_t
+            }).execute()
+            
+        # 画面上のローカルセッション状態にも加算
+        st.session_state[f"{feature_type}_in_tokens"] += in_t
+        st.session_state[f"{feature_type}_out_tokens"] += out_t
+    except Exception as e:
+        print(f"永久トークン加算エラー: {e}")
+
+def reset_permanent_tokens(user_id: str):
+    """手動リセット：DBのトークン行をすべて0に更新し、会話回数もリセットする"""
+    try:
+        supabase.table("user_token_stats").delete().eq("user_id", user_id).execute()
+        for feature in ["chat", "memory", "summary"]:
+            st.session_state[f"{feature}_in_tokens"] = 0
+            st.session_state[f"{feature}_out_tokens"] = 0
+        st.session_state.conversation_count = 0
+    except Exception as e:
+        print(f"永久トークンリセットエラー: {e}")
     
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
@@ -1385,6 +1446,13 @@ def render_token_info():
         st.text(
             f"平均コスト : {avg_cost_jpy:.4f}円/回"
         )
+
+        # ─── 🛠️ 手動リセットボタンの追加 ───
+        st.markdown("---")
+        if st.button("🔄 コストメーターをリセット", key="reset_token_btn", help="これまでの累計消費トークン数とコスト表示を0にクリアします。"):
+            reset_permanent_tokens(CURRENT_USER_ID)
+            st.toast("トークン消費カウンターをリセットしたよ！")
+            st.rerun()
 
 # トークン表示
 render_token_info()
@@ -1731,8 +1799,7 @@ else:
                                 log_debug(
                                     f"チャットトークン In={in_t} Out={out_t}"
                                 )
-                                st.session_state.chat_in_tokens += in_t
-                                st.session_state.chat_out_tokens += out_t
+                                add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
 
                                 st.session_state.last_in_tokens = in_t
                                 st.session_state.last_out_tokens = out_t
