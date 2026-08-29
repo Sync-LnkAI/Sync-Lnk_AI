@@ -1191,33 +1191,35 @@ def extract_and_save_long_term_memory(
 def load_permanent_tokens(user_id: str):
     """DBからユーザーの全期間の累計トークン数を読み込んでセッションに同期する"""
     try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).execute()
-        
-        # 一旦セッションを0リセット（データがない場合のため）
+        # 一旦セッションを0リセット（データがまだない初期状態のため）
         for feature in ["chat", "memory", "summary"]:
             st.session_state[f"{feature}_in_tokens"] = 0
             st.session_state[f"{feature}_out_tokens"] = 0
             
-        if res.data:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).execute()
+        
+        # 💡【修正点】res.dataが空でなく、リストの中にデータが存在する場合のみ、0番目を取得
+        if res.data and len(res.data) > 0:
             for row in res.data:
-                f_type = row["feature_type"]
-                st.session_state[f"{f_type}_in_tokens"] = row["in_tokens"]
-                st.session_state[f"{f_type}_out_tokens"] = row["out_tokens"]
+                f_type = row.get("feature_type")
+                if f_type in ["chat", "memory", "summary"]:
+                    st.session_state[f"{f_type}_in_tokens"] = row.get("in_tokens", 0)
+                    st.session_state[f"{f_type}_out_tokens"] = row.get("out_tokens", 0)
     except Exception as e:
-        print(f"永久トークン読み込みエラー: {e}")
+        # 💡【強化】クラッシュさせず、エラーをログに残して安全にスルーする
+        log_debug(f"⚠️ 永久トークン読み込みスキップ（初期利用など）: {e}")
 
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
     """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
     try:
-        # PostgreSQLの「UPSERT (ON CONFLICT)」構文を使用して、行がなければ挿入、あれば加算する
-        # ※ supabase-pyのrpcを使わず、生の入れ込みを擬似的に行うため、一度selectしてupdate/insertを分岐します
         res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).eq("feature_type", feature_type).execute()
         
-        if res.data:
+        # 💡【修正点】リストの[0]番目から安全に既存行のデータを取得
+        if res.data and len(res.data) > 0:
             current_row = res.data[0]
             supabase.table("user_token_stats").update({
-                "in_tokens": current_row["in_tokens"] + in_t,
-                "out_tokens": current_row["out_tokens"] + out_t,
+                "in_tokens": int(current_row.get("in_tokens", 0)) + in_t,
+                "out_tokens": int(current_row.get("out_tokens", 0)) + out_t,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", current_row["id"]).execute()
         else:
@@ -1228,14 +1230,15 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
                 "out_tokens": out_t
             }).execute()
             
-        # 画面上のローカルセッション状態にも加算
-        st.session_state[f"{feature_type}_in_tokens"] += in_t
-        st.session_state[f"{feature_type}_out_tokens"] += out_t
+        # 画面上のローカルセッション状態にもリアルタイム加算
+        if f"{feature_type}_in_tokens" in st.session_state:
+            st.session_state[f"{feature_type}_in_tokens"] += in_t
+            st.session_state[f"{feature_type}_out_tokens"] += out_t
     except Exception as e:
-        print(f"永久トークン加算エラー: {e}")
+        log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行をすべて0に更新し、会話回数もリセットする"""
+    """手動リセット：DBのトークン行をすべて削除し、セッションを初期化"""
     try:
         supabase.table("user_token_stats").delete().eq("user_id", user_id).execute()
         for feature in ["chat", "memory", "summary"]:
@@ -1243,7 +1246,7 @@ def reset_permanent_tokens(user_id: str):
             st.session_state[f"{feature}_out_tokens"] = 0
         st.session_state.conversation_count = 0
     except Exception as e:
-        print(f"永久トークンリセットエラー: {e}")
+        log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
     
 # ==========================================
 # 🖥️ サイドバー & 画面ナビゲーション
