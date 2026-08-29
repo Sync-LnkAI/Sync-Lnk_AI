@@ -1753,16 +1753,15 @@ else:
                 # 全ての裏側処理が安全に終わったので画面を再描画
                 st.rerun()
 
-if "tokens_loaded" not in st.session_state:
-    # 1. 永久トークン数をDBから復元
+if not st.session_state.get("tokens_loaded", False):
     load_permanent_tokens(CURRENT_USER_ID)
     
-    # 2. 会話回数（履歴の総数）をDBから正確に復元して0に戻るのを防止
     try:
         msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).execute()
-        # メッセージ総数の半分（ユーザーの発言回数＝往復数）を会話回数とする
         st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
     except Exception:
         st.session_state.conversation_count = 0
         
-    st.session_state.tokens_loaded = True
+    # 💡【修正点②】 文字列のキー指定形式に書き換えてロックを強固にします
+    st.session_state["tokens_loaded"] = True
+    
