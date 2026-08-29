@@ -1215,9 +1215,13 @@ def load_permanent_tokens(user_id: str):
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
     """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
     try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", user_id).eq("feature_type", feature_type).execute()
+        # 💡【修正点】万が一DB通信で詰まっても、画面上のメーターだけは絶対に即時リアルタイム加算する！
+        if f"{feature_type}_in_tokens" in st.session_state:
+            st.session_state[f"{feature_type}_in_tokens"] += in_t
+            st.session_state[f"{feature_type}_out_tokens"] += out_t
+
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
         
-        # 💡【修正点】リストの[0]番目から安全に既存行のデータを取得
         if res.data and len(res.data) > 0:
             current_row = res.data[0]
             supabase.table("user_token_stats").update({
@@ -1227,16 +1231,12 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
             }).eq("id", current_row["id"]).execute()
         else:
             supabase.table("user_token_stats").insert({
-                "user_id": user_id,
+                "user_id": str(user_id), # 💡 明示的に型を固定
                 "feature_type": feature_type,
                 "in_tokens": in_t,
                 "out_tokens": out_t
             }).execute()
             
-        # 画面上のローカルセッション状態にもリアルタイム加算
-        if f"{feature_type}_in_tokens" in st.session_state:
-            st.session_state[f"{feature_type}_in_tokens"] += in_t
-            st.session_state[f"{feature_type}_out_tokens"] += out_t
     except Exception as e:
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
@@ -1812,7 +1812,6 @@ else:
                             # ▲▲▲ ここまで ▲▲▲
                             
                             ai_reply = response.text
-                            st.session_state.conversation_count += 1
                             clean_reply = clean_bold_markdown(ai_reply)
                             st.write(f"【{current_concierge_name}】: {clean_reply}")
                             save_message(current_theme_id, "assistant", ai_reply)
@@ -1829,11 +1828,6 @@ else:
                 # ③ 非同期風に裏で要約更新・記憶抽出を実行
                 check_and_summarize_history(current_theme_id, all_messages, current_summary)
                 extract_and_save_long_term_memory(user_input, current_theme_id)
-
-                # --------------------------------------------------
-                # 📊 会話カウンターを1増やす（サイドバーのゼロ除算エラー防止）
-                # --------------------------------------------------
-                st.session_state.conversation_count += 1
 
                 st.rerun()
 
