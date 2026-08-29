@@ -899,10 +899,6 @@ def check_and_summarize_history(theme_id: int, all_messages: list, current_summa
     if old_messages_count < 15: 
         return current_summary
 
-    # 5件以上溜まったら要約を実行...
-    if len(all_messages) <= MAX_CONTEXT_MESSAGES:
-        return current_summary
-
     old_messages = all_messages[:-MAX_CONTEXT_MESSAGES]
     formatted_old_text = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
 
