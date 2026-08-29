@@ -84,9 +84,6 @@ if "total_in_tokens" not in st.session_state:
     st.session_state.total_in_tokens = 0
 if "total_out_tokens" not in st.session_state:
     st.session_state.total_out_tokens = 0
-if "tokens_loaded" not in st.session_state:
-    load_permanent_tokens(CURRENT_USER_ID)
-    st.session_state.tokens_loaded = True
 
 # チャット
 if "chat_in_tokens" not in st.session_state:
@@ -1834,3 +1831,7 @@ else:
                 st.session_state.conversation_count += 1
 
                 st.rerun()
+
+if "tokens_loaded" not in st.session_state:
+    load_permanent_tokens(CURRENT_USER_ID)
+    st.session_state.tokens_loaded = True
