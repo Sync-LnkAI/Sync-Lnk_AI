@@ -1821,6 +1821,12 @@ else:
                 check_and_summarize_history(current_theme_id, all_messages, current_summary)
                 extract_and_save_long_term_memory(user_input, current_theme_id)
 
+                # --------------------------------------------------
+                # 📊 【完全修正】会話カウンターを「ここでだけ」1増やす
+                # --------------------------------------------------
+                st.session_state.conversation_count += 1
+
+                # 全ての裏側処理が安全に終わったので画面を再描画
                 st.rerun()
 
 if "tokens_loaded" not in st.session_state:
