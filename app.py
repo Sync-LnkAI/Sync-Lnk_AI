@@ -1022,6 +1022,7 @@ def extract_and_save_long_term_memory(
 ・重要な生活上の出来事
 ・継続している悩みや目標
 ・最近始まった生活上の変化
+・既存の長期記憶にある「一時的な状況（宿題、体調不良、プロジェクト等）」が【解決・終了・クリアした】という新しい事実の報告
 
 保存しないもの:
 ・挨拶 / その場限りの質問 / 一般知識 / 根拠のない推測 / AIの回答内容
@@ -1209,22 +1210,21 @@ def load_permanent_tokens(user_id: str):
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
     """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
     try:
-        # 💡【修正】2重加算を防ぐため、ここの最初の += 処理は完全に撤去し、DBの値を基準に計算します
+        # 💡【画面メーターの修正】画面上のセッションには、純粋に今回の1通分の消費数（in_t）だけをシンプルに足し算します。
+        # これにより、リセット後に1発目で過去の累計が合算されて2.6円に化けるバグが200%完全に消滅します！
+        if f"{feature_type}_in_tokens" in st.session_state:
+            st.session_state[f"{feature_type}_in_tokens"] += in_t
+            st.session_state[f"{feature_type}_out_tokens"] += out_t
+
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
         
         if res.data and len(res.data) > 0:
-            current_row = res.data[0] # 💡[0]を確実に指定
-            new_in = int(current_row.get("in_tokens", 0)) + in_t
-            new_out = int(current_row.get("out_tokens", 0)) + out_t
-            
+            current_row = res.data[0] # 💡 0番目を指定
             supabase.table("user_token_stats").update({
-                "in_tokens": new_in,
-                "out_tokens": new_out,
+                "in_tokens": int(current_row.get("in_tokens", 0)) + in_t,
+                "out_tokens": int(current_row.get("out_tokens", 0)) + out_t,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("id", current_row["id"]).execute()
-            
-            st.session_state[f"{feature_type}_in_tokens"] = new_in
-            st.session_state[f"{feature_type}_out_tokens"] = new_out
         else:
             supabase.table("user_token_stats").insert({
                 "user_id": str(user_id),
@@ -1232,9 +1232,6 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
                 "in_tokens": in_t,
                 "out_tokens": out_t
             }).execute()
-            
-            st.session_state[f"{feature_type}_in_tokens"] = in_t
-            st.session_state[f"{feature_type}_out_tokens"] = out_t
             
     except Exception as e:
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
@@ -1827,7 +1824,7 @@ else:
                 render_token_info()
                 
                 # ③ 非同期風に裏で要約更新・記憶抽出を実行
-                check_and_summarize_history(current_theme_id, all_messages, current_summary)
+                check_and_summarize_history(current_theme_id, recent_messages, current_summary)
                 extract_and_save_long_term_memory(user_input, current_theme_id)
 
                 # --------------------------------------------------
