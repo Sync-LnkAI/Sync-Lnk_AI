@@ -1838,3 +1838,4 @@ else:
 if "tokens_loaded" not in st.session_state:
     load_permanent_tokens(CURRENT_USER_ID)
     st.session_state.tokens_loaded = True
+    
