@@ -1082,6 +1082,12 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
                 return
 
             elif action in ["UPDATE", "MERGE"]:
+                # 新しく精製された文章が、既存の記憶と「完全に同じ」なら書き込みもAPI消費もその場でスキップ
+                if final_fact.strip() == existing_fact.strip():
+                    log_debug(f"修正後の文章が既存の記憶と同じため、無駄な書き込みをスキップします (判定: SKIP)")
+                    st.rerun()
+                    return
+                
                 try:
                     new_embedding = get_embedding(final_fact, task_type="retrieval_document")
                     supabase.table("user_memories").update({
@@ -1155,18 +1161,25 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行を完全に消去し、セッションも初期化"""
+    """手動リセット：DBのトークン行を完全に消去し、セッションも完全に初期化"""
     try:
+        # 1. Supabaseの古いトークンデータを物理削除
         supabase.table("user_token_stats").delete().eq("user_id", str(user_id)).execute()
         
+        # 💡【完全修正】画面上のセッションの中に残っている古い大きな数字を、1つずつ丁寧にすべて「0」で上書き消去します！
+        # これにより、裏方関数が古い累計データを拾ってDBに勝手に復元するバグが200%完全に消滅します。
         for feature in ["chat", "memory", "summary"]:
             st.session_state[f"{feature}_in_tokens"] = 0
             st.session_state[f"{feature}_out_tokens"] = 0
             
+        # 画面の一時計算用フラグもすべて0リセット
+        st.session_state["total_in_tokens"] = 0
+        st.session_state["total_out_tokens"] = 0
+        st.session_state["last_in_tokens"] = 0
+        st.session_state["last_out_tokens"] = 0
+        
         st.session_state.conversation_count = 0
         st.session_state["tokens_loaded"] = False
-        
-        # 💡【新規追加】リセットボタンが押された「今の日本時間」をスタンプとして永久保存します！
         st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
         
         st.toast("トークン消費カウンターをリセットしたよ！")
