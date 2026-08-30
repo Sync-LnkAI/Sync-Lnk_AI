@@ -1229,7 +1229,6 @@ def log_debug(message):
     print(message) # 念のためサーバーの標準出力（ターミナル）にもログを出しておく
 
 # トークン表示を更新する関数
-# トークン表示を更新する関数
 def render_token_info():
     """
     サイドバーに現在の全期間・リアルタイムのトークン消費状況と、
@@ -1298,10 +1297,10 @@ def render_token_info():
             st.toast("トークン消費カウンターをリセットしたよ！")
             st.rerun()
 
-    with st.sidebar.expander(
-        "🛠 開発者ログ",
-        expanded=False
-):
+        with st.expander("🛠 開発者ログ", expanded=False):
+        if "debug_logs" in st.session_state:
+            for log in reversed(st.session_state.debug_logs): # 💡reversedにすると最新ログが上で見やすくなります
+                st.caption(log)
 
     if "debug_logs" in st.session_state and st.session_state.debug_logs:
         for log in reversed(
