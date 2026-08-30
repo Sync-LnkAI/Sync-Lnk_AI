@@ -1158,11 +1158,10 @@ def reset_permanent_tokens(user_id: str):
         st.session_state.conversation_count = 0
     except Exception as e:
         log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
-    
-# ==========================================
-# 🖥️ サイドバー & 画面ナビゲーション
-# ==========================================
 
+# ==========================================
+# 📱 サイドバーの描画・コントロール
+# ==========================================
 st.sidebar.title("🤖 My AI Concierge")
 
 themes = get_themes()
@@ -1181,24 +1180,16 @@ app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 �
 
 st.sidebar.markdown("---")
 
-sidebar_memories = get_memories(
-    theme_id=None,
-    source="auto"
-)
-
-with st.sidebar.expander(
-    "🧠 長期記憶",
-    expanded=False
-):
-
+# 🧠 長期記憶の描画
+sidebar_memories = get_memories(theme_id=None, source="auto")
+with st.sidebar.expander("🧠 長期記憶", expanded=False):
     if sidebar_memories:
-
         for mem in sidebar_memories[-10:]:
             st.write(f"・{mem['fact']}")
-
     else:
         st.caption("長期記憶はまだありません")
 
+# 📖 テーマの要約記憶の描画
 current_summary = get_theme_summary(current_theme_id)
 with st.sidebar.expander("📖 このテーマの記憶", expanded=False):
     if current_summary:
@@ -1206,15 +1197,13 @@ with st.sidebar.expander("📖 このテーマの記憶", expanded=False):
     else:
         st.caption("会話が設定件数を超えると自動要約されます。")
 
-# トークン消費量のリアルタイム表示（プレースホルダー化）
 st.sidebar.markdown("---")
-st.sidebar.subheader("📊 トークン消費状況")
-token_container = st.sidebar.empty()  # ←★後から中身をリアルタイム書き換えできる枠を作成
 
-from datetime import datetime
-
+# ==========================================
+# 🛠️ ログ記録関数 ＆ コストメーター更新関数
+# ==========================================
 def log_debug(message):
-    # 💡【完全修正】st.session_state が初期化される前でも、絶対にクラッシュさせない安全弁
+    """安全にデバッグログをセッション状態に記録する"""
     if st.session_state is not None:
         if "debug_logs" not in st.session_state:
             st.session_state["debug_logs"] = []
@@ -1223,28 +1212,26 @@ def log_debug(message):
         timestamp = datetime.now(JST).strftime("%H:%M:%S")
         st.session_state["debug_logs"].append(f"[{timestamp}] {message}")
 
-        # 最大100件だけ保持
         if len(st.session_state["debug_logs"]) > 100:
             st.session_state["debug_logs"] = st.session_state["debug_logs"][-100:]
-    print(message) # 念のためサーバーの標準出力（ターミナル）にもログを出しておく
+    print(message)
 
-# トークン表示を更新する関数
+
 def render_token_info():
     """
     サイドバーに現在の全期間・リアルタイムのトークン消費状況と、
     日本円換算（JPY）の累積コストをDBから直接取得して表示する。
     """
-    # 💡【完全修正①】関数のトップに「with st.sidebar:」を配置します。
-    # これにより、一番左側にあった呼び出しのズレが解消され、100%サイドバーの中へ綺麗に帰還します！
+    # 💡 関数自体が自動的にサイドバー（with st.sidebar）の中に文字を描画します
     with st.sidebar:
-        st.markdown("### 📊 トークン消費状況")
+        st.subheader("📊 トークン消費状況")
         
-        # 💡 st.session_state ではなく、Supabaseのテーブルから現在の本物の数値を直接取得します！
         chat_in, chat_out = 0, 0
         memory_in, memory_out = 0, 0
         summary_in, summary_out = 0, 0
         
         try:
+            # 常に今の瞬間の本当の数値をSupabaseからダイレクトに取得
             res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).execute()
             if res.data:
                 for row in res.data:
@@ -1258,7 +1245,7 @@ def render_token_info():
         except Exception:
             pass
 
-        # 各モデルの単価定義（第15章・第21章に基づく最新ドル円レート150円換算）
+        # 各モデルの単価定義（150円換算）
         PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
         PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
         PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
@@ -1292,25 +1279,27 @@ def render_token_info():
         st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
         
         st.markdown("---")
+        # 💡 ボタン名に time.time() をつけて多重エラーを200%完全に防ぎます
         if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
             reset_permanent_tokens(CURRENT_USER_ID)
             st.toast("トークン消費カウンターをリセットしたよ！")
             st.rerun()
 
+        # 💡【完全修正】「st.sidebar.expander」の重複エラーとインデントを綺麗にクレンジング！
+        # with st.sidebar の中にいるため、単に st.expander にするだけで完璧にサイドバー最下部に収まります
         with st.expander("🛠 開発者ログ", expanded=False):
-        if "debug_logs" in st.session_state:
-            for log in reversed(st.session_state.debug_logs): # 💡reversedにすると最新ログが上で見やすくなります
-                st.caption(log)
+            if "debug_logs" in st.session_state and st.session_state.debug_logs:
+                for log in reversed(st.session_state.debug_logs):
+                    st.caption(log)
+            else:
+                st.caption("ログはまだありません")
 
+# ==========================================
+# 🎯 👈 【最後に1回だけ呼び出しを実行】
+# ==========================================
+# 上で定義した関数をここで1回きれいに呼び出します
+render_token_info()
 
-        if "debug_logs" in st.session_state and st.session_state.debug_logs:
-            for log in reversed(
-                st.session_state.debug_logs[-30:]
-            ):
-                st.text(log)
-
-    else:
-        st.caption("ログはまだありません")
 
 # ==========================================
 # 📁 画面1: テーマ管理画面
