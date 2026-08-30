@@ -1786,6 +1786,4 @@ if not st.session_state.get("tokens_loaded", False):
         msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
         st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
     except Exception:
-        st.session_state.conversation_count = 0
-        
-    st.session_state["tokens_loaded"] = True
+        st.session_state.conversation_count = 0      
