@@ -1192,9 +1192,15 @@ selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_map.k
 current_theme = theme_map[selected_theme_label]
 current_theme_id = current_theme["id"]
 
-st.sidebar.divider()
+# 💡【管理者IDの定義】 管理権限を持たせたいuser_idをここに列挙します
+ADMIN_USER_IDS = ["default_user", "your_real_admin_id"]
 
-app_mode = st.sidebar.radio("機能メニュー", ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"], index=0)
+# 💡 管理者の場合だけ、メニューの選択肢に「📊 管理者管理」を自動で追加します
+menu_options = ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"]
+if CURRENT_USER_ID in ADMIN_USER_IDS:
+    menu_options.append("📊 管理者管理")
+
+app_mode = st.sidebar.radio("機能メニュー", menu_options, index=0)
 
 st.sidebar.markdown("---")
 
@@ -1328,12 +1334,12 @@ def render_token_info():
             else:
                 st.caption("ログはまだありません")
 
-# ==========================================
-# 🎯 👈 【最後に1回だけ呼び出しを実行】
-# ==========================================
-# 上で定義した関数をここで1回きれいに呼び出します
-render_token_info()
-
+# =================================================================
+# 🔒一般ユーザーには非表示にし、管理者だけにメーターを表示する防壁
+# ==================================================================
+# 上の修正箇所1で定義した「ADMIN_USER_IDS」に名前が入っている人だけメーターを描画します
+if CURRENT_USER_ID in ADMIN_USER_IDS:
+    render_token_info()
 
 # ==========================================
 # 📁 画面1: テーマ管理画面
@@ -1460,6 +1466,173 @@ elif app_mode == "⚙️ ユーザー設定":
                 st.rerun()
     else:
         st.caption("自動抽出された記憶はまだありません。")
+
+elif app_mode == "📊 管理者管理":
+    st.title("📊 管理者管理（全ユーザーの原価・利用状況・愛着度一括監視）")
+    st.markdown("データベース(Supabase)から、全ユーザーの累積コスト・会話状況・長期記憶のストック・手動削除の実行回数をリアルタイムに集計・分析しています。")
+
+    with st.spinner("全ユーザーの高度な利用状況を分析中..."):
+        try:
+            # 1. Supabaseから必要なすべてのデータを一括取得
+            token_res = supabase.table("user_token_stats").select("*").execute()
+            
+            # 💡 最終利用日、アクティブ日数を集計するために created_at も一緒に取得します
+            msg_res = supabase.table("messages").select("user_id", "created_at").execute()
+            
+            # 全ユーザーの長期記憶（source='auto' は自動、'manual' はユーザーの手動追加など）を取得
+            memory_res = supabase.table("user_memories").select("user_id").eq("source", "auto").execute()
+            
+            # 💡【手動削除・訂正回数の集計】 
+            # 過去ログやログの仕様に基づき、手動削除アクション（または削除ログ）の履歴を数え上げます
+            # ※もし専用のログテーブル（例：action_logs）がある場合はそこから、ない場合は安全にエラー回避します
+            try:
+                delete_res = supabase.table("action_logs").select("user_id").eq("action_type", "delete_memory").execute()
+                delete_data = delete_res.data if delete_res.data else []
+            except Exception:
+                delete_data = [] # まだテーブルがない場合は空で安全にスルー
+            
+            # 2. ユーザー毎の集計用辞書を初期化
+            user_data = {}
+
+            # 各モデルの単価定義（150円換算）
+            PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
+            PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
+            PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
+            PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
+
+            # 🛠️ a. トークンデータの集計
+            if token_res.data:
+                for row in token_res.data:
+                    u_id = row.get("user_id", "unknown")
+                    f_type = row.get("feature_type")
+                    in_t = row.get("in_tokens", 0)
+                    out_t = row.get("out_tokens", 0)
+
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 0, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    
+                    user_data[u_id]["総入力"] += in_t
+                    user_data[u_id]["総出力"] += out_t
+
+                    if f_type == "chat":
+                        user_data[u_id]["コスト"] += (in_t * PRICE_GEMINI_3_6_FLASH_IN) + (out_t * PRICE_GEMINI_3_6_FLASH_OUT)
+                    else:  # memory, summary
+                        user_data[u_id]["コスト"] += (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+
+            # 🛠️ b. 会話回数・アクティブ日数・最終会話日時の集計
+            if msg_res.data:
+                for msg in msg_res.data:
+                    u_id = msg.get("user_id", "unknown")
+                    created_at_str = msg.get("created_at")
+
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 0, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    
+                    user_data[u_id]["会話回数"] += 1
+                    
+                    # 日時文字列から日付を抽出して記録
+                    if created_at_str:
+                        try:
+                            # ISO形式の日時をパースしてJSTに変換
+                            dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).astimezone(JST)
+                            user_data[u_id]["発言日時リスト"].append(dt)
+                        except Exception:
+                            pass
+
+            # 🛠️ c. 長期記憶のストック件数の集計
+            if memory_res.data:
+                for mem in memory_res.data:
+                    u_id = mem.get("user_id", "unknown")
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 1, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    else:
+                        user_data[u_id]["記憶件数"] += 1
+
+            # 🛠️ d. 手動削除回数の集計
+            for log in delete_data:
+                u_id = log.get("user_id", "unknown")
+                if u_id in user_data:
+                    user_data[u_id]["手動削除回数"] += 1
+
+            # 3. 集計データを表（DataFrame）の形式に変形
+            import pandas as pd
+            user_rows = []
+            
+            for u_id, stats in user_data.items():
+                actual_conv = stats["会話回数"] // 2
+                
+                # 📅 アクティブ日数 ＆ 最終利用日のスマートな逆算
+                active_days = 0
+                last_used_str = "なし"
+                
+                if stats["発言日時リスト"]:
+                    # ユニークな「日付」の数を数えてアクティブ日数とする
+                    unique_dates = {dt.date() for dt in stats["発言日時リスト"]}
+                    active_days = len(unique_dates)
+                    
+                    # 1番新しい日時を取得して美しくフォーマット
+                    last_dt = max(stats["発言日時リスト"])
+                    last_used_str = last_dt.strftime("%Y/%m/%d %H:%M")
+                
+                user_rows.append({
+                    "ユーザーID": u_id,
+                    "会話回数": actual_conv,
+                    "長期記憶ストック": stats["記憶件数"],
+                    "アクティブ日数": active_days,
+                    "最終会話日時": last_used_str,
+                    "手動削除・訂正": stats["手動削除回数"],
+                    "累計消費コスト (円)": round(stats["コスト"], 4)
+                })
+
+            if user_rows:
+                df = pd.DataFrame(user_rows)
+                
+                # 📊 デフォルトは累積コストが高い順
+                df = df.sort_values(by="累計消費コスト (円)", ascending=False)
+
+                # メトリクスで全体の総額をドンと表示
+                total_app_cost = df["累計消費コスト (円)"].sum()
+                total_app_users = len(df)
+                total_app_memories = df["長期記憶ストック"].sum()
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("総稼働ユーザー数", f"{total_app_users} 名")
+                col2.metric("全ユーザー総記憶数", f"{total_app_memories} 件")
+                col3.metric("総サーバー代実費", f"{total_app_cost:.4f} 円")
+                st.markdown("---")
+
+                # 📊 スキャンしやすい比較表を表示
+                st.dataframe(
+                    df,
+                    column_config={
+                        "ユーザーID": st.column_config.TextColumn("👤 ユーザーID"),
+                        "会話回数": st.column_config.NumberColumn("💬 会話往復数", format="%d 回"),
+                        "長期記憶ストック": st.column_config.NumberColumn("📌 記憶ストック", format="%d 件"),
+                        "アクティブ日数": st.column_config.NumberColumn("📅 稼働日数", format="%d 日"),
+                        "最終会話日時": st.column_config.TextColumn("⏱️ 最終会話日時"),
+                        "手動削除・訂正": st.column_config.NumberColumn("🚨 記憶削除回数", format="%d 回"),
+                        "累計消費コスト (円)": st.column_config.NumberColumn("💰 累積コスト", format="%.4f 円"),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+            else:
+                st.info("まだ利用データが存在しません。")
+
+        except Exception as e:
+            st.error(f"管理者データの分析中にエラーが発生しました: {e}")
 
 # ==========================================
 # 💬 画面3: メインチャット画面
