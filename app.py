@@ -1279,10 +1279,26 @@ def render_token_info():
         st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
         
         st.markdown("---")
-        # 💡 ボタン名に time.time() をつけて多重エラーを200%完全に防ぎます
+        # 💡【完全修正】ボタンが押された際、裏側のDB削除と同時に、画面上の変数も一撃で「0」に叩き落とします！
         if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
+            # 1. データベース（Supabase）のトークンデータを物理削除
             reset_permanent_tokens(CURRENT_USER_ID)
+            
+            # 2. 【最重要】画面上のローカルセッション状態の残像も、その場で強制的にすべて「0」で上書き消去！
+            for feature in ["chat", "memory", "summary"]:
+                st.session_state[f"{feature}_in_tokens"] = 0
+                st.session_state[f"{feature}_out_tokens"] = 0
+            st.session_state["total_in_tokens"] = 0
+            st.session_state["total_out_tokens"] = 0
+            st.session_state["last_in_tokens"] = 0
+            st.session_state["last_out_tokens"] = 0
+            st.session_state.conversation_count = 0
+            
+            # 3. 画面に「0になったよ」と優しく通知
             st.toast("トークン消費カウンターをリセットしたよ！")
+            
+            # 4. 【最重要】その瞬間に画面を強制再描画（リフレッシュ）させて0表示を確定させます
+            st.sidebar.empty() # サイドバーの表示を一時的にクリア
             st.rerun()
 
         # 💡【完全修正】「st.sidebar.expander」の重複エラーとインデントを綺麗にクレンジング！
