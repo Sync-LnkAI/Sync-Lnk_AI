@@ -1682,12 +1682,20 @@ else:
                 st.rerun()
 
 # ==================================================================
-# 📊 起動時の永久トークン・会話回数同期処理（最下部修正版）
+# 📊 【完全修正】起動時の永久トークン同期処理（最下部）
 # ==================================================================
+# 💡【修正点】 st.session_state.get() を使い、すでに同期が完了している場合（Trueの時）は、
+# チャット送信時の再描画（Rerun）であっても、この同期処理を2度と絶対に実行させないように強固にロックします。
 if not st.session_state.get("tokens_loaded", False):
+    # 1. 永久トークン数をDBから復元
+    load_permanent_tokens(CURRENT_USER_ID)
+    
+    # 2. 会話回数（履歴の総数）をDBから正確に復元
     try:
-        reset_at = st.session_state.get("cost_reset_at", "1970-01-01T00:00:00")
-        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
+        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).execute()
         st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
     except Exception:
         st.session_state.conversation_count = 0
+        
+    # 同期完了フラグを確実にロック
+    st.session_state["tokens_loaded"] = True
