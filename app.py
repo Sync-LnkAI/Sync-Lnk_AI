@@ -1683,9 +1683,6 @@ else:
                             log_debug(error_msg)
 
                             st.error(error_msg)
-
-                # ★計算した瞬間にサイドバー表示を即時リアルタイム書き換え！
-                render_token_info()
                 
                 # ③ 非同期風に裏で要約更新・記憶抽出を実行
                 check_and_summarize_history(current_theme_id, recent_messages, current_summary)
