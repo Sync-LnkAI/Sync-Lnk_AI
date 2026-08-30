@@ -1876,12 +1876,16 @@ else:
 if not st.session_state.get("tokens_loaded", False):
     load_permanent_tokens(CURRENT_USER_ID)
     
-    # 💡【完全修正】messages全体を数えにいく古い仕様を完全撤去！
-    # user_token_statsテーブルに保存された、リセット後の正しい会話回数を復元します
     try:
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        st.session_state.conversation_count = res.data[0].get("in_tokens", 0) if res.data else 0
-    except Exception:
+        # 💡【完全修正】res.data が存在し、かつ中身が空っぽ（0件）でない時だけ、
+        # 正確に 0番目（res.data[0]）を指定して、保存された会話回数（in_tokens）をセッションに復元します！
+        if res.data and len(res.data) > 0:
+            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
+        else:
+            st.session_state.conversation_count = 0
+    except Exception as e:
+        log_debug(f"⚠️ 会話回数同期エラー: {e}")
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
