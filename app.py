@@ -106,6 +106,15 @@ if "debug_logs" not in st.session_state:
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
+if "tokens_loaded" not in st.session_state:
+    try:
+        reset_at = st.session_state.get("cost_reset_at", "1970-01-01T00:00:00")
+        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
+        st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
+    except Exception:
+        st.session_state.conversation_count = 0
+    st.session_state["tokens_loaded"] = True
+
 # プリセット定義
 STYLE_PRESETS = {
     "🤝 フランク＆対等（相棒）": "フレンドリーで親しみやすく、敬語を使わずに丁寧かつ対等なタメ口でフランクに対話してください。",
@@ -1109,41 +1118,20 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         log_debug(f"長期記憶抽出エラー: {e}")
 
 # ==========================================
-# 📊 永久コストメーター用 データベース関数（完全決定版）
+# 📊 永久コストメーター用 データベース関数（ダイレクトDB集計版）
 # ==========================================
 
 def load_permanent_tokens(user_id: str):
-    """DBからユーザーの全期間の累計トークン数を読み込んでセッションに同期する"""
-    try:
-        for feature in ["chat", "memory", "summary"]:
-            st.session_state[f"{feature}_in_tokens"] = 0
-            st.session_state[f"{feature}_out_tokens"] = 0
-            
-        # 💡【修正】str(user_id) で型を完全に固定して確実に取得
-        res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).execute()
-        
-        if res.data and len(res.data) > 0:
-            for row in res.data:
-                f_type = row.get("feature_type")
-                if f_type in ["chat", "memory", "summary"]:
-                    st.session_state[f"{f_type}_in_tokens"] = row.get("in_tokens", 0)
-                    st.session_state[f"{f_type}_out_tokens"] = row.get("out_tokens", 0)
-    except Exception as e:
-        log_debug(f"⚠️ 永久トークン読み込みスキップ: {e}")
+    """起動時は、単に初期化フラグを立てるだけで、セッションへの過去累計の代入は一切行いません（残像防止）"""
+    pass
 
 def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
-    """トークンが消費されたら、DBの累計値に直接プラス(加算)する"""
+    """トークンが消費されたら、純粋にDBの数値だけに直接プラス（加算）する"""
     try:
-        # 💡【画面メーターの修正】画面上のセッションには、純粋に今回の1通分の消費数（in_t）だけをシンプルに足し算します。
-        # これにより、リセット後に1発目で過去の累計が合算されて2.6円に化けるバグが200%完全に消滅します！
-        if f"{feature_type}_in_tokens" in st.session_state:
-            st.session_state[f"{feature_type}_in_tokens"] += in_t
-            st.session_state[f"{feature_type}_out_tokens"] += out_t
-
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
         
         if res.data and len(res.data) > 0:
-            current_row = res.data[0] # 💡 0番目を指定
+            current_row = res.data[0]
             supabase.table("user_token_stats").update({
                 "in_tokens": int(current_row.get("in_tokens", 0)) + in_t,
                 "out_tokens": int(current_row.get("out_tokens", 0)) + out_t,
@@ -1156,33 +1144,18 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
                 "in_tokens": in_t,
                 "out_tokens": out_t
             }).execute()
-            
     except Exception as e:
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行を完全に消去し、セッションも完全に初期化"""
+    """手動リセット：DBのトークン行を完全抹消し、今回のリセット時刻スタンプを刻む"""
     try:
-        # 1. Supabaseの古いトークンデータを物理削除
+        # DBのデータを根こそぎ完全物理削除
         supabase.table("user_token_stats").delete().eq("user_id", str(user_id)).execute()
         
-        # 💡【完全修正】画面上のセッションの中に残っている古い大きな数字を、1つずつ丁寧にすべて「0」で上書き消去します！
-        # これにより、裏方関数が古い累計データを拾ってDBに勝手に復元するバグが200%完全に消滅します。
-        for feature in ["chat", "memory", "summary"]:
-            st.session_state[f"{feature}_in_tokens"] = 0
-            st.session_state[f"{feature}_out_tokens"] = 0
-            
-        # 画面の一時計算用フラグもすべて0リセット
-        st.session_state["total_in_tokens"] = 0
-        st.session_state["total_out_tokens"] = 0
-        st.session_state["last_in_tokens"] = 0
-        st.session_state["last_out_tokens"] = 0
-        
-        st.session_state.conversation_count = 0
-        st.session_state["tokens_loaded"] = False
+        # 💡【重要】リセットボタンが押された「今の時刻」をスタンプとしてセッションに強制上書きします
         st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
-        
-        st.toast("トークン消費カウンターをリセットしたよ！")
+        st.session_state.conversation_count = 0
     except Exception as e:
         log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
     
@@ -1257,139 +1230,69 @@ def log_debug(message):
 
 # トークン表示を更新する関数
 def render_token_info():
-    with token_container.container():
+    """
+    サイドバーに現在の全期間・リアルタイムのトークン消費状況と、
+    日本円換算（JPY）の累積コストをDBから直接取得して表示する。
+    """
+    st.markdown("### 📊 トークン消費状況")
+    
+    # 💡【完全修正】 st.session_state ではなく、Supabaseのテーブルから現在の本物の数値を直接取得します！
+    chat_in, chat_out = 0, 0
+    memory_in, memory_out = 0, 0
+    summary_in, summary_out = 0, 0
+    
+    try:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).execute()
+        if res.data:
+            for row in res.data:
+                f_type = row.get("feature_type")
+                if f_type == "chat":
+                    chat_in, chat_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                elif f_type == "memory":
+                    memory_in, memory_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                elif f_type == "summary":
+                    summary_in, summary_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+    except Exception:
+        pass
 
-        st.caption("【累計トークン】")
+    # 各モデルの単価定義（第15章・第21章に基づく最新ドル円レート150円換算）
+    PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
+    PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
+    PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
+    PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
 
-        st.write(
-            f"💬 チャット\n"
-            f"In: {st.session_state.chat_in_tokens:,}\n"
-            f"Out: {st.session_state.chat_out_tokens:,}"
-        )
+    cost_chat    = (chat_in * PRICE_GEMINI_3_6_FLASH_IN) + (chat_out * PRICE_GEMINI_3_6_FLASH_OUT)
+    cost_memory  = (memory_in * PRICE_LITE_IN) + (memory_out * PRICE_LITE_OUT)
+    cost_summary = (summary_in * PRICE_LITE_IN) + (summary_out * PRICE_LITE_OUT)
 
-        st.write(
-            f"🧠 長期記憶抽出\n"
-            f"In: {st.session_state.memory_in_tokens:,}\n"
-            f"Out: {st.session_state.memory_out_tokens:,}"
-        )
+    total_in  = chat_in + memory_in + summary_in
+    total_out = chat_out + memory_out + summary_out
+    total_cost_jpy = cost_chat + cost_memory + cost_summary
 
-        st.write(
-            f"📝 要約\n"
-            f"In: {st.session_state.summary_in_tokens:,}\n"
-            f"Out: {st.session_state.summary_out_tokens:,}"
-        )
+    st.markdown("**【累計トークン】**")
+    st.text(f"💬 チャット In: {chat_in:,} Out: {chat_out:,}")
+    st.text(f"🧠 長期記憶抽出 In: {memory_in:,} Out: {memory_out:,}")
+    st.text(f"📝 要約 In: {summary_in:,} Out: {summary_out:,}")
+    st.markdown("---")
+    st.text(f"総入力 : {total_in:,}")
+    st.text(f"総出力 : {total_out:,}")
+    st.text(f"チャット費用 : {cost_chat:.4f}円")
+    st.text(f"長期記憶抽出費用 : {cost_memory:.4f}円")
+    st.text(f"要約費用 : {cost_summary:.4f}円")
+    st.markdown(f"### **推定総コスト : {total_cost_jpy:.4f}円**")
 
-        total_in = (
-            st.session_state.chat_in_tokens
-            + st.session_state.memory_in_tokens
-            + st.session_state.summary_in_tokens
-        )
-
-        total_out = (
-            st.session_state.chat_out_tokens
-            + st.session_state.memory_out_tokens
-            + st.session_state.summary_out_tokens
-        )
-        chat_cost_usd = (
-            (
-                st.session_state.chat_in_tokens
-                / 1_000_000
-            )
-            * CHAT_INPUT_PRICE_PER_MILLION
-            +
-            (
-                st.session_state.chat_out_tokens
-                / 1_000_000
-            )
-            * CHAT_OUTPUT_PRICE_PER_MILLION
-        )
-
-        memory_cost_usd = (
-            (
-                st.session_state.memory_in_tokens
-                / 1_000_000
-            )
-            * LITE_INPUT_PRICE_PER_MILLION
-            +
-            (
-                st.session_state.memory_out_tokens
-                / 1_000_000
-            )
-            * LITE_OUTPUT_PRICE_PER_MILLION
-        )
-
-        summary_cost_usd = (
-            (
-                st.session_state.summary_in_tokens
-                / 1_000_000
-            )
-            * LITE_INPUT_PRICE_PER_MILLION
-            +
-            (
-                st.session_state.summary_out_tokens
-                / 1_000_000
-            )
-            * LITE_OUTPUT_PRICE_PER_MILLION
-        )
-
-        total_cost_usd = (
-            chat_cost_usd
-            + memory_cost_usd
-            + summary_cost_usd
-        )
-
-        chat_cost_jpy = chat_cost_usd * USD_TO_JPY
-        memory_cost_jpy = memory_cost_usd * USD_TO_JPY
-        summary_cost_jpy = summary_cost_usd * USD_TO_JPY
-        total_cost_jpy = total_cost_usd * USD_TO_JPY
-
-        st.divider()
-
-        st.divider()
-
-        st.text(f"総入力 : {total_in:,}")
-        st.text(f"総出力 : {total_out:,}")
-
-        st.text(
-            f"チャット費用 : {chat_cost_jpy:.4f}円"
-        )
-
-        st.text(
-            f"長期記憶抽出費用 : {memory_cost_jpy:.4f}円"
-        )
-
-        st.text(
-            f"要約費用 : {summary_cost_jpy:.4f}円"
-        )
-
-        st.text(
-            f"推定総コスト : {total_cost_jpy:.4f}円"
-        )
-
-        conversation_count = (
-            st.session_state.conversation_count
-        )
-
-        avg_cost_jpy = (
-            total_cost_jpy / conversation_count
-            if conversation_count > 0
-            else 0
-        )
-
-        st.text(
-            f"会話回数 : {conversation_count:,}"
-        )
-
-        st.text(
-            f"平均コスト : {avg_cost_jpy:.4f}円/回"
-        )
-
-        # ─── 🛠️ 手動リセットボタンの追加 ───
-        st.markdown("---")
-        if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="これまでの累計消費トークン数とコスト表示を0にクリアします。"):
-            reset_permanent_tokens(CURRENT_USER_ID)
-            st.toast("トークン消費カウンターをリセットしたよ！")
-            st.rerun()
+    # 会話カウンターの安全取得
+    conv_count = st.session_state.get("conversation_count", 0)
+    st.text(f"会話回数 : {conv_count}")
+    
+    avg_cost_jpy = (total_cost_jpy / conv_count) if conv_count > 0 else 0.0
+    st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
+    
+    st.markdown("---")
+    if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
+        reset_permanent_tokens(CURRENT_USER_ID)
+        st.toast("トークン消費カウンターをリセットしたよ！")
+        st.rerun()
 
 # トークン表示
 render_token_info()
@@ -1776,14 +1679,9 @@ else:
 # 📊 起動時の永久トークン・会話回数同期処理（最下部修正版）
 # ==================================================================
 if not st.session_state.get("tokens_loaded", False):
-    load_permanent_tokens(CURRENT_USER_ID)
-    
     try:
-        # リセット時刻のスタンプを取得（なければ大昔の日付）
         reset_at = st.session_state.get("cost_reset_at", "1970-01-01T00:00:00")
-        
-        # 💡【完全修正】messagesテーブル全体ではなく、リセットボタンを押した「後」の新規メッセージ数だけを正確に数え上げます！
         msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
         st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
     except Exception:
-        st.session_state.conversation_count = 0      
+        st.session_state.conversation_count = 0
