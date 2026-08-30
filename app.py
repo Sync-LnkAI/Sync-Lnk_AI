@@ -1298,7 +1298,7 @@ def render_token_info():
         
         st.markdown("---")
         # 💡【完全修正】ボタンが押された際、裏側のDB削除と同時に、画面上の変数も一撃で「0」に叩き落とします！
-        if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
+        if st.button("🔄 コストメーターをリセット", key="reset_token_permanent_btn", help="累計消費コストを0にクリアします。"):
             # 1. データベース（Supabase）のトークンデータを物理削除
             reset_permanent_tokens(CURRENT_USER_ID)
             
