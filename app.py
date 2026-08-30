@@ -107,13 +107,21 @@ if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
 if "tokens_loaded" not in st.session_state:
+    load_permanent_tokens(CURRENT_USER_ID)
+    
     try:
-        reset_at = st.session_state.get("cost_reset_at", "1970-01-01T00:00:00")
-        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
-        st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
-    except Exception:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
+        # 💡 上部も最下部と同じく、DBのchat_count行（res.data[0]）からリセット後の正しい会話回数を復元させます
+        if res.data and len(res.data) > 0:
+            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
+        else:
+            st.session_state.conversation_count = 0
+    except Exception as e:
+        log_debug(f"⚠️ 会話回数同期エラー: {e}")
         st.session_state.conversation_count = 0
+        
     st.session_state["tokens_loaded"] = True
+
 
 # プリセット定義
 STYLE_PRESETS = {
