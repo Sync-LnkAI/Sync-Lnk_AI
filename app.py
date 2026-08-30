@@ -1302,11 +1302,12 @@ def render_token_info():
             for log in reversed(st.session_state.debug_logs): # 💡reversedにすると最新ログが上で見やすくなります
                 st.caption(log)
 
-    if "debug_logs" in st.session_state and st.session_state.debug_logs:
-        for log in reversed(
-            st.session_state.debug_logs[-30:]
-        ):
-            st.text(log)
+
+        if "debug_logs" in st.session_state and st.session_state.debug_logs:
+            for log in reversed(
+                st.session_state.debug_logs[-30:]
+            ):
+                st.text(log)
 
     else:
         st.caption("ログはまだありません")
