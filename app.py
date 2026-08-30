@@ -1229,75 +1229,76 @@ def log_debug(message):
     print(message) # 念のためサーバーの標準出力（ターミナル）にもログを出しておく
 
 # トークン表示を更新する関数
+# トークン表示を更新する関数
 def render_token_info():
     """
     サイドバーに現在の全期間・リアルタイムのトークン消費状況と、
     日本円換算（JPY）の累積コストをDBから直接取得して表示する。
     """
-    st.markdown("### 📊 トークン消費状況")
-    
-    # 💡【完全修正】 st.session_state ではなく、Supabaseのテーブルから現在の本物の数値を直接取得します！
-    chat_in, chat_out = 0, 0
-    memory_in, memory_out = 0, 0
-    summary_in, summary_out = 0, 0
-    
-    try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).execute()
-        if res.data:
-            for row in res.data:
-                f_type = row.get("feature_type")
-                if f_type == "chat":
-                    chat_in, chat_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
-                elif f_type == "memory":
-                    memory_in, memory_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
-                elif f_type == "summary":
-                    summary_in, summary_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
-    except Exception:
-        pass
+    # 💡【完全修正①】関数のトップに「with st.sidebar:」を配置します。
+    # これにより、一番左側にあった呼び出しのズレが解消され、100%サイドバーの中へ綺麗に帰還します！
+    with st.sidebar:
+        st.markdown("### 📊 トークン消費状況")
+        
+        # 💡 st.session_state ではなく、Supabaseのテーブルから現在の本物の数値を直接取得します！
+        chat_in, chat_out = 0, 0
+        memory_in, memory_out = 0, 0
+        summary_in, summary_out = 0, 0
+        
+        try:
+            res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).execute()
+            if res.data:
+                for row in res.data:
+                    f_type = row.get("feature_type")
+                    if f_type == "chat":
+                        chat_in, chat_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                    elif f_type == "memory":
+                        memory_in, memory_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                    elif f_type == "summary":
+                        summary_in, summary_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+        except Exception:
+            pass
 
-    # 各モデルの単価定義（第15章・第21章に基づく最新ドル円レート150円換算）
-    PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
-    PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
-    PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
-    PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
+        # 各モデルの単価定義（第15章・第21章に基づく最新ドル円レート150円換算）
+        PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
+        PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
+        PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
+        PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
 
-    cost_chat    = (chat_in * PRICE_GEMINI_3_6_FLASH_IN) + (chat_out * PRICE_GEMINI_3_6_FLASH_OUT)
-    cost_memory  = (memory_in * PRICE_LITE_IN) + (memory_out * PRICE_LITE_OUT)
-    cost_summary = (summary_in * PRICE_LITE_IN) + (summary_out * PRICE_LITE_OUT)
+        cost_chat    = (chat_in * PRICE_GEMINI_3_6_FLASH_IN) + (chat_out * PRICE_GEMINI_3_6_FLASH_OUT)
+        cost_memory  = (memory_in * PRICE_LITE_IN) + (memory_out * PRICE_LITE_OUT)
+        cost_summary = (summary_in * PRICE_LITE_IN) + (summary_out * PRICE_LITE_OUT)
 
-    total_in  = chat_in + memory_in + summary_in
-    total_out = chat_out + memory_out + summary_out
-    total_cost_jpy = cost_chat + cost_memory + cost_summary
+        total_in  = chat_in + memory_in + summary_in
+        total_out = chat_out + memory_out + summary_out
+        total_cost_jpy = cost_chat + cost_memory + cost_summary
 
-    st.markdown("**【累計トークン】**")
-    st.text(f"💬 チャット In: {chat_in:,} Out: {chat_out:,}")
-    st.text(f"🧠 長期記憶抽出 In: {memory_in:,} Out: {memory_out:,}")
-    st.text(f"📝 要約 In: {summary_in:,} Out: {summary_out:,}")
-    st.markdown("---")
-    st.text(f"総入力 : {total_in:,}")
-    st.text(f"総出力 : {total_out:,}")
-    st.text(f"チャット費用 : {cost_chat:.4f}円")
-    st.text(f"長期記憶抽出費用 : {cost_memory:.4f}円")
-    st.text(f"要約費用 : {cost_summary:.4f}円")
-    st.markdown(f"### **推定総コスト : {total_cost_jpy:.4f}円**")
+        st.markdown("**【累計トークン】**")
+        st.text(f"💬 チャット In: {chat_in:,} Out: {chat_out:,}")
+        st.text(f"🧠 長期記憶抽出 In: {memory_in:,} Out: {memory_out:,}")
+        st.text(f"📝 要約 In: {summary_in:,} Out: {summary_out:,}")
+        st.markdown("---")
+        st.text(f"総入力 : {total_in:,}")
+        st.text(f"総出力 : {total_out:,}")
+        st.text(f"チャット費用 : {cost_chat:.4f}円")
+        st.text(f"長期記憶抽出費用 : {cost_memory:.4f}円")
+        st.text(f"要約費用 : {cost_summary:.4f}円")
+        st.markdown(f"### **推定総コスト : {total_cost_jpy:.4f}円**")
 
-    # 会話カウンターの安全取得
-    conv_count = st.session_state.get("conversation_count", 0)
-    st.text(f"会話回数 : {conv_count}")
-    
-    avg_cost_jpy = (total_cost_jpy / conv_count) if conv_count > 0 else 0.0
-    st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
-    
-    st.markdown("---")
-    if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
-        reset_permanent_tokens(CURRENT_USER_ID)
-        st.toast("トークン消費カウンターをリセットしたよ！")
-        st.rerun()
+        # 会話カウンターの安全取得
+        conv_count = st.session_state.get("conversation_count", 0)
+        st.text(f"会話回数 : {conv_count}")
+        
+        avg_cost_jpy = (total_cost_jpy / conv_count) if conv_count > 0 else 0.0
+        st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
+        
+        st.markdown("---")
+        if st.button("🔄 コストメーターをリセット", key=f"reset_token_btn_{time.time()}", help="累計消費コストを0にクリアします。"):
+            reset_permanent_tokens(CURRENT_USER_ID)
+            st.toast("トークン消費カウンターをリセットしたよ！")
+            st.rerun()
 
-# トークン表示
-render_token_info()
-
-with st.sidebar.expander(
+ with st.sidebar.expander(
     "🛠 開発者ログ",
      expanded=False
 ):
