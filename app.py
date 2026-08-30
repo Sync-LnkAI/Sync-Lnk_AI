@@ -1164,11 +1164,12 @@ def reset_permanent_tokens(user_id: str):
             st.session_state[f"{feature}_out_tokens"] = 0
             
         st.session_state.conversation_count = 0
-        
-        # 💡【完全修正】リセットボタンが押された瞬間に、起動時の鍵（ロック）を「False」に叩き落とします！
-        # これにより、メッセージ送信時の再描画であっても、過去の307回履歴が復活するバグが200%完全に消滅します。
         st.session_state["tokens_loaded"] = False
         
+        # 💡【新規追加】リセットボタンが押された「今の日本時間」をスタンプとして永久保存します！
+        st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
+        
+        st.toast("トークン消費カウンターをリセットしたよ！")
     except Exception as e:
         log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
     
@@ -1758,15 +1759,20 @@ else:
                 # 全ての裏側処理が安全に終わったので画面を再描画
                 st.rerun()
 
+# ==================================================================
+# 📊 起動時の永久トークン・会話回数同期処理（最下部修正版）
+# ==================================================================
 if not st.session_state.get("tokens_loaded", False):
     load_permanent_tokens(CURRENT_USER_ID)
     
     try:
-        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).execute()
+        # リセット時刻のスタンプを取得（なければ大昔の日付）
+        reset_at = st.session_state.get("cost_reset_at", "1970-01-01T00:00:00")
+        
+        # 💡【完全修正】messagesテーブル全体ではなく、リセットボタンを押した「後」の新規メッセージ数だけを正確に数え上げます！
+        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).gt("created_at", reset_at).execute()
         st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
     except Exception:
         st.session_state.conversation_count = 0
         
-    # 💡【修正点②】 文字列のキー指定形式に書き換えてロックを強固にします
     st.session_state["tokens_loaded"] = True
-
