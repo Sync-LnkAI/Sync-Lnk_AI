@@ -1148,28 +1148,26 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行を削除するのではなく、数値を直接「0」で確実に塗りつぶします"""
+    """手動リセット：DBのトークン行と会話回数行を直接「0」で確実に塗りつぶします"""
     try:
-        # 💡【完全修正】delete ではなく、普段大成功している update 命令を使い、
-        # chat, memory, summary のすべての消費トークン数を直接「0」に安全に上書きします！
-        for feature in ["chat", "memory", "summary"]:
+        # 1. 既存の3つの職能別トークンを0に上書き
+        for feature in ["chat", "memory", "summary", "chat_count"]: # 💡 chat_countも追加
             supabase.table("user_token_stats").update({
                 "in_tokens": 0,
                 "out_tokens": 0,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }).eq("user_id", str(user_id)).eq("feature_type", feature).execute()
             
-            # 画面上のローカルメモリの残像もその場で完全に0にします
-            st.session_state[f"{feature}_in_tokens"] = 0
-            st.session_state[f"{feature}_out_tokens"] = 0
+            if f"{feature}_in_tokens" in st.session_state:
+                st.session_state[f"{feature}_in_tokens"] = 0
+                st.session_state[f"{feature}_out_tokens"] = 0
 
-        # 一時計算用の変数もすべて0で上書き消去
+        # 2. 画面上のカウンターの残像もその場で完全に0リセット
         st.session_state["total_in_tokens"] = 0
         st.session_state["total_out_tokens"] = 0
         st.session_state["last_in_tokens"] = 0
         st.session_state["last_out_tokens"] = 0
         
-        # 会話回数と起動時ロックもリセット
         st.session_state.conversation_count = 0
         st.session_state["tokens_loaded"] = False
         st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
@@ -1865,6 +1863,7 @@ else:
                 # 📊 【完全修正】会話カウンターを「ここでだけ」1増やす
                 # --------------------------------------------------
                 st.session_state.conversation_count += 1
+                add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0) # 💡 DBのchat_countのin_tokens枠に+1ずつ加算蓄積させます
 
                 # 全ての裏側処理が安全に終わったので画面を再描画
                 st.rerun()
@@ -1875,15 +1874,14 @@ else:
 # 💡【修正点】 st.session_state.get() を使い、すでに同期が完了している場合（Trueの時）は、
 # チャット送信時の再描画（Rerun）であっても、この同期処理を2度と絶対に実行させないように強固にロックします。
 if not st.session_state.get("tokens_loaded", False):
-    # 1. 永久トークン数をDBから復元
     load_permanent_tokens(CURRENT_USER_ID)
     
-    # 2. 会話回数（履歴の総数）をDBから正確に復元
+    # 💡【完全修正】messages全体を数えにいく古い仕様を完全撤去！
+    # user_token_statsテーブルに保存された、リセット後の正しい会話回数を復元します
     try:
-        msg_res = supabase.table("messages").select("id", count="exact").eq("user_id", str(CURRENT_USER_ID)).execute()
-        st.session_state.conversation_count = (msg_res.count // 2) if msg_res.count else 0
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
+        st.session_state.conversation_count = res.data[0].get("in_tokens", 0) if res.data else 0
     except Exception:
         st.session_state.conversation_count = 0
         
-    # 同期完了フラグを確実にロック
     st.session_state["tokens_loaded"] = True
