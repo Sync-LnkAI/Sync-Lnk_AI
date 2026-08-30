@@ -1031,13 +1031,11 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
         # 💡【修正】NONEで関数が途中で終わる場合も、必ず画面をリフレッシュ（st.rerun）してチャットを動かします！
         if not extracted_memory or "NONE" in extracted_memory.upper():
             log_debug("保存対象の長期記憶なし")
-            st.rerun()
             return
 
         log_debug(f"長期記憶抽出結果: {extracted_memory}")
 
         if is_managed_setting_memory(extracted_memory):
-            st.rerun()
             return
 
         # 3. Embeddingによる類似記憶検索
@@ -1090,19 +1088,16 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
 
             except Exception as e:
                 log_debug(f"Geminiによる記憶更新判定に失敗: {e}")
-                st.rerun()
                 return
 
             if action == "SKIP":
                 log_debug(f"長期記憶保存スキップ (判定: SKIP)")
-                st.rerun()
                 return
 
             elif action in ["UPDATE", "MERGE"]:
                 # 新しく精製された文章が、既存の記憶と「完全に同じ」なら書き込みもAPI消費もその場でスキップ
                 if final_fact.strip() == existing_fact.strip():
                     log_debug(f"修正後の文章が既存の記憶と同じため、無駄な書き込みをスキップします (判定: SKIP)")
-                    st.rerun()
                     return
                 
                 try:
@@ -1114,7 +1109,6 @@ def extract_and_save_long_term_memory(user_text: str, theme_id: int):
                     log_debug(f"長期記憶を自動クレンジング更新しました: 「{final_fact}」")
                 except Exception as db_err:
                     log_debug(f"長期記憶の更新に失敗: {db_err}")
-                st.rerun()
                 return
 
         # 4. 新規保存
