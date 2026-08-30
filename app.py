@@ -1148,14 +1148,32 @@ def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int)
         log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
 def reset_permanent_tokens(user_id: str):
-    """手動リセット：DBのトークン行を完全抹消し、今回のリセット時刻スタンプを刻む"""
+    """手動リセット：DBのトークン行を削除するのではなく、数値を直接「0」で確実に塗りつぶします"""
     try:
-        # DBのデータを根こそぎ完全物理削除
-        supabase.table("user_token_stats").delete().eq("user_id", str(user_id)).execute()
+        # 💡【完全修正】delete ではなく、普段大成功している update 命令を使い、
+        # chat, memory, summary のすべての消費トークン数を直接「0」に安全に上書きします！
+        for feature in ["chat", "memory", "summary"]:
+            supabase.table("user_token_stats").update({
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("user_id", str(user_id)).eq("feature_type", feature).execute()
+            
+            # 画面上のローカルメモリの残像もその場で完全に0にします
+            st.session_state[f"{feature}_in_tokens"] = 0
+            st.session_state[f"{feature}_out_tokens"] = 0
+
+        # 一時計算用の変数もすべて0で上書き消去
+        st.session_state["total_in_tokens"] = 0
+        st.session_state["total_out_tokens"] = 0
+        st.session_state["last_in_tokens"] = 0
+        st.session_state["last_out_tokens"] = 0
         
-        # 💡【重要】リセットボタンが押された「今の時刻」をスタンプとしてセッションに強制上書きします
-        st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
+        # 会話回数と起動時ロックもリセット
         st.session_state.conversation_count = 0
+        st.session_state["tokens_loaded"] = False
+        st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
+        
     except Exception as e:
         log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
 
