@@ -1820,7 +1820,18 @@ else:
 
                 for m in recent_messages:
                     role = "user" if m["role"] == "user" else "model"
-                    contents_for_gemini.append({"role": role, "parts": [m["content"]]})
+    
+                    # 💡【完全修正】メッセージの保存日時（created_at）から日本時間を取得し、発言の頭に美しくドッキングさせます！
+                    msg_time_str = ""
+                    if "created_at" in m and m["created_at"]:
+                        try:
+                            msg_dt = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")).astimezone(JST)
+                            msg_time_str = f"[{msg_dt.strftime('%A %H:%M')}] " # 例: [Saturday 14:00]
+                    except Exception:
+                        pass
+            
+                    # AIに対し「この発言は〇曜日の〇時に発せられた言葉だよ」と完璧な時間軸のコンテキストを教えて引き渡します
+                    contents_for_gemini.append({"role": role, "parts": [f"{msg_time_str}{m['content']}"]})
 
                 # ② 即時「思考中...」表示 & 返談生成
                 with st.chat_message("assistant", avatar=current_ai_avatar):
