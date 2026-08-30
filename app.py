@@ -1298,9 +1298,9 @@ def render_token_info():
             st.toast("トークン消費カウンターをリセットしたよ！")
             st.rerun()
 
- with st.sidebar.expander(
-    "🛠 開発者ログ",
-     expanded=False
+    with st.sidebar.expander(
+        "🛠 開発者ログ",
+        expanded=False
 ):
 
     if "debug_logs" in st.session_state and st.session_state.debug_logs:
