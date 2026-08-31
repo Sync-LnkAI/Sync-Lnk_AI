@@ -78,16 +78,25 @@ if not user_param:
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 CURRENT_USER_ID = str(user_param)
 
-# 💡 起動時の永久トークン同期のすれ違い（110行目のNameError）を完全に駆除
+# 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
-    # 💡 一時メモリを一切信用しないダイレクトDB集計仕様のため、古い起動時呼び出しは不要に。
-    # ここでは純粋にフラグの初期化と、裏方用のdb_lock信号機を世界共通で1つ作成します。
     import threading
     if "db_lock" not in st.session_state:
         st.session_state["db_lock"] = threading.Lock()
+        
+    try:
+        # user_token_stats テーブルから、現在のユーザーの chat_count の値をダイレクトに引っこ抜きます
+        res = supabase.table("user_token_stats").select("*").eq("user_id", CURRENT_USER_ID).eq("feature_type", "chat_count").execute()
+        if res.data and len(res.data) > 0:
+            # DBに保存されているリセット後の正しい累積回数を、一時メモリに完璧に復元！
+            st.session_state.conversation_count = int(res.data[0].get("in_tokens", 0))
+        else:
+            st.session_state.conversation_count = 0
+    except Exception as e:
+        log_debug(f"⚠️ 起動時会話回数復元エラー: {e}")
+        st.session_state.conversation_count = 0
+        
     st.session_state["tokens_loaded"] = True
-    st.session_state.conversation_count = 0
-
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
