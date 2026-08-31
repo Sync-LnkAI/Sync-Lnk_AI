@@ -1893,7 +1893,7 @@ else:
                                 st.session_state.total_out_tokens += out_t
                             # ▲▲▲ ここまで ▲▲▲
                             
-                                                        # （ハヤトの返答を描画して保存し、カウンターを+1した処理のすぐ下）
+                            # （ハヤトの返答を描画して保存し、カウンターを+1した処理のすぐ下）
                             ai_reply = response.text
                             clean_reply = clean_bold_markdown(ai_reply)
                             st.write(f"【{current_concierge_name}】: {clean_reply}")
