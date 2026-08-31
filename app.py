@@ -1792,7 +1792,7 @@ else:
                 current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
 
                 # システム指示に関連情報を組み込む！
-                                system_instruction = f"""
+                system_instruction = f"""
                 あなたの名前は「{current_concierge_name}」です。
                 対話相手のユーザー名は「{display_user_name}」です。
                 あなたの一人称は「{current_first_person}」を使用してください。
