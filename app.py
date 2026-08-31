@@ -760,12 +760,12 @@ st.markdown(f"""
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
    左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
    ================================================================== */
-[data-testid="stHeader"] {
+[data-testid="stHeader"] {{
     background-color: transparent !important; /* ヘッダーのグレーの背景を透明にして消し去ります */
     height: 3rem !important; /* ボタンが潰れない高さを確保 */
-}
+}}
 /* 左上の展開ボタン本体を背景からドンと際立たせる色付け */
-[data-testid="collapsedControl"] {
+[data-testid="collapsedControl"] {{
     color: #4A90E2 !important; /* ボタンの文字（矢印）を綺麗なロイヤルブルーへ */
     background-color: rgba(255, 255, 255, 0.9) !important; /* 背景を白にして視認性を100%に */
     border-radius: 4px !important;
@@ -775,7 +775,7 @@ st.markdown(f"""
     top: 0.5rem !important;
     left: 0.5rem !important;
     z-index: 999999 !important; /* 最前面へ強制浮上 */
-}
+}}
 
     /* 1. 全体背景＆文字色 */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
