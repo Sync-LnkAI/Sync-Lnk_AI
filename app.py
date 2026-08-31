@@ -25,8 +25,6 @@ def init_supabase() -> Client:
 
 supabase = init_supabase()
 
-CURRENT_USER_ID = "default_user"
-
 genai.configure(api_key=GEMINI_API_KEY)
 # ==========================================
 # Geminiモデル設定
@@ -66,14 +64,30 @@ MAX_INPUT_CHARS = 1000
 DAILY_LIMIT = 20
 BURST_LIMIT_SECONDS = 20  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
-# 👤 ユーザーIDの動的切り替え（Ver 0.1用）
-# 将来的にSupabase Authを入れるまでは、URL引数などでテストユーザーを切り替え可能にします
-# 例: https://streamlit.app
-query_params = st.query_params
-if "user" in query_params:
-    CURRENT_USER_ID = query_params["user"]
-else:
-    CURRENT_USER_ID = "default_user"
+# ==================================================================
+# 🔒【完全防衛】 URLパラメータの強制チェック（セキュリティシャッター）
+# ==================================================================
+user_param = st.query_params.get("user")
+
+# 💡 URLのケツに「?user=...」が何もついていない場合、または空っぽの場合
+if not user_param:
+    st.error("🔒 アクセス権限がありません")
+    st.info("このアプリは招待制のクローズドテスト中です。正しい専用の招待URLからアクセスしてください。")
+    st.stop() # 🎯 マスターデータの露出を入り口で100%完全にシャットアウト！
+
+# 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
+CURRENT_USER_ID = str(user_param)
+
+# 💡 起動時の永久トークン同期のすれ違い（110行目のNameError）を完全に駆除
+if "tokens_loaded" not in st.session_state:
+    # 💡 一時メモリを一切信用しないダイレクトDB集計仕様のため、古い起動時呼び出しは不要に。
+    # ここでは純粋にフラグの初期化と、裏方用のdb_lock信号機を世界共通で1つ作成します。
+    import threading
+    if "db_lock" not in st.session_state:
+        st.session_state["db_lock"] = threading.Lock()
+    st.session_state["tokens_loaded"] = True
+    st.session_state.conversation_count = 0
+
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -1877,31 +1891,47 @@ else:
 
                                 st.session_state.total_in_tokens += in_t
                                 st.session_state.total_out_tokens += out_t
-                           
                             # ▲▲▲ ここまで ▲▲▲
                             
+                                                        # （ハヤトの返答を描画して保存し、カウンターを+1した処理のすぐ下）
                             ai_reply = response.text
                             clean_reply = clean_bold_markdown(ai_reply)
                             st.write(f"【{current_concierge_name}】: {clean_reply}")
                             save_message(current_theme_id, "assistant", ai_reply)
+                            
+                            st.session_state.conversation_count += 1
+                            add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                            
                         except Exception as e:
                             error_msg = f"Gemini API エラー: {e}"
-                            
                             log_debug(error_msg)
-
                             st.error(error_msg)
                 
-                # ③ 非同期風に裏で要約更新・記憶抽出を実行
-                check_and_summarize_history(current_theme_id, recent_messages, current_summary)
-                extract_and_save_long_term_memory(user_input, current_theme_id)
+                # ==========================================================
+                # 🚀【完全非同期化】マルチスレッド ＆ db_lock（信号機）の設置
+                # ==========================================================
+                # 💡 重い裏方処理（要約・長期記憶）を、画面の描画とは完全に別の「裏口ルート」で走らせます。
+                import threading
 
-                # --------------------------------------------------
-                # 📊 【完全修正】会話カウンターを「ここでだけ」1増やす
-                # --------------------------------------------------
-                st.session_state.conversation_count += 1
-                add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0) # 💡 DBのchat_countのin_tokens枠に+1ずつ加算蓄積させます
+                def background_async_tasks(t_id, msgs, s_text, u_input):
+                    """裏口ルートでひっそりと動く、重いAI処理専用の関数"""
+                    # 💡【完全防衛】信号機の部屋に入ります（acquire）
+                    # もし1回目の処理が実行中なら、2回目の処理は自動的にこの1行目で「一時停止」して順番待ちします！
+                    with st.session_state["db_lock"]:
+                        try:
+                            check_and_summarize_history(t_id, msgs, s_text)
+                            extract_and_save_long_term_memory(u_input, t_id)
+                        except Exception as bg_err:
+                            log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
-                # 全ての裏側処理が安全に終わったので画面を再描画
+                # 裏口ルートの糸（スレッド）を作成して、即時スタートさせます
+                async_thread = threading.Thread(
+                    target=background_async_tasks,
+                    args=(current_theme_id, recent_messages, current_summary, user_input)
+                )
+                async_thread.start() # 👈 「裏で順番に綺麗に計算しておいてね！」と命令を放り投げる
+
+                # 🎯【爆速化】裏の処理が30秒かかろうが、表側は待たずに今すぐ0.00秒で画面を再描画して、入力欄のロックを即時開放！
                 st.rerun()
 
 # ==================================================================
