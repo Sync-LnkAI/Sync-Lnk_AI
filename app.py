@@ -1910,28 +1910,31 @@ else:
                 # ==========================================================
                 # 🚀【完全非同期化】マルチスレッド ＆ db_lock（信号機）の設置
                 # ==========================================================
-                # 💡 重い裏方処理（要約・長期記憶）を、画面の描画とは完全に別の「裏口ルート」で走らせます。
                 import threading
 
+                # 💡【完全修正】裏方関数そのものの内側ではなく、
+                # 長期記憶の「データベース上書き（書き込み）の瞬間」だけをピンポイントでロックします！
                 def background_async_tasks(t_id, msgs, s_text, u_input):
-                    """裏口ルートでひっそりと動く、重いAI処理専用の関数"""
-                    # 💡【完全防衛】信号機の部屋に入ります（acquire）
-                    # もし1回目の処理が実行中なら、2回目の処理は自動的にこの1行目で「一時停止」して順番待ちします！
-                    with st.session_state["db_lock"]:
-                        try:
-                            check_and_summarize_history(t_id, msgs, s_text)
+                    """表のチャット回答を1ミリも邪魔しない、完全独立の裏口ルート"""
+                    try:
+                        # 要約チェックはロックの外で、並列で爆速で実行させます
+                        check_and_summarize_history(t_id, msgs, s_text)
+                        
+                        # 💡【ココに引っ越し！】長期記憶のDB書き込みの瞬間だけ、信号機の部屋に入ります
+                        with st.session_state["db_lock"]:
                             extract_and_save_long_term_memory(u_input, t_id)
-                        except Exception as bg_err:
-                            log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+                            
+                    except Exception as bg_err:
+                        log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
                 # 裏口ルートの糸（スレッド）を作成して、即時スタートさせます
                 async_thread = threading.Thread(
                     target=background_async_tasks,
                     args=(current_theme_id, recent_messages, current_summary, user_input)
                 )
-                async_thread.start() # 👈 「裏で順番に綺麗に計算しておいてね！」と命令を放り投げる
+                async_thread.start()# 👈 「裏で順番に綺麗に計算しておいてね！」と命令を放り投げる
 
-                # 🎯【爆速化】裏の処理が30秒かかろうが、表側は待たずに今すぐ0.00秒で画面を再描画して、入力欄のロックを即時開放！
+                # 🎯 裏の処理が30秒並ぼうが、表のハヤトは1ミリも待たずに0.00秒で即座にロック開放！
                 st.rerun()
 
 # ==================================================================
