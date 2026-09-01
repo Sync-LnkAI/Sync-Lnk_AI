@@ -271,9 +271,45 @@ def search_past_logs_hybrid(query_text: str):
 
         return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
 
+# ==================================================================
+-- 📊 【新設】 匿名型システムエラー・要望アナリティクス集計関数
+# ==================================================================
+def increment_error_analytics(error_type: str, plan_type: str):
+    """
+    🔒【製品版対応・プライバシー100%完全防衛】
+    ユーザーの会話の中身（生文字）は一切触れず、
+    「無料／ライト／プレミアム」の各プランで、どのガードレール（無茶振り等）に接触したか
+    という『回数（数字）』だけを匿名で自動集計・カウントアップ（+1）します。
+    """
+    try:
+        now_str = datetime.now(timezone.utc).isoformat()
+        res = supabase.table("app_error_analytics").select("*").eq("error_type", error_type).execute()
+        
+        # カウントアップする対象プランのカラム名をスマートに仕分け
+        column_name = "count_free"
+        if "ライト" in plan_type:
+            column_name = "count_light"
+        elif "プレミアム" in plan_type:
+            column_name = "count_premium"
+        
+        if res.data and len(res.data) > 0:
+            current_row = res.data[0]
+            current_count = int(current_row.get(column_name, 0))
+            supabase.table("app_error_analytics").update({
+                column_name: current_count + 1,
+                "last_occurred_at": now_str
+            }).eq("id", current_row["id"]).execute()
+        else:
+            data = {
+                "error_type": error_type,
+                "count_free": 0, "count_light": 0, "count_premium": 0,
+                "last_occurred_at": now_str
+            }
+            data[column_name] = 1
+            supabase.table("app_error_analytics").insert(data).execute()
+            
     except Exception as e:
-        log_debug(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
-        return []
+        log_debug(f"⚠️ 匿名エラー分析ログ記録エラー: {e}")
 
 def get_memories(source="manual"):
     """
