@@ -608,7 +608,7 @@ st.markdown(f"""
         box-sizing: border-box !important;
     }}
     .main .block-container {{
-        max-width: 100vw !important;
+        max-width: 95vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
