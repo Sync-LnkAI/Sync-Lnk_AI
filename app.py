@@ -808,7 +808,7 @@ if is_admin:
                         all_messages.append({"role": "user", "content": user_input})
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-                        manual_memory_context = get_managed_settings_text() if get_managed_settings_text() else "なし"
+                        manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
                         current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
 
                         # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
@@ -1321,7 +1321,7 @@ else:
 if not st.session_state.get("tokens_loaded", False):
     try:
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        if res.data and len(res.data) > 0: st.session_state.conversation_count = res.data.get("in_tokens", 0)
+        if res.data and len(res.data) > 0: st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
         else: st.session_state.conversation_count = 0
     except Exception: st.session_state.conversation_count = 0
     st.session_state["tokens_loaded"] = True
