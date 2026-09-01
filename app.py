@@ -848,7 +848,7 @@ if is_admin:
                     """
 
                     contents_for_gemini = [
-                        {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]}
+                        {"role": "user", "parts": [user_input]}
                     ]
                     #contents_for_gemini = []
 
