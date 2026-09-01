@@ -812,20 +812,7 @@ if is_admin:
                 else:
                     with st.chat_message("user", avatar=current_user_avatar):
                         st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-
-                    # 無茶振り事前検知（コスト防衛）
-                    is_blocked = False
-                    block_event_type = ""
-                    block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
-                        is_blocked = True
-                        block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
-                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
-                        is_blocked = True
-                        block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
-
+                    
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, block_event_type, 0.0, 0, 0, 0.0, block_reason)
@@ -1163,19 +1150,7 @@ else:
                 else:
                     with st.chat_message("user", avatar=current_user_avatar):
                         st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-
-                    is_blocked = False
-                    block_event_type = ""
-                    block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
-                        is_blocked = True
-                        block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
-                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
-                        is_blocked = True
-                        block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
-
+                    
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, block_event_type, 0.0, 0, 0, 0.0, block_reason)
