@@ -903,7 +903,7 @@ if is_admin:
 
                         try:
                             api_start_time = time.time()
-                            response = chat_model.generate_content(contents_for_gemini)
+                            response = genai.GenerativeModel(CHAT_MODEL_NAME).generate_content(contents_for_gemini)
                             api_elapsed = time.time() - api_start_time
 
                             in_t, out_t = 0, 0
@@ -1252,7 +1252,7 @@ else:
 
                         try:
                             api_start_time = time.time()
-                            response = chat_model.generate_content(contents_for_gemini)
+                            response = genai.GenerativeModel(CHAT_MODEL_NAME).generate_content(contents_for_gemini)
                             api_elapsed = time.time() - api_start_time
 
                             in_t, out_t = 0, 0
