@@ -883,7 +883,7 @@ if is_admin:
 
                     except Exception as gemini_err:
                         increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100], "")
+                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
                         err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
                         with st.chat_message("assistant", avatar=current_ai_avatar):
                             st.write(f"【{current_concierge_name}】: {err_msg}")
