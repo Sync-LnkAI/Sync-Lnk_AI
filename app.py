@@ -603,7 +603,7 @@ st.markdown(f"""
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
         color: {theme_cfg["text"]} !important;
-        max-width: 100vw !important;
+        max-width: 95vw !important;
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }}
