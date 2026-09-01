@@ -938,7 +938,7 @@ if is_admin:
                         try: check_and_summarize_history(0, msgs, s_text)
                         except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages, current_summary))
+                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
 
@@ -1288,7 +1288,7 @@ else:
                         try: check_and_summarize_history(0, msgs, s_text)
                         except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages, current_summary))
+                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
 
