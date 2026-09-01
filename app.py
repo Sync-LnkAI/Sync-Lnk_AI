@@ -67,6 +67,7 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 CURRENT_USER_ID = str(user_param)
+ADMIN_USER_IDS = ["ryuudesu_master_1310", "your_real_admin_id"]
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
@@ -974,7 +975,7 @@ if is_admin:
 
         if admin_mode == "👤 画面①：ユーザー個別・全利用状況監査カルテ":
             st.subheader("👤 ユーザー別・稼働状況 ＆ タイムライン監査")
-            all_users = ["default_user"]
+            all_users = ["ryuudesu_master_1310"]
             try:
                 user_res = supabase.table("user_token_stats").select("user_id").execute()
                 if user_res.data: all_users = sorted(list({row["user_id"] for row in user_res.data if row.get("user_id")}))
