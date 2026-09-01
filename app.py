@@ -84,7 +84,7 @@ if "tokens_loaded" not in st.session_state:
         else:
             st.session_state.conversation_count = 0
     except Exception as e:
-        log_debug(f"⚠️ 起動時会話回数復元エラー: {e}")
+        print(f"⚠️ 起動時会話回数復元エラー: {e}")
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
@@ -131,7 +131,7 @@ if "tokens_loaded" not in st.session_state:
         else:
             st.session_state.conversation_count = 0
     except Exception as e:
-        log_debug(f"⚠️ 会話回数同期エラー: {e}")
+        print(f"⚠️ 会話回数同期エラー: {e}")
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
@@ -272,7 +272,7 @@ def search_past_logs_hybrid(query_text: str):
         return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
 
     except Exception as e:
-        log_debug(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
+        print(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
         return []
 
 # ==================================================================
@@ -313,7 +313,7 @@ def increment_error_analytics(error_type: str, plan_type: str):
             supabase.table("app_error_analytics").insert(data).execute()
             
     except Exception as e:
-        log_debug(f"⚠️ 匿名エラー分析ログ記録エラー: {e}")
+        print(f"⚠️ 匿名エラー分析ログ記録エラー: {e}")
 
 def get_memories(source="manual"):
     """
@@ -388,13 +388,13 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
             for item in res.data:
                 if item.get("fact", "").startswith(f"{setting_key}:"):
                     delete_memory(item["id"])
-                    log_debug(f"古い設定を上書き削除しました: {item['fact']}")
+                    print(f"古い設定を上書き削除しました: {item['fact']}")
                 
         # 3. 古いゴミを掃除した上で、最新の設定値を保存
         return save_memory(fact=new_fact, source="manual")
         
     except Exception as e:
-        log_debug(f"設定更新エラー: {e}")
+        print(f"設定更新エラー: {e}")
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
@@ -412,7 +412,7 @@ def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT"):
         )
         return response.get("embedding")
     except Exception as e:
-        log_debug(f"⚠️ Embedding生成エラー: {e}")
+        print(f"⚠️ Embedding生成エラー: {e}")
         return None
 
 # ==================================================================
@@ -438,7 +438,7 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
         }
         supabase.table("system_audit_logs").insert(data).execute()
     except Exception as e:
-        log_debug(f"⚠️ システム監査ログ保存エラー: {e}")
+        print(f"⚠️ システム監査ログ保存エラー: {e}")
 
 # ==================================================================
 # 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
@@ -936,7 +936,7 @@ if is_admin:
                     import threading
                     def background_async_tasks(msgs, s_text):
                         try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages, current_summary))
                     async_thread.start()
@@ -1286,7 +1286,7 @@ else:
                     import threading
                     def background_async_tasks(msgs, s_text):
                         try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages, current_summary))
                     async_thread.start()
