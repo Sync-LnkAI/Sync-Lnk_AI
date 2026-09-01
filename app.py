@@ -847,20 +847,13 @@ if is_admin:
                     
                     """
 
-                    contents_for_gemini = []
+                    contents_for_gemini = [
+                        {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]}
+                    ]
+                    #contents_for_gemini = []
 
                     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
-
-                    for m in recent_messages:
-                        role = "user" if m["role"] == "user" else "model"
-                        msg_time_str = ""
-                        if "created_at" in m and m["created_at"]:
-                            try:
-                                msg_dt = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")).astimezone(JST)
-                                msg_time_str = f"[{msg_dt.strftime('%A %H:%M')}] "
-                            except Exception: pass
-                        contents_for_gemini.append({"role": role, "parts": [f"{msg_time_str}{m['content']}"]})
-
+                    
                     try:
                         api_start_time = time.time()
                         response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
