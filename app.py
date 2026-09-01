@@ -608,7 +608,7 @@ st.markdown(f"""
         box-sizing: border-box !important;
     }}
     .main .block-container {{
-        max-width: 95vw !important;
+        max-width: 100vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
@@ -795,7 +795,7 @@ if is_admin:
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
+        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="admin_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
@@ -817,14 +817,14 @@ if is_admin:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if "画像生成" in user_input or "イラスト生成" in user_input or "写真生成" in user_input:
+                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "作って", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を技術的に要求しました"
-                    elif "コード生成" in user_input or "プログラム実装" in user_input or "スクリプト作成" in user_input:
+                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
+                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を技術的に要求しました"
+                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
 
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
@@ -942,7 +942,6 @@ if is_admin:
 
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
-
 
     # ------------------------------------------------------------------
     # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
@@ -1168,14 +1167,14 @@ else:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if "画像生成" in user_input or "イラスト生成" in user_input or "写真生成" in user_input:
+                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "作って", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を技術的に要求しました"
-                    elif "コード生成" in user_input or "プログラム実装" in user_input or "スクリプト作成" in user_input:
+                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
+                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を技術的に要求しました"
+                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
 
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
