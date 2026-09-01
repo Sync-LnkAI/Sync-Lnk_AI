@@ -573,10 +573,6 @@ theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモ
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
 st.markdown(f"""
 <style>
-/* 上部ツールバー非表示 */
-/*[data-testid="stToolbar"] {{*/
-/*    display: none !important;*/
-/*}}*/
 
 /* ==================================================================
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
@@ -608,7 +604,7 @@ st.markdown(f"""
         box-sizing: border-box !important;
     }}
     .main .block-container {{
-        max-width: 100vw !important;
+        max-width: 95vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
