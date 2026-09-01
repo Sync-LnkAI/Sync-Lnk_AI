@@ -817,7 +817,7 @@ if is_admin:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "作って", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
+                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて",  "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
                         block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
@@ -1167,7 +1167,7 @@ else:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "作って", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
+                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
                         block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
