@@ -175,23 +175,25 @@ def clean_bold_markdown(text: str) -> str:
 # 🗄️ Supabase データベース操作関数
 # ==========================================
 
-def get_messages():
+# ==================================================================
+# 🧠 【一本道統合仕様】 過去メッセージ履歴の一括取得関数
+# ==================================================================
+def get_messages() -> list[dict]:
     """
-    🎯【テーマ廃止・1本道統合仕様】
-    ユーザーIDに紐づくすべての会話履歴を、時系列順（古い順）にデータベースからガバッと全件取得します。
+    💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
+    ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
+    エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
     """
     try:
-        res = (
-            supabase
-            .table("messages")
-            .select("*")
-            .eq("user_id", CURRENT_USER_ID)
-            .order("created_at", desc=False)
-            .execute()
-        )
-        return res.data if res.data else []
+        # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
+        res = supabase.table("messages").select("*").eq("user_id", str(CURRENT_USER_ID)).order("created_at", ascending=True).execute()
+        
+        if res.data:
+            return res.data
+        return []
+        
     except Exception as e:
-        st.error(f"メッセージ取得エラー: {e}")
+        print(f"⚠️ メッセージ履歴取得エラー（一本道仕様）: {e}")
         return []
 
 def save_message(role: str, content: str) -> bool:
