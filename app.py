@@ -966,10 +966,6 @@ if is_admin:
             initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
             new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
 
-            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
-            current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            new_plan = st.selectbox("【デバッグ用】現在の会員プラン", plan_options, index=current_plan_idx)
-
             if st.form_submit_button("基本設定を保存"):
                 save_or_update_user_setting("AIの名前", new_concierge_name)
                 save_or_update_user_setting("ユーザー名", new_user_name)
@@ -979,7 +975,6 @@ if is_admin:
                 save_or_update_user_setting("応答方針", new_instruction)
                 save_or_update_user_setting("AIアバター", ai_avatar_val)
                 save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                save_or_update_user_setting("会員プラン", new_plan)
                 st.success("設定を更新したよ！")
                 st.rerun()
 
