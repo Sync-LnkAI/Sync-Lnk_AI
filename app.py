@@ -781,7 +781,7 @@ if is_admin:
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
         current_plan_type = "💎 プレミアムプラン"
-        
+
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
@@ -864,10 +864,7 @@ if is_admin:
                     ・その場合は現在のあなたのキャラクターを完璧に維持したまま、画像作成やコード生成は専門外であることを3行以内で愛らしくスマートに返し、毅然と優しく100%お断り（抑制）してください。
                     """
 
-                    contents_for_gemini = [
-                        {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
-                        {"role": "model", "parts": [f"了解だよ、{display_user_name}。"]}
-                    ]
+                    contents_for_gemini = []
 
                     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
@@ -883,7 +880,7 @@ if is_admin:
 
                     try:
                         api_start_time = time.time()
-                        response = genai.GenerativeModel(CHAT_MODEL_NAME).generate_content(contents_for_gemini)
+                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
                         api_elapsed = time.time() - api_start_time
 
                         in_t, out_t = 0, 0
@@ -1197,10 +1194,7 @@ else:
                     ・その場合は現在のあなたのキャラクターを完璧に維持したまま、画像作成やコード生成は専門外であることを3行以内で愛らしくスマートに返し、毅然と優しく100%お断り（抑制）してください。
                     """
 
-                    contents_for_gemini = [
-                        {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
-                        {"role": "model", "parts": [f"了解だよ、{display_user_name}。"]}
-                    ]
+                    contents_for_gemini = []
                     for m in recent_messages:
                         role = "user" if m["role"] == "user" else "model"
                         msg_time_str = ""
@@ -1213,7 +1207,7 @@ else:
 
                     try:
                         api_start_time = time.time()
-                        response = genai.GenerativeModel(CHAT_MODEL_NAME).generate_content(contents_for_gemini)
+                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
                         api_elapsed = time.time() - api_start_time
 
                         in_t, out_t = 0, 0
