@@ -574,9 +574,9 @@ theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモ
 st.markdown(f"""
 <style>
 /* 上部ツールバー非表示 */
-/*[data-testid="stToolbar"] {{
-    display: none !important;
-}}*/
+/*[data-testid="stToolbar"] {{*/
+/*    display: none !important;*/
+/*}}*/
 
 /* ==================================================================
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
