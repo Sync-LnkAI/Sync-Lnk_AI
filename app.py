@@ -908,12 +908,12 @@ if is_admin:
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
-                except Exception as gemini_err:
-                    increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                    save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
-                    err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
-                    with st.chat_message("assistant", avatar=current_ai_avatar):
-                        st.write(f"【{current_concierge_name}】: {err_msg}")
+                    except Exception as gemini_err:
+                        increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
+                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
+                        err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
+                        with st.chat_message("assistant", avatar=current_ai_avatar):
+                            st.write(f"【{current_concierge_name}】: {err_msg}")
 
                     import threading
                     def background_async_tasks(msgs, s_text):
@@ -1245,14 +1245,14 @@ else:
                         with st.chat_message("assistant", avatar=current_ai_avatar):
                             st.write(f"【{current_concierge_name}】: {err_msg}")
 
-                        import threading
-                        def background_async_tasks(msgs, s_text):
-                            try: check_and_summarize_history(0, msgs, s_text)
-                            except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+                    import threading
+                    def background_async_tasks(msgs, s_text):
+                        try: check_and_summarize_history(0, msgs, s_text)
+                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
 
-                        async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
-                        async_thread.start()
-                        st.rerun()
+                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
+                    async_thread.start()
+                    st.rerun()
 
     # ------------------------------------------------------------------
     # 🎨 【一般・タブ2】 キャラクター・見た目設定画面
