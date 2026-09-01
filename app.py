@@ -779,8 +779,9 @@ if is_admin:
     # ------------------------------------------------------------------
     with tab1:
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-
+        #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+        current_plan_type = "💎 プレミアムプラン"
+        
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
