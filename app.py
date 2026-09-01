@@ -867,6 +867,9 @@ if is_admin:
                         {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
                         {"role": "model", "parts": [f"了解だよ、{display_user_name}。"]}
                     ]
+
+                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+
                     for m in recent_messages:
                         role = "user" if m["role"] == "user" else "model"
                         msg_time_str = ""
