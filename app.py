@@ -5,10 +5,8 @@ import re
 import time
 import json
 from datetime import datetime, timezone, timedelta
-import zoneinfo
-
 # 日本時間（UTC+9時間）
-JST = zoneinfo.ZoneInfo("Asia/Tokyo")
+JST = timezone(timedelta(hours=9))
 
 # ==========================================
 # ⚙️ 設定・初期化
@@ -28,26 +26,38 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 genai.configure(api_key=GEMINI_API_KEY)
+# ==========================================
+# Geminiモデル設定
+# ==========================================
 
-# ==========================================
-# Geminiモデル設定（★3.5/3.6 Flash-Liteへ完全一本化）
-# ==========================================
-# 💡 表側の雑談も、裏方の要約・エラー翻訳も、すべて最安・最速の「Flash-Lite」に固定してインフラコストを完全防衛します
-CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+CHAT_MODEL_NAME = "gemini-3.6-flash"
 MEMORY_MODEL_NAME = "gemini-3.5-flash-lite"
 SUMMARY_MODEL_NAME = "gemini-3.5-flash-lite"
 
-chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
-memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
-summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+# 通常チャット用
+chat_model = genai.GenerativeModel(
+    CHAT_MODEL_NAME
+)
 
-# Gemini 3.5 Flash-Lite 従量課金単価定義（1ドル150円換算）
+# 長期記憶抽出用
+memory_model = genai.GenerativeModel(
+    MEMORY_MODEL_NAME
+)
+
+# テーマ要約用
+summary_model = genai.GenerativeModel(
+    SUMMARY_MODEL_NAME
+)
+
+# Gemini 3.6 Flash
+CHAT_INPUT_PRICE_PER_MILLION = 1.50
+CHAT_OUTPUT_PRICE_PER_MILLION = 7.50
+
+# Gemini 3.5 Flash-Lite
 LITE_INPUT_PRICE_PER_MILLION = 0.30
 LITE_OUTPUT_PRICE_PER_MILLION = 2.50
-PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * 150
-PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * 150
 
-USD_TO_JPY = 160
+USD_TO_JPY = 150
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -67,7 +77,6 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 CURRENT_USER_ID = str(user_param)
-ADMIN_USER_IDS = ["ryuudesu_master_1310", "your_real_admin_id"]
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
@@ -84,7 +93,7 @@ if "tokens_loaded" not in st.session_state:
         else:
             st.session_state.conversation_count = 0
     except Exception as e:
-        print(f"⚠️ 起動時会話回数復元エラー: {e}")
+        log_debug(f"⚠️ 起動時会話回数復元エラー: {e}")
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
@@ -131,7 +140,7 @@ if "tokens_loaded" not in st.session_state:
         else:
             st.session_state.conversation_count = 0
     except Exception as e:
-        print(f"⚠️ 会話回数同期エラー: {e}")
+        log_debug(f"⚠️ 会話回数同期エラー: {e}")
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
@@ -147,14 +156,24 @@ STYLE_PRESETS = {
 }
 
 FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
+
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
 
 # 安全な絵文字アバター定義
 AVATAR_PRESETS_AI = {
-    "🤖 ロボット": "🤖", "👾 レトロドット": "👾", "🦊 きつね": "🦊", "🦉 ふくろう": "🦉", "🔮 魔法の水晶": "🔮"
+    "🤖 ロボット": "🤖",
+    "👾 レトロドット": "👾",
+    "🦊 きつね": "🦊",
+    "🦉 ふくろう": "🦉",
+    "🔮 魔法の水晶": "🔮"
 }
+
 AVATAR_PRESETS_USER = {
-    "💫 キラキラ星": "💫", "🧑‍💻 エンジニア": "🧑‍💻", "🐉 ドラゴン": "🐉", "⚡ サンダー": "⚡", "👑 キング": "👑"
+    "💫 キラキラ星": "💫",
+    "🧑‍💻 エンジニア": "🧑‍💻",
+    "🐉 ドラゴン": "🐉",
+    "⚡ サンダー": "⚡",
+    "👑 キング": "👑"
 }
 
 # カラーテーマ定義（デフォルト：ライドモード）
@@ -165,7 +184,7 @@ COLOR_THEMES = {
     "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_bg": "#321b4a", "dropdown_text": "#ffffff"}
 }
 
-# 画面上の不要な ** 記号を除去する関数
+# 画面上の不要な  記号を除去する関数
 def clean_bold_markdown(text: str) -> str:
     if not text:
         return text
@@ -175,29 +194,69 @@ def clean_bold_markdown(text: str) -> str:
 # 🗄️ Supabase データベース操作関数
 # ==========================================
 
-# ==================================================================
-# 🧠 【一本道統合仕様】 過去メッセージ履歴の一括取得関数
-# ==================================================================
-def get_messages() -> list[dict]:
-    """
-    💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
-    ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
-    エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
-    """
+def get_themes():
     try:
-        # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
-        res = supabase.table("messages").select("*").eq("user_id", str(CURRENT_USER_ID)).order("created_at", ascending=True).execute()
-        
-        if res.data:
-            return res.data
-        return []
-        
+        res = supabase.table("themes").select("*").order("id", desc=False).execute()
+        return res.data if res.data else []
     except Exception as e:
-        print(f"⚠️ メッセージ履歴取得エラー（一本道仕様）: {e}")
+        st.error(f"テーマ取得エラー: {e}")
         return []
 
-def save_message(role: str, content: str) -> bool:
-    """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
+def add_theme(name: str, icon: str):
+    icon_val = "" if icon == "なし" else icon
+    # user_id を追加してエラーを防止
+    supabase.table("themes").insert({"user_id": "CURRENT_USER_ID", "name": name, "icon": icon_val}).execute()
+
+def update_theme(theme_id: int, name: str, icon: str):
+    icon_val = "" if icon == "なし" else icon
+    supabase.table("themes").update({"name": name, "icon": icon_val}).eq("id", theme_id).execute()
+
+def delete_theme(theme_id: int):
+    # IDが1（メインテーマ）の場合は削除をブロック！
+    if theme_id == 1:
+        st.warning("「メインテーマ」は削除できません！")
+        return
+
+    supabase.table("messages").delete().eq("theme_id", theme_id).execute()
+    supabase.table("themes").delete().eq("id", theme_id).execute()
+
+def get_theme_summary(theme_id: int) -> str:
+    try:
+        res = supabase.table("themes").select("summary").eq("id", theme_id).execute()
+        if res.data and res.data[0].get("summary"):
+            return res.data[0]["summary"]
+    except Exception:
+        pass
+    return ""
+
+def update_theme_summary(theme_id: int, new_summary: str):
+    try:
+        supabase.table("themes").update({"summary": new_summary}).eq("id", theme_id).execute()
+    except Exception as e:
+        print(f"要約更新エラー: {e}")
+
+def get_messages(theme_id: int):
+    try:
+        res = (
+            supabase
+            .table("messages")
+            .select("*")
+            .eq("theme_id", theme_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+
+        return res.data if res.data else []
+
+    except Exception as e:
+        st.error(f"メッセージ取得エラー: {e}")
+        return []
+
+def save_message(
+    theme_id: int,
+    role: str,
+    content: str
+) -> bool:
     try:
         embedding_data = get_embedding(
             content,
@@ -206,139 +265,67 @@ def save_message(role: str, content: str) -> bool:
 
         data = {
             "user_id": CURRENT_USER_ID,
+            "theme_id": theme_id,
             "role": role,
             "content": content,
             "embedding": embedding_data
         }
 
         supabase.table("messages").insert(data).execute()
+
         return True
 
     except Exception as e:
         st.error(f"メッセージ保存エラー: {e}")
         return False
 
-# ==================================================================
-# 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
-# ==================================================================
-def search_past_logs_hybrid(query_text: str):
-    """
-    1. まずベクトル類似度検索（RPC）を走らせて、ふんわりとした「意味の近い過去ログ」を検索。
-    2. もしヒット数が最大値（3件）に満たない場合、裏口で『LIKE部分一致検索（文字の完全一致）』を自動で重ね、
-       文脈の角度のズレや固有名詞の不一致による大切な思い出の聞き逃しを完全に防衛します。
-    """
-    if not query_text or not query_text.strip():
-        return []
-
+def get_memories(theme_id=None, source=None):
     try:
-        query_embedding = get_embedding(
-            query_text,
-            task_type="RETRIEVAL_QUERY"
-        )
-        
-        if not query_embedding:
-            return []
-
-        # ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
-        response = supabase.rpc(
-            "match_messages_all",
-            {
-                "query_embedding": query_embedding,
-                "match_threshold": 0.65,  # ゴミデータを拾わない厳格な合格ライン
-                "match_count": 3,
-                "filter_user_id": CURRENT_USER_ID
-            }
-        ).execute()
-
-        results = response.data if response.data else []
-
-        # ② 救済網：文字の部分一致（LIKE検索）をハイブリッドで重ねる
-        # ユーザーの発言から2文字以上の重要な名詞・キーワードの塊を簡易的に抽出
-        keywords = [w.group() for w in re.finditer(r'[一-龠々𠮷々〆]+|[ぁ-ん]{2,}|[ァ-ヶー]{2,}', query_text) if len(w.group()) >= 2]
-
-        if keywords and len(results) < 3:
-            try:
-                # 直近の自分のユーザー発言を最大20件引っ張ってきてキーワードが含まれるか突合
-                like_res = supabase.table("messages").select("*").eq("user_id", CURRENT_USER_ID).eq("role", "user").order("created_at", desc=True).limit(20).execute()
-                if like_res.data:
-                    for msg in like_res.data:
-                        if any(kw in msg["content"] for kw in keywords):
-                            # すでにベクトル検索で拾った重複データでなければ救済合流
-                            if not any(r["id"] == msg["id"] for r in results):
-                                results.append(msg)
-                                if len(results) >= 3:
-                                    break
-            except Exception:
-                pass
-
-        return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
-
-    except Exception as e:
-        print(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
-        return []
-
-# ==================================================================
-## 📊 【新設】 匿名型システムエラー・要望アナリティクス集計関数
-# ==================================================================
-def increment_error_analytics(error_type: str, plan_type: str):
-    """
-    🔒【製品版対応・プライバシー100%完全防衛】
-    ユーザーの会話の中身（生文字）は一切触れず、
-    「無料／ライト／プレミアム」の各プランで、どのガードレール（無茶振り等）に接触したか
-    という『回数（数字）』だけを匿名で自動集計・カウントアップ（+1）します。
-    """
-    try:
-        now_str = datetime.now(timezone.utc).isoformat()
-        res = supabase.table("app_error_analytics").select("*").eq("error_type", error_type).execute()
-        
-        # カウントアップする対象プランのカラム名をスマートに仕分け
-        column_name = "count_free"
-        if "ライト" in plan_type:
-            column_name = "count_light"
-        elif "プレミアム" in plan_type:
-            column_name = "count_premium"
-        
-        if res.data and len(res.data) > 0:
-            current_row = res.data[0]
-            current_count = int(current_row.get(column_name, 0))
-            supabase.table("app_error_analytics").update({
-                column_name: current_count + 1,
-                "last_occurred_at": now_str
-            }).eq("id", current_row["id"]).execute()
-        else:
-            data = {
-                "error_type": error_type,
-                "count_free": 0, "count_light": 0, "count_premium": 0,
-                "last_occurred_at": now_str
-            }
-            data[column_name] = 1
-            supabase.table("app_error_analytics").insert(data).execute()
-            
-    except Exception as e:
-        print(f"⚠️ 匿名エラー分析ログ記録エラー: {e}")
-
-def get_memories(source="manual"):
-    """
-    🎯【設定画面・手動登録専用仕様】
-    ユーザー設定画面（タブ2）から登録された、全テーマ共通の『現在の調教・基本設定ファクト』を読み込みます。
-    """
-    try:
-        res = (
+        query = (
             supabase
             .table("user_memories")
             .select("*")
-            .eq("user_id", CURRENT_USER_ID)
-            .eq("source", source)
-            .order("id", desc=False)
-            .execute()
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
         )
+
+        if theme_id is None:
+            query = query.filter(
+                "theme_id",
+                "is",
+                "null"
+            )
+        else:
+            query = query.eq(
+                "theme_id",
+                theme_id
+            )
+
+        if source:
+            query = query.eq(
+                "source",
+                source
+            )
+
+        res = query.order(
+            "id",
+            desc=False
+        ).execute()
+
         return res.data if res.data else []
+
     except Exception as e:
-        print(f"設定データ取得エラー: {e}")
+        print(f"記憶取得エラー: {e}")
         return []
 
-def save_memory(fact: str, source="manual") -> bool:
-    """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
+def save_memory(
+    fact: str,
+    theme_id=None,
+    category="基本情報",
+    source="manual"
+) -> bool:
     try:
         embedding_data = get_embedding(
             fact,
@@ -347,17 +334,23 @@ def save_memory(fact: str, source="manual") -> bool:
 
         data = {
             "user_id": CURRENT_USER_ID,
-            "category": "基本情報",
+            "category": category,
             "fact": fact,
             "source": source,
             "embedding": embedding_data
         }
 
-        supabase.table("user_memories").insert(data).execute()
+        if theme_id is not None:
+            data["theme_id"] = theme_id
+
+        supabase.table(
+            "user_memories"
+        ).insert(data).execute()
+
         return True
 
     except Exception as e:
-        st.error(f"設定保存エラー: {e}")
+        st.error(f"記憶保存エラー: {e}")
         return False
 
 def delete_memory(memory_id: int) -> bool:
@@ -369,9 +362,11 @@ def delete_memory(memory_id: int) -> bool:
             .eq("id", memory_id)
             .execute()
         )
+
         return True
+
     except Exception as e:
-        st.error(f"設定削除エラー: {e}")
+        st.error(f"記憶削除エラー: {e}")
         return False
 
 def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
@@ -382,103 +377,189 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     new_fact = f"{setting_key}: {new_value}"
     
     try:
-        # 1. 既存の手動設定（source='manual'）をすべて取得
-        res = supabase.table("user_memories").select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
+        # 1. 類似度を1.0（完全一致）に近い「0.9」など高めに設定して既存の設定を検索
+        # ※ これにより「AIの名前: ハヤト」がある状態で「AIの名前: タクミ」を探し出せます
+        similar_settings = search_similar_memories(
+            memory_text=f"{setting_key}:", 
+            threshold=0.85, 
+            match_count=3
+        )
         
-        # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
-        if res.data:
-            for item in res.data:
-                if item.get("fact", "").startswith(f"{setting_key}:"):
-                    delete_memory(item["id"])
-                    print(f"古い設定を上書き削除しました: {item['fact']}")
+        # 2. もし過去に同じ設定項目（manualソース）が存在していれば、それらを物理削除（または論理削除）
+        for item in similar_settings:
+            # 念のため、設定キー（例: 'AIの名前:'）がfactの前方一致に含まれるかチェック
+            if item.get("fact", "").startswith(f"{setting_key}:"):
+                delete_memory(item["id"])
+                log_debug(f"古い設定を削除しました: {item['fact']} (ID: {item['id']})")
                 
         # 3. 古いゴミを掃除した上で、最新の設定値を保存
-        return save_memory(fact=new_fact, source="manual")
+        return save_memory(
+            fact=new_fact,
+            theme_id=None,
+            category="基本情報",
+            source="manual"
+        )
         
     except Exception as e:
-        print(f"設定更新エラー: {e}")
+        log_debug(f"設定更新エラー: {e}")
         return False
 
+
 # テキストをベクトル（数値配列）に変換する関数
-def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT"):
-    """Embedding生成。"""
+def get_embedding(
+    text: str,
+    task_type: str = "RETRIEVAL_DOCUMENT"  # デフォルトを大文字の正式名称にします
+):
+    """Embedding生成。保存時と検索時でtask_typeを分ける。"""
     if not text or not text.strip():
         return None
 
     try:
+        # 引数で渡された文字を強制的に大文字に変換 (Googleの最新仕様に適合させます)
         formatted_task_type = task_type.upper()
+        if formatted_task_type == "RETRIEVAL_QUERY":
+            formatted_task_type = "RETRIEVAL_QUERY"
+        elif formatted_task_type == "RETRIEVAL_DOCUMENT":
+            formatted_task_type = "RETRIEVAL_DOCUMENT"
+
+        # 404エラーを回避するため、モデル名と引数の構造をGoogle最新仕様にガチッと固定します
         response = genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=text.strip(),
+            model="models/gemini-embedding-001",  # models/ を外した形
+            content=text.strip(),       # contents (複数形) に統一
             task_type=formatted_task_type
         )
-        return response.get("embedding")
+
+        embedding = response.get("embedding")
+
+        if not embedding:
+            log_debug("Embeddingが空でした")
+            return None
+
+        return embedding
+
     except Exception as e:
-        print(f"⚠️ Embedding生成エラー: {e}")
+        # 何か問題が起きた場合は、バグの原因をログに残します
+        log_debug(f"⚠️ 大元のget_embedding内でエラーが発生しました: {e}")
         return None
 
-# ==================================================================
-# 📊 【新設】 ユーザー別＆全体システム監査ログ（Telemetry）永続保存関数
-# ==================================================================
-def save_system_audit_log(user_id: str, plan_type: str, event_type: str, processing_time: float, in_t: int, out_t: int, api_cost: float, details: str = ""):
-    """
-    🎯【個別カルテ ＆ 製品版全体分析の二面待ちデータ貯金箱】
-    ユーザーの会話の中身（生文字）は一切保存せず、
-    「処理秒数、トークン数、正確な実費コスト、イベント種別」の『数字と記号だけ』をDBへ永続保存します。
-    """
+# ベクトル検索（RAG）を行う関数
+def search_past_logs(current_theme_id, query_text):
     try:
-        data = {
-            "user_id": user_id,
-            "user_plan": plan_type,
-            "event_type": event_type,
-            "processing_time": round(processing_time, 2),
-            "in_tokens": in_t,
-            "out_tokens": out_t,
-            "api_cost": round(api_cost, 4),
-            "details": details,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        supabase.table("system_audit_logs").insert(data).execute()
-    except Exception as e:
-        print(f"⚠️ システム監査ログ保存エラー: {e}")
+        # クエリテキストをベクトル化
+        query_embedding = get_embedding(
+            query_text,
+            task_type="RETRIEVAL_QUERY"
+        )
+        
+        if not query_embedding:
+            return []
 
-# ==================================================================
-# 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
-# ==================================================================
-def generate_personality_error_msg(error_reason_text: str, current_instruction: str) -> str:
+        # 【ここを追加！】IDが1（メイン）の場合は None にして全体検索にする！
+        theme_filter = None if current_theme_id == 1 else current_theme_id
+
+        # Supabaseのmatch_messages関数（RPC）を呼び出し
+        response = supabase.rpc(
+            "match_messages",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": 0.3, # 類似度のしきい値（必要に応じて調整）
+                "match_count": 5,        # 抽出する件数
+                "filter_theme_id": theme_filter # ここを theme_filter に変更！
+            }
+        ).execute()
+
+        return response.data if response.data else []
+
+    except Exception as e:
+        # エラー処理（ターミナル出力にする場合は下のコメントアウトを外してね）
+        print(f"⚠️ 過去ログ検索エラー: {e}")
+        return []
+
+def search_similar_memories(
+    memory_text: str,
+    threshold: float = 0.65,
+    match_count: int = 3
+):
     """
-    🔮【冷め感ゼロ・世界観100%憑依】
-    冷たいシステムエラー赤ボックスを事実上排除。Geminiを裏で一瞬だけ走らせ、
-    「現在のAIの設定スタイル（口調、方言等）」に完璧になりきらせた、優しく愛らしいお断りセリフへと全自動翻訳します。
+    新しい記憶と意味が近い既存の長期記憶を検索する。
+
+    threshold:
+        0.65以上を類似候補とする。
+        誤判定が多ければ0.70～0.75へ上げる。
+        重複を見逃す場合は0.60～0.65へ下げる。
     """
+    if not memory_text or not memory_text.strip():
+        return []
+
     try:
-        # 💡 設定画面の現在のAIの名前（current_concierge_name）を動的に反映させて、完全に汎用化します
-        ai_name = current_concierge_name if current_concierge_name else "コンシェルジュ"
+        query_embedding = get_embedding(
+            memory_text,
+            task_type="RETRIEVAL_QUERY"
+        )
+
+        log_debug(
+            f"Embedding型: {type(query_embedding)}"
+        )
+
+        log_debug(
+            f"Embedding存在: {query_embedding is not None}"
+        )
         
-        prompt = f"""
-        あなたはユーザーに寄り添うAIコンシェルジュ「{ai_name}」です。
-        現在、システム上で以下の【エラー・利用制限・または禁止事項（無茶振り）】が発生しました。
-        
-        【発生したイベント】: {error_reason_text}
-        【現在のあなた（{ai_name}）の口調指示】: {current_instruction}
-        
-        指示:
-        ユーザーを絶対に冷めさせないよう、上記の【口調指示（方言やツンデレなど）】を100%完璧に身にまとって憑依し、
-        「〇〇だから、今回はできないんだ、ごめんね💦」という内容を、愛らしくスマートに伝える返答セリフを【1文だけ（3行以内）】で作成してください。
-        プログラムやシステムという冷たい単語は一切使わず、{ai_name}自身のセリフとして出力すること。
-        """
-        response = memory_model.generate_content(prompt)
-        return response.text.strip()
-    except Exception:
-        return "ごめんね💦 今ちょっと接続が不安定みたい。少しだけ時間を空けてみてね。"
+        if not query_embedding:
+            log_debug(
+                "類似記憶検索用Embeddingを生成できませんでした"
+            )
+            return []
+
+        response = supabase.rpc(
+            "match_user_memories",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": threshold,
+                "match_count": match_count,
+                "filter_user_id": CURRENT_USER_ID
+            }
+        ).execute()
+
+        results = (
+            response.data
+            if response.data
+            else []
+        )
+
+        log_debug(
+            f"類似記憶検索結果: {len(results)}件"
+        )
+
+        for result in results:
+            similarity = float(
+                result.get("similarity", 0)
+            )
+
+            fact = result.get(
+                "fact",
+                ""
+            )
+
+            log_debug(
+                f"類似度={similarity:.3f} | {fact}"
+            )
+
+        return results
+
+    except Exception as e:
+        log_debug(
+            f"類似記憶検索エラー: {e}"
+        )
+        return []
 
 # ==========================================
 # 🛡️ コスト・利用制限（ガードレール）関数
 # ==========================================
+
 def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     """
     ユーザーの利用制限（1分3通、1日20通）をチェックし、問題なければカウントを更新する。
-    無料プラン（フリー）のみ1日20通の制限をかけ、有料プランはすり抜けさせます。
     """
     try:
         now = datetime.now(timezone.utc)
@@ -486,6 +567,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         # 1. 現在の利用状況を取得
         res = supabase.table("user_usage_limits").select("*").eq("user_id", user_id).execute()
         
+        # データがまだない新規ユーザーの場合は、初期レコードを作成して安全に通す
         if not res.data or len(res.data) == 0:
             supabase.table("user_usage_limits").insert({
                 "user_id": user_id,
@@ -494,13 +576,14 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             }).execute()
             return True, ""
             
+        # 💡 リストの0番目を正確に指定して取得
         usage = res.data[0]
         last_chat_at = datetime.fromisoformat(usage["last_chat_at"])
         daily_chat_count = usage["daily_chat_count"]
         
         # 【防壁1】 1分3通制限（20秒以内の連投ブロック）
         if now - last_chat_at < timedelta(seconds=BURST_LIMIT_SECONDS):
-            return False, "BURST_LIMIT"
+            return False, "少し時間を空けてから、もう一度話しかけてね。ゆっくりお話ししよう。"
             
         # 日本時間に変換して日付を正確に比較
         now_jst = now.astimezone(JST)
@@ -509,10 +592,9 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         if now_jst.date() > last_chat_jst.date():
             daily_chat_count = 0
             
-        # 【防壁2】 1日20通制限（無料ユーザーのみ適用）
-        current_plan = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        if current_plan == "🆓 無料プラン" and daily_chat_count >= DAILY_LIMIT:
-            return False, "DAILY_LIMIT_EXCEEDED"
+        # 【防壁2】 1日20通制限
+        if daily_chat_count >= DAILY_LIMIT:
+            return False, "今日の会話上限（20通）に達したよ。また明日お話ししようね！"
             
         # 2. 制限をクリアしたため、DBのカウントを更新
         supabase.table("user_usage_limits").update({
@@ -523,27 +605,27 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         return True, ""
         
     except Exception as e:
-        return False, f"ERROR: {str(e)}"
+        # 💡【完全修正】万が一ここでエラーが起きても、絶対に画面をフリーズさせずに「本物の原因」を記録する
+        try:
+            log_debug(f"⚠️ ガードレール内部エラー: {e}")
+        except Exception:
+            pass
+        return False, f"システムの接続が不安定みたい。エラー詳細: {str(e)[:50]}" # 👈 原因を画面に少しだけ露出させて確実に特定できるようにします
 
 # ==========================================
-# 🧠 設定値の読み込み・常時シンク
+# 🧠 記憶保存値の読み込み設定
 # ==========================================
-manual_memories = get_memories(source="manual")
+manual_memories = get_memories(theme_id=None, source="manual")
 
-# 💡 初めて起動したまっさらな状態のユーザー向け初期値（デフォルト）
 current_theme_color = "☀ ライドモード（白）"
-current_concierge_name = "コンシェルジュ"
-current_user_name = "ユーザー"
+current_concierge_name = "ハヤト"
+current_user_name = "リュウ"
 current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランク＆対等（相棒）"
 current_user_instruction = STYLE_PRESETS["🤝 フランク＆対等（相棒）"]
 current_ai_avatar = "🤖"
 current_user_avatar = "💫"
-
-# ユーザー個別の現在の会員プランの初期状態
-if "current_user_plan_state" not in st.session_state:
-    st.session_state["current_user_plan_state"] = "🆓 無料プラン"
 
 for m in manual_memories:
     fact = m["fact"]
@@ -565,14 +647,114 @@ for m in manual_memories:
         current_ai_avatar = fact.replace("AIアバター:", "").strip()
     elif fact.startswith("ユーザーアバター:"):
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
-    elif fact.startswith("会員プラン:"):
-        st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
+
+def get_managed_user_settings() -> dict:
+    """
+    設定画面で管理している項目と現在値を返す。
+    設定値が変わると、ここから取得する内容も自動的に変わる。
+    """
+    return {
+        "AIの名前": current_concierge_name,
+        "ユーザー名": current_user_name,
+        "ユーザー敬称": current_user_honorific,
+        "AIの一人称": current_first_person,
+        "口調プリセット": current_style_preset,
+        "応答方針": current_user_instruction,
+        "AIアバター": current_ai_avatar,
+        "ユーザーアバター": current_user_avatar,
+        "カラーテーマ": current_theme_color
+    }
+
+def get_managed_settings_text() -> str:
+    """
+    記憶抽出プロンプトへ渡すための表示用テキストを作る。
+    """
+    settings = get_managed_user_settings()
+
+    return "\n".join(
+        f"・{setting_name}: {setting_value}"
+        for setting_name, setting_value in settings.items()
+    )
+
+def is_managed_setting_memory(memory_text: str) -> bool:
+    """
+    抽出された記憶が、設定画面で管理すべき内容か判定する。
+    """
+    if not memory_text:
+        return False
+
+    normalized = memory_text.strip().lower()
+
+    # 設定項目を示す表現
+    setting_field_patterns = [
+        "ユーザー名",
+        "ニックネーム",
+        "呼び名",
+        "呼ばれたい",
+        "呼んでほしい",
+        "敬称",
+        "呼び捨て",
+        "aiの名前",
+        "コンシェルジュの名前",
+        "aiの一人称",
+        "一人称",
+        "口調",
+        "話し方",
+        "応答方針",
+        "会話スタイル",
+        "敬語で",
+        "タメ口で",
+        "ため口で",
+        "アバター",
+        "カラーテーマ",
+        "背景色"
+    ]
+
+    if any(
+        pattern.lower() in normalized
+        for pattern in setting_field_patterns
+    ):
+        return True
+
+    # 現在の設定値と、それが設定変更表現と一緒に出ているか確認
+    settings = get_managed_user_settings()
+
+    setting_action_patterns = [
+        "呼んで",
+        "呼ばれたい",
+        "にして",
+        "設定して",
+        "変更して",
+        "使って",
+        "話して"
+    ]
+
+    for setting_value in settings.values():
+        value = str(setting_value).strip().lower()
+
+        if not value:
+            continue
+
+        if (
+            value in normalized
+            and any(
+                action in normalized
+                for action in setting_action_patterns
+            )
+        ):
+            return True
+
+    return False
 
 theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
 st.markdown(f"""
 <style>
+/* 上部ツールバー非表示 */
+[data-testid="stToolbar"] {{
+    display: none !important;
+}}
 
 /* ==================================================================
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
@@ -599,12 +781,12 @@ st.markdown(f"""
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background-color: {theme_cfg["bg"]} !important;
         color: {theme_cfg["text"]} !important;
-        max-width: 95vw !important;
+        max-width: 100vw !important;
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }}
     .main .block-container {{
-        max-width: 95vw !important;
+        max-width: 100vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
@@ -765,530 +947,1042 @@ section[data-testid="stSidebar"] {{
 </style>
 """, unsafe_allow_html=True)
 
-# ==================================================================
-# 🔒【完全防衛】権限（ID）に応じて、画面最上部のタブ構造を動的に切り替えます
-# ==================================================================
-is_admin = CURRENT_USER_ID in ADMIN_USER_IDS
+# ==========================================
+# 🧠 AI要約＆自動抽出ロジック（高速化対応）
+# ==========================================
 
-if is_admin:
-    # 👑【管理者専用画面】：管理者限定の3つの隠しタブを作成
-    tab1, tab2, tab3 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定", "📊 システム管理者管理"])
+def check_and_summarize_history(theme_id: int, all_messages: list, current_summary: str) -> str:
+    # 古いログが5件以上溜まっていないなら要約しない（無駄呼び出し防止）
+    old_messages_count = len(all_messages) - MAX_CONTEXT_MESSAGES
+    if old_messages_count < 15: 
+        return current_summary
+
+    old_messages = all_messages[:-MAX_CONTEXT_MESSAGES]
+    formatted_old_text = "\n".join([f"{m['role']}: {m['content']}" for m in old_messages])
+
+    prompt = f"""
+    以下はこれまでの要約と溢れた会話ログです。統合した新しい要約を日本語100字程度で作成してください。
+    【既存要約】: {current_summary if current_summary else "なし"}
+    【過去ログ】: {formatted_old_text}
+    """
+    try:
+        log_debug("テーマ要約開始")
+
+        start = time.time()
+
+        response = summary_model.generate_content(
+            prompt
+        )
+
+        elapsed = time.time() - start
+
+        log_debug(
+            f"テーマ要約完了: {elapsed:.2f}秒"
+        )
+
+        # 要約のトークン数を記録
+        if (
+            hasattr(response, "usage_metadata")
+            and response.usage_metadata
+        ):
+            summary_in = (
+                response.usage_metadata.prompt_token_count
+            )
+
+            summary_out = (
+                response.usage_metadata.candidates_token_count
+            )
+
+            add_permanent_tokens(CURRENT_USER_ID, "summary", summary_in, summary_out)
+
+            log_debug(
+                f"要約トークン "
+                f"In={summary_in} Out={summary_out}"
+            )
+
+        new_summary = response.text.strip()
+
+        update_theme_summary(
+            theme_id,
+            new_summary
+        )
+
+        return new_summary
+
+    except Exception as e:
+        log_debug(
+            f"テーマ要約エラー: {e}"
+        )
+
+        return current_summary
+
+def extract_and_save_long_term_memory(user_text: str, theme_id: int):
+    cleaned_text = user_text.strip()
+
+    if len(cleaned_text) < 5:
+        return
+
+    ignore_words = {"ありがとう", "ありがとう！", "了解", "了解です", "うん", "そうんだ", "はい", "わかった"}
+    if cleaned_text in ignore_words:
+        return
+
+    # 💡【完全修正】「宿題」や「実は」という日常のボヤキを足切りで弾かないようにキーワードを拡張！
+    memory_keywords = [
+        "好き", "嫌い", "飼っている", "飼い始めた", "始めた", "引っ越し", "転職", "家族", "友人", "目標", "悩み", "趣味",
+        "名前", "年齢", "ペット", "仕事", "勉強", "テニス", "息子", "娘", "宿題", "終わった", "完了", "治った", "実は"
+    ]
+
+    if not any(keyword in cleaned_text for keyword in memory_keywords):
+        return
+
+    managed_settings_text = get_managed_settings_text()
     
-    # ------------------------------------------------------------------
-    # 💬 【管理者・タブ1】 おしゃべりの部屋
-    # ------------------------------------------------------------------
-    with tab1:
-        display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        current_plan_type = "💎 プレミアムプラン"
+    # 💡【大元プロンプトの超強化】
+    # 既存の長期記憶にある「一時的な状況（宿題など）」が解決、または状況が変わったという報告を1手目で確実に拾わせます
+    prompt = f"""
+次のユーザー発言から、今後の会話で役立つユーザー自身についての事実を1文で抽出してください。
 
-        st.title(f"💬 {current_concierge_name}の部屋")
-        st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
+【設定画面で現在管理されている情報】
+{managed_settings_text}
 
-        all_messages = get_messages()
-        for msg in all_messages:
-            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            with st.chat_message(msg["role"], avatar=avatar_img):
-                st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
+★【最重要：一時的なワードの自動消去・クレンジングルール】
+ユーザーはあなたとの日常の雑談をしています。「宿題が終わった」「宿題が実はまだだった」のように、
+既存の長期記憶にある一時的な状況や課題が変化・解決したという報告があった場合は、
+その「宿題」といった【期間限定のノイズワード自体を完全に消去・除去】し、
+今後何年も残すべき純粋な普遍的ファクト（例：趣味はテニス、息子と一緒にやっているなど）だけが残るように美しい1文に精製して抽出してください。
+ユーザーから明示的に『消して』と言われていなくても、文脈から自動でノイズワードを抹消すること。
 
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
-            if len(user_input) > MAX_INPUT_CHARS:
-                increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
-                err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
-                with st.chat_message("assistant", avatar=current_ai_avatar):
-                    st.write(f"【{current_concierge_name}】: {err_msg}")
-            else:
-                is_allowed, alert_code = check_and_update_limits(CURRENT_USER_ID)
-                if not is_allowed:
-                    increment_error_analytics(alert_code, current_plan_type)
-                    reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
-                    err_msg = generate_personality_error_msg(reason_text, current_user_instruction)
-                    with st.chat_message("assistant", avatar=current_ai_avatar):
-                        st.write(f"【{current_concierge_name}】: {err_msg}")
-                else:
-                    with st.chat_message("user", avatar=current_user_avatar):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-                    
-                    search_start_time = time.time()
-                    past_logs_context = search_past_logs_hybrid(user_input)
-                    search_elapsed = time.time() - search_start_time
-                        
-                    if past_logs_context:
-                        logs_text = []
-                        for log in past_logs_context:
-                            role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                            logs_text.append(f"・{role_name}: {log.get('content', '')}")
-                        past_logs_str = "\n".join(logs_text)
-                    else:
-                        past_logs_str = "該当する過去ログなし"
+保存対象：
+・継続的に役立つ普遍的なユーザープロフィール、好み、家族関係、趣味
+・既存の記憶にある一時的な問題（宿題など）が変化・解決した結果、ノイズが消去された純粋な普遍的事実
 
-                    save_message("user", user_input)
-                    all_messages.append({"role": "user", "content": user_input})
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+ルール：
+・簡潔な1文にしてください。
+・保存対象がなければNONEだけを返してください。
 
-                    manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
-                    current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
+ユーザー発言:
+"{cleaned_text}"
+"""
 
-                    # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
-                    system_instruction = f"""
-                    あなたの名前は「{current_concierge_name}」です。
-                    対話相手のユーザー名は「{display_user_name}」です。
-                    あなたの一人称は「{current_first_person}」を使用してください。
-                    【現在の日本時間】
-                    {current_time_str}
-                    
-                    【応答スタイル】
-                    {current_user_instruction}
-                    【ユーザーが手動登録した基本情報】
-                    {manual_memory_context}
-                    【現在の発言に関連する過去の会話】
-                    {past_logs_str}
-                    
-                    """
+    try:
+        log_debug("長期記憶抽出開始")
+        response = memory_model.generate_content(prompt)
+        extracted_memory = response.text.strip()
 
-                    contents_for_gemini = [
-                        {"role": "user", "parts": [user_input]}
-                    ]
-                    #contents_for_gemini = []
+        # 💡【修正】NONEで関数が途中で終わる場合も、必ず画面をリフレッシュ（st.rerun）してチャットを動かします！
+        if not extracted_memory or "NONE" in extracted_memory.upper():
+            log_debug("保存対象の長期記憶なし")
+            return
 
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
-                    
-                    try:
-                        api_start_time = time.time()
-                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
-                        api_elapsed = time.time() - api_start_time
+        log_debug(f"長期記憶抽出結果: {extracted_memory}")
 
-                        in_t, out_t = 0, 0
-                        if hasattr(response, "usage_metadata") and response.usage_metadata:
-                            in_t = response.usage_metadata.prompt_token_count
-                            out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                            st.session_state.last_in_tokens = in_t
-                            st.session_state.last_out_tokens = out_t
-                            st.session_state.total_in_tokens += in_t
-                            st.session_state.total_out_tokens += out_t
+        if is_managed_setting_memory(extracted_memory):
+            return
 
-                        ai_reply = response.text
-                        clean_reply = clean_bold_markdown(ai_reply)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {clean_reply}")
-                            
-                        save_message("assistant", ai_reply)
-                        st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+        # 3. Embeddingによる類似記憶検索
+        similar_memories = search_similar_memories(
+            memory_text=extracted_memory,
+            threshold=0.65,
+            match_count=3
+        )
 
-                        current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
+        if similar_memories and len(similar_memories) > 0:
+            most_similar = similar_memories[0] 
+            existing_id = most_similar.get("id")
+            existing_fact = most_similar.get("fact", "").strip()
+            similarity = float(most_similar.get("similarity", 0))
 
-                    except Exception as gemini_err:
-                        increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
-                        err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {err_msg}")
+            log_debug(f"類似記憶検知 (類似度: {similarity:.3f}): 「{existing_fact}」")
 
-                    import threading
-                    def background_async_tasks(msgs, s_text):
-                        try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+            # 💡【判定プロンプトの超強化】
+            # ここでも「宿題」に関する日常のラリーを検知した場合、既存のテキストからそのノイズを跡形もなく消去せよと指示します
+            judge_prompt = f"""
+            あなたはユーザーの記憶データベースを整理するマネージャーです。
+            「既存の記憶」と、新しく抽出された「新しい記憶」を比較し、適切なアクション（SKIP / UPDATE / MERGE）を1つ選択してください。
 
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
-                    async_thread.start()
+            【既存の記憶】: {existing_fact}
+            【新しい記憶】: {extracted_memory}
 
-    # ------------------------------------------------------------------
-    # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
-    # ------------------------------------------------------------------
-    with tab2:
-        st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの見た目・口調・アプリのデザインを自分好みにリアルタイムに設定できます。")
+            ★【一時前ワードの自動消去・クレンジング命令】
+            「宿題が終わった」「宿題が実はまだだった」という日常のラリーを検知した場合、
+            既存の記憶から「宿題」という【期間限定のノイズワードやその状態の記述自体を跡形もなく完全に消去・除去】してください。
+            テニスなどの趣味や家族関係といった、今後何年も残すべき普遍的ライフデータだけが残るように美しい1文に精製してfinal_factに出力してください。
+            ユーザーから指示されていなくても、自動でノイズ消去を実行すること。
 
-        st.subheader("🎨 アプリの外観＆カラー")
-        with st.form("color_form_tab_admin"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
-            if st.form_submit_button("カラー設定を保存"):
-                save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更したよ！")
-                st.rerun()
+            【出力フォーマット】
+            必ず以下のJSONオブジェクトのみで返答してください。
+            {{"action": "UPDATE", "final_fact": "宿題などの一時的なワードを完全に消去し、普遍的な事実（例：趣味はテニスで、息子と一緒にやっている。最近は毎週土日の午後にテニスを行っている。）だけに精製した文章"}}
+            """
 
-        st.divider()
-        st.subheader("👤 AIコンシェルジュ設定")
-        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-        preset_keys = list(STYLE_PRESETS.keys())
-        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
-
-        with st.form("profile_form_tab_admin"):
-            new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
-            new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
-
-            st.markdown("【🖼️ アバター（アイコン）設定】")
-            col_a, col_u = st.columns(2)
-            with col_a:
-                ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
-                default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
-                ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
-                ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
-            with col_u:
-                user_preset_keys = list(AVATAR_PRESETS_USER.keys())
-                default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
-                user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
-                user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
-
-            selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
-            initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
-
-            if st.form_submit_button("基本設定を保存"):
-                save_or_update_user_setting("AIの名前", new_concierge_name)
-                save_or_update_user_setting("ユーザー名", new_user_name)
-                save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                save_or_update_user_setting("AI一人称", new_first_person)
-                save_or_update_user_setting("口調プリセット", selected_preset)
-                save_or_update_user_setting("応答方針", new_instruction)
-                save_or_update_user_setting("AIアバター", ai_avatar_val)
-                save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                st.success("設定を更新したよ！")
-                st.rerun()
-
-    # ------------------------------------------------------------------
-    # 🔒 【管理者・タブ3】 システム管理者管理画面
-    # ------------------------------------------------------------------
-    with tab3:
-        st.write("### 📊 システム管理者専用ダッシュボード")
-        admin_mode = st.radio("表示する分析画面を選択してください", ["👤 画面①：ユーザー個別・全利用状況監査カルテ", "📈 画面②：全体アクティビティ ＆ エラー・要望アナリティクス"], horizontal=True, key="admin_radio_mode")
-        st.divider()
-
-        if admin_mode == "👤 画面①：ユーザー個別・全利用状況監査カルテ":
-            st.subheader("👤 ユーザー別・稼働状況 ＆ タイムライン監査")
-            all_users = ["ryuudesu_master_1310"]
             try:
-                user_res = supabase.table("user_token_stats").select("user_id").execute()
-                if user_res.data: all_users = sorted(list({row["user_id"] for row in user_res.data if row.get("user_id")}))
-            except Exception: pass
+                judge_response = memory_model.generate_content(
+                    judge_prompt,
+                    generation_config={"response_mime_type": "application/json"}
+                )
+                
+                if hasattr(judge_response, "usage_metadata") and judge_response.usage_metadata:
+                    add_permanent_tokens(CURRENT_USER_ID, "memory", judge_response.usage_metadata.prompt_token_count, judge_response.usage_metadata.candidates_token_count)
 
-            selected_audit_user = st.selectbox("🔍 監査対象のユーザーID（UUID）を選択してください：", all_users)
-            st.markdown("---")
-            st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定 ＆ プロフィール")
-            
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "☀ ライドモード（白）", "🆓 無料プラン"
-            audit_facts = []
-            try:
-                u_memories = supabase.table("user_memories").select("*").eq("user_id", selected_audit_user).execute()
-                if u_memories.data:
-                    for m in u_memories.data:
-                        fact = m.get("fact", "")
-                        if m.get("source") == "manual":
-                            if fact.startswith("AIの名前:"): audit_concierge_name = fact.replace("AIの名前:", "").strip()
-                            elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
-                            elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
-                            elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
-                        else: audit_facts.append(fact)
-            except Exception: pass
+                result = json.loads(judge_response.text.strip())
+                action = result.get("action")
+                final_fact = result.get("final_fact", "").strip()
 
-            col_info1, col_info2 = st.columns(2)
-            col_info1.info(f"**【着せ替え・外観設定】**\n・現在のAIの名前： `{audit_concierge_name}`\n・アプリのカラーテーマ： `{audit_theme}`\n・現在の会員プラン： **`{audit_plan}`**")
-            col_info2.info(f"**【ユーザー基本情報】**\n・登録ユーザー名： `{audit_user_name}`\n・自動抽出された過去の記憶： `{len(audit_facts)} 件`")
+            except Exception as e:
+                log_debug(f"Geminiによる記憶更新判定に失敗: {e}")
+                return
 
-            st.markdown("##### ⏱️ このユーザーのタイムライン式システム監査ログ（最新50件）")
-            try:
-                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
-                if log_res.data:
-                    for log in log_res.data:
-                        c_at = datetime.fromisoformat(log["created_at"].replace("Z", "+00:00")).astimezone(JST).strftime("%H:%M:%S")
-                        e_type = log.get("event_type", "EVENT")
-                        p_time = log.get("processing_time", 0.0)
-                        in_t, out_t = log.get("in_tokens", 0), log.get("out_tokens", 0)
-                        cost = log.get("api_cost", 0.0)
-                        details = log.get("details", "")
-                        badge = "🟢" if "SUCCESS" in e_type or "RECEIVE" in e_type else "🔵" if "SEND" in e_type or "SEARCH" in e_type else "🚨"
-                        st.markdown(f"{badge} **[{c_at}] {e_type}**\n- ⏱️ 処理時間: `{p_time}秒`  |  🧠 トークン: `In={in_t} / Out={out_t}`  |  💰 実費: `{cost:.4f}円`\n- 📋 詳細/文脈ファクト: *{details}*")
-                        st.markdown("<hr style='margin: 0.3rem 0; border-color: rgba(0,0,0,0.05);' />", unsafe_allow_html=True)
-                else: st.caption("このユーザーのシステム監査ログはまだありません。")
-            except Exception as log_err: st.error(f"監査ログの取得に失敗しました: {log_err}")
+            if action == "SKIP":
+                log_debug(f"長期記憶保存スキップ (判定: SKIP)")
+                return
 
-        elif admin_mode == "📈 画面②：全体アクティビティ ＆ エラー・要望アナリティクス":
-            st.subheader("📈 アプリ全体アクティビティ ＆ 機能要望・エラー統計（匿名集計）")
-            with st.spinner("システム監査ログからプラン別データを高度に集計中..."):
+            elif action in ["UPDATE", "MERGE"]:
+                # 新しく精製された文章が、既存の記憶と「完全に同じ」なら書き込みもAPI消費もその場でスキップ
+                if final_fact.strip() == existing_fact.strip():
+                    log_debug(f"修正後の文章が既存の記憶と同じため、無駄な書き込みをスキップします (判定: SKIP)")
+                    return
+                
                 try:
-                    audit_res = supabase.table("system_audit_logs").select("*").execute()
-                    audit_data = audit_res.data if audit_res.data else []
-                    total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
-                    stats_matrix = {
-                        "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "premium": 0},
-                        "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "premium": 0},
-                        "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "premium": 0},
-                        "🎨 キャラなりきり・口調変更の実行回数": {"free": 0, "light": 0, "premium": 0},
-                        "🚫 禁止：画像生成の無茶振り（コスト防衛）": {"free": 0, "light": 0, "premium": 0},
-                        "🚫 禁止：コード生成の無茶振り（コスト防衛）": {"free": 0, "light": 0, "premium": 0},
-                    }
-                    user_active_dates = {}
-                    for log in audit_data:
-                        u_id, plan, e_type, cost, c_at_str = log.get("user_id", "unknown"), log.get("user_plan", "🆓 無料プラン"), log.get("event_type", ""), log.get("api_cost", 0.0), log.get("created_at", "")
-                        total_users_set.add(u_id)
-                        total_app_cost += cost
-                        p_key = "free"
-                        if "ライト" in plan: p_key = "light"
-                        elif "プレミアム" in plan: p_key = "premium"
+                    new_embedding = get_embedding(final_fact, task_type="retrieval_document")
+                    supabase.table("user_memories").update({
+                        "fact": final_fact,
+                        "embedding": new_embedding
+                    }).eq("id", existing_id).execute()
+                    log_debug(f"長期記憶を自動クレンジング更新しました: 「{final_fact}」")
+                except Exception as db_err:
+                    log_debug(f"長期記憶の更新に失敗: {db_err}")
+                return
 
-                        if e_type == "CHAT_SUCCESS":
-                            stats_matrix["💬 総会話往復数（送信回数）"][p_key] += 1
-                            total_app_chats += 1
-                        elif e_type == "DAILY_LIMIT_EXCEEDED": stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += 1
-                        elif e_type == "SETTING_UPDATE_SUCCESS": stats_matrix["🎨 キャラなりきり・口調変更の実行回数"][p_key] += 1
-                        elif e_type == "PROMPT_BLOCKED_IMAGE": stats_matrix["🚫 禁止：画像生成の無茶振り（コスト防衛）"][p_key] += 1
-                        elif e_type == "PROMPT_BLOCKED_CODE": stats_matrix["🚫 禁止：コード生成の無茶振り（コスト防衛）"][p_key] += 1
+        # 4. 新規保存
+        saved = save_memory(fact=extracted_memory, theme_id=None, category="AI自動抽出", source="auto")
+        if saved:
+            log_debug(f"新しい長期記憶を保存: {extracted_memory}")
+        
+    except Exception as e:
+        log_debug(f"長期記憶抽出エラー: {e}")
 
-                        if c_at_str:
-                            try:
-                                dt_jst = datetime.fromisoformat(c_at_str.replace("Z", "+00:00")).astimezone(JST)
-                                if u_id not in user_active_dates: user_active_dates[u_id] = {"p_key": p_key, "dates": set()}
-                                user_active_dates[u_id]["dates"].add(dt_jst.date().isoformat())
-                            except Exception: pass
+# ==========================================
+# 📊 永久コストメーター用 データベース関数（ダイレクトDB集計版）
+# ==========================================
 
-                    for u_id, date_info in user_active_dates.items():
-                        stats_matrix["📅 総アクティブ稼働日数"][date_info["p_key"]] += len(date_info["dates"])
+def load_permanent_tokens(user_id: str):
+    """起動時は、単に初期化フラグを立てるだけで、セッションへの過去累計の代入は一切行いません（残像防止）"""
+    pass
 
-                    col_m1, col_m2, col_m3 = st.columns(3)
-                    col_m1.metric("総稼働ユーザー数", f"{len(total_users_set)} 名")
-                    col_m2.metric("全ユーザー総会話回数", f"{total_app_chats} 回")
-                    col_m3.metric("総サーバー代実費 (全期間)", f"{total_app_cost:.4f} 円")
-                    st.markdown("---")
+def add_permanent_tokens(user_id: str, feature_type: str, in_t: int, out_t: int):
+    """トークンが消費されたら、純粋にDBの数値だけに直接プラス（加算）する"""
+    try:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(user_id)).eq("feature_type", feature_type).execute()
+        
+        if res.data and len(res.data) > 0:
+            current_row = res.data[0]
+            supabase.table("user_token_stats").update({
+                "in_tokens": int(current_row.get("in_tokens", 0)) + in_t,
+                "out_tokens": int(current_row.get("out_tokens", 0)) + out_t,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("id", current_row["id"]).execute()
+        else:
+            supabase.table("user_token_stats").insert({
+                "user_id": str(user_id),
+                "feature_type": feature_type,
+                "in_tokens": in_t,
+                "out_tokens": out_t
+            }).execute()
+    except Exception as e:
+        log_debug(f"⚠️ 永久トークン加算エラー: {e}")
 
-                    analytics_rows = []
-                    for item_name, plans in stats_matrix.items():
-                        analytics_rows.append({
-                            "📋 分析項目（ユーザー需要のファクト）": item_name,
-                            "🆓 無料プラン": f"{plans['free']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['free']:,} 日",
-                            "💸 ライトプラン": f"{plans['light']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['light']:,} 日",
-                            "👑 プレミアムプラン": f"{plans['premium']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['premium']:,} 日"
-                        })
-                    import pandas as pd
-                    st.dataframe(pd.DataFrame(analytics_rows), hide_index=True, use_container_width=True)
-                except Exception as ana_err: st.error(f"データ集計中にエラーが発生しました: {ana_err}")
+def reset_permanent_tokens(user_id: str):
+    """手動リセット：DBのトークン行と会話回数行を直接「0」で確実に塗りつぶします"""
+    try:
+        # 1. 既存の3つの職能別トークンを0に上書き
+        for feature in ["chat", "memory", "summary", "chat_count"]: # 💡 chat_countも追加
+            supabase.table("user_token_stats").update({
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }).eq("user_id", str(user_id)).eq("feature_type", feature).execute()
+            
+            if f"{feature}_in_tokens" in st.session_state:
+                st.session_state[f"{feature}_in_tokens"] = 0
+                st.session_state[f"{feature}_out_tokens"] = 0
 
-# ==================================================================
-# 🆓👤【一般テスター・無料ユーザー画面】（管理者以外には隠す部屋）
-# ==================================================================
-else:
-    # 💡 管理者以外のテスター画面には、タブ1（チャット）とタブ2（設定）の2つだけを対等に並べます
-    tab1, tab2 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定"])
-    
-    # ------------------------------------------------------------------
-    # 💬 【一般・タブ1】 おしゃべりの部屋
-    # ------------------------------------------------------------------
-    with tab1:
-        display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+        # 2. 画面上のカウンターの残像もその場で完全に0リセット
+        st.session_state["total_in_tokens"] = 0
+        st.session_state["total_out_tokens"] = 0
+        st.session_state["last_in_tokens"] = 0
+        st.session_state["last_out_tokens"] = 0
+        
+        st.session_state.conversation_count = 0
+        st.session_state["tokens_loaded"] = False
+        st.session_state["cost_reset_at"] = datetime.now(JST).isoformat()
+        
+    except Exception as e:
+        log_debug(f"⚠️ 永久トークンリセットエラー: {e}")
 
-        st.title(f"💬 {current_concierge_name}の部屋")
-        st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
+# ==========================================
+# 📱 サイドバーの描画・コントロール
+# ==========================================
+st.sidebar.title("🤖 My AI Concierge")
 
-        all_messages = get_messages()
-        for msg in all_messages:
-            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            with st.chat_message(msg["role"], avatar=avatar_img):
-                st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
+themes = get_themes()
+if not themes:
+    add_theme("メインテーマ", "💬")
+    themes = get_themes()
 
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
-            if len(user_input) > MAX_INPUT_CHARS:
-                increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
-                err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
-                with st.chat_message("assistant", avatar=current_ai_avatar):
-                    st.write(f"【{current_concierge_name}】: {err_msg}")
+theme_map = {f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}": t for t in themes}
+selected_theme_label = st.sidebar.selectbox("テーマ選択:", list(theme_map.keys()))
+current_theme = theme_map[selected_theme_label]
+current_theme_id = current_theme["id"]
+
+# 💡【管理者IDの定義】 管理権限を持たせたいuser_idをここに列挙します
+ADMIN_USER_IDS = ["default_user", "your_real_admin_id"]
+
+# 💡 管理者の場合だけ、メニューの選択肢に「📊 管理者管理」を自動で追加します
+menu_options = ["💬 チャット", "📁 テーマ管理", "⚙️ ユーザー設定"]
+if CURRENT_USER_ID in ADMIN_USER_IDS:
+    menu_options.append("📊 管理者管理")
+
+app_mode = st.sidebar.radio("機能メニュー", menu_options, index=0)
+
+st.sidebar.markdown("---")
+
+# 🧠 長期記憶の描画
+sidebar_memories = get_memories(theme_id=None, source="auto")
+with st.sidebar.expander("🧠 長期記憶", expanded=False):
+    if sidebar_memories:
+        for mem in sidebar_memories[-10:]:
+            st.write(f"・{mem['fact']}")
+    else:
+        st.caption("長期記憶はまだありません")
+
+# 📖 テーマの要約記憶の描画
+current_summary = get_theme_summary(current_theme_id)
+with st.sidebar.expander("📖 このテーマの記憶", expanded=False):
+    if current_summary:
+        st.info(clean_bold_markdown(current_summary))
+    else:
+        st.caption("会話が設定件数を超えると自動要約されます。")
+
+st.sidebar.markdown("---")
+
+# ==========================================
+# 🛠️ ログ記録関数 ＆ コストメーター更新関数
+# ==========================================
+def log_debug(message):
+    """安全にデバッグログをセッション状態に記録する"""
+    if st.session_state is not None:
+        if "debug_logs" not in st.session_state:
+            st.session_state["debug_logs"] = []
+            
+        from datetime import datetime
+        timestamp = datetime.now(JST).strftime("%H:%M:%S")
+        st.session_state["debug_logs"].append(f"[{timestamp}] {message}")
+
+        if len(st.session_state["debug_logs"]) > 100:
+            st.session_state["debug_logs"] = st.session_state["debug_logs"][-100:]
+    print(message)
+
+
+def render_token_info():
+    """
+    サイドバーに現在の全期間・リアルタイムのトークン消費状況と、
+    日本円換算（JPY）の累積コストをDBから直接取得して表示する。
+    """
+    # 💡 関数自体が自動的にサイドバー（with st.sidebar）の中に文字を描画します
+    with st.sidebar:
+        st.subheader("📊 トークン消費状況")
+        
+        chat_in, chat_out = 0, 0
+        memory_in, memory_out = 0, 0
+        summary_in, summary_out = 0, 0
+        
+        try:
+            # 常に今の瞬間の本当の数値をSupabaseからダイレクトに取得
+            res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).execute()
+            if res.data:
+                for row in res.data:
+                    f_type = row.get("feature_type")
+                    if f_type == "chat":
+                        chat_in, chat_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                    elif f_type == "memory":
+                        memory_in, memory_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+                    elif f_type == "summary":
+                        summary_in, summary_out = row.get("in_tokens", 0), row.get("out_tokens", 0)
+        except Exception:
+            pass
+
+        # 各モデルの単価定義（150円換算）
+        PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
+        PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
+        PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
+        PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
+
+        cost_chat    = (chat_in * PRICE_GEMINI_3_6_FLASH_IN) + (chat_out * PRICE_GEMINI_3_6_FLASH_OUT)
+        cost_memory  = (memory_in * PRICE_LITE_IN) + (memory_out * PRICE_LITE_OUT)
+        cost_summary = (summary_in * PRICE_LITE_IN) + (summary_out * PRICE_LITE_OUT)
+
+        total_in  = chat_in + memory_in + summary_in
+        total_out = chat_out + memory_out + summary_out
+        total_cost_jpy = cost_chat + cost_memory + cost_summary
+
+        st.markdown("**【累計トークン】**")
+        st.text(f"💬 チャット In: {chat_in:,} Out: {chat_out:,}")
+        st.text(f"🧠 長期記憶抽出 In: {memory_in:,} Out: {memory_out:,}")
+        st.text(f"📝 要約 In: {summary_in:,} Out: {summary_out:,}")
+        st.markdown("---")
+        st.text(f"総入力 : {total_in:,}")
+        st.text(f"総出力 : {total_out:,}")
+        st.text(f"チャット費用 : {cost_chat:.4f}円")
+        st.text(f"長期記憶抽出費用 : {cost_memory:.4f}円")
+        st.text(f"要約費用 : {cost_summary:.4f}円")
+        st.markdown(f"### **推定総コスト : {total_cost_jpy:.4f}円**")
+
+        # 会話カウンターの安全取得
+        conv_count = st.session_state.get("conversation_count", 0)
+        st.text(f"会話回数 : {conv_count}")
+        
+        avg_cost_jpy = (total_cost_jpy / conv_count) if conv_count > 0 else 0.0
+        st.text(f"平均コスト : {avg_cost_jpy:.4f}円/回")
+        
+        st.markdown("---")
+        # 💡【完全修正】ボタンが押された際、裏側のDB削除と同時に、画面上の変数も一撃で「0」に叩き落とします！
+        if st.button("🔄 コストメーターをリセット", key="reset_token_permanent_btn", help="累計消費コストを0にクリアします。"):
+            # 1. データベース（Supabase）のトークンデータを物理削除
+            reset_permanent_tokens(CURRENT_USER_ID)
+            
+            # 2. 【最重要】画面上のローカルセッション状態の残像も、その場で強制的にすべて「0」で上書き消去！
+            for feature in ["chat", "memory", "summary"]:
+                st.session_state[f"{feature}_in_tokens"] = 0
+                st.session_state[f"{feature}_out_tokens"] = 0
+            st.session_state["total_in_tokens"] = 0
+            st.session_state["total_out_tokens"] = 0
+            st.session_state["last_in_tokens"] = 0
+            st.session_state["last_out_tokens"] = 0
+            st.session_state.conversation_count = 0
+            
+            # 3. 画面に「0になったよ」と優しく通知
+            st.toast("トークン消費カウンターをリセットしたよ！")
+            
+            # 4. 【最重要】その瞬間に画面を強制再描画（リフレッシュ）させて0表示を確定させます
+            st.sidebar.empty() # サイドバーの表示を一時的にクリア
+            st.rerun()
+
+        # 💡【完全修正】「st.sidebar.expander」の重複エラーとインデントを綺麗にクレンジング！
+        # with st.sidebar の中にいるため、単に st.expander にするだけで完璧にサイドバー最下部に収まります
+        with st.expander("🛠 開発者ログ", expanded=False):
+            if "debug_logs" in st.session_state and st.session_state.debug_logs:
+                for log in reversed(st.session_state.debug_logs):
+                    st.caption(log)
             else:
-                is_allowed, alert_code = check_and_update_limits(CURRENT_USER_ID)
-                if not is_allowed:
-                    increment_error_analytics(alert_code, current_plan_type)
-                    reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
-                    err_msg = generate_personality_error_msg(reason_text, current_user_instruction)
-                    with st.chat_message("assistant", avatar=current_ai_avatar):
-                        st.write(f"【{current_concierge_name}】: {err_msg}")
-                else:
-                    with st.chat_message("user", avatar=current_user_avatar):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-                    
-                    search_start_time = time.time()
-                    past_logs_context = search_past_logs_hybrid(user_input)
-                    search_elapsed = time.time() - search_start_time
-                        
-                    if past_logs_context:
-                        logs_text = []
-                        for log in past_logs_context:
-                            role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                            logs_text.append(f"・{role_name}: {log.get('content', '')}")
-                        past_logs_str = "\n".join(logs_text)
-                    else: past_logs_str = "該当する過去ログなし"
+                st.caption("ログはまだありません")
 
-                    save_message("user", user_input)
-                    all_messages.append({"role": "user", "content": user_input})
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+# =================================================================
+# 🔒一般ユーザーには非表示にし、管理者だけにメーターを表示する防壁
+# ==================================================================
+# 上の修正箇所1で定義した「ADMIN_USER_IDS」に名前が入っている人だけメーターを描画します
+if CURRENT_USER_ID in ADMIN_USER_IDS:
+    render_token_info()
 
-                    manual_memory_context = get_managed_settings_text() if get_managed_settings_text() else "なし"
-                    current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
+# ==========================================
+# 📁 画面1: テーマ管理画面
+# ==========================================
+if app_mode == "📁 テーマ管理":
+    st.title("📁 テーマの作成・編集・削除")
+    st.caption("会話のテーマを整理・カスタマイズできます。")
 
-                    # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書（一般用）
-                    system_instruction = f"""
-                    あなたの名前は「{current_concierge_name}」です。
-                    対話相手のユーザー名は「{display_user_name}」です。
-                    あなたの一人称は「{current_first_person}」を使用してください。
-                    【現在の日本時間】\n{current_time_str}
-                    💡【時間帯に合わせた自律的な心配・声かけルール】
-                    現在の「時間帯」を見て、あなた自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
-                    ・深夜（23:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
-                    ・未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。
-                    ・早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
-                    ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください。
-                    ⚠️【重要：気遣い・特定の話題の重複禁止ルール（人間らしさの優先）】
-                    ・直近5往復の会話履歴（recent_messages）の中で、あなたがすでに一度上記の「深夜の労い（無理しないでね、等）」や「特定の固有名詞の話題」に自律的に言及している場合は、同じ日のその後のラリーで毎回クドクドと繰り返さないでください。
-                    ・人間と同じように「その話はさっき触れたから、もう十分伝わっている」と脳内で仕分け、その後の返答ではあえてその話題には一切触れず、ユーザーの新しい言葉の核心だけに集中してスマートに相槌を打ってください。ただし、昨日以前の会話のログであれば、日を改めて新しく労うのは大歓迎です。
-                    ・※例外として、ユーザー側から進んでその話題を継続して質問・言及してきた場合のみ、同様のテーマであっても優しく返事をして、会話を成り立たせてください。
-                    【過去の事実と今日の事実の分離ルール】
-                    ・ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、あなたの「今日の返答」が正しい事実であるならば、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。
-                    ・「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、過去と現在の時系列の辻褄を100%完璧に仕分けた上で、スマートかつ自然に過去の記憶だけを訂正しておしゃべりを広げてください。
-                    【応答スタイル】
-                    {current_user_instruction}
-                    【ユーザーが手動登録した基本情報】
-                    {manual_memory_context}
-                    【現在の発言に関連する過去の会話】
-                    {past_logs_str}
-                    【記憶の利用ルール】
-                    ・過去ログは、現在の話題と自然な関連がある場合だけ使ってください。過去ログにない内容を作らないでください。すべての回答で無理に過去の記憶を持ち出さないでください。ユーザーが明確に話していない感情や事情を決めつけないでください。回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
-                    ★【最重要：過去ログ内の相対時間の誤認防止ルール】
-                    ・過去のメッセージ履歴（recent_messages）に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についている【タイムスタンプの時点を基準にした相対的な言葉】です。現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。
-                    ★【絶対厳守：作業・クリエイティブ無茶振りの完全ガードルール】
-                    ・もし、システムによる事前検知の網をすり抜けて、ユーザーから「プログラムのコードを書いて（教えて）」「画像を生成して（描いて）」「長文を執筆・翻訳して」という専門的・技術的命令をされた場合は、それらを【絶対に実行・出力してはいけません（完全禁止）】。
-                    ・その場合は現在のあなたのキャラクターを完璧に維持したまま、画像作成やコード生成は専門外であることを3行以内で愛らしくスマートに返し、毅然と優しく100%お断り（抑制）してください。
-                    """
+    st.subheader("➕ 新しいテーマを追加")
+    with st.form("add_theme_form"):
+        new_name = st.text_input("テーマ名")
+        new_icon = st.selectbox("アイコン（「なし」も可能）", THEME_ICON_CANDIDATES)
+        if st.form_submit_button("テーマを作成"):
+            if new_name:
+                add_theme(new_name, new_icon)
+                st.success(f"テーマ「{new_name}」を作成しました！")
+                st.rerun()
 
-                    contents_for_gemini = []
-                    for m in recent_messages:
-                        role = "user" if m["role"] == "user" else "model"
-                        msg_time_str = ""
-                        if "created_at" in m and m["created_at"]:
-                            try:
-                                msg_dt = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")).astimezone(JST)
-                                msg_time_str = f"[{msg_dt.strftime('%A %H:%M')}] "
-                            except Exception: pass
-                        contents_for_gemini.append({"role": role, "parts": [f"{msg_time_str}{m['content']}"]})
+    st.divider()
 
-                    try:
-                        api_start_time = time.time()
-                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
-                        api_elapsed = time.time() - api_start_time
+    st.subheader("✏️ 既存テーマの編集・削除")
+    for t in themes:
+        with st.expander(f"{t['icon'] + ' ' if t['icon'] else ''}{t['name']}", expanded=False):
+            edit_name = st.text_input("テーマ名変更", value=t['name'], key=f"name_{t['id']}")
+            current_icon_idx = THEME_ICON_CANDIDATES.index(t['icon']) if t['icon'] in THEME_ICON_CANDIDATES else 0
+            edit_icon = st.selectbox("アイコン変更", THEME_ICON_CANDIDATES, index=current_icon_idx, key=f"icon_{t['id']}")
 
-                        in_t, out_t = 0, 0
-                        if hasattr(response, "usage_metadata") and response.usage_metadata:
-                            in_t = response.usage_metadata.prompt_token_count
-                            out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                            st.session_state.last_in_tokens = in_t
-                            st.session_state.last_out_tokens = out_t
-                            st.session_state.total_in_tokens += in_t
-                            st.session_state.total_out_tokens += out_t
-
-                        ai_reply = response.text
-                        clean_reply = clean_bold_markdown(ai_reply)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {clean_reply}")
-                            
-                        save_message("assistant", ai_reply)
-                        st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-
-                        current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
-
-                    except Exception as gemini_err:
-                        increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
-                        err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {err_msg}")
-
-                    import threading
-                    def background_async_tasks(msgs, s_text):
-                        try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
-
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
-                    async_thread.start()
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.button("更新", key=f"update_{t['id']}"):
+                    update_theme(t['id'], edit_name, edit_icon)
+                    st.toast("テーマを更新しました！")
                     st.rerun()
+            with col2:
+                # テーマ名が「メインテーマ」の場合はボタンを無効化、または非表示にする
+                if t['name'] == "メインテーマ":
+                    st.button("削除不可", key=f"del_{t['id']}", disabled=True, help="メインテーマは削除できません。")
+                elif st.button("削除", key=f"del_{t['id']}"):
+                    if len(themes) <= 1:
+                        st.error("最後の1つのテーマは削除できません。")
+                    else:
+                        delete_theme(t['id'])
+                        st.toast("テーマを削除しました。")
+                        st.rerun()
 
-    # ------------------------------------------------------------------
-    # 🎨 【一般・タブ2】 キャラクター・見た目設定画面
-    # ------------------------------------------------------------------
-    with tab2:
-        st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの見た目・口調・アプリのデザインを自分好みにリアルタイムに調教できます。")
+# ==========================================
+# ⚙️ 画面2: ユーザー設定画面
+# ==========================================
+elif app_mode == "⚙️ ユーザー設定":
+    st.title("⚙️ ユーザー設定 & 記憶管理")
+    st.caption("AIの振る舞い・外観デザイン・全テーマ共通の記憶を管理します。")
 
-        st.subheader("🎨 アプリの外観＆カラー")
-        with st.form("color_form_tab_user"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
-            if st.form_submit_button("カラー設定を保存"):
-                save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更したよ！")
+    st.subheader("🎨 アプリの外観＆カラー")
+    with st.form("color_form"):
+        selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
+        if st.form_submit_button("カラー設定を保存"):
+            save_or_update_user_setting("カラーテーマ", selected_color)
+            st.success("カラーテーマを保存しました！")
+            st.rerun()
+
+    st.divider()
+
+    st.subheader("👤 AIコンシェルジュ & プロフィール設定")
+
+    honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
+    default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
+
+    preset_keys = list(STYLE_PRESETS.keys())
+    default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
+
+    default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+
+    with st.form("profile_form"):
+        new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
+        new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
+        new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
+        new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+
+        st.markdown("【🖼️ アバター（アイコン）設定】")
+        col_a, col_u = st.columns(2)
+        with col_a:
+            # 現在の絵文字からプリセットのキー（名称）を逆引き
+            ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
+            default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
+            
+            ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
+            ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
+            
+        with col_u:
+            # ユーザーも同様に逆引き
+            user_preset_keys = list(AVATAR_PRESETS_USER.keys())
+            default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
+            
+            user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
+            user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
+
+        selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
+        initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
+        new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
+
+        if st.form_submit_button("基本設定を保存"):
+            save_or_update_user_setting("AIの名前", new_concierge_name)
+            save_or_update_user_setting("ユーザー名", new_user_name)
+            save_or_update_user_setting("ユーザー敬称", new_user_honorific)
+            save_or_update_user_setting("AI一人称", new_first_person)
+            save_or_update_user_setting("口調プリセット", selected_preset)
+            save_or_update_user_setting("応答方針", new_instruction)
+            save_or_update_user_setting("AIアバター", ai_avatar_val)
+            save_or_update_user_setting("ユーザーアバター", user_avatar_val)
+
+            st.success("基本設定を更新しました！")
+            st.rerun()
+
+    st.divider()
+
+    st.subheader("🧠 自動学習された長期記憶")
+    auto_memories = get_memories(theme_id=None, source="auto")
+    if auto_memories:
+        for mem in auto_memories:
+            st.info(f"📌 {mem['fact']}")
+            if st.button("削除", key=f"del_auto_{mem['id']}"):
+                delete_memory(mem["id"])
+                st.toast("記憶を削除しました。")
                 st.rerun()
+    else:
+        st.caption("自動抽出された記憶はまだありません。")
 
-        st.divider()
-        st.subheader("👤 AIコンシェルジュ設定")
-        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-        preset_keys = list(STYLE_PRESETS.keys())
-        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+elif app_mode == "📊 管理者管理":
+    st.title("📊 管理者管理（全ユーザーの原価・利用状況・愛着度一括監視）")
+    st.markdown("データベース(Supabase)から、全ユーザーの累積コスト・会話状況・長期記憶のストック・手動削除の実行回数をリアルタイムに集計・分析しています。")
 
-        with st.form("profile_form_tab_user"):
-            new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
-            new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+    with st.spinner("全ユーザーの高度な利用状況を分析中..."):
+        try:
+            # 1. Supabaseから必要なすべてのデータを一括取得
+            token_res = supabase.table("user_token_stats").select("*").execute()
+            
+            # 💡 最終利用日、アクティブ日数を集計するために created_at も一緒に取得します
+            msg_res = supabase.table("messages").select("user_id", "created_at").execute()
+            
+            # 全ユーザーの長期記憶（source='auto' は自動、'manual' はユーザーの手動追加など）を取得
+            memory_res = supabase.table("user_memories").select("user_id").eq("source", "auto").execute()
+            
+            # 💡【手動削除・訂正回数の集計】 
+            # 過去ログやログの仕様に基づき、手動削除アクション（または削除ログ）の履歴を数え上げます
+            # ※もし専用のログテーブル（例：action_logs）がある場合はそこから、ない場合は安全にエラー回避します
+            try:
+                delete_res = supabase.table("action_logs").select("user_id").eq("action_type", "delete_memory").execute()
+                delete_data = delete_res.data if delete_res.data else []
+            except Exception:
+                delete_data = [] # まだテーブルがない場合は空で安全にスルー
+            
+            # 2. ユーザー毎の集計用辞書を初期化
+            user_data = {}
 
-            st.markdown("【🖼️ アバター（アイコン）設定】")
-            col_a, col_u = st.columns(2)
-            with col_a:
-                ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
-                default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
-                ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
-                ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
-            with col_u:
-                user_preset_keys = list(AVATAR_PRESETS_USER.keys())
-                default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
-                user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
-                user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
+            # 各モデルの単価定義（150円換算）
+            PRICE_GEMINI_3_6_FLASH_IN  = (1.50 / 1_000_000) * 150
+            PRICE_GEMINI_3_6_FLASH_OUT = (4.50 / 1_000_000) * 150
+            PRICE_LITE_IN              = (0.30 / 1_000_000) * 150
+            PRICE_LITE_OUT             = (0.90 / 1_000_000) * 150
 
-            selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
-            initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
+            # 🛠️ a. トークンデータの集計
+            if token_res.data:
+                for row in token_res.data:
+                    u_id = row.get("user_id", "unknown")
+                    f_type = row.get("feature_type")
+                    in_t = row.get("in_tokens", 0)
+                    out_t = row.get("out_tokens", 0)
 
-            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
-            current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            new_plan = st.selectbox("【デバッグ用】現在の会員プラン", plan_options, index=current_plan_idx)
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 0, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    
+                    user_data[u_id]["総入力"] += in_t
+                    user_data[u_id]["総出力"] += out_t
 
-            if st.form_submit_button("基本設定を保存"):
-                save_or_update_user_setting("AIの名前", new_concierge_name)
-                save_or_update_user_setting("ユーザー名", new_user_name)
-                save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                save_or_update_user_setting("AI一人称", new_first_person)
-                save_or_update_user_setting("口調プリセット", selected_preset)
-                save_or_update_user_setting("応答方針", new_instruction)
-                save_or_update_user_setting("AIアバター", ai_avatar_val)
-                save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                save_or_update_user_setting("会員プラン", new_plan)
-                st.success("設定を更新したよ！")
+                    if f_type == "chat":
+                        user_data[u_id]["コスト"] += (in_t * PRICE_GEMINI_3_6_FLASH_IN) + (out_t * PRICE_GEMINI_3_6_FLASH_OUT)
+                    else:  # memory, summary
+                        user_data[u_id]["コスト"] += (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+
+            # 🛠️ b. 会話回数・アクティブ日数・最終会話日時の集計
+            if msg_res.data:
+                for msg in msg_res.data:
+                    u_id = msg.get("user_id", "unknown")
+                    created_at_str = msg.get("created_at")
+
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 0, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    
+                    user_data[u_id]["会話回数"] += 1
+                    
+                    # 日時文字列から日付を抽出して記録
+                    if created_at_str:
+                        try:
+                            # ISO形式の日時をパースしてJSTに変換
+                            dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).astimezone(JST)
+                            user_data[u_id]["発言日時リスト"].append(dt)
+                        except Exception:
+                            pass
+
+            # 🛠️ c. 長期記憶のストック件数の集計
+            if memory_res.data:
+                for mem in memory_res.data:
+                    u_id = mem.get("user_id", "unknown")
+                    if u_id not in user_data:
+                        user_data[u_id] = {
+                            "総入力": 0, "総出力": 0, "コスト": 0.0, 
+                            "会話回数": 0, "記憶件数": 1, "手動削除回数": 0,
+                            "発言日時リスト": []
+                        }
+                    else:
+                        user_data[u_id]["記憶件数"] += 1
+
+            # 🛠️ d. 手動削除回数の集計
+            for log in delete_data:
+                u_id = log.get("user_id", "unknown")
+                if u_id in user_data:
+                    user_data[u_id]["手動削除回数"] += 1
+
+            # 3. 集計データを表（DataFrame）の形式に変形
+            import pandas as pd
+            user_rows = []
+            
+            for u_id, stats in user_data.items():
+                actual_conv = stats["会話回数"] // 2
+                
+                # 📅 アクティブ日数 ＆ 最終利用日のスマートな逆算
+                active_days = 0
+                last_used_str = "なし"
+                
+                if stats["発言日時リスト"]:
+                    # ユニークな「日付」の数を数えてアクティブ日数とする
+                    unique_dates = {dt.date() for dt in stats["発言日時リスト"]}
+                    active_days = len(unique_dates)
+                    
+                    # 1番新しい日時を取得して美しくフォーマット
+                    last_dt = max(stats["発言日時リスト"])
+                    last_used_str = last_dt.strftime("%Y/%m/%d %H:%M")
+                
+                user_rows.append({
+                    "ユーザーID": u_id,
+                    "会話回数": actual_conv,
+                    "長期記憶ストック": stats["記憶件数"],
+                    "アクティブ日数": active_days,
+                    "最終会話日時": last_used_str,
+                    "手動削除・訂正": stats["手動削除回数"],
+                    "累計消費コスト (円)": round(stats["コスト"], 4)
+                })
+
+            if user_rows:
+                df = pd.DataFrame(user_rows)
+                
+                # 📊 デフォルトは累積コストが高い順
+                df = df.sort_values(by="累計消費コスト (円)", ascending=False)
+
+                # メトリクスで全体の総額をドンと表示
+                total_app_cost = df["累計消費コスト (円)"].sum()
+                total_app_users = len(df)
+                total_app_memories = df["長期記憶ストック"].sum()
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("総稼働ユーザー数", f"{total_app_users} 名")
+                col2.metric("全ユーザー総記憶数", f"{total_app_memories} 件")
+                col3.metric("総サーバー代実費", f"{total_app_cost:.4f} 円")
+                st.markdown("---")
+
+                # 📊 スキャンしやすい比較表を表示
+                st.dataframe(
+                    df,
+                    column_config={
+                        "ユーザーID": st.column_config.TextColumn("👤 ユーザーID"),
+                        "会話回数": st.column_config.NumberColumn("💬 会話往復数", format="%d 回"),
+                        "長期記憶ストック": st.column_config.NumberColumn("📌 記憶ストック", format="%d 件"),
+                        "アクティブ日数": st.column_config.NumberColumn("📅 稼働日数", format="%d 日"),
+                        "最終会話日時": st.column_config.TextColumn("⏱️ 最終会話日時"),
+                        "手動削除・訂正": st.column_config.NumberColumn("🚨 記憶削除回数", format="%d 回"),
+                        "累計消費コスト (円)": st.column_config.NumberColumn("💰 累積コスト", format="%.4f 円"),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+            else:
+                st.info("まだ利用データが存在しません。")
+
+        except Exception as e:
+            st.error(f"管理者データの分析中にエラーが発生しました: {e}")
+
+# ==========================================
+# 💬 画面3: メインチャット画面
+# ==========================================
+else:
+    all_common_memories = get_memories(theme_id=None)
+    manual_facts = []
+    auto_facts = []
+
+    for m in all_common_memories:
+        if not any(m["fact"].startswith(p) for p in ["AIの名前:", "ユーザー名:", "ユーザー敬称:", "AI一人称:", "口調プリセット:", "応答方針:", "AIアバター:", "ユーザーアバター:", "カラーテーマ:"]):
+            if m["source"] == "manual":
+                manual_facts.append(m["fact"])
+            else:
+                auto_facts.append(m["fact"])
+
+    display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
+
+    theme_title = f"{current_theme['icon'] + ' ' if current_theme['icon'] else ''}{current_theme['name']}"
+    st.title(theme_title)
+    st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | モデル: 【{CHAT_MODEL_NAME}】")
+
+    all_messages = get_messages(current_theme_id)
+
+    # 過去ログ描画（名前表示から ** を完全除去）
+    for msg in all_messages:
+        role_label = display_user_name if msg["role"] == "user" else current_concierge_name
+        avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
+
+        with st.chat_message(msg["role"], avatar=avatar_img):
+            st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
+
+    # ------------------------------------------------------------------
+    # 💬 チャット送信・各種ガードレール処理
+    # ------------------------------------------------------------------
+    if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信..."):
+        
+        # 🛡️ 【ガードレール1】 フロント・バックエンド文字数チェック（1,000文字）
+        if len(user_input) > MAX_INPUT_CHARS:
+            st.error(f"文字数が多すぎるみたい（現在 {len(user_input)} 文字 / 最大1,000文字）。もう少し短くまとめて教えてね！")
+            
+        else:
+            # 🛡️ 【ガードレール2＆3】 連投制限(1分3通) ＆ 日次上限(1日20通) チェック
+            is_allowed, alert_message = check_and_update_limits(CURRENT_USER_ID)
+            
+            if not is_allowed:
+                # 制限に引っかかった場合は、優しいお断りメッセージを出して処理を中断
+                st.error(alert_message)
+                
+            else:
+                # ─── 制限をすべてクリアした場合のみ、以下のAI・保存処理を実行 ───
+
+                # ① 画面表示　ユーザーのメッセージを即時表示
+                with st.chat_message("user", avatar=current_user_avatar):
+                    st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
+
+                # 過去ログ検索計測開始
+                start = time.time()
+                # 1. 今回の発言を保存する前に、過去ログを検索
+                past_logs_context = search_past_logs(
+                    current_theme_id,
+                    user_input
+                )
+                log_debug(
+                    f"過去ログ検索結果: {len(past_logs_context)}件"
+                )
+                # 過去ログ検索時間表示
+                log_debug(
+                    f"過去ログ検索 {time.time()-start:.2f}秒"
+                )
+
+                # 2. 検索結果を文字列化
+                if past_logs_context:
+                    logs_text = []
+
+                    for log in past_logs_context[:3]:
+                        role_name = (
+                            display_user_name
+                            if log.get("role") == "user"
+                            else current_concierge_name
+                        )
+
+                        logs_text.append(
+                           f"・{role_name}: {log.get('content', '')}"
+                        )
+
+                    past_logs_str = "\n".join(logs_text)
+                else:
+                    past_logs_str = "該当する過去ログなし"
+
+                # 3. 過去検索完了後に今回の発言を保存
+                save_message(
+                   current_theme_id,
+                   "user",
+                   user_input
+                )
+
+                all_messages.append({
+                    "role": "user",
+                    "content": user_input
+                })
+
+                recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+
+                # ------------------------------------------------------------------
+                # 🎯 【ココから再送コード】直前の recent_messages から地続きでマージ！
+                # ------------------------------------------------------------------
+                manual_memory_context = (
+                    "\n".join([f"・{fact}" for f in manual_facts])
+                    if manual_facts
+                    else "なし"
+                )
+
+                auto_memory_context = (
+                     "\n".join([f"・{fact}" for f in auto_facts[-5:]])
+                     if auto_facts
+                     else "なし"
+                )
+
+                short_summary = (
+                    current_summary[:150]
+                    if current_summary
+                    else "なし"
+                )
+                log_debug(
+                    f"長期記憶件数: {len(auto_facts)}"
+                )
+                for idx, memory in enumerate(auto_facts, start=1):
+                    log_debug(
+                    f"長期記憶[{idx}] {memory}"
+                )
+
+                # 💡送信する瞬間の正確な日本時間を取得します
+                current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
+
+                # システム指示に関連情報を組み込む！
+                system_instruction = f"""
+                あなたの名前は「{current_concierge_name}」です。
+                対話相手のユーザー名は「{display_user_name}」です。
+                あなたの一人称は「{current_first_person}」を使用してください。
+
+                【現在の日本時間】
+                {current_time_str}
+
+                💡【時間帯に合わせた自律的な心配・声かけルール】
+                現在の「時間帯」を見て、ハヤト自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
+                ・【時間帯別ルール】：
+                  - 深夜（23:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
+                  - 未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。
+                  - 早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
+                ※ただし、長期記憶に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください（通常の開発テストの夜更かしであれば、優しく心配して大丈夫です）。
+
+                【生活習慣（長期記憶）と過去ログの矛盾解決ルール】
+                ・長期記憶に「テニスは毎週土日」という大原則がある状態で、直近の会話履歴（recent_messages）の中に、それと矛盾する発言（例：modelが『今日の午後はテニスだね』と大間違いして発言したログ等）が混ざっている場合、過去のmodelの誤言を盲信して引きずられないでください。
+                ・常に「長期記憶にある普遍的な生活習慣（土日）」を絶対的な正しい基準（真実）として扱い、自分の1通前の発言が間違っていたと気づいた場合は、「ごめん、さっき今日の午後テニスって言っちゃったけど、テニスは土日だけだったよね！」と、自律的に自分の勘違いを認めて、現実のスケジュールに合わせて自然に会話を修正してください。
+
+                ・【過去の事実と今日の事実の分離ルール】：
+                  ユーザーから「過去のあの日は〇〇だったよ、忘れちゃった？」と指摘された際、あなたの「今日の返答（例：今日はおうちご飯だね）」が正しい事実であるならば、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。
+                  「過去のあの日（土曜日）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、
+                  「あ！ごめんね！今日おうちで食べたのは合ってるけど、土曜日の夜がブロンコビリーだったんだね！私の勘違い！ブロンコビリーのハンバーグも美味しいよね！」
+                  という風に、過去と現在の時系列の辻褄を100%完璧に仕分けた上で、スマートかつ自然に過去の記憶だけを訂正しておしゃべりを広げてください。
+
+                【応答スタイル】
+                {current_user_instruction}
+
+                【ユーザーが手動登録した基本情報】
+                {manual_memory_context}
+
+                【AIが抽出した長期記憶】
+                {auto_memory_context}
+
+                【現在の発言に関連する過去の会話】
+                {past_logs_str}
+
+                【現在のテーマの会話要約】
+                {current_summary}
+                
+                【記憶の利用ルール】
+                ・記憶や過去ログは、現在の話題と自然な関連がある場合だけ使ってください。
+                ・記憶にない内容を作らないでください。
+                ・記憶と現在の状態の因果関係を断定しないでください。
+                ・長期記憶と現在の話題に関連性が見られる場合は積極的に言及してください（ただし断定せず、確認質問の形で触れてください）。
+                ・すべての回答で無理に過去の記憶を持ち出さないでください。
+                ・ユーザーが明確に話していない感情や事情を決めつけないでください。
+                ・回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
+
+                ★【最重要：過去ログ内の相対時間の誤認防止ルール】
+                ・過去のメッセージ履歴（recent_messages）に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についている【タイムスタンプの時点を基準にした相対的な言葉】です。
+                ・過去のログに「今日どこかに行く」とあっても、それはそのログの日時（例：土曜日）に行われた出来事であり、現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。日常のルーティン（例：毎週土日）を最優先の前提として会話してください。
+                """
+
+                contents_for_gemini = [
+                    {"role": "user", "parts": [f"[システム指示・前提背景]\n{system_instruction}"]},
+                    {"role": "model", "parts": [f"了解だよ、{display_user_name}。"]}
+                ]
+
+                for m in recent_messages:
+                    role = "user" if m["role"] == "user" else "model"
+    
+                    # 💡【完全修正】メッセージの保存日時（created_at）から日本時間を取得し、発言の頭に美しくドッキングさせます！
+                    msg_time_str = ""
+                    if "created_at" in m and m["created_at"]:
+                        try:
+                            msg_dt = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")).astimezone(JST)
+                            msg_time_str = f"[{msg_dt.strftime('%A %H:%M')}] " # 例: [Saturday 14:00]
+                        except Exception:
+                            pass
+            
+                    # AIに対し「この発言は〇曜日の〇時に発せられた言葉だよ」と完璧な時間軸のコンテキストを教えて引き渡します
+                    contents_for_gemini.append({"role": role, "parts": [f"{msg_time_str}{m['content']}"]})
+
+                # ② 即時「思考中...」表示 & 返談生成
+                with st.chat_message("assistant", avatar=current_ai_avatar):
+                    with st.spinner(f"🤖 {current_concierge_name}が考え中..."):
+                        try:
+                            log_debug(
+                                f"送信トークン数:{len(str(contents_for_gemini))}"
+                            )
+                            log_debug(
+                                f"プロンプト文字数={len(str(contents_for_gemini))}"
+                            )
+                            # チャット応答計測開始
+                            start = time.time()
+                            response = chat_model.generate_content(
+                                contents_for_gemini
+                            )
+                            # チャット応答計測表示
+                            log_debug(
+                                f"チャットGemini回答: {time.time()-start:.2f}秒"
+                            )
+
+                            # ▼▼▼ トークン数をカウントして記録＆画面の即時更新 ▼▼▼
+                            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                                in_t = response.usage_metadata.prompt_token_count
+                                out_t = response.usage_metadata.candidates_token_count
+                                log_debug(
+                                    f"チャットトークン In={in_t} Out={out_t}"
+                                )
+                                add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+
+                                st.session_state.last_in_tokens = in_t
+                                st.session_state.last_out_tokens = out_t
+
+                                st.session_state.total_in_tokens += in_t
+                                st.session_state.total_out_tokens += out_t
+                            # ▲▲▲ ここまで ▲▲▲
+                            
+                            # （ハヤトの返答を描画して保存し、カウンターを+1した処理のすぐ下）
+                            ai_reply = response.text
+                            clean_reply = clean_bold_markdown(ai_reply)
+                            st.write(f"【{current_concierge_name}】: {clean_reply}")
+                            save_message(current_theme_id, "assistant", ai_reply)
+                            
+                            st.session_state.conversation_count += 1
+                            add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                            
+                        except Exception as e:
+                            error_msg = f"Gemini API エラー: {e}"
+                            log_debug(error_msg)
+                            st.error(error_msg)
+                
+                # ==========================================================
+                # 🚀【完全非同期化】マルチスレッド ＆ db_lock（信号機）の設置
+                # ==========================================================
+                import threading
+
+                # 💡【完全修正】裏方関数そのものの内側ではなく、
+                # 長期記憶の「データベース上書き（書き込み）の瞬間」だけをピンポイントでロックします！
+                def background_async_tasks(t_id, msgs, s_text, u_input):
+                    """表のチャット回答を1ミリも邪魔しない、完全独立の裏口ルート"""
+                    try:
+                        # 要約チェックはロックの外で、並列で爆速で実行させます
+                        check_and_summarize_history(t_id, msgs, s_text)
+                        
+                        # 💡【ココに引っ越し！】長期記憶のDB書き込みの瞬間だけ、信号機の部屋に入ります
+                        with st.session_state["db_lock"]:
+                            extract_and_save_long_term_memory(u_input, t_id)
+                            
+                    except Exception as bg_err:
+                        log_debug(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
+
+                # 裏口ルートの糸（スレッド）を作成して、即時スタートさせます
+                async_thread = threading.Thread(
+                    target=background_async_tasks,
+                    args=(current_theme_id, recent_messages, current_summary, user_input)
+                )
+                async_thread.start()# 👈 「裏で順番に綺麗に計算しておいてね！」と命令を放り投げる
+
+                # 🎯 裏の処理が30秒並ぼうが、表のハヤトは1ミリも待たずに0.00秒で即座にロック開放！
                 st.rerun()
 
 # ==================================================================
-# 📊 【完全修正】起動時の永久トークン同期処理（最下部・完全防衛ロック仕様）
+# 📊 【完全修正】起動時の永久トークン同期処理（最下部）
 # ==================================================================
+# 💡【修正点】 st.session_state.get() を使い、すでに同期が完了している場合（Trueの時）は、
+# チャット送信時の再描画（Rerun）であっても、この同期処理を2度と絶対に実行させないように強固にロックします。
 if not st.session_state.get("tokens_loaded", False):
+    load_permanent_tokens(CURRENT_USER_ID)
+    
     try:
         res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        if res.data and len(res.data) > 0: st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
-        else: st.session_state.conversation_count = 0
-    except Exception: st.session_state.conversation_count = 0
+        # 💡【完全修正】res.data が存在し、かつ中身が空っぽ（0件）でない時だけ、
+        # 正確に 0番目（res.data[0]）を指定して、保存された会話回数（in_tokens）をセッションに復元します！
+        if res.data and len(res.data) > 0:
+            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
+        else:
+            st.session_state.conversation_count = 0
+    except Exception as e:
+        log_debug(f"⚠️ 会話回数同期エラー: {e}")
+        st.session_state.conversation_count = 0
+        
     st.session_state["tokens_loaded"] = True
