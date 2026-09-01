@@ -795,7 +795,7 @@ if is_admin:
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="admin_chat_input"):
+        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
