@@ -817,14 +817,14 @@ if is_admin:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて",  "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
+                    if "画像生成" in user_input or "イラスト生成" in user_input or "写真生成" in user_input:
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
-                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
+                        block_reason = "ユーザーが画像やイラストの生成・描画を技術的に要求しました"
+                    elif "コード生成" in user_input or "プログラム実装" in user_input or "スクリプト作成" in user_input:
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
+                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を技術的に要求しました"
 
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
@@ -1167,14 +1167,14 @@ else:
                     is_blocked = False
                     block_event_type = ""
                     block_reason = ""
-                    if any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて", "生成して"]) and any(kw in user_input for kw in ["画像", "イラスト", "写真", "描いて"]):
+                    if "画像生成" in user_input or "イラスト生成" in user_input or "写真生成" in user_input:
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_IMAGE"
-                        block_reason = "ユーザーが画像やイラストの生成・描画を要求しました"
-                    elif any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "実装して", "書いて", "教えて"]) and any(kw in user_input for kw in ["コード", "プログラム", "スクリプト", "関数"]):
+                        block_reason = "ユーザーが画像やイラストの生成・描画を技術的に要求しました"
+                    elif "コード生成" in user_input or "プログラム実装" in user_input or "スクリプト作成" in user_input:
                         is_blocked = True
                         block_event_type = "PROMPT_BLOCKED_CODE"
-                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を要求しました"
+                        block_reason = "ユーザーがプログラムやソースコードの作成・提示を技術的に要求しました"
 
                     if is_blocked:
                         increment_error_analytics(block_event_type, current_plan_type)
