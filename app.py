@@ -805,10 +805,41 @@ st.markdown(f"""
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
    左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
    ================================================================== */
+/* ==================================================================
+   👑 【最上部空白スペース・近未来系筆記体ブランドロゴリフォーム】
+   Google Fontsから流麗なインテリジェンス・フォントをリアルタイムに召喚し、
+   「SYNC-LNK // AI」の筆記体エンブレムを最前面に100%完全固定します。
+   ================================================================== */
+/* 1. ネット上から最高にお洒落で傾斜の美しいプロ仕様の筆記体フォントを召喚します */
+@import url('https://googleapis.com');
+
 [data-testid="stHeader"] {{
-    background-color: transparent !important;
-    height: 3rem !important;
+    background: {theme_cfg["card_bg"]} !important; /* テーマのカード背景色に合わせます */
+    border-bottom: 1px solid {theme_cfg["input_border"]} !important; /* 下部に美しく繊細な境界線を走らせます */
+    height: 3.5rem !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 9999 !important;
 }}
+    
+/* 2. 空白スペースのド真ん中に、シャープに右上がりに傾いた極上のブランドロゴを固定配置します */
+[data-testid="stHeader"]::after {{
+    content: "Sync-Lnk // AI" !important; /* 💡 筆記体が一番美しく見える大文字小文字のバランスに調合しています */
+    font-family: 'Alex Brush', cursive !important; /* 筆記体フォントを強制適用 */
+    color: {theme_cfg["text"]} !important;
+    font-size: 1.85rem !important; /* 筆記体は線が繊細なため、少し大きめにクッキリ映し出します */
+    font-weight: 500 !important;
+    font-style: italic !important; /* 💡 右上がりのレーシーな傾斜（斜体）をさらに美しく際立たせます */
+    position: absolute !important;
+    left: 50% !important;
+    top: 45% !important;
+    transform: translate(-50%, -50%) !important; /* 縦横100%ドンピシャで中央揃え */
+    white-space: nowrap !important;
+    letter-spacing: 2px !important; /* 英文字同士の間隔を少し広げて、圧倒的な高級感を演出します */
+}}
+
 [data-testid="collapsedControl"] {{
     color: #4A90E2 !important;
     background-color: rgba(255, 255, 255, 0.9) !important;
@@ -997,8 +1028,8 @@ if is_admin:
         #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
         current_plan_type = "💎 プレミアムプラン"
 
-        st.title(f"💬 {current_concierge_name}の部屋")
-        st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
+        #st.title(f"💬 {current_concierge_name}の部屋")
+        #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
@@ -1338,8 +1369,8 @@ else:
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
 
-        st.title(f"💬 {current_concierge_name}の部屋")
-        st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
+        #st.title(f"💬 {current_concierge_name}の部屋")
+        #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         # 🚀 【大開通ワープボタン】 押した瞬間にブラウザのセキュリティを突破し、最下部へ強制ジャンプします！
         if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
