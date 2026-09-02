@@ -197,10 +197,7 @@ def get_messages(target_id: str) -> list[dict]:
             .eq("user_id", str(target_id))
             .order("created_at", desc=False)
             .execute()
-        )
-        st.write("DEBUG raw response")
-        st.write(res)
-        st.write(f"DEBUG res.data = {res.data}")   
+        )  
 
         print(
             f"get_messages件数="
