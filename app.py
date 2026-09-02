@@ -178,7 +178,8 @@ def clean_bold_markdown(text: str) -> str:
 # ==================================================================
 # 🧠 【一本道統合仕様】 過去メッセージ履歴の一括取得関数
 # ==================================================================
-def get_messages() -> list[dict]:
+# 💡 引数を追加することで、URLから届いた本物のIDの鍵を関数内部へストレートに通電させます！
+def get_messages(target_id: str) -> list[dict]:
     """
     💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
     ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
@@ -186,7 +187,7 @@ def get_messages() -> list[dict]:
     """
     try:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
-        res = supabase.table("messages").select("*").eq("user_id", str(CURRENT_USER_ID)).order("created_at", ascending=True).execute()
+        res = supabase.table("messages").select("*").eq("user_id", str(target_id)).order("created_at", ascending=True).execute()
         
         if res.data:
             return res.data
@@ -922,7 +923,7 @@ if is_admin:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages()
+        all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
@@ -1262,7 +1263,7 @@ else:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages()
+        all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
