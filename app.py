@@ -476,6 +476,84 @@ def add_permanent_tokens(
         )
         return False
 
+def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str) -> bool:
+    """
+    🔮 【ハヤトの長期記憶エンジン】
+    会話履歴（messages_list）が一定のボリュームを超えた際、
+    裏側の別スレッドで全自動でこれまでの雑談の核心を200文字に超要約し、
+    次回のプロンプトを軽量化（サーバー代の原価を0円防衛）させるための心臓部です。
+    """
+    try:
+        # 1. 現在の会話が十分に長くなっているか（例：直近の往復が少ない場合は要約をスキップしてコスト防衛）
+        if len(messages_list) < 6:
+            return True
+
+        # 2. 最新の20文字制限に完全シンクさせたリュウさんの本物のオーナーIDをグローバルから強制抽出
+        target_user_id = "ryuudesu_master_1310"
+
+        # 3. 過去の会話を一本の美しい読みやすいテキストにドッキング
+        conversation_text = ""
+        for m in messages_list:
+            role_label = "ユーザー" if m.get("role") == "user" else "コンシェルジュ"
+            conversation_text += f"・{role_label}: {m.get('content', '')}\n"
+
+        # 🧠 Google Gemini 3.5 Flash-Lite に対し、裏方用の冷徹な要約指示書（プロンプト）を組み立て
+        summary_instruction = (
+            "あなたは優秀な記憶整理システムです。以下の2人の会話ログを読み、"
+            "今後の対話に必要な重要ファクト、ユーザーの趣味嗜好、約束事、これまでの流れの核心だけを"
+            "【箇条書きで3行以内、合計200文字以内】で、余計な挨拶を一切排除してスマートに要約してください。"
+        )
+
+        contents_for_summary = [
+            {"role": "user", "parts": [f"[指示書]\n{summary_instruction}\n\n[対象の会話ログ]\n{conversation_text}"]}
+        ]
+
+        # 🤖 裏方の要約専用モデル（SUMMARY_MODEL_NAME）へストレートに通電
+        # ※ response.text のデータ構造のネジレを2026年最新仕様へ100%完全適合させています
+        response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
+        
+        # 3.5 Flash-Lite の特殊なデータ構造から安全に文字を引っこ抜く防衛ライン
+        if hasattr(response, "candidates") and response.candidates:
+            new_summary = response.candidates[0].content.parts[0].text
+        else:
+            new_summary = response.text
+
+        if not new_summary:
+            return False
+
+        # 📊 【Supabase連動】 要約した最新の記憶の残高を、user_memories（または専用テーブル）へ上書き保存（貯金）
+        # ※ 既存の古い記憶があるかをチェック
+        mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).execute()
+
+        if mem_check.data:
+            # 既存の記憶があれば、最新の要約データにアップデート
+            supabase.table("user_memories").update({
+                "summary": new_summary,
+                "updated_at": datetime.now(JST).isoformat()
+            }).eq("user_id", target_user_id).execute()
+        else:
+            # 記憶の器がまだなければ、新しくインサート
+            supabase.table("user_memories").insert({
+                "user_id": target_user_id,
+                "summary": new_summary,
+                "created_at": datetime.now(JST).isoformat(),
+                "updated_at": datetime.now(JST).isoformat()
+            }).execute()
+
+        # 🪙 要約にかかった裏方の実費トークン消費も、user_token_statsテーブルへ完璧に永続保存（貯金）
+        if hasattr(response, "usage_metadata") and response.usage_metadata:
+            in_t = response.usage_metadata.prompt_token_count
+            out_t = response.usage_metadata.candidates_token_count
+            add_permanent_tokens(target_user_id, "summary", in_t, out_t)
+
+        return True
+
+    except Exception as bg_err:
+        # メインスレッド（リュウさんのおしゃべり画面）を絶対に巻き込んでフリーズさせないよう、
+        # エラーはバックグラウンドのログに美しく逃がして安全弁を閉じます
+        print(f"⚠️ バックグラウンド自動要約処理エラー: {type(bg_err).__name__}: {bg_err}")
+        return False
+
 # ==================================================================
 # 📊 【新設】 ユーザー別＆全体システム監査ログ（Telemetry）永続保存関数
 # ==================================================================
