@@ -188,23 +188,23 @@ def get_messages(target_id: str) -> list[dict]:
     try:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         #res = supabase.table("messages").select("*").eq("user_id", str(target_id)).order("created_at", ascending=True).execute()
+        st.write(f"DEBUG target_id = {target_id}")
         res = (
             supabase
             .table("messages")
             .select("*")
+            .eq("user_id", str(target_id))
             .order("created_at", ascending=True)
             .execute()
-        )   
+        )
+        st.write(f"DEBUG res.data = {res.data}")   
 
         print(
             f"get_messages件数="
             f"{len(res.data) if res.data else 0}"
         )
-
-        if res.data:
-            return res.data
-        return []
-        
+        return res.data if res.data else []
+  
     except Exception as e:
         print(f"⚠️ メッセージ履歴取得エラー（一本道仕様）: {e}")
         return []
