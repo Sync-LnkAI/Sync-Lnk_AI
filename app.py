@@ -837,14 +837,31 @@ if is_admin:
                     あなたの一人称は「{current_first_person}」を使用してください。
                     【現在の日本時間】
                     {current_time_str}
-                    
+                    💡【時間帯に合わせた自律的な心配・声かけルール】
+                    現在の「時間帯」を見て、あなた自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
+                    ・深夜（23:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
+                    ・未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。\n・早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
+                    ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください。
+                    ⚠️【重要：気遣い・特定の話題の重複禁止ルール（人間らしさの優先）】
+                    ・直近5往復の会話履歴（recent_messages）の中で、あなたがすでに一度上記の「深夜の労い（無理しないでね、等）」や「特定の固有名詞の話題」に自律的に言及している場合は、同じ日のその後のラリーで毎回クドクドと繰り返さないでください。
+                    ・人間と同じように「その話はさっき触れたから、もう十分伝わっている」と脳内で仕分け、その後の返答ではあえてその話題には一切触れず、ユーザーの新しい言葉の核心だけに集中してスマートに相槌を打ってください。ただし、昨日以前の会話のログであれば、日を改めて新しく労うのは大歓迎です。
+                    ・※例外として、ユーザー側から進んでその話題を継続して質問・言及してきた場合のみ、同様のテーマであっても優しく返事をして、会話を成り立たせてください。
+                    【過去の事実と今日の事実の分離ルール】
+                    ・ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、あなたの「今日の返答」が正しい事実であるならば、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。
+                    ・「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、過去と現在の時系列の辻褄を100%完璧に仕分けた上で、スマートかつ自然に過去の記憶だけを訂正しておしゃべりを広げてください。
                     【応答スタイル】
                     {current_user_instruction}
                     【ユーザーが手動登録した基本情報】
                     {manual_memory_context}
                     【現在の発言に関連する過去の会話】
                     {past_logs_str}
-                    
+                    【記憶の利用ルール】
+                    ・過去ログは、現在の話題と自然な関連がある場合だけ使ってください。過去ログにない内容を作らないでください。すべての回答で無理に過去の記憶を持ち出さないでください。ユーザーが明確に話していない感情や事情を決めつけないでください。回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
+                    ★【最重要：過去ログ内の相対時間の誤認防止ルール】
+                    ・過去のメッセージ履歴（recent_messages）に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についている【タイムスタンプの時点を基準にした相対的な言葉】です。現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。
+                    ★【絶対厳守：作業・クリエイティブ無茶振りの完全ガードルール】
+                    ・もし、システムによる事前検知の網をすり抜けて、ユーザーから「プログラムのコードを書いて（教えて）」「画像を生成して（描いて）」「長文を執筆・翻訳して」という専門的・技術的命令をされた場合は、それらを【絶対に実行・出力してはいけません（完全禁止）】。
+                    ・その場合は現在のあなたのキャラクターを完璧に維持したまま、画像作成やコード生成は専門外であることを3行以内で愛らしくスマートに返し、毅然と優しく100%お断り（抑制）してください。
                     """
 
                     contents_for_gemini = [
@@ -863,7 +880,7 @@ if is_admin:
                         if hasattr(response, "usage_metadata") and response.usage_metadata:
                             in_t = response.usage_metadata.prompt_token_count
                             out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            #add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
                             st.session_state.last_in_tokens = in_t
                             st.session_state.last_out_tokens = out_t
                             st.session_state.total_in_tokens += in_t
@@ -876,17 +893,38 @@ if is_admin:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                        #add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
-                        increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
-                        err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {err_msg}")
+                        error_detail = (
+                            f"{type(gemini_err).__name__}: "
+                            f"{str(gemini_err)}"
+                        )
+
+                        print(f"🚨 チャット処理エラー: {error_detail}")
+
+                        st.error(
+                            f"チャット処理エラー: {error_detail}"
+                        )
+
+                        increment_error_analytics(
+                            "CHAT_PROCESSING_ERROR",
+                            current_plan_type
+                        )
+
+                        save_system_audit_log(
+                            CURRENT_USER_ID,
+                            current_plan_type,
+                            "CHAT_PROCESSING_ERROR",
+                            0.0,
+                            0,
+                            0,
+                            0.0,
+                            error_detail[:500]
+                        )
 
                     import threading
                     def background_async_tasks(msgs, s_text):
@@ -1185,7 +1223,7 @@ else:
                         if hasattr(response, "usage_metadata") and response.usage_metadata:
                             in_t = response.usage_metadata.prompt_token_count
                             out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            #add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
                             st.session_state.last_in_tokens = in_t
                             st.session_state.last_out_tokens = out_t
                             st.session_state.total_in_tokens += in_t
@@ -1198,7 +1236,7 @@ else:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                        #add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
