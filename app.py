@@ -940,11 +940,6 @@ if is_admin:
         #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
         current_plan_type = "💎 プレミアムプラン"
 
-        # アプリ起動時の最初の一度だけ、全自動で画面を一番下までザザザッと流し落として同期させます！
-        if "init_scroll_done" not in st.session_state:
-            st.session_state.init_scroll_done = True
-            st.rerun()
-
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
@@ -1103,6 +1098,14 @@ if is_admin:
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
+
+        st.components.v1.html("""
+            <script>
+                setTimeout(function() {
+                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+                }, 300);
+            </script>
+        """, height=0)
 
     # ------------------------------------------------------------------
     # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
@@ -1284,11 +1287,6 @@ if is_admin:
 else:
     # 💡 管理者以外のテスター画面には、タブ1（チャット）とタブ2（設定）の2つだけを対等に並べます
     tab1, tab2 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定"])
-
-    # アプリ起動時の最初の一度だけ、全自動で画面を一番下までザザザッと流し落として同期させます！
-    if "init_scroll_done" not in st.session_state:
-        st.session_state.init_scroll_done = True
-        st.rerun()
     
     # ------------------------------------------------------------------
     # 💬 【一般・タブ1】 おしゃべりの部屋
@@ -1306,12 +1304,6 @@ else:
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
-
-        st.components.v1.html("""
-            <script>
-                window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-            </script>
-        """, height=0)
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
@@ -1437,6 +1429,14 @@ else:
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
+
+        st.components.v1.html("""
+            <script>
+                setTimeout(function() {
+                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+                }, 300);
+            </script>
+        """, height=0)
 
     # ------------------------------------------------------------------
     # 🎨 【一般・タブ2】 キャラクター・見た目設定画面
