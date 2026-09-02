@@ -1152,7 +1152,7 @@ if is_admin:
 
         st.subheader("🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
+            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
                 save_or_update_user_setting("カラーテーマ", selected_color)
                 st.toast("アプリのカラーを変更したよ！")
@@ -1483,7 +1483,7 @@ else:
 
         st.subheader("🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_user"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(COLOR_THEMES.keys()), index=list(COLOR_THEMES.keys()).index(current_theme_color) if current_theme_color in COLOR_THEMES else 0)
+            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
                 save_or_update_user_setting("カラーテーマ", selected_color)
                 st.toast("アプリのカラーを変更したよ！")
