@@ -189,6 +189,11 @@ def get_messages(target_id: str) -> list[dict]:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         res = supabase.table("messages").select("*").eq("user_id", str(target_id)).order("created_at", ascending=True).execute()
         
+        print(
+            f"get_messages件数="
+            f"{len(res.data) if res.data else 0}"
+        )
+
         if res.data:
             return res.data
         return []
