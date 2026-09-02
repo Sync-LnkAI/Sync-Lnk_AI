@@ -1101,17 +1101,19 @@ if is_admin:
 
         st.components.v1.html("""
             <script>
-                let count = 0;
-                let scrollInterval = setInterval(function() {
-                    let target = window.parent.document.querySelector('section.main');
-                    if (target) {
-                        target.scrollTo({ top: 99999, behavior: 'smooth' });
-                    }
-                    count++;
-                    if (count >= 5) {
-                        clearInterval(scrollInterval);
-                    }
-                }, 400);
+                function forceScrollBottom() {
+                    const doc = window.parent.document;
+                    const selectors = ['section.main', '.main', '.stApp', 'div[data-testid="stAppViewContainer"]', 'html', 'body'];
+                    selectors.forEach(sel => {
+                        const el = doc.querySelector(sel);
+                        if (el) {
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    });
+                }
+                for (let i = 0; i < 10; i++) {
+                    setTimeout(forceScrollBottom, i * 200);
+                }
             </script>
         """, height=0)
 
@@ -1440,17 +1442,19 @@ else:
 
         st.components.v1.html("""
             <script>
-                let count = 0;
-                let scrollInterval = setInterval(function() {
-                    let target = window.parent.document.querySelector('section.main');
-                    if (target) {
-                        target.scrollTo({ top: 99999, behavior: 'smooth' });
-                    }
-                    count++;
-                    if (count >= 5) {
-                        clearInterval(scrollInterval);
-                    }
-                }, 400);
+                function forceScrollBottom() {
+                    const doc = window.parent.document;
+                    const selectors = ['section.main', '.main', '.stApp', 'div[data-testid="stAppViewContainer"]', 'html', 'body'];
+                    selectors.forEach(sel => {
+                        const el = doc.querySelector(sel);
+                        if (el) {
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    });
+                }
+                for (let i = 0; i < 10; i++) {
+                    setTimeout(forceScrollBottom, i * 200);
+                }
             </script>
         """, height=0)
 
