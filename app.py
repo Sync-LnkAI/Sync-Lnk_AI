@@ -573,10 +573,6 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
     ユーザーの会話の中身（生文字）は一切保存せず、
     「処理秒数、トークン数、正確な実費コスト、イベント種別」の『数字と記号だけ』をDBへ永続保存します。
     """
-    print(
-        f"監査ログ保存開始: "
-        f"{event_type}"
-    )
 
     try:
         data = {
@@ -591,9 +587,7 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         supabase.table("system_audit_logs").insert(data).execute()
-        print(
-            "監査ログ保存成功"
-        )
+
     except Exception as e:
 
         print(
@@ -955,6 +949,12 @@ if is_admin:
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
+        
+        st.components.v1.html("""
+            <script>
+                window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+            </script>
+        """, height=0)
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
@@ -1057,11 +1057,9 @@ if is_admin:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
-                        st.write("① add_permanent_tokens直前")
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        st.write("① save_system_audit_log直前")
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
@@ -1080,7 +1078,7 @@ if is_admin:
                             "CHAT_PROCESSING_ERROR",
                             current_plan_type
                         )
-                        st.write("① save_system_audit_log直前")
+                        
                         save_system_audit_log(
                             CURRENT_USER_ID,
                             current_plan_type,
@@ -1298,6 +1296,12 @@ else:
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
+        st.components.v1.html("""
+            <script>
+                window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+            </script>
+        """, height=0)
+
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
@@ -1405,7 +1409,6 @@ else:
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        st.write("① save_system_audit_log直前")
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
