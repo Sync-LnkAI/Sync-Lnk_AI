@@ -858,12 +858,12 @@ st.markdown(f"""
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
         background: {theme_cfg["bg"]} !important; /* 💡 background-colorからbackgroundへ変更しグラデーションを完全解放！ */
         color: {theme_cfg["text"]} !important;
-        max-width: 95vw !important;
+        max-width: 100vw !important;
         overflow-x: hidden !important;
         box-sizing: border-box !important;
     }}
     .main .block-container {{
-        max-width: 95vw !important;
+        max-width: 100vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
