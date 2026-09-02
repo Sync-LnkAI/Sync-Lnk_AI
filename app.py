@@ -922,7 +922,9 @@ if is_admin:
     # ------------------------------------------------------------------
     with tab1:
         st.write("✅ tab1到達")
-
+        st.write(
+            f"CURRENT_USER_ID={CURRENT_USER_ID}"
+        )
         all_messages = get_messages(CURRENT_USER_ID)
 
         st.write(
@@ -935,6 +937,9 @@ if is_admin:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
+        st.write(
+            f"CURRENT_USER_ID={CURRENT_USER_ID}"
+        )
         all_messages = get_messages(CURRENT_USER_ID)
         st.write(
             f"取得メッセージ件数 = {len(all_messages)}"
@@ -1277,6 +1282,10 @@ else:
 
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
+
+        st.write(
+            f"CURRENT_USER_ID={CURRENT_USER_ID}"
+        )
 
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
