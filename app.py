@@ -185,6 +185,7 @@ def get_messages(target_id: str) -> list[dict]:
     ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
     エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
     """
+    st.error("🔥 get_messages実行")
     try:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         #res = supabase.table("messages").select("*").eq("user_id", str(target_id)).order("created_at", ascending=True).execute()
