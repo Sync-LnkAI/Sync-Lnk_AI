@@ -806,40 +806,40 @@ st.markdown(f"""
    左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
    ================================================================== */
 
-    /* ==================================================================
-       👑 【最上部グラデーション ＆ 最高級ラグジュアリー：Cinzel Decorative斜体】
-       ヘッダーの背景をチャット画面のグラデーションと100%完全同調させ、
-       さらにハネが美しく知的に伸びる世界最高峰のドレスアップフォントを斜体で召喚します。
-       ================================================================== */
-    /* 1. ネット上から、圧倒的なプレミアム感を放つ最高級フォントをリアルタイムに召喚します */
-    @import url('https://googleapis.com');
+/* ==================================================================
+    👑 【最上部グラデーション ＆ 最高級ラグジュアリー：Cinzel Decorative斜体】
+    ヘッダーの背景をチャット画面のグラデーションと100%完全同調させ、
+    さらにハネが美しく知的に伸びる世界最高峰のドレスアップフォントを斜体で召喚します。
+    ================================================================== */
+/* 1. ネット上から、圧倒的なプレミアム感を放つ最高級フォントをリアルタイムに召喚します */
+@import url('https://googleapis.com');
 
-    [data-testid="stHeader"] {{
-        background: {theme_cfg["bg"]} !important; /* チャット画面と100%完全にシンクするグラデーション背景 */
-        border-bottom: 1px solid {theme_cfg["input_border"]} !important; /* 下部に美しく繊細な境界線を走らせます */
-        height: 3.5rem !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        z-index: 9999 !important;
-    }}
+[data-testid="stHeader"] {{
+    background: {theme_cfg["bg"]} !important; /* チャット画面と100%完全にシンクするグラデーション背景 */
+    border-bottom: 1px solid {theme_cfg["input_border"]} !important; /* 下部に美しく繊細な境界線を走らせます */
+    height: 3.5rem !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    z-index: 9999 !important;
+}}
     
-    /* 2. 空白スペースのド真ん中に、端のラインが知的に伸びて右へ美しく傾く極上のブランドエンブレムを固定配置 */
-    [data-testid="stHeader"]::after {{
-        content: "Sync-Lnk // AI" !important;
-        font-family: 'Cinzel Decorative', serif !important; /* 💡 大本命の Cinzel Decorative を適用 */
-        color: {theme_cfg["text"]} !important;
-        font-size: 1.5rem !important; /* 威風堂々とした存在感と視認性を完璧に両立させる黄金サイズ */
-        font-weight: 700 !important;  /* 文字の骨組みをクッキリと太く際立たせます */
-        font-style: italic !important; /* 💡 右上がりの美しい傾斜（斜体）を強制発動！ */
-        position: absolute !important;
-        left: 50% !important;
-        top: 50% !important;
-        transform: translate(-50%, -50%) !important; /* 縦横ドンピシャで中央揃え */
-        white-space: nowrap !important;
-        letter-spacing: 2px !important; /* 文字同士の間隔を少し広げて、圧倒的な品格を演出します */
-    }}
+/* 2. 空白スペースのド真ん中に、端のラインが知的に伸びて右へ美しく傾く極上のブランドエンブレムを固定配置 */
+[data-testid="stHeader"]::after {{
+    content: "Sync-Lnk // AI" !important;
+    font-family: 'Cinzel Decorative', serif !important; /* 💡 大本命の Cinzel Decorative を適用 */
+    color: {theme_cfg["text"]} !important;
+    font-size: 1.5rem !important; /* 威風堂々とした存在感と視認性を完璧に両立させる黄金サイズ */
+    font-weight: 700 !important;  /* 文字の骨組みをクッキリと太く際立たせます */
+    font-style: italic !important; /* 💡 右上がりの美しい傾斜（斜体）を強制発動！ */
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important; /* 縦横ドンピシャで中央揃え */
+    white-space: nowrap !important;
+    letter-spacing: 2px !important; /* 文字同士の間隔を少し広げて、圧倒的な品格を演出します */
+}}
 
 [data-testid="collapsedControl"] {{
     color: #4A90E2 !important;
@@ -1009,6 +1009,27 @@ st.markdown(f"""
     section[data-testid="stSidebar"] {{
         border-right: 1px solid {theme_cfg["input_border"]} !important;
     }}
+    
+    /* ==================================================================
+       🛡️ 【最終防衛ライン】 右下のGitHubリンク・ピンクのアイコンを根こそぎ完全消去
+       ================================================================== */
+    /* 最新のStreamlitインフラが右下に配置する、GitHubプロフィールへの露出リンク、
+       およびアプリの管理用コンポーネント（Viewer/Developer用要素）を
+       画面の裏側（DOM構造）から1文字の例外もなく100%完全に隠蔽・消滅させます。 */
+    div[data-testid="stStatusWidget"],
+    div[class*="stAppDeployButton"],
+    div[class*="viewerBadge"],
+    div[class*="manageApp"],
+    a[href*="github.com"] img,
+    button[id*="manage-app"] {{
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important; /* クリック判定自体も完全に消失させます */
+        height: 0 !important;
+        width: 0 !important;
+    }}
+
 </style>
 """, unsafe_allow_html=True)
 
