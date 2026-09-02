@@ -116,7 +116,7 @@ if "summary_out_tokens" not in st.session_state:
     st.session_state.summary_out_tokens = 0
 
 if "debug_logs" not in st.session_state:
-    st.session_state.error_logs = []
+    st.session_state.debug_logs = []
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
@@ -416,6 +416,65 @@ def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT"):
     except Exception as e:
         print(f"⚠️ Embedding生成エラー: {e}")
         return None
+
+def add_permanent_tokens(
+    user_id: str,
+    feature_type: str,
+    in_tokens: int,
+    out_tokens: int
+) -> bool:
+    try:
+        result = (
+            supabase
+            .table("user_token_stats")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .eq("feature_type", feature_type)
+            .execute()
+        )
+
+        if result.data:
+            current_row = result.data[0]
+
+            current_in = int(
+                current_row.get("in_tokens", 0) or 0
+            )
+            current_out = int(
+                current_row.get("out_tokens", 0) or 0
+            )
+
+            (
+                supabase
+                .table("user_token_stats")
+                .update({
+                    "in_tokens": current_in + int(in_tokens),
+                    "out_tokens": current_out + int(out_tokens)
+                })
+                .eq("id", current_row["id"])
+                .execute()
+            )
+
+        else:
+            (
+                supabase
+                .table("user_token_stats")
+                .insert({
+                    "user_id": str(user_id),
+                    "feature_type": feature_type,
+                    "in_tokens": int(in_tokens),
+                    "out_tokens": int(out_tokens)
+                })
+                .execute()
+            )
+
+        return True
+
+    except Exception as e:
+        print(
+            f"⚠️ 永続トークン保存エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return False
 
 # ==================================================================
 # 📊 【新設】 ユーザー別＆全体システム監査ログ（Telemetry）永続保存関数
@@ -880,7 +939,7 @@ if is_admin:
                         if hasattr(response, "usage_metadata") and response.usage_metadata:
                             in_t = response.usage_metadata.prompt_token_count
                             out_t = response.usage_metadata.candidates_token_count
-                            #add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
                             st.session_state.last_in_tokens = in_t
                             st.session_state.last_out_tokens = out_t
                             st.session_state.total_in_tokens += in_t
@@ -893,7 +952,7 @@ if is_admin:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
-                        #add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
@@ -1166,7 +1225,7 @@ else:
                     all_messages.append({"role": "user", "content": user_input})
                     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-                    manual_memory_context = get_managed_settings_text() if get_managed_settings_text() else "なし"
+                    manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
                     current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
 
                     # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書（一般用）
@@ -1223,7 +1282,7 @@ else:
                         if hasattr(response, "usage_metadata") and response.usage_metadata:
                             in_t = response.usage_metadata.prompt_token_count
                             out_t = response.usage_metadata.candidates_token_count
-                            #add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
                             st.session_state.last_in_tokens = in_t
                             st.session_state.last_out_tokens = out_t
                             st.session_state.total_in_tokens += in_t
@@ -1236,7 +1295,7 @@ else:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
-                        #add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
