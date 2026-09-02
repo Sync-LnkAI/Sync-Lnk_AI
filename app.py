@@ -195,7 +195,7 @@ def get_messages(target_id: str) -> list[dict]:
             .table("messages")
             .select("*")
             .eq("user_id", str(target_id))
-            .order("created_at", ascending=True)
+            .order("created_at", desc=False)
             .execute()
         )
         st.write("DEBUG raw response")
@@ -209,7 +209,19 @@ def get_messages(target_id: str) -> list[dict]:
         return res.data if res.data else []
   
     except Exception as e:
-        print(f"⚠️ メッセージ履歴取得エラー（一本道仕様）: {e}")
+        error_detail = (
+            f"{type(e).__name__}: {str(e)}"
+        )
+        print(
+            f"⚠️ メッセージ履歴取得エラー: "
+            f"{error_detail}"
+        )   
+        st.error(
+            f"メッセージ履歴取得エラー: "
+            f"{error_detail}"
+        )
+
+        #print(f"⚠️ メッセージ履歴取得エラー（一本道仕様）: {e}")
         return []
 
 def save_message(role: str, content: str) -> bool:
