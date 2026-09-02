@@ -929,6 +929,9 @@ if is_admin:
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         all_messages = get_messages(CURRENT_USER_ID)
+        st.write(
+            f"取得メッセージ件数 = {len(all_messages)}"
+        )
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
