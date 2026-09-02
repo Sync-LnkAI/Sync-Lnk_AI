@@ -1080,7 +1080,7 @@ if is_admin:
                             "CHAT_PROCESSING_ERROR",
                             current_plan_type
                         )
-
+                        st.write("① save_system_audit_log直前")
                         save_system_audit_log(
                             CURRENT_USER_ID,
                             current_plan_type,
@@ -1405,6 +1405,7 @@ else:
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                        st.write("① save_system_audit_log直前")
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
