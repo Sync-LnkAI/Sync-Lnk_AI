@@ -683,59 +683,65 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     except Exception as e:
         return False, f"ERROR: {str(e)}"
 
-# 🎨【プレミアム・グラデーションカラーパレット】
-# 画面最上部から底へ向かって、高級感あふれる光のグラデーションが美しく溶け合うプロ仕様の配色です！
+# 🎨【プレミアム・劇的グラデーションカラーパレット】
+# 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
 THEMES = {
     "モノトーン調": {
-        "bg": "linear-gradient(135deg, #1F1E24 0%, #0F0E12 100%)", # 漆黒から深淵のダークグラデーション
+        # 🔩 【劇的強化】 頂点を明るめの炭黒（#2C2B30）にし、底を漆黒（#050507）へ。明暗のコントラストを2倍に強めました！
+        "bg": "linear-gradient(180deg, #2C2B30 0%, #151418 40%, #050507 100%)",
         "text": "#FFFFFF",        # クッキリ浮き出る純白文字
         "card_bg": "#1E1E1E",     # 高級感のあるダークグレー
-        "input_border": "#333333",# 引き締まった境界線
+        "input_border": "#444444",# 視認性を上げた境界線
         "dropdown_bg": "#2A2A2A",
         "dropdown_text": "#FFFFFF"
     },
     "オーシャン風": {
-        "bg": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)", # 透き通る浅瀬から美しい夏の海へのグラデーション
-        "text": "#1A365D",        # 深海をイメージした濃紺の文字（絶対に白飛びしません）
+        # 🌊 【劇的強化】 白波のようなライトブルー（#E3F2FD）から、深海のディープブルー（#64B5F6）へ深く沈み込むグラデ
+        "bg": "linear-gradient(180deg, #E3F2FD 0%, #90CDF4 50%, #64B5F6 100%)",
+        "text": "#0A2540",        # コントラストをさらに強めた超濃紺文字
         "card_bg": "#FFFFFF",     # 真っ白な砂浜のカード
-        "input_border": "#90CDF4",# 透き通る波のブルー
+        "input_border": "#4299E1",# 鮮やかなオーシャンブルー
         "dropdown_bg": "#EDF2F7",
-        "dropdown_text": "#1A365D"
+        "dropdown_text": "#0A2540"
     },
     "フォレスト風": {
-        "bg": "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)", # 朝靄の木漏れ日から、深い癒やしの森へ溶けるグラデーション
-        "text": "#1C3D1C",        # 深い森の濃緑文字（最強の視認性）
+        # 🌳 【劇的強化】 爽やかな若葉色（#E8F5E9）から、どっしりとした深い木々の緑（#A5D6A7）へのディープグラデ
+        "bg": "linear-gradient(180deg, #E8F5E9 0%, #A5D6A7 100%)",
+        "text": "#0D2B0D",        # 森の奥深くをイメージした超濃緑文字
         "card_bg": "#FFFFFF",     # 綺麗な木漏れ日の白カード
-        "input_border": "#A3E635",# 新緑の若葉グリーン
+        "input_border": "#48BB78",# 新緑の森林グリーン
         "dropdown_bg": "#F4FBF4",
-        "dropdown_text": "#1C3D1C"
+        "dropdown_text": "#0D2B0D"
     },
     "パステル調": {
-        "bg": "linear-gradient(135deg, #FFF5F5 0%, #FFE3E3 100%)", # 恋するシャーベットピンクからまろやかな紅桜へのグラデーション
-        "text": "#4A2840",        # 大人可愛いベリー系の濃い紫文字
+        # 🌸 【劇的強化】 柔らかなコーラルピンク（#FFF5F5）から、鮮やかなマゼンタ系ピンク（#FFB7B2）へのロマンチックグラデ
+        "bg": "linear-gradient(180deg, #FFF5F5 0%, #FFD1D1 50%, #FFB7B2 100%)",
+        "text": "#4A1525",        # より深みを増した濃厚ベリー文字
         "card_bg": "#FEFCBF",     # 優しいパステルイエローのカード
-        "input_border": "#FBB6CE",# 華やかな桜ピンク
+        "input_border": "#ED64A6",# 華やかなローズピンク
         "dropdown_bg": "#FFF5F7",
-        "dropdown_text": "#4A2840"
+        "dropdown_text": "#4A1525"
     },
     "ファイヤー風": {
-        "bg": "linear-gradient(135deg, #FFF5F0 0%, #FFCCBC 100%)", # 燃え上がる手前の極上の夕焼け橙から情熱の緋色へのグラデーション
-        "text": "#7B1A12",        # 炎の芯を表すドッシリとした漆紅・濃赤文字
+        # 🔥 【劇的強化】 燃える夕焼け橙（#FFF5F0）から、情熱の茜色・トワイライトレッド（#FF8A65）への超グラデ
+        "bg": "linear-gradient(180deg, #FFF5F0 0%, #FFAB91 50%, #FF8A65 100%)",
+        "text": "#5C0F08",        # 煉獄の芯を表すドッシリとした超濃赤文字
         "card_bg": "#FFEBEE",     # 温かみのある緋色のカード
-        "input_border": "#EF5350",# 情熱的なファイヤーレッド
+        "input_border": "#E53E3E",# 情熱的なファイヤーレッド
         "dropdown_bg": "#FFEBEE",
-        "dropdown_text": "#7B1A12"
+        "dropdown_text": "#5C0F08"
     },
     "メタリック調": {
-        # 🔩 中心に向かって鈍いチタン・プラチナの輝きが走る、最高級ヘアラインメタルグラデーション
+        # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
         "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
-        "text": "#1A1A1A",        # 重厚な鉄（アイアン）をイメージした、ドッシリとした超濃口の墨黒文字
-        "card_bg": "rgba(255, 255, 255, 0.85)", # 金属背景の上で美しく半透明に透き通るガラスのような特等席
-        "input_border": "#757575",# 鈍く輝くステンレスグレー
+        "text": "#1A1A1A",
+        "card_bg": "rgba(255, 255, 255, 0.85)",
+        "input_border": "#757575",
         "dropdown_bg": "#E0E0E0",
         "dropdown_text": "#1A1A1A"
     }
 }
+
 
 # ==========================================
 # 🧠 設定値の読み込み・常時シンク
