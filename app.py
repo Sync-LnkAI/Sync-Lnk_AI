@@ -1286,9 +1286,9 @@ else:
     tab1, tab2 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定"])
 
     # アプリ起動時の最初の一度だけ、全自動で画面を一番下までザザザッと流し落として同期させます！
-        if "init_scroll_done" not in st.session_state:
-            st.session_state.init_scroll_done = True
-            st.rerun()
+    if "init_scroll_done" not in st.session_state:
+        st.session_state.init_scroll_done = True
+        st.rerun()
     
     # ------------------------------------------------------------------
     # 💬 【一般・タブ1】 おしゃべりの部屋
