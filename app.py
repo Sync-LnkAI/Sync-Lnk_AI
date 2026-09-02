@@ -1103,7 +1103,7 @@ if is_admin:
             <script>
                 setTimeout(function() {
                     window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-                }, 300);
+                }, 1000);
             </script>
         """, height=0)
 
@@ -1434,7 +1434,7 @@ else:
             <script>
                 setTimeout(function() {
                     window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-                }, 300);
+                }, 1000);
             </script>
         """, height=0)
 
