@@ -943,12 +943,26 @@ if is_admin:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        # 🚀 【大開通ワープボタン】 押した瞬間にブラウザのセキュリティを突破し、最下部へ強制ジャンプします！
-        if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
-            st.components.v1.html("""
-                <script>
+        # 🔓 【真の最終大開通アンカー】Streamlitの再描画（引き戻し）の呪縛を100%完全に粉砕します！
+        # 💡 st.buttonをやめて純粋なHTMLのデザインボタンにすることで、画面を1ミリもリフレッシュさせずに、一瞬で最下部（チャット入力欄）へ100%確実にワープさせます！
+        st.components.v1.html("""
+            <div style="text-align: center; margin-bottom: 10px;">
+                <button onclick="scrollBottom()" style="
+                    width: 100%;
+                    padding: 10px;
+                    background-color: #4A90E2;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    box-shadow: 0px 2px 4px rgba(0,0,0,0.1);
+                ">👇 最下部（チャット入力欄）へ移動</button>
+            </div>
+            <script>
+                function scrollBottom() {
                     const doc = window.parent.document;
-                    // 💡 タブの内側のコンテナ、および画面全体のすべてのスクロール候補を一斉に全掃射（スキャン）します
                     const elements = [
                         ...doc.querySelectorAll('div[data-baseweb="tab-panel"]'),
                         ...doc.querySelectorAll('div[data-testid="stAppViewContainer"]'),
@@ -958,12 +972,12 @@ if is_admin:
                     ];
                     elements.forEach(el => {
                         if (el) {
-                            // 物理的に一番下の高さ（scrollHeight）まで一瞬で画面を強制引き下げします
                             el.scrollTop = el.scrollHeight;
                         }
                     });
-                </script>
-            """, height=0)
+                }
+            </script>
+        """, height=45)
 
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
