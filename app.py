@@ -197,6 +197,8 @@ def get_messages(target_id: str) -> list[dict]:
             .order("created_at", ascending=True)
             .execute()
         )
+        st.write("DEBUG raw response")
+        st.write(res)
         st.write(f"DEBUG res.data = {res.data}")   
 
         print(
