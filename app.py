@@ -749,7 +749,7 @@ THEMES = {
 manual_memories = get_memories(source="manual")
 
 # 💡 【グラデーション適合】 初めて起動したまっさらな状態のユーザー向けの初期カラーテーマを「モノトーン調」にセットします！
-current_theme_color = "モノトーン調"
+current_theme_color = "メタリック調"
 current_concierge_name = "コンシェルジュ"
 current_user_name = "ユーザー"
 current_user_honorific = "さん"
@@ -789,7 +789,7 @@ for m in manual_memories:
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
 # 万が一古い選択肢が残っていても、安全弁として「モノトーン調」に自動着地させてエラーを300%永久防衛します！
-theme_cfg = THEMES.get(current_theme_color, THEMES["モノトーン調"])
+theme_cfg = THEMES.get(current_theme_color, THEMES["メタリック調"])
 
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
