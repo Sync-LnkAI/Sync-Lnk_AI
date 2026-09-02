@@ -805,40 +805,40 @@ st.markdown(f"""
    🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
    左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
    ================================================================== */
-/* ==================================================================
-   👑 【最上部空白スペース・近未来系筆記体ブランドロゴリフォーム】
-   Google Fontsから流麗なインテリジェンス・フォントをリアルタイムに召喚し、
-   「SYNC-LNK // AI」の筆記体エンブレムを最前面に100%完全固定します。
-   ================================================================== */
-/* 1. ネット上から最高にお洒落で傾斜の美しいプロ仕様の筆記体フォントを召喚します */
-@import url('https://googleapis.com');
+    /* ==================================================================
+       👑 【最上部グラデーションシンク ＆ テイスト1：エレガント筆記体】
+       ヘッダーの背景をチャット画面の極上グラデーションと100%完全同調させ、
+       さらに海外の高貴なハイブランドのような流麗なWebフォントを召喚します。
+       ================================================================== */
+    /* 1. ネット上から、最も優雅で線が美しく交差する最高峰のエレガント筆記体フォントを召喚します */
+    @import url('https://googleapis.com');
 
-[data-testid="stHeader"] {{
-    background: {theme_cfg["card_bg"]} !important; /* テーマのカード背景色に合わせます */
-    border-bottom: 1px solid {theme_cfg["input_border"]} !important; /* 下部に美しく繊細な境界線を走らせます */
-    height: 3.5rem !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100% !important;
-    z-index: 9999 !important;
-}}
+    [data-testid="stHeader"] {{
+        background: {theme_cfg["bg"]} !important; /* 💡 ベタ塗りを廃止し、チャット画面と100%完全にシンクするグラデーション背景へリフォーム！ */
+        border-bottom: 1px solid {theme_cfg["input_border"]} !important; /* 下部に繊細な境界線を走らせます */
+        height: 3.5rem !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        z-index: 9999 !important;
+    }}
     
-/* 2. 空白スペースのド真ん中に、シャープに右上がりに傾いた極上のブランドロゴを固定配置します */
-[data-testid="stHeader"]::after {{
-    content: "Sync-Lnk // AI" !important; /* 💡 筆記体が一番美しく見える大文字小文字のバランスに調合しています */
-    font-family: 'Alex Brush', cursive !important; /* 筆記体フォントを強制適用 */
-    color: {theme_cfg["text"]} !important;
-    font-size: 1.85rem !important; /* 筆記体は線が繊細なため、少し大きめにクッキリ映し出します */
-    font-weight: 500 !important;
-    font-style: italic !important; /* 💡 右上がりのレーシーな傾斜（斜体）をさらに美しく際立たせます */
-    position: absolute !important;
-    left: 50% !important;
-    top: 45% !important;
-    transform: translate(-50%, -50%) !important; /* 縦横100%ドンピシャで中央揃え */
-    white-space: nowrap !important;
-    letter-spacing: 2px !important; /* 英文字同士の間隔を少し広げて、圧倒的な高級感を演出します */
-}}
+    /* 2. 空白スペースのド真ん中に、息をのむほど優雅に流れる極上の手書きブランドエンブレムを固定配置します */
+    [data-testid="stHeader"]::after {{
+        content: "Sync-Lnk // AI" !important;
+        font-family: 'Monsieur La Doulaise', cursive !important; /* 💡 テイスト1の高貴なフォントへスイッチ */
+        color: {theme_cfg["text"]} !important;
+        font-size: 2.3rem !important; /* テイスト1は非常に繊細で芸術的な線の細さを持つため、少し大きめに表示して視認性を最強にします */
+        font-weight: 400 !important;
+        position: absolute !important;
+        left: 50% !important;
+        top: 40% !important; /* フォント特有の美しいハネ位置を考慮し、縦軸の重心をわずかに上に調整 */
+        transform: translate(-50%, -50%) !important; /* 縦横ドンピシャで中央揃え */
+        white-space: nowrap !important;
+        letter-spacing: 1px !important;
+    }}
+
 
 [data-testid="collapsedControl"] {{
     color: #4A90E2 !important;
