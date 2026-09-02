@@ -1057,6 +1057,7 @@ if is_admin:
                             
                         save_message("assistant", ai_reply)
                         st.session_state.conversation_count += 1
+                        st.write("① add_permanent_tokens直前")
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
