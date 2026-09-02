@@ -1097,6 +1097,7 @@ if is_admin:
 
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
+                    st.rerun()
 
     # ------------------------------------------------------------------
     # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
