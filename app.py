@@ -921,6 +921,13 @@ if is_admin:
     # 💬 【管理者・タブ1】 おしゃべりの部屋
     # ------------------------------------------------------------------
     with tab1:
+        st.write("✅ tab1到達")
+
+        all_messages = get_messages(CURRENT_USER_ID)
+
+        st.write(
+            f"取得件数={len(all_messages)}"
+        )
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
         current_plan_type = "💎 プレミアムプラン"
