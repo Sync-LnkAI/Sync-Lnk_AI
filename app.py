@@ -950,11 +950,25 @@ if is_admin:
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
         
-        st.components.v1.html("""
+        st.markdown(
+            """
+            <div id="bottom"></div>
+
             <script>
-                window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+            const target =
+                parent.document.querySelector(
+                    "#bottom"
+            );
+
+            if (target) {
+                target.scrollIntoView({
+                    behavior: "smooth"
+                });
+            }
             </script>
-        """, height=0)
+            """,
+            unsafe_allow_html=True
+        )
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
