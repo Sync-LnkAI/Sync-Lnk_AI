@@ -209,9 +209,6 @@ def get_messages(target_id: str) -> list[dict]:
         return res.data if res.data else []
   
     except Exception as e:
-        error_detail = (
-            f"{type(e).__name__}: {str(e)}"
-        )
         print(
             f"⚠️ メッセージ履歴取得エラー: "
             f"{error_detail}"
