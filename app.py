@@ -1101,9 +1101,17 @@ if is_admin:
 
         st.components.v1.html("""
             <script>
-                setTimeout(function() {
-                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-                }, 1000);
+                let count = 0;
+                let scrollInterval = setInterval(function() {
+                    let target = window.parent.document.querySelector('section.main');
+                    if (target) {
+                        target.scrollTo({ top: 99999, behavior: 'smooth' });
+                    }
+                    count++;
+                    if (count >= 5) {
+                        clearInterval(scrollInterval);
+                    }
+                }, 400);
             </script>
         """, height=0)
 
@@ -1432,9 +1440,17 @@ else:
 
         st.components.v1.html("""
             <script>
-                setTimeout(function() {
-                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-                }, 1000);
+                let count = 0;
+                let scrollInterval = setInterval(function() {
+                    let target = window.parent.document.querySelector('section.main');
+                    if (target) {
+                        target.scrollTo({ top: 99999, behavior: 'smooth' });
+                    }
+                    count++;
+                    if (count >= 5) {
+                        clearInterval(scrollInterval);
+                    }
+                }, 400);
             </script>
         """, height=0)
 
