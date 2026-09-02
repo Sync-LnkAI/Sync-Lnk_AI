@@ -947,7 +947,21 @@ if is_admin:
         if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
             st.components.v1.html("""
                 <script>
-                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+                    const doc = window.parent.document;
+                    // 💡 タブの内側のコンテナ、および画面全体のすべてのスクロール候補を一斉に全掃射（スキャン）します
+                    const elements = [
+                        ...doc.querySelectorAll('div[data-baseweb="tab-panel"]'),
+                        ...doc.querySelectorAll('div[data-testid="stAppViewContainer"]'),
+                        doc.querySelector('section.main'),
+                        doc.documentElement,
+                        doc.body
+                    ];
+                    elements.forEach(el => {
+                        if (el) {
+                            // 物理的に一番下の高さ（scrollHeight）まで一瞬で画面を強制引き下げします
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    });
                 </script>
             """, height=0)
 
