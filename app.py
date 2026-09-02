@@ -683,13 +683,67 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     except Exception as e:
         return False, f"ERROR: {str(e)}"
 
+# 🎨【プレミアム・グラデーションカラーパレット】
+# 画面最上部から底へ向かって、高級感あふれる光のグラデーションが美しく溶け合うプロ仕様の配色です！
+THEMES = {
+    "モノトーン調": {
+        "bg": "linear-gradient(135deg, #1F1E24 0%, #0F0E12 100%)", # 漆黒から深淵のダークグラデーション
+        "text": "#FFFFFF",        # クッキリ浮き出る純白文字
+        "card_bg": "#1E1E1E",     # 高級感のあるダークグレー
+        "input_border": "#333333",# 引き締まった境界線
+        "dropdown_bg": "#2A2A2A",
+        "dropdown_text": "#FFFFFF"
+    },
+    "オーシャン風": {
+        "bg": "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%)", # 透き通る浅瀬から美しい夏の海へのグラデーション
+        "text": "#1A365D",        # 深海をイメージした濃紺の文字（絶対に白飛びしません）
+        "card_bg": "#FFFFFF",     # 真っ白な砂浜のカード
+        "input_border": "#90CDF4",# 透き通る波のブルー
+        "dropdown_bg": "#EDF2F7",
+        "dropdown_text": "#1A365D"
+    },
+    "フォレスト風": {
+        "bg": "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)", # 朝靄の木漏れ日から、深い癒やしの森へ溶けるグラデーション
+        "text": "#1C3D1C",        # 深い森の濃緑文字（最強の視認性）
+        "card_bg": "#FFFFFF",     # 綺麗な木漏れ日の白カード
+        "input_border": "#A3E635",# 新緑の若葉グリーン
+        "dropdown_bg": "#F4FBF4",
+        "dropdown_text": "#1C3D1C"
+    },
+    "パステル調": {
+        "bg": "linear-gradient(135deg, #FFF5F5 0%, #FFE3E3 100%)", # 恋するシャーベットピンクからまろやかな紅桜へのグラデーション
+        "text": "#4A2840",        # 大人可愛いベリー系の濃い紫文字
+        "card_bg": "#FEFCBF",     # 優しいパステルイエローのカード
+        "input_border": "#FBB6CE",# 華やかな桜ピンク
+        "dropdown_bg": "#FFF5F7",
+        "dropdown_text": "#4A2840"
+    },
+    "ファイヤー風": {
+        "bg": "linear-gradient(135deg, #FFF5F0 0%, #FFCCBC 100%)", # 燃え上がる手前の極上の夕焼け橙から情熱の緋色へのグラデーション
+        "text": "#7B1A12",        # 炎の芯を表すドッシリとした漆紅・濃赤文字
+        "card_bg": "#FFEBEE",     # 温かみのある緋色のカード
+        "input_border": "#EF5350",# 情熱的なファイヤーレッド
+        "dropdown_bg": "#FFEBEE",
+        "dropdown_text": "#7B1A12"
+    }
+        "メタリック調": {
+        # 🔩 中心に向かって鈍いチタン・プラチナの輝きが走る、最高級ヘアラインメタルグラデーション
+        "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
+        "text": "#1A1A1A",        # 重厚な鉄（アイアン）をイメージした、ドッシリとした超濃口の墨黒文字
+        "card_bg": "rgba(255, 255, 255, 0.85)", # 金属背景の上で美しく半透明に透き通るガラスのような特等席
+        "input_border": "#757575",# 鈍く輝くステンレスグレー
+        "dropdown_bg": "#E0E0E0",
+        "dropdown_text": "#1A1A1A"
+    }
+}
+
 # ==========================================
 # 🧠 設定値の読み込み・常時シンク
 # ==========================================
 manual_memories = get_memories(source="manual")
 
-# 💡 初めて起動したまっさらな状態のユーザー向け初期値（デフォルト）
-current_theme_color = "☀ ライドモード（白）"
+# 💡 【グラデーション適合】 初めて起動したまっさらな状態のユーザー向けの初期カラーテーマを「モノトーン調」にセットします！
+current_theme_color = "モノトーン調"
 current_concierge_name = "コンシェルジュ"
 current_user_name = "ユーザー"
 current_user_honorific = "さん"
@@ -716,7 +770,7 @@ for m in manual_memories:
     elif fact.startswith("AI一人称:"):
         current_first_person = fact.replace("AI一人称:", "").strip()
     elif fact.startswith("口調プリセット:"):
-        current_style_preset = fact.replace("口調プリセット:", "").strip()
+        current_style_preset = fact.replace("口调プリセット:", "").strip()
     elif fact.startswith("応答方針:"):
         current_user_instruction = fact.replace("応答方針:", "").strip()
     elif fact.startswith("AIアバター:"):
@@ -726,7 +780,11 @@ for m in manual_memories:
     elif fact.startswith("会員プラン:"):
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
 
-theme_cfg = COLOR_THEMES.get(current_theme_color, COLOR_THEMES["☀ ライドモード（白）"])
+# 💡 【ここが大開通スイッチ！】 
+# 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
+# 万が一古い選択肢が残っていても、安全弁として「モノトーン調」に自動着地させてエラーを300%永久防衛します！
+theme_cfg = THEMES.get(current_theme_color, THEMES["モノトーン調"])
+
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
 st.markdown(f"""
@@ -741,25 +799,26 @@ st.markdown(f"""
    左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
    ================================================================== */
 [data-testid="stHeader"] {{
-    background-color: transparent !important; /* ヘッダーのグレーの背景を透明にして消し去ります */
-    height: 3rem !important; /* ボタンが潰れない高さを確保 */
+    background-color: transparent !important;
+    height: 3rem !important;
 }}
-/* 左上の展開ボタン本体を背景からドンと際立たせる色付け */
 [data-testid="collapsedControl"] {{
-    color: #4A90E2 !important; /* ボタンの文字（矢印）を綺麗なロイヤルブルーへ */
-    background-color: rgba(255, 255, 255, 0.9) !important; /* 背景を白にして視認性を100%に */
+    color: #4A90E2 !important;
+    background-color: rgba(255, 255, 255, 0.9) !important;
     border-radius: 4px !important;
     padding: 4px !important;
-    box-shadow: 0px 2px 4px rgba(0,0,0,0.1) !important; /* 押しやすそうな立体感をプラス */
+    box-shadow: 0px 2px 4px rgba(0,0,0,0.1) !important;
     position: fixed !important;
     top: 0.5rem !important;
     left: 0.5rem !important;
-    z-index: 999999 !important; /* 最前面へ強制浮上 */
+    z-index: 999999 !important;
 }}
 
-    /* 1. 全体背景＆文字色 */
+    /* ==================================================================
+       🎨 1. 【全体背景＆文字色】 ベタ塗りを廃止し、極上の高級グラデーションを全開通
+       ================================================================== */
     html, body, .stApp, div[data-testid="stAppViewContainer"], section.main {{
-        background-color: {theme_cfg["bg"]} !important;
+        background: {theme_cfg["bg"]} !important; /* 💡 background-colorからbackgroundへ変更しグラデーションを完全解放！ */
         color: {theme_cfg["text"]} !important;
         max-width: 95vw !important;
         overflow-x: hidden !important;
@@ -771,23 +830,57 @@ st.markdown(f"""
         padding-right: 0.8rem !important;
         padding-top: 1rem !important;
     }}
-    /*p, span, h1, h2, h3, h4, h5, h6, label {{
-        color: {theme_cfg["text"]} !important;
-        word-break: break-word !important;
-        overflow-wrap: anywhere !important;
-    }}*/
 
-    /* 2. 🎯 ドロップダウン（選択肢）のポップアップ要素を全子要素まで全網羅指定 */
-    /*div[data-baseweb="select"] *,
-    div[data-baseweb="popover"] *,
-    div[data-baseweb="menu"] *,
-    ul[role="listbox"] *,
-    li[role="option"] * {{
+    /* ==================================================================
+       🎨 2. 【ユーザー設定・口調指示エリア】 ダークモード＆新テーマでの白飛びを永久ガード
+       ================================================================== */
+    div[data-testid="stTextArea"] textarea {{
+        color: {theme_cfg["text"]} !important;
+        -webkit-text-fill-color: {theme_cfg["text"]} !important;
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+
+    /* Selectboxの選択肢文字色強制 */
+    div[data-baseweb="select"] span,
+    div[data-baseweb="popover"] span,
+    div[data-baseweb="menu"] span {{
+        color: {theme_cfg["dropdown_text"]} !important;
+    }}
+    
+    /* サイドバー */
+    section[data-testid="stSidebar"] {{
+        background-color: {theme_cfg["card_bg"]} !important;
+    }}
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {{
+        color: {theme_cfg["text"]} !important;
+    }}
+    section[data-testid="stSidebar"] button span {{
+        color: {theme_cfg["text"]} !important;
+    }}
+    section[data-testid="stSidebar"] button p {{
+        color: {theme_cfg["text"]} !important;
+    }}
+
+    /* Streamlit 1.6x系向け */
+    div[role="listbox"] {{
+        background-color: {theme_cfg["dropdown_bg"]} !important;
+    }}
+    div[role="option"] {{
         background-color: {theme_cfg["dropdown_bg"]} !important;
         color: {theme_cfg["dropdown_text"]} !important;
-    }}*/
+    }}
+    div[role="option"] * {{
+        color: {theme_cfg["dropdown_text"]} !important;
+    }}
 
-    /* 3. チャット入力枠スタイル */
+    /* ==================================================================
+       🎨 3. 【チャット入力枠＆送信ボタン】 紙飛行機ボタンまで100%全自動カラー連動
+       ================================================================== */
     div[data-testid="stChatInput"] {{
         max-width: 100% !important;
         box-sizing: border-box !important;
@@ -800,53 +893,21 @@ st.markdown(f"""
     div[data-testid="stChatInput"] textarea {{
         color: {theme_cfg["text"]} !important;
     }}
-    /* Selectboxの選択肢文字色強制 */
-    div[data-baseweb="select"] span,
-    div[data-baseweb="popover"] span,
-    div[data-baseweb="menu"] span {{
-        color: {theme_cfg["dropdown_text"]} !important;
-    }}
-    
-    /* サイドバー */
-    section[data-testid="stSidebar"] {{
-        background-color: {theme_cfg["card_bg"]} !important;
-    }}
-
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {{
+    /* 右側の紙飛行機ボタン全体の配色をテーマの境界線カラーと文字色へ全自動シンク */
+    div[data-testid="stChatInput"] button {{
+        background-color: {theme_cfg["input_border"]} !important;
         color: {theme_cfg["text"]} !important;
+        border-radius: 50% !important;
+        transition: transform 0.2s ease, opacity 0.2s ease !important;
     }}
-    section[data-testid="stSidebar"] button span {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
-    section[data-testid="stSidebar"] button p {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
-    /* Streamlit 1.6x系向け */
-    div[role="listbox"] {{
-        background-color: {theme_cfg["dropdown_bg"]} !important;
-    }}
-
-    div[role="option"] {{
-        background-color: {theme_cfg["dropdown_bg"]} !important;
-        color: {theme_cfg["dropdown_text"]} !important;
-    }}
-
-    div[role="option"] * {{
-        color: {theme_cfg["dropdown_text"]} !important;
+    div[data-testid="stChatInput"] button:hover {{
+        transform: scale(1.08) !important;
+        opacity: 0.9 !important;
     }}
   
     /* ==========================================
-   通常ボタンとフォーム送信ボタン
-   ========================================== */
-
-    /* 通常ボタンとフォーム送信ボタンの通常表示 */
+       通常ボタンとフォーム送信ボタン
+       ========================================== */
     button[data-testid="stBaseButton-secondary"],
     button[data-testid="stBaseButton-secondaryFormSubmit"] {{
         background: {theme_cfg["card_bg"]} !important;
@@ -855,8 +916,6 @@ st.markdown(f"""
         border: 1px solid {theme_cfg["input_border"]} !important;
         opacity: 1 !important;
     }}
-
-    /* ボタン内の文字 */
     button[data-testid="stBaseButton-secondary"] p,
     button[data-testid="stBaseButton-secondary"] span,
     button[data-testid="stBaseButton-secondaryFormSubmit"] p,
@@ -866,64 +925,51 @@ st.markdown(f"""
         background-color: transparent !important;
         opacity: 1 !important;
     }}
+    button[data-testid="stBaseButton-secondary"]:hover,
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {{
+        background: {theme_cfg["input_border"]} !important;
+        background-color: {theme_cfg["input_border"]} !important;
+        color: #ffffff !important;
+        border-color: {theme_cfg["input_border"]} !important;
+    }}
+    button[data-testid="stBaseButton-secondary"]:hover p,
+    button[data-testid="stBaseButton-secondary"]:hover span,
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:hover p,
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:hover span {{
+        color: #ffffff !important;
+        background: transparent !important;
+    }}
+    button[data-testid="stBaseButton-secondary"]:focus,
+    button[data-testid="stBaseButton-secondary"]:active,
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:focus,
+    button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
+        background: {theme_cfg["input_border"]} !important;
+        background-color: {theme_cfg["input_border"]} !important;
+        color: #ffffff !important;
+        border-color: {theme_cfg["input_border"]} !important;
+        box-shadow: none !important;
+    }}
 
-/* ホバー時 */
-button[data-testid="stBaseButton-secondary"]:hover,
-button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {{
-    background: {theme_cfg["input_border"]} !important;
-    background-color: {theme_cfg["input_border"]} !important;
-    color: #ffffff !important;
-    border-color: {theme_cfg["input_border"]} !important;
-}}
-
-/* ホバー時の文字 */
-button[data-testid="stBaseButton-secondary"]:hover p,
-button[data-testid="stBaseButton-secondary"]:hover span,
-button[data-testid="stBaseButton-secondaryFormSubmit"]:hover p,
-button[data-testid="stBaseButton-secondaryFormSubmit"]:hover span {{
-    color: #ffffff !important;
-    background: transparent !important;
-}}
-
-/* フォーカス・クリック時 */
-button[data-testid="stBaseButton-secondary"]:focus,
-button[data-testid="stBaseButton-secondary"]:active,
-button[data-testid="stBaseButton-secondaryFormSubmit"]:focus,
-button[data-testid="stBaseButton-secondaryFormSubmit"]:active {{
-    background: {theme_cfg["input_border"]} !important;
-    background-color: {theme_cfg["input_border"]} !important;
-    color: #ffffff !important;
-    border-color: {theme_cfg["input_border"]} !important;
-    box-shadow: none !important;
-}}
-/* フォームラベル */
-label {{
-    color: {theme_cfg["text"]} !important;
-}}
-
-/* 設定画面の見出し */
-[data-testid="stMarkdownContainer"] p {{
-    color: {theme_cfg["text"]} !important;
-}}
-/* divider */
-hr {{
-    border-color: {theme_cfg["input_border"]} !important;
-}}
-/* Expander */
-[data-testid="stExpander"] {{
-    border: 1px solid {theme_cfg["input_border"]} !important;
-    border-radius: 8px !important;
-}}
-div[data-baseweb="select"] {{
-    border: 1px solid {theme_cfg["input_border"]} !important;
-    border-radius: 8px !important;
-}}
-textarea,
-
-section[data-testid="stSidebar"] {{
-    border-right: 1px solid {theme_cfg["input_border"]} !important;
-}}
-
+    label {{
+        color: {theme_cfg["text"]} !important;
+    }}
+    [data-testid="stMarkdownContainer"] p {{
+        color: {theme_cfg["text"]} !important;
+    }}
+    hr {{
+        border-color: {theme_cfg["input_border"]} !important;
+    }}
+    [data-testid="stExpander"] {{
+        border: 1px solid {theme_cfg["input_border"]} !important;
+        border-radius: 8px !important;
+    }}
+    div[data-baseweb="select"] {{
+        border: 1px solid {theme_cfg["input_border"]} !important;
+        border-radius: 8px !important;
+    }}
+    section[data-testid="stSidebar"] {{
+        border-right: 1px solid {theme_cfg["input_border"]} !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
