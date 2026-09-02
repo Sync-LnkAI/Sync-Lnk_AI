@@ -943,32 +943,20 @@ if is_admin:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
+        # 🚀 【大開通ワープボタン】 押した瞬間にブラウザのセキュリティを突破し、最下部へ強制ジャンプします！
+        if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
+            st.components.v1.html("""
+                <script>
+                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+                </script>
+            """, height=0)
+
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
             with st.chat_message(msg["role"], avatar=avatar_img):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
-        
-        st.markdown(
-            """
-            <div id="bottom"></div>
-
-            <script>
-            const target =
-                parent.document.querySelector(
-                    "#bottom"
-            );
-
-            if (target) {
-                target.scrollIntoView({
-                    behavior: "smooth"
-                });
-            }
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
@@ -1112,24 +1100,6 @@ if is_admin:
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
-
-        st.components.v1.html("""
-            <script>
-                function forceScrollBottom() {
-                    const doc = window.parent.document;
-                    const selectors = ['section.main', '.main', '.stApp', 'div[data-testid="stAppViewContainer"]', 'html', 'body'];
-                    selectors.forEach(sel => {
-                        const el = doc.querySelector(sel);
-                        if (el) {
-                            el.scrollTop = el.scrollHeight;
-                        }
-                    });
-                }
-                for (let i = 0; i < 10; i++) {
-                    setTimeout(forceScrollBottom, i * 200);
-                }
-            </script>
-        """, height=0)
 
     # ------------------------------------------------------------------
     # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
@@ -1322,6 +1292,14 @@ else:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
+        # 🚀 【大開通ワープボタン】 押した瞬間にブラウザのセキュリティを突破し、最下部へ強制ジャンプします！
+        if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
+            st.components.v1.html("""
+                <script>
+                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
+                </script>
+            """, height=0)
+
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
@@ -1453,24 +1431,6 @@ else:
                     async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
                     async_thread.start()
                     st.rerun()
-
-        st.components.v1.html("""
-            <script>
-                function forceScrollBottom() {
-                    const doc = window.parent.document;
-                    const selectors = ['section.main', '.main', '.stApp', 'div[data-testid="stAppViewContainer"]', 'html', 'body'];
-                    selectors.forEach(sel => {
-                        const el = doc.querySelector(sel);
-                        if (el) {
-                            el.scrollTop = el.scrollHeight;
-                        }
-                    });
-                }
-                for (let i = 0; i < 10; i++) {
-                    setTimeout(forceScrollBottom, i * 200);
-                }
-            </script>
-        """, height=0)
 
     # ------------------------------------------------------------------
     # 🎨 【一般・タブ2】 キャラクター・見た目設定画面
