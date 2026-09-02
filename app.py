@@ -573,6 +573,11 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
     ユーザーの会話の中身（生文字）は一切保存せず、
     「処理秒数、トークン数、正確な実費コスト、イベント種別」の『数字と記号だけ』をDBへ永続保存します。
     """
+    print(
+        f"監査ログ保存開始: "
+        f"{event_type}"
+    )
+
     try:
         data = {
             "user_id": user_id,
@@ -586,8 +591,20 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         supabase.table("system_audit_logs").insert(data).execute()
+        print(
+            "監査ログ保存成功"
+        )
     except Exception as e:
-        print(f"⚠️ システム監査ログ保存エラー: {e}")
+
+        print(
+            f"⚠️ システム監査ログ保存エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        st.error(
+            f"監査ログ保存エラー: "
+            f"{type(e).__name__}: {e}"
+        )
 
 # ==================================================================
 # 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
@@ -924,16 +941,7 @@ if is_admin:
     # ------------------------------------------------------------------
     # 💬 【管理者・タブ1】 おしゃべりの部屋
     # ------------------------------------------------------------------
-    with tab1:
-        st.write("✅ tab1到達")
-        st.write(
-            f"CURRENT_USER_ID={CURRENT_USER_ID}"
-        )
-        all_messages = get_messages(CURRENT_USER_ID)
-
-        st.write(
-            f"取得件数={len(all_messages)}"
-        )
+    with tab1:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
         current_plan_type = "💎 プレミアムプラン"
@@ -941,13 +949,7 @@ if is_admin:
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        st.write(
-            f"CURRENT_USER_ID={CURRENT_USER_ID}"
-        )
         all_messages = get_messages(CURRENT_USER_ID)
-        st.write(
-            f"取得メッセージ件数 = {len(all_messages)}"
-        )
         for msg in all_messages:
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
@@ -1286,10 +1288,6 @@ else:
 
         st.title(f"💬 {current_concierge_name}の部屋")
         st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
-
-        st.write(
-            f"CURRENT_USER_ID={CURRENT_USER_ID}"
-        )
 
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
