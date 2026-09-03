@@ -1080,8 +1080,8 @@ if is_admin:
     # ------------------------------------------------------------------
     with tab1:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        #current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        current_plan_type = "💎 プレミアムプラン"
+        current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+        #current_plan_type = "💎 プレミアムプラン"
 
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
@@ -1376,39 +1376,81 @@ if is_admin:
             col_info2.info(f"**【ユーザー基本プロファイル】**\n・登録ユーザー名： `{audit_user_name}`\n・蓄積された過去の長期記憶： `{len(audit_facts)} 件`")
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
-            st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
+                        st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
             try:
-                # データベース（system_audit_logs）から、すべてのイベント（CHATやSUMMARY）を時系列の最新順で最大50件引き抜きます
+                # 1. データベース（system_audit_logs）から直近50件の生データを抽出
                 log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
+                
                 if log_res.data:
+                    # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
+                    # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
+                    # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
+                    merged_logs = {}
+                    
                     for log in log_res.data:
+                        # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
+                        msg_id = log.get("message_id")
                         created_at = log.get("created_at", "")
-                        clean_time = created_at.split("T")[-1][:8] if "T" in created_at else created_at
-                        action = log.get("action", log.get("event_type", "CHAT_SUCCESS"))
+                        time_display = created_at.split("T")[-1][:8] if "T" in created_at else created_at
                         
-                        # データベース（Supabase）に実在する本物の古い列名（api_cost, processing_time）から、データをダイレクトに取得
-                        t_yen = log.get("api_cost") if log.get("api_cost") is not None else 0.0
-                        t_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
+                        if not msg_id or msg_id == "None" or msg_id == "":
+                            # 過去データ用フォールバック：分単位で丸めて部屋を作ります
+                            msg_id = f"fallback_{created_at[:16]}"
+                        
+                        if msg_id not in merged_logs:
+                            merged_logs[msg_id] = {
+                                "id": msg_id,
+                                "time": time_display,
+                                "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
+                                "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
+                                "search_time": 0.0, "search_in": 0, "search_out": 0,
+                                "total_yen": 0.0, "total_time": 0.0
+                            }
+                        
+                        action = log.get("action", log.get("event_type", ""))
+                        cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
+                        proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
                         in_t = log.get("in_tokens", 0)
                         out_t = log.get("out_tokens", 0)
 
-                        # 📄 イベントの種別（名義）に応じて、看板のアイコンとテーブル内の文言を美しく着せ替えます（標準語ビジネス仕様）
+                        # 各コンポーネントの役割（名義）に応じて、同じメッセージIDの部屋の、対応する引き出しへ数値をドッキング
                         if action == "SUMMARY_SUCCESS":
-                            badge_icon = "🧠 [長期記憶要約]"
-                            component_label = "🧠 裏スレッド長期記憶自動要約"
+                            merged_logs[msg_id]["sum_time"] = proc_time
+                            merged_logs[msg_id]["sum_in"] = in_t
+                            merged_logs[msg_id]["sum_out"] = out_t
                         else:
-                            badge_icon = "💬 [チャット対話]"
-                            component_label = "💬 メインチャット対話返答"
+                            # 通常のメインチャット（または新設詳細カラムからのダイレクト抽出）
+                            merged_logs[msg_id]["chat_time"] = log.get("chat_processing_time", proc_time) if log.get("chat_processing_time") is not None else proc_time
+                            merged_logs[msg_id]["chat_in"] = log.get("chat_in_tokens", in_t) if log.get("chat_in_tokens") is not None else in_t
+                            merged_logs[msg_id]["chat_out"] = log.get("chat_out_tokens", out_t) if log.get("chat_out_tokens") is not None else out_t
+                            
+                            # 🔍 【将来拡張対応版・予約席】 将来ベクトル検索（search）を実装した際にも、
+                            # データベースから引っこ抜いた数値を安全にここでサルベージして自動復活（合流）させます！
+                            merged_logs[msg_id]["search_time"] = log.get("search_processing_time", 0.0) if log.get("search_processing_time") is not None else 0.0
+                            merged_logs[msg_id]["search_in"] = log.get("search_in_tokens", 0) if log.get("search_in_tokens") is not None else 0
+                            merged_logs[msg_id]["search_out"] = log.get("search_out_tokens", 0) if log.get("search_out_tokens") is not None else 0
 
-                        # 4. アコーディオンの中に、金庫に美しく実在している本物の「新しく動く処理秒数やトークン数」をダイレクトに反映！
-                        with st.expander(f"{badge_icon} [{clean_time}] ➔ 💰 実費: {t_yen:.4f} 円 || ⏱️ 処理: {t_time:.2f} 秒"):
+                        # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
+                        merged_logs[msg_id]["total_yen"] += cost
+                        merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
+
+                    # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
+                    for k, item in merged_logs.items():
+                        c_plan = item["user_plan"]
+                        t_yen = item["total_yen"]
+                        t_time = item["total_time"]
+
+                        with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                             st.markdown(f"""
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
-                            | {component_label} | `{t_time:.2f} 秒` | `{in_t} t` | `{out_t} t` |
+                            | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
+                            | 🧠 **裏スレッド長期記憶自動要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
+                            | 🔍 **ベクトル＆意味空間検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
-                            👑 **【このコンポーネントの実費原価】** `¥ {t_yen:.4f} 円`  ||  **【総処理待機秒数】** `{t_time:.2f} 秒`
+                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                             """)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
