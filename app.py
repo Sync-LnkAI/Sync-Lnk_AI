@@ -498,6 +498,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
+    # 🧪 【生存点検マーカー1：Gemini呼び出しの直前】
+    st.write("🔬 [要約内部デバッグ] ➔ 要約関数に入った")
+
     try:
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
