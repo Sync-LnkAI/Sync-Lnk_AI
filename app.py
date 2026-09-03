@@ -1166,6 +1166,10 @@ if is_admin:
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                        # 🧪 【原因特定のための実験メーター】 
+                        # 保存関数を呼び出す直前に、セッションの引き出し（裏口）に本物の要約データが届いているかを画面へダイレクトに露出させます。
+                        st.write(f"🔬 デバッグ監査 ➔ 現在の要約秒数: {st.session_state.get('summary_processing_time')} 秒 || 入力トークン: {st.session_state.get('summary_in_tokens')} t")
+                        
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
