@@ -563,7 +563,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
         mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
 
-         if mem_check.data:
+        if mem_check.data:
             # 既存の要約レコードが存在する場合は、最新のテキストと本物のベクトル数値でアップデート！
             update_data = {
                 "fact": embed_fact,
