@@ -304,7 +304,7 @@ def increment_error_analytics(error_type: str, plan_type: str):
     という『回数（数字）』だけを匿名で自動集計・カウントアップ（+1）します。
     """
     try:
-        now_str = datetime.now(timezone.utc).isoformat()
+        now_str = datetime.now(JST).isoformat()
         res = supabase.table("app_error_analytics").select("*").eq("error_type", error_type).execute()
         
         # カウントアップする対象プランのカラム名をスマートに仕分け
@@ -507,7 +507,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         target_user_id = CURRENT_USER_ID
 
         # 🏎️ 【時間計測の開始】 要約処理の正確な実行時間を計測するため、ストップウォッチを起動します
-        start_summary_time = datetime.now()
+        start_summary_time = datetime.now(JST)
 
         # 🚀【大開通：判定ラインのインフラ防衛】
         # 引数の不安定な件数に依存せず、Supabaseの金庫（messagesテーブル）から本物の全履歴をダイレクトに再取得します
@@ -587,7 +587,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             supabase.table("user_memories").insert(insert_data).execute()
 
         # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
-        end_summary_time = datetime.now()
+        end_summary_time = datetime.now(JST)
         summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
 
         # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」としてインサート
@@ -678,11 +678,15 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
             "message_id": str(message_id)
         }
         
+        data["search_processing_time"] = round(float(search_time), 2)
+        data["search_in_tokens"] = 0 # トークンは現在空振り防衛中のため 0 固定で安全に維持します
+        data["search_out_tokens"] = 0
+
         data["chat_processing_time"] = round(float(processing_time), 2)
         data["chat_in_tokens"] = int(in_t)
         data["chat_out_tokens"] = int(out_t)
         data["total_yen_cost"] = round(float(api_cost), 4)
-        data["total_processing_time"] = round(float(processing_time), 2)
+        data["total_processing_time"] = round(float(processing_time + search_time), 2) # 総処理時間に検索秒数も正しく合算します
 
         # Supabaseの金庫へ完全大着金！
         supabase.table("system_audit_logs").insert(data).execute()
@@ -730,7 +734,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     無料プラン（フリー）のみ1日20通の制限をかけ、有料プランはすり抜けさせます。
     """
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(JST)
         
         # 1. 現在の利用状況を取得
         res = supabase.table("user_usage_limits").select("*").eq("user_id", user_id).execute()
@@ -1248,7 +1252,8 @@ if is_admin:
                             out_t=out_t, 
                             api_cost=current_通_cost, 
                             details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
-                            message_id=str(current_msg_id)
+                            message_id=str(current_msg_id),
+                            search_time=float(search_elapsed)
                         )
 
                         st.rerun()
