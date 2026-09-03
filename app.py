@@ -1317,9 +1317,9 @@ if is_admin:
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
-                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time', 0.0)} 秒` | `{log.get('chat_in_tokens', 0)} t` | `{log.get('chat_out_tokens', 0)} t` |
-                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time', 0.0)} 秒` | `{log.get('summary_in_tokens', 0)} t` | `{log.get('summary_out_tokens', 0)} t` |
-                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time', 0.0)} 秒` | `{log.get('search_in_tokens', 0)} t` | `{log.get('search_out_tokens', 0)} t` |
+                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time', 0.0):.2f} 秒` | `{log.get('chat_in_tokens', 0)} t` | `{log.get('chat_out_tokens', 0)} t` |
+                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time', 0.0):.2f} 秒` | `{log.get('summary_in_tokens', 0)} t` | `{log.get('summary_out_tokens', 0)} t` |
+                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time', 0.0):.2f} 秒` | `{log.get('search_in_tokens', 0)} t` | `{log.get('search_out_tokens', 0)} t` |
                             
                             👑 **【この1メッセージに対する総実費原価】** `¥ {t_yen:.4f} 円`  ||  **【ユーザー総待機ラグ】** `{t_time:.2f} 秒`
                             """)
