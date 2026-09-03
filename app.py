@@ -523,6 +523,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
 
         # 1. データベース上の本物の全履歴数が6通未満の場合は、コスト防衛のため処理を安全にスキップ
         #if len(real_messages) < 6:
+        #    st.session_state.summary_in_tokens = 0
+        #    st.session_state.summary_out_tokens = 0
+        #    st.session_state.summary_processing_time = 0.0
         #    return True
 
         # 3. 過去の会話ログを時系列順（古い順）に並び替えて、一本の構造化されたテキストへとドッキング
