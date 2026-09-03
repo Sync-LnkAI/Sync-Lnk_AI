@@ -88,6 +88,18 @@ if "tokens_loaded" not in st.session_state:
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
+    try:
+        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
+        # 💡 上部も最下部と同じく、DBのchat_count行（res.data[0]）からリセット後の正しい会話回数を復元させます
+        if res.data and len(res.data) > 0:
+            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
+        else:
+            st.session_state.conversation_count = 0
+    except Exception as e:
+        print(f"⚠️ 会話回数同期エラー: {e}")
+        st.session_state.conversation_count = 0
+        
+    st.session_state["tokens_loaded"] = True
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -130,20 +142,6 @@ if "conversation_count" not in st.session_state:
 
 if "tokens_loaded" not in st.session_state:
     load_permanent_tokens(CURRENT_USER_ID)
-    
-    try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        # 💡 上部も最下部と同じく、DBのchat_count行（res.data[0]）からリセット後の正しい会話回数を復元させます
-        if res.data and len(res.data) > 0:
-            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
-        else:
-            st.session_state.conversation_count = 0
-    except Exception as e:
-        print(f"⚠️ 会話回数同期エラー: {e}")
-        st.session_state.conversation_count = 0
-        
-    st.session_state["tokens_loaded"] = True
-
 
 # プリセット定義
 STYLE_PRESETS = {
@@ -1190,13 +1188,24 @@ if is_admin:
                             error_detail[:500]
                         )
 
+                    # ==================================================================
+                    # 🧠 長期記憶自動要約マルチスレッド
+                    # ==================================================================
+                    # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しを綺麗にお掃除し、
+                    # 最新の会話履歴（ここでは msgs に該当する最新の履歴リスト）を正確に掴んで、
+                    # 裏の要約関数へ一直線に通電させます。これによりデータベースへ完全に同期します。
                     import threading
-                    def background_async_tasks(msgs, s_text):
-                        try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
-
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
+        
+                    st.session_state.summary_in_tokens = 0
+                    st.session_state.summary_out_tokens = 0
+                    st.session_state.summary_processing_time = 0.0
+        
+                    # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
+                    all_messages_updated = get_messages(CURRENT_USER_ID)
+                    async_thread = threading.Thread(target=check_and_summarize_history, args=(0, all_messages_updated, ""))
                     async_thread.start()
+                    async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間だけ安全に待ち、データの着金を同期させます
+        
                     st.rerun()
 
     # ------------------------------------------------------------------
