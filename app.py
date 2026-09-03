@@ -1255,7 +1255,7 @@ if is_admin:
                             0,
                             0.0,
                             error_detail[:500],
-                            message_id=str(st.get("current_msg_id", ""))
+                            message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                         )
 
     # ------------------------------------------------------------------
