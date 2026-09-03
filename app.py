@@ -494,25 +494,33 @@ def add_permanent_tokens(
 
 def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str) -> bool:
     """
-    🧠 【長期記憶集約エンジン】
-    会話履歴（messages_list）が一定のボリュームを超えた際、
-    バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
+    🧠 【長期記憶集約エンジン - 確定最終製品版】
+    会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        # 1. 現在の会話ログが十分に蓄積されているかを判定（判定ライン：6通未満の場合は処理をスキップ）
-        if len(messages_list) < 6:
-            return True
+        # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
+        target_user_id = CURRENT_USER_ID
 
         # 🏎️ 【時間計測の開始】 要約処理の正確な実行時間を計測するため、ストップウォッチを起動します
         start_summary_time = datetime.now()
 
-        # 2. 固有ユーザーIDを代入
-        target_user_id = CURRENT_USER_ID
+        # 🚀【大開通：判定ラインのインフラ防衛】
+        # 引数の不安定な件数に依存せず、Supabaseの金庫（messagesテーブル）から本物の全履歴をダイレクトに再取得します
+        try:
+            db_res = supabase.table("messages").select("*").eq("user_id", target_user_id).order("created_at", desc=True).execute()
+            real_messages = db_res.data if db_res.data else []
+        except Exception as db_err:
+            print(f"⚠️ 要約関数内の履歴取得エラー: {db_err}")
+            real_messages = messages_list # 万が一のフォールバック
 
-        # 3. 過去の会話ログを一本の構造化されたテキストへとドッキング
+        # 1. データベース上の本物の全履歴数が6通未満の場合は、コスト防衛のため処理を安全にスキップ
+        if len(real_messages) < 6:
+            return True
+
+        # 3. 過去の会話ログを時系列順（古い順）に並び替えて、一本の構造化されたテキストへとドッキング
         conversation_text = ""
-        for m in messages_list:
+        for m in reversed(real_messages): # 最新順で取得したため、reversedで古い順に戻して文脈を綺麗にします
             role_label = "ユーザー" if m.get("role") == "user" else "コンシェルジュ"
             conversation_text += f"・{role_label}: {m.get('content', '')}\n"
 
@@ -539,21 +547,22 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         if not new_summary:
             return False
 
-        # 📊 【Supabase連動】 集約された最新の長期記憶データを user_memories テーブルへ上書き保存
-        mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).execute()
+        # 📊 【Supabase連動・大修正！】 
+        # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
+        mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
 
         if mem_check.data:
             # 既存のレコードが存在する場合は、最新の要約データへアップデート
             supabase.table("user_memories").update({
-                "summary": new_summary,
+                "fact": f"【長期記憶サマリー】\n{new_summary}",
                 "updated_at": datetime.now(JST).isoformat()
-            }).eq("user_id", target_user_id).execute()
+            }).eq("user_id", target_user_id).eq("source", "summary").execute()
         else:
             # 記憶の器がまだ作成されていない場合は、新しくインサート
             supabase.table("user_memories").insert({
                 "user_id": target_user_id,
-                "summary": new_summary,
-                "created_at": datetime.now(JST).isoformat(),
+                "source": "summary",
+                "fact": f"【長期記憶サマリー】\n{new_summary}",
                 "updated_at": datetime.now(JST).isoformat()
             }).execute()
 
@@ -569,7 +578,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
             # 1. データベースの累計トークン金庫へ加算
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
             
-            # 2. ⚡【大開通！】 メインスレッドの監査ログ（タブ3）へマージ合流させるため、セッション変数へ強制代入
+            # 2. メインスレッドの監査ログ（タブ3）へマージ合流させるため、セッション変数へ強制代入
             st.session_state.summary_in_tokens = int(in_t)
             st.session_state.summary_out_tokens = int(out_t)
             st.session_state.summary_processing_time = float(summary_processing_seconds)
@@ -577,8 +586,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         return True
 
     except Exception as bg_err:
-        # メインスレッド（ユーザーのメイン対話画面）側の稼働を阻害しないよう、
-        # エラーはバックグラウンドのログにエスケープして安全弁を閉じます
+        # メインスレッド側の稼働を阻害しないよう、エラーはログにエスケープして安全弁を閉じます
         print(f"⚠️ バックグラウンド自動要約処理エラー: {type(bg_err).__name__}: {bg_err}")
         return False
 
