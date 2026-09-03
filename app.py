@@ -13,7 +13,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 # ⚙️ 設定・初期化
 # ==========================================
-st.set_page_config(page_title="My AI Concierge", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="SYNC-LNK // AI", page_icon="🤖", layout="wide")
 
 MAX_CONTEXT_MESSAGES = 5  # 直近5件を保持
 
@@ -67,7 +67,7 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 CURRENT_USER_ID = str(user_param)
-ADMIN_USER_IDS = ["ryuudesu_master_1310", "your_real_admin_id"]
+ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
@@ -1011,7 +1011,7 @@ st.markdown(f"""
 # ==================================================================
 # 🔒【完全防衛】権限（ID）に応じて、画面最上部のタブ構造を動的に切り替えます
 # ==================================================================
-is_admin = CURRENT_USER_ID in ADMIN_USER_IDS
+is_admin = CURRENT_USER_ID in ADMIN_USER_ID
 
 if is_admin:
     # 👑【管理者専用画面】：管理者限定の3つの隠しタブを作成
@@ -1255,16 +1255,16 @@ if is_admin:
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
-            ["👤 画面①：ユーザー個別・利用状況監査カルテ", "📈 画面②：全体アクティビティ・統計アナリティクス"], 
+            ["👤 ユーザー別利用状況", "📈 全体アクティビティ・統計アナリティクス"], 
             horizontal=True, 
             key="admin_radio_mode"
         )
         st.divider()
 
         # 👤 画面①：ユーザー個別のカルテ表示および1メッセージ単位の詳細明細タイムライン
-        if admin_mode == "👤 画面①：ユーザー個別・利用状況監査カルテ":
-            st.subheader("👤 ユーザー別・稼働状況およびタイムライン監査")
-            all_users = ["ryuudesu_master_1310"]
+        if admin_mode == "👤 ユーザー別利用状況":
+            st.subheader("👤 ユーザー別・稼働状況およびタイムライン")
+            all_users = [ADMIN_USER_ID]
             try:
                 user_res = supabase.table("user_token_stats").select("user_id").execute()
                 if user_res.data: 
@@ -1272,7 +1272,7 @@ if is_admin:
             except Exception: 
                 pass
 
-            selected_audit_user = st.selectbox("🔍 監査対象のユーザーIDを選択してください：", all_users)
+            selected_audit_user = st.selectbox("🔍 対象のユーザーIDを選択してください：", all_users)
             st.markdown("---")
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
@@ -1299,10 +1299,10 @@ if is_admin:
             col_info2.info(f"**【ユーザー基本プロファイル】**\n・登録ユーザー名： `{audit_user_name}`\n・蓄積された過去の長期記憶： `{len(audit_facts)} 件`")
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
-            st.markdown("##### ⏱️ このユーザーのタイムライン式システム監査ログ（最新50件）")
+            st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
             try:
                 # 本物のテーブル構造（user_id）でクエリを発行し、時系列の最新順で最大50件を引き抜きます
-                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", ascending=False).limit(50).execute()
+                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
                 if log_res.data:
                     for log in log_res.data:
                         created_at = log.get("created_at", "")
@@ -1325,14 +1325,14 @@ if is_admin:
                             👑 **【この1メッセージに対する総実費原価】** `¥ {total_yen} 円`  ||  **【ユーザー総待機ラグ】** `{total_time} 秒`
                             """)
                 else: 
-                    st.caption("このユーザーのシステム監査ログはまだデータベースに記録されていません。")
+                    st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
             except Exception as log_err: 
-                st.error(f"監査ログの取得に失敗しました: {log_err}")
+                st.error(f"ユーザーログの取得に失敗しました: {log_err}")
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
-        elif admin_mode == "📈 画面②：全体アクティビティ・統計アナリティクス":
+        elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
             st.subheader("📈 アプリ全体アクティビティ ＆ 機能統計（匿名集計）")
-            with st.spinner("システム監査ログからプラン別データを高度に集計中..."):
+            with st.spinner("システムログからプラン別データを高度に集計中..."):
                 try:
                     audit_res = supabase.table("system_audit_logs").select("*").execute()
                     audit_data = audit_res.data if audit_res.data else []
@@ -1412,7 +1412,7 @@ if is_admin and tab4:
         
         try:
             # データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", ascending=False).limit(100).execute()
+            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(100).execute()
             
             if all_tester_logs.data:
                 # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
