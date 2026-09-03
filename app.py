@@ -613,6 +613,9 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
     メイン対話から渡された処理時間やトークン消費量のデータを、既存の古いカラムへ正常に格納しつつ、
     新しくSQLで拡張された右側の詳細明細カラムへも自動的にデータを複製（マージ）して保存します。
     """
+    # デバッグ用表示
+    st.write(f"🔬 デバッグ監査 ➔ save関数開始 t")
+
     try:
         # 1. 2026年最新の日本円コストを丸め処理
         rounded_cost = round(float(api_cost), 4)
@@ -653,6 +656,8 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
         
         # Supabaseの金庫へ完全大着金！
         supabase.table("system_audit_logs").insert(data).execute()
+        # デバッグ用表示
+        st.write(f"🔬 デバッグ監査 ➔ save関数終了 t")
 
     except Exception as e:
         print(f"⚠️ システム監査ログ保存処理エラー: {type(e).__name__}: {e}")
@@ -1180,10 +1185,6 @@ if is_admin:
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        # 🧪 【原因特定のための実験メーター】 
-                        # 保存関数を呼び出す直前に、セッションの引き出し（裏口）に本物の要約データが届いているかを画面へダイレクトに露出させます。
-                        st.write(f"🔬 デバッグ監査 ➔ 現在の要約秒数: {st.session_state.get('summary_processing_time')} 秒 || 入力トークン: {st.session_state.get('summary_in_tokens')} t")
-
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
