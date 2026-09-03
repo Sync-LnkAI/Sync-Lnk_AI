@@ -1309,20 +1309,19 @@ if is_admin:
                         clean_time = created_at.split("T")[-1][:8] if "T" in created_at else created_at
                         action = log.get("action", "CHAT_SUCCESS")
                         
-                        total_yen = log.get("total_yen_cost", 0.0)
-                        total_time = log.get("total_processing_time", 0.0)
+                        t_yen = log.get("total_yen_cost") if log.get("total_yen_cost") is not None else 0.0
+                        t_time = log.get("total_processing_time") if log.get("total_processing_time") is not None else 0.0
 
-                        # アコーディオン（expander）のタイトル部分に、その1メッセージの合計実費と総処理時間を表示
-                        with st.expander(f"🟢 [{clean_time}] {action} ➔ 💰 総原価: {total_yen} 円 || ⏱️ 総処理: {total_time} 秒"):
+                        with st.expander(f"🟢 [{clean_time}] {action} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                             st.markdown(f"""
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
-                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time')} 秒` | `{log.get('chat_in_tokens')} t` | `{log.get('chat_out_tokens')} t` |
-                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time')} 秒` | `{log.get('summary_in_tokens')} t` | `{log.get('summary_out_tokens')} t` |
-                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time')} 秒` | `{log.get('search_in_tokens')} t` | `{log.get('search_out_tokens')} t` |
+                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time', 0.0)} 秒` | `{log.get('chat_in_tokens', 0)} t` | `{log.get('chat_out_tokens', 0)} t` |
+                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time', 0.0)} 秒` | `{log.get('summary_in_tokens', 0)} t` | `{log.get('summary_out_tokens', 0)} t` |
+                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time', 0.0)} 秒` | `{log.get('search_in_tokens', 0)} t` | `{log.get('search_out_tokens', 0)} t` |
                             
-                            👑 **【この1メッセージに対する総実費原価】** `¥ {total_yen} 円`  ||  **【ユーザー総待機ラグ】** `{total_time} 秒`
+                            👑 **【この1メッセージに対する総実費原価】** `¥ {t_yen:.4f} 円`  ||  **【ユーザー総待機ラグ】** `{t_time:.2f} 秒`
                             """)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
