@@ -492,15 +492,12 @@ def add_permanent_tokens(
         )
         return False
 
-def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str, current_plan_type: str = "🆓 無料プラン") -> bool:
+def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【長期記憶集約エンジン - 確定最終製品版】
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
-    # 🧪 【生存点検マーカー1：Gemini呼び出しの直前】
-    st.write("🔬 [要約内部デバッグ] ➔ 要約関数に入った")
-
     try:
         st.session_state.summary_in_tokens = 0
         st.session_state.summary_out_tokens = 0
@@ -544,14 +541,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         contents_for_summary = [
             {"role": "user", "parts": [f"[指示書]\n{summary_instruction}\n\n[対象の会話ログ]\n{conversation_text}"]}
         ]
-        # 🧪 【生存点検マーカー1：Gemini呼び出しの直前】
-        st.write("🔬 [要約内部デバッグ] ➔ 1.これからGemini APIへ要約の電波を飛ばします...")
-
+        
         # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
         response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
-        
-        # 🧪 【生存点検マーカー2：Gemini呼び出しの直後】
-        st.write("🔬 [要約内部デバッグ] ➔ 2.Gemini APIからの返答が正常に手元に返ってきました！")
 
         # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
         if hasattr(response, "candidates") and response.candidates:
@@ -559,9 +551,6 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         else:
             new_summary = response.text
         
-        # 🧪 【生存点検マーカー3：テキスト抽出の直後】
-        st.write(f"🔬 [要約内部デバッグ] ➔ 3.文字の抽出に成功しました。中身：{new_summary[:20]}...")
-
         if not new_summary:
             return False
 
@@ -588,9 +577,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         end_summary_time = datetime.now()
         summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
 
-        # 🟢 【大正解：裏口直接保存インフラへのリフォーム】
-        # 連続送信時の競合を招くセッション変数（st.session_state）への代入を1文字残さず完全に排除しました。
-        # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」として別行インサートします。
+        # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」としてインサート
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             in_t = response.usage_metadata.prompt_token_count
             out_t = response.usage_metadata.candidates_token_count
@@ -598,22 +585,28 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
             # 1. データベースの累計トークン金庫へ加算
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
             
-            # 2. ⚡【ここが大開通！】 2026年最新のGemini Flash-Lite原価レートで要約単体の日本円コストをミリ単位で算出
+            # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
             sum_in_cost = (int(in_t) / 1000000) * 0.075
             sum_out_cost = (int(out_t) / 1000000) * 0.30
             sum_yen = (sum_in_cost + sum_out_cost) * 150.0
 
-            # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独の監査ログとして独立インサート！
+            # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
             save_system_audit_log(
                 user_id=target_user_id,
-                plan_type=current_plan_type,
+                plan_type=current_plan_type if 'current_plan_type' in locals() else st.session_state.get("current_user_plan_state", "🆓 無料プラン"),
                 event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
                 processing_time=float(summary_processing_seconds),
                 in_t=int(in_t),
                 out_t=int(out_t),
                 api_cost=float(sum_yen),
-                details=f"長期記憶の自動集約完了（独立ログ仕様）"
+                details=f"長期記憶の自動集約完了（独立ログ仕様）",
+                message_id=str(message_id)
             )
+
+            # 4. メインスレッドの監査ログ（タブ3）への保険用マージ変数代入
+            st.session_state.summary_in_tokens = int(in_t)
+            st.session_state.summary_out_tokens = int(out_t)
+            st.session_state.summary_processing_time = float(summary_processing_seconds)
 
         return True
 
@@ -1206,14 +1199,17 @@ if is_admin:
                         st.session_state.conversation_count += 1
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
+                        
+                        # メッセージIDの自動生成
+                        import uuid
+                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
                         # ==================================================================
                         # 🧠 長期記憶自動要約マルチスレッド
                         # ==================================================================
-                        # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しを綺麗にお掃除し、
-                        # 最新の会話履歴（ここでは msgs に該当する最新の履歴リスト）を正確に掴んで、
-                        # 裏の要約関数へ一直線に通電させます。これによりデータベースへ完全に同期します。
+                        # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
                         import threading
         
                         st.session_state.summary_in_tokens = 0
@@ -1222,9 +1218,12 @@ if is_admin:
         
                         # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
                         all_messages_updated = get_messages(CURRENT_USER_ID)
-                        async_thread = threading.Thread(target=check_and_summarize_history, args=(0, all_messages_updated, ""))
+                        async_thread = threading.Thread(
+                            target=check_and_summarize_history, 
+                            args=(0, all_messages_updated, current_msg_id) 
+                        )
                         async_thread.start()
-                        async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間だけ安全に待ち、データの着金を同期させます
+                        async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間待ってデータを同期
 
                         # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                         save_system_audit_log(
@@ -1235,11 +1234,9 @@ if is_admin:
                             in_t=in_t, 
                             out_t=out_t, 
                             api_cost=current_通_cost, 
-                            details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)"
+                            details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
+                            message_id=str(current_msg_id)
                         )
-
-                        import time
-                        time.sleep(5) # 5秒間の強制ウェイト
 
                         st.rerun()
 
@@ -1257,7 +1254,8 @@ if is_admin:
                             0,
                             0,
                             0.0,
-                            error_detail[:500]
+                            error_detail[:500],
+                            message_id=str(st.get("current_msg_id", ""))
                         )
 
     # ------------------------------------------------------------------
