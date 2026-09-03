@@ -1232,6 +1232,9 @@ if is_admin:
                     async_thread = threading.Thread(target=check_and_summarize_history, args=(0, all_messages_updated, ""))
                     async_thread.start()
                     async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間だけ安全に待ち、データの着金を同期させます
+
+                    import time
+                    time.sleep(5) # 5秒間の強制ウェイト
         
                     st.rerun()
 
