@@ -502,6 +502,10 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
     st.write("🔬 [要約内部デバッグ] ➔ 要約関数に入った")
 
     try:
+        st.session_state.summary_in_tokens = 0
+        st.session_state.summary_out_tokens = 0
+        st.session_state.summary_processing_time = 0.0
+
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
@@ -1369,27 +1373,37 @@ if is_admin:
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
             try:
-                # 本物のテーブル構造（user_id）でクエリを発行し、時系列の最新順で最大50件を引き抜きます
+                # データベース（system_audit_logs）から、すべてのイベント（CHATやSUMMARY）を時系列の最新順で最大50件引き抜きます
                 log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
                 if log_res.data:
                     for log in log_res.data:
                         created_at = log.get("created_at", "")
                         clean_time = created_at.split("T")[-1][:8] if "T" in created_at else created_at
-                        action = log.get("action", "CHAT_SUCCESS")
+                        action = log.get("action", log.get("event_type", "CHAT_SUCCESS"))
                         
-                        t_yen = log.get("total_yen_cost") if log.get("total_yen_cost") is not None else 0.0
-                        t_time = log.get("total_processing_time") if log.get("total_processing_time") is not None else 0.0
+                        # データベース（Supabase）に実在する本物の古い列名（api_cost, processing_time）から、データをダイレクトに取得
+                        t_yen = log.get("api_cost") if log.get("api_cost") is not None else 0.0
+                        t_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
+                        in_t = log.get("in_tokens", 0)
+                        out_t = log.get("out_tokens", 0)
 
-                        with st.expander(f"🟢 [{clean_time}] {action} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                        # 📄 イベントの種別（名義）に応じて、看板のアイコンとテーブル内の文言を美しく着せ替えます（標準語ビジネス仕様）
+                        if action == "SUMMARY_SUCCESS":
+                            badge_icon = "🧠 [長期記憶要約]"
+                            component_label = "🧠 裏スレッド長期記憶自動要約"
+                        else:
+                            badge_icon = "💬 [チャット対話]"
+                            component_label = "💬 メインチャット対話返答"
+
+                        # 4. アコーディオンの中に、金庫に美しく実在している本物の「新しく動く処理秒数やトークン数」をダイレクトに反映！
+                        with st.expander(f"{badge_icon} [{clean_time}] ➔ 💰 実費: {t_yen:.4f} 円 || ⏱️ 処理: {t_time:.2f} 秒"):
                             st.markdown(f"""
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
-                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time', 0.0):.2f} 秒` | `{log.get('chat_in_tokens', 0)} t` | `{log.get('chat_out_tokens', 0)} t` |
-                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time', 0.0):.2f} 秒` | `{log.get('summary_in_tokens', 0)} t` | `{log.get('summary_out_tokens', 0)} t` |
-                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time', 0.0):.2f} 秒` | `{log.get('search_in_tokens', 0)} t` | `{log.get('search_out_tokens', 0)} t` |
+                            | {component_label} | `{t_time:.2f} 秒` | `{in_t} t` | `{out_t} t` |
                             
-                            👑 **【この1メッセージに対する総実費原価】** `¥ {t_yen:.4f} 円`  ||  **【ユーザー総待機ラグ】** `{t_time:.2f} 秒`
+                            👑 **【このコンポーネントの実費原価】** `¥ {t_yen:.4f} 円`  ||  **【総処理待機秒数】** `{t_time:.2f} 秒`
                             """)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
