@@ -1376,7 +1376,7 @@ if is_admin:
             col_info2.info(f"**【ユーザー基本プロファイル】**\n・登録ユーザー名： `{audit_user_name}`\n・蓄積された過去の長期記憶： `{len(audit_facts)} 件`")
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
-                        st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
+            st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
             try:
                 # 1. データベース（system_audit_logs）から直近50件の生データを抽出
                 log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
