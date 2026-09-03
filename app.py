@@ -631,9 +631,7 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
     メイン対話から渡された処理時間やトークン消費量のデータを、既存の古いカラムへ正常に格納しつつ、
     新しくSQLで拡張された右側の詳細明細カラムへも自動的にデータを複製（マージ）して保存します。
     """
-    # デバッグ用表示
-    st.write(f"🔬 デバッグ監査 ➔ save関数開始 t")
-
+ 
     try:
         # 1. 2026年最新の日本円コストを丸め処理
         rounded_cost = round(float(api_cost), 4)
@@ -668,14 +666,20 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
             "search_processing_time": 0.0,
             "search_in_tokens": 0,
             "search_out_tokens": 0,
-            
-            "created_at": datetime.now(JST).isoformat()
+            # ✨message_idをセット
+            "created_at": datetime.now(JST).isoformat(),
+
+            "message_id": str(message_id)
         }
         
+        data["chat_processing_time"] = round(float(processing_time), 2)
+        data["chat_in_tokens"] = int(in_t)
+        data["chat_out_tokens"] = int(out_t)
+        data["total_yen_cost"] = round(float(api_cost), 4)
+        data["total_processing_time"] = round(float(processing_time), 2)
+
         # Supabaseの金庫へ完全大着金！
         supabase.table("system_audit_logs").insert(data).execute()
-        # デバッグ用表示
-        st.write(f"🔬 デバッグ監査 ➔ save関数終了 t")
 
     except Exception as e:
         print(f"⚠️ システム監査ログ保存処理エラー: {type(e).__name__}: {e}")
