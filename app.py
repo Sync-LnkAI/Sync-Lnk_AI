@@ -553,25 +553,38 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         
         if not new_summary:
             return False
+        
+        # 🔮　get_embedding 関数を流用
+        embed_fact = f"【長期記憶サマリー】\n{new_summary}"
+        new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
+        
 
         # 📊 【Supabase連動・大修正！】 
         # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
         mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
 
-        if mem_check.data:
-            # 既存のレコードが存在する場合は、最新の要約データへアップデート
-            supabase.table("user_memories").update({
-                "fact": f"【長期記憶サマリー】\n{new_summary}",
+         if mem_check.data:
+            # 既存の要約レコードが存在する場合は、最新のテキストと本物のベクトル数値でアップデート！
+            update_data = {
+                "fact": embed_fact,
                 "updated_at": datetime.now(JST).isoformat()
-            }).eq("user_id", target_user_id).eq("source", "summary").execute()
+            }
+            if new_vector is not None:
+                update_data["embedding"] = new_vector # ⚡ 右端の NULL を本物のベクトルで上書きします！
+
+            supabase.table("user_memories").update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
         else:
-            # 記憶の器がまだ作成されていない場合は、新しくインサート
-            supabase.table("user_memories").insert({
+            # 記憶の器がまだ作成されていない最初の1回目は、新しくインサート
+            insert_data = {
                 "user_id": target_user_id,
                 "source": "summary",
-                "fact": f"【長期記憶サマリー】\n{new_summary}",
+                "fact": embed_fact,
                 "updated_at": datetime.now(JST).isoformat()
-            }).execute()
+            }
+            if new_vector is not None:
+                insert_data["embedding"] = new_vector
+
+            supabase.table("user_memories").insert(insert_data).execute()
 
         # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
         end_summary_time = datetime.now()
