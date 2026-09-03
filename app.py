@@ -492,7 +492,7 @@ def add_permanent_tokens(
         )
         return False
 
-def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str) -> bool:
+def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【長期記憶集約エンジン - 確定最終製品版】
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
@@ -606,7 +606,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独の監査ログとして独立インサート！
             save_system_audit_log(
                 user_id=target_user_id,
-                plan_type=st.session_state.get("current_user_plan_state", "🆓 無料プラン"),
+                plan_type=current_plan_type,
                 event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
                 processing_time=float(summary_processing_seconds),
                 in_t=int(in_t),
