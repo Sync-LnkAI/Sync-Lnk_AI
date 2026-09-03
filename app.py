@@ -585,40 +585,58 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         return False
 
 # ==================================================================
-# 📊 【新設】 ユーザー別＆全体システム監査ログ（Telemetry）永続保存関数
+# 📊 【新設】 ユーザー別＆全体システムログ（Telemetry）永続保存関数
 # ==================================================================
 def save_system_audit_log(user_id: str, plan_type: str, event_type: str, processing_time: float, in_t: int, out_t: int, api_cost: float, details: str = ""):
     """
-    🎯【個別カルテ ＆ 製品版全体分析の二面待ちデータ貯金箱】
-    ユーザーの会話の中身（生文字）は一切保存せず、
-    「処理秒数、トークン数、正確な実費コスト、イベント種別」の『数字と記号だけ』をDBへ永続保存します。
+    📊 【システムログ・新旧カラム全自動分配保存インフラ】
+    メイン対話から渡された処理時間やトークン消費量のデータを、既存の古いカラムへ正常に格納しつつ、
+    新しくSQLで拡張された右側の詳細明細カラムへも自動的にデータを複製（マージ）して保存します。
     """
-
     try:
+        # 1. 2026年最新の日本円コストを丸め処理
+        rounded_cost = round(float(api_cost), 4)
+        rounded_time = round(float(processing_time), 2)
+
+        # 2. ⚡【新旧完全マージ構造】 
+        # 既存のカラムを維持したまま、右側の新設詳細カラム（chat_processing_time等）へも
         data = {
-            "user_id": user_id,
-            "user_plan": plan_type,
-            "event_type": event_type,
-            "processing_time": round(processing_time, 2),
-            "in_tokens": in_t,
-            "out_tokens": out_t,
-            "api_cost": round(api_cost, 4),
-            "details": details,
-            "created_at": datetime.now(timezone.utc).isoformat()
+            # 📄 既存の基本カラムへの格納（ファクトの維持）
+            "user_id": str(user_id),
+            "user_plan": str(plan_type),
+            "event_type": str(event_type),
+            "processing_time": rounded_time,
+            "in_tokens": int(in_t),
+            "out_tokens": int(out_t),
+            "api_cost": rounded_cost,
+            "details": str(details),
+            
+            # ✨【大開通！】 新しくSQLで増設した右側の詳細明細カラムへの全自動分配配線！
+            "chat_processing_time": rounded_time,
+            "chat_in_tokens": int(in_t),
+            "chat_out_tokens": int(out_t),
+            "total_yen_cost": rounded_cost,
+            "total_processing_time": rounded_time,
+            
+            # 🧠 裏スレッド自動要約の最新データがセッションにあれば、それも同時にこの1行へガチッとマージ！
+            "summary_processing_time": float(st.session_state.get("summary_processing_time", 0.0)),
+            "summary_in_tokens": int(st.session_state.get("summary_in_tokens", 0)),
+            "summary_out_tokens": int(st.session_state.get("summary_out_tokens", 0)),
+            
+            # 🔍 将来拡張用の検索コンポーネントの初期化
+            "search_processing_time": 0.0,
+            "search_in_tokens": 0,
+            "search_out_tokens": 0,
+            
+            "created_at": datetime.now(JST).isoformat()
         }
+        
+        # Supabaseの金庫へ完全大着金！
         supabase.table("system_audit_logs").insert(data).execute()
 
     except Exception as e:
-
-        print(
-            f"⚠️ システム監査ログ保存エラー: "
-            f"{type(e).__name__}: {e}"
-        )
-
-        st.error(
-            f"監査ログ保存エラー: "
-            f"{type(e).__name__}: {e}"
-        )
+        print(f"⚠️ システム監査ログ保存処理エラー: {type(e).__name__}: {e}")
+        st.error(f"システム監査ログの保存に失敗しました: {type(e).__name__}: {e}")
 
 # ==================================================================
 # 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
