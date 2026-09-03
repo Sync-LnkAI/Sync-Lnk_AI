@@ -115,6 +115,14 @@ if "summary_in_tokens" not in st.session_state:
 if "summary_out_tokens" not in st.session_state:
     st.session_state.summary_out_tokens = 0
 
+# 各処理コンポーネントごとの「処理時間（秒）」を安全に初期化
+if "chat_processing_time" not in st.session_state:
+    st.session_state.chat_processing_time = 0.0
+if "summary_processing_time" not in st.session_state:
+    st.session_state.summary_processing_time = 0.0
+if "search_processing_time" not in st.session_state:
+    st.session_state.search_processing_time = 0.0
+
 if "debug_logs" not in st.session_state:
     st.session_state.debug_logs = []
 if "conversation_count" not in st.session_state:
@@ -488,26 +496,29 @@ def add_permanent_tokens(
 
 def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary_text_dummy: str) -> bool:
     """
-    🔮 【ハヤトの長期記憶エンジン】
+    🧠 【長期記憶集約エンジン】
     会話履歴（messages_list）が一定のボリュームを超えた際、
-    裏側の別スレッドで全自動でこれまでの雑談の核心を200文字に超要約し、
-    次回のプロンプトを軽量化（サーバー代の原価を0円防衛）させるための心臓部です。
+    バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
+    次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        # 1. 現在の会話が十分に長くなっているか（例：直近の往復が少ない場合は要約をスキップしてコスト防衛）
+        # 1. 現在の会話ログが十分に蓄積されているかを判定（判定ライン：6通未満の場合は処理をスキップ）
         if len(messages_list) < 6:
             return True
 
-        # 2. 最新の20文字制限に完全シンクさせたリュウさんの本物のオーナーIDをグローバルから強制抽出
-        target_user_id = "ryuudesu_master_1310"
+        # 🏎️ 【時間計測の開始】 要約処理の正確な実行時間を計測するため、ストップウォッチを起動します
+        start_summary_time = datetime.now()
 
-        # 3. 過去の会話を一本の美しい読みやすいテキストにドッキング
+        # 2. 固有ユーザーIDを代入
+        target_user_id = CURRENT_USER_ID
+
+        # 3. 過去の会話ログを一本の構造化されたテキストへとドッキング
         conversation_text = ""
         for m in messages_list:
             role_label = "ユーザー" if m.get("role") == "user" else "コンシェルジュ"
             conversation_text += f"・{role_label}: {m.get('content', '')}\n"
 
-        # 🧠 Google Gemini 3.5 Flash-Lite に対し、裏方用の冷徹な要約指示書（プロンプト）を組み立て
+        # 🧠 Google Gemini に対する、バックグラウンド処理専用の要約指示書（システムプロンプト）の構築
         summary_instruction = (
             "あなたは優秀な記憶整理システムです。以下の2人の会話ログを読み、"
             "今後の対話に必要な重要ファクト、ユーザーの趣味嗜好、約束事、これまでの流れの核心だけを"
@@ -518,11 +529,10 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
             {"role": "user", "parts": [f"[指示書]\n{summary_instruction}\n\n[対象の会話ログ]\n{conversation_text}"]}
         ]
 
-        # 🤖 裏方の要約専用モデル（SUMMARY_MODEL_NAME）へストレートに通電
-        # ※ response.text のデータ構造のネジレを2026年最新仕様へ100%完全適合させています
+        # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
         response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
         
-        # 3.5 Flash-Lite の特殊なデータ構造から安全に文字を引っこ抜く防衛ライン
+        # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
         if hasattr(response, "candidates") and response.candidates:
             new_summary = response.candidates[0].content.parts[0].text
         else:
@@ -531,18 +541,17 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         if not new_summary:
             return False
 
-        # 📊 【Supabase連動】 要約した最新の記憶の残高を、user_memories（または専用テーブル）へ上書き保存（貯金）
-        # ※ 既存の古い記憶があるかをチェック
+        # 📊 【Supabase連動】 集約された最新の長期記憶データを user_memories テーブルへ上書き保存
         mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).execute()
 
         if mem_check.data:
-            # 既存の記憶があれば、最新の要約データにアップデート
+            # 既存のレコードが存在する場合は、最新の要約データへアップデート
             supabase.table("user_memories").update({
                 "summary": new_summary,
                 "updated_at": datetime.now(JST).isoformat()
             }).eq("user_id", target_user_id).execute()
         else:
-            # 記憶の器がまだなければ、新しくインサート
+            # 記憶の器がまだ作成されていない場合は、新しくインサート
             supabase.table("user_memories").insert({
                 "user_id": target_user_id,
                 "summary": new_summary,
@@ -550,17 +559,28 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
                 "updated_at": datetime.now(JST).isoformat()
             }).execute()
 
-        # 🪙 要約にかかった裏方の実費トークン消費も、user_token_statsテーブルへ完璧に永続保存（貯金）
+        # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
+        end_summary_time = datetime.now()
+        summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
+
+        # 🪙 【完全通電】 トークン原価消費量と処理時間を計測し、セッション状態の引き出しへ100%確実に書き込みます
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             in_t = response.usage_metadata.prompt_token_count
             out_t = response.usage_metadata.candidates_token_count
+            
+            # 1. データベースの累計トークン金庫へ加算
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
+            
+            # 2. ⚡【大開通！】 メインスレッドの監査ログ（タブ3）へマージ合流させるため、セッション変数へ強制代入
+            st.session_state.summary_in_tokens = int(in_t)
+            st.session_state.summary_out_tokens = int(out_t)
+            st.session_state.summary_processing_time = float(summary_processing_seconds)
 
         return True
 
     except Exception as bg_err:
-        # メインスレッド（リュウさんのおしゃべり画面）を絶対に巻き込んでフリーズさせないよう、
-        # エラーはバックグラウンドのログに美しく逃がして安全弁を閉じます
+        # メインスレッド（ユーザーのメイン対話画面）側の稼働を阻害しないよう、
+        # エラーはバックグラウンドのログにエスケープして安全弁を閉じます
         print(f"⚠️ バックグラウンド自動要約処理エラー: {type(bg_err).__name__}: {bg_err}")
         return False
 
@@ -686,6 +706,15 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
 # 🎨【プレミアム・劇的グラデーションカラーパレット】
 # 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
 THEMES = {
+     "メタリック調": {
+        # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
+        "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
+        "text": "#1A1A1A",
+        "card_bg": "rgba(255, 255, 255, 0.85)",
+        "input_border": "#757575",
+        "dropdown_bg": "#E0E0E0",
+        "dropdown_text": "#1A1A1A"
+    },
     "モノトーン調": {
         # 🔩 【極大強化】 スタートを圧倒的に明るいプレミアムアルミグレー（#55545B）にし、
         # 画面の中央（#1C1B1F）をすり抜けて、底の極小漆黒（#08080A）へと劇的に変化する垂直3層グラデーション！
@@ -723,7 +752,7 @@ THEMES = {
         "dropdown_bg": "#FFF5F7",
         "dropdown_text": "#4A1525"
     },
-    "ファイヤー風": {
+    "ウォーム調": {
         # 🔥 【劇的強化】 燃える夕焼け橙（#FFF5F0）から、情熱の茜色・トワイライトレッド（#FF8A65）への超グラデ
         "bg": "linear-gradient(180deg, #FFF5F0 0%, #FFAB91 50%, #FF8A65 100%)",
         "text": "#5C0F08",        # 煉獄の芯を表すドッシリとした超濃赤文字
@@ -731,18 +760,8 @@ THEMES = {
         "input_border": "#E53E3E",# 情熱的なファイヤーレッド
         "dropdown_bg": "#FFEBEE",
         "dropdown_text": "#5C0F08"
-    },
-    "メタリック調": {
-        # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
-        "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
-        "text": "#1A1A1A",
-        "card_bg": "rgba(255, 255, 255, 0.85)",
-        "input_border": "#757575",
-        "dropdown_bg": "#E0E0E0",
-        "dropdown_text": "#1A1A1A"
     }
 }
-
 
 # ==========================================
 # 🧠 設定値の読み込み・常時シンク
@@ -759,6 +778,7 @@ current_style_preset = "🤝 フランク＆対等（相棒）"
 current_user_instruction = STYLE_PRESETS["🤝 フランク＆対等（相棒）"]
 current_ai_avatar = "🤖"
 current_user_avatar = "💫"
+current_emoji_setting = "使用（普通）"
 
 # ユーザー個別の現在の会員プランの初期状態
 if "current_user_plan_state" not in st.session_state:
@@ -780,6 +800,8 @@ for m in manual_memories:
         current_style_preset = fact.replace("口调プリセット:", "").strip()
     elif fact.startswith("応答方針:"):
         current_user_instruction = fact.replace("応答方針:", "").strip()
+    elif fact.startswith("絵文字の量:"):
+        current_emoji_setting = fact.replace("絵文字の量:", "").strip()
     elif fact.startswith("AIアバター:"):
         current_ai_avatar = fact.replace("AIアバター:", "").strip()
     elif fact.startswith("ユーザーアバター:"):
@@ -800,11 +822,6 @@ st.markdown(f"""
 [data-testid="stToolbar"] {{
     display: none !important;
 }}
-
-/* ==================================================================
-   🎯【スマホ用メニュー救済】上部ヘッダーの余分な隙間は隠し、
-   左上のメニューボタン（矢印・三本線）「だけ」をピンポイントで画面に完全復活させます
-   ================================================================== */
 
 /* ==================================================================
     👑 【最上部グラデーション ＆ 最高級ラグジュアリー：Cinzel Decorative斜体】
@@ -867,7 +884,7 @@ st.markdown(f"""
         max-width: 100vw !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
-        padding-top: 1rem !important;
+        padding-top: 4.5rem !important;
     }}
 
     /* ==================================================================
@@ -886,25 +903,6 @@ st.markdown(f"""
         color: {theme_cfg["dropdown_text"]} !important;
     }}
     
-    /* サイドバー */
-    section[data-testid="stSidebar"] {{
-        background-color: {theme_cfg["card_bg"]} !important;
-    }}
-    section[data-testid="stSidebar"] p,
-    section[data-testid="stSidebar"] span,
-    section[data-testid="stSidebar"] label,
-    section[data-testid="stSidebar"] h1,
-    section[data-testid="stSidebar"] h2,
-    section[data-testid="stSidebar"] h3 {{
-        color: {theme_cfg["text"]} !important;
-    }}
-    section[data-testid="stSidebar"] button span {{
-        color: {theme_cfg["text"]} !important;
-    }}
-    section[data-testid="stSidebar"] button p {{
-        color: {theme_cfg["text"]} !important;
-    }}
-
     /* Streamlit 1.6x系向け */
     div[role="listbox"] {{
         background-color: {theme_cfg["dropdown_bg"]} !important;
@@ -1006,31 +1004,8 @@ st.markdown(f"""
         border: 1px solid {theme_cfg["input_border"]} !important;
         border-radius: 8px !important;
     }}
-    section[data-testid="stSidebar"] {{
-        border-right: 1px solid {theme_cfg["input_border"]} !important;
-    }}
-    
-    /* ==================================================================
-       🛡️ 【最終防衛ライン】 右下のGitHubリンク・ピンクのアイコンを根こそぎ完全消去
-       ================================================================== */
-    /* 最新のStreamlitインフラが右下に配置する、GitHubプロフィールへの露出リンク、
-       およびアプリの管理用コンポーネント（Viewer/Developer用要素）を
-       画面の裏側（DOM構造）から1文字の例外もなく100%完全に隠蔽・消滅させます。 */
-    div[data-testid="stStatusWidget"],
-    div[class*="stAppDeployButton"],
-    div[class*="viewerBadge"],
-    div[class*="manageApp"],
-    a[href*="github.com"] img,
-    button[id*="manage-app"] {{
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important; /* クリック判定自体も完全に消失させます */
-        height: 0 !important;
-        width: 0 !important;
-    }}
-
-</style>
+      
+ </style>
 """, unsafe_allow_html=True)
 
 # ==================================================================
@@ -1040,7 +1015,7 @@ is_admin = CURRENT_USER_ID in ADMIN_USER_IDS
 
 if is_admin:
     # 👑【管理者専用画面】：管理者限定の3つの隠しタブを作成
-    tab1, tab2, tab3 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定", "📊 システム管理者管理"])
+    tab1, tab2, tab3 = st.tabs(["💬 トークルーム", "🎨 話し方・見た目設定", "📊 システム管理者管理"])
     
     # ------------------------------------------------------------------
     # 💬 【管理者・タブ1】 おしゃべりの部屋
@@ -1211,14 +1186,14 @@ if is_admin:
     # ------------------------------------------------------------------
     with tab2:
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの見た目・口調・アプリのデザインを自分好みにリアルタイムに設定できます。")
+        st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
         st.subheader("🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
                 save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更したよ！")
+                st.toast("アプリのカラーを変更しました")
                 st.rerun()
 
         st.divider()
@@ -1234,6 +1209,9 @@ if is_admin:
             new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
             new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+
+            # 🎨 【大開通！】絵文字3段階パーソナライズドロップダウンを追加！
+            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）"], index=["使用（多め）", "使用（普通）", "使用（少なめ）"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）"] else 1)
 
             st.markdown("【🖼️ アバター（アイコン）設定】")
             col_a, col_u = st.columns(2)
@@ -1252,6 +1230,10 @@ if is_admin:
             initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
             new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
 
+            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
+            current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
+            new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
+
             if st.form_submit_button("基本設定を保存"):
                 save_or_update_user_setting("AIの名前", new_concierge_name)
                 save_or_update_user_setting("ユーザー名", new_user_name)
@@ -1261,30 +1243,41 @@ if is_admin:
                 save_or_update_user_setting("応答方針", new_instruction)
                 save_or_update_user_setting("AIアバター", ai_avatar_val)
                 save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                st.success("設定を更新したよ！")
+                save_or_update_user_setting("会員プラン", new_plan)
+                save_or_update_user_setting("絵文字の量", new_emoji_setting)
+                st.success("設定を更新しました")
                 st.rerun()
 
-    # ------------------------------------------------------------------
-    # 🔒 【管理者・タブ3】 システム管理者管理画面
-    # ------------------------------------------------------------------
+    # ──────────────────────────────────────────
+    # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
+    # ──────────────────────────────────────────
     with tab3:
         st.write("### 📊 システム管理者専用ダッシュボード")
-        admin_mode = st.radio("表示する分析画面を選択してください", ["👤 画面①：ユーザー個別・全利用状況監査カルテ", "📈 画面②：全体アクティビティ ＆ エラー・要望アナリティクス"], horizontal=True, key="admin_radio_mode")
+        admin_mode = st.radio(
+            "表示する分析画面を選択してください", 
+            ["👤 画面①：ユーザー個別・利用状況監査カルテ", "📈 画面②：全体アクティビティ・統計アナリティクス"], 
+            horizontal=True, 
+            key="admin_radio_mode"
+        )
         st.divider()
 
-        if admin_mode == "👤 画面①：ユーザー個別・全利用状況監査カルテ":
-            st.subheader("👤 ユーザー別・稼働状況 ＆ タイムライン監査")
+        # 👤 画面①：ユーザー個別のカルテ表示および1メッセージ単位の詳細明細タイムライン
+        if admin_mode == "👤 画面①：ユーザー個別・利用状況監査カルテ":
+            st.subheader("👤 ユーザー別・稼働状況およびタイムライン監査")
             all_users = ["ryuudesu_master_1310"]
             try:
                 user_res = supabase.table("user_token_stats").select("user_id").execute()
-                if user_res.data: all_users = sorted(list({row["user_id"] for row in user_res.data if row.get("user_id")}))
-            except Exception: pass
+                if user_res.data: 
+                    all_users = sorted(list({row["user_id"] for row in user_res.data if row.get("user_id")}))
+            except Exception: 
+                pass
 
-            selected_audit_user = st.selectbox("🔍 監査対象のユーザーID（UUID）を選択してください：", all_users)
+            selected_audit_user = st.selectbox("🔍 監査対象のユーザーIDを選択してください：", all_users)
             st.markdown("---")
-            st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定 ＆ プロフィール")
+            st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "☀ ライドモード（白）", "🆓 無料プラン"
+            # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
+            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "メタリック調", "🆓 無料プラン"
             audit_facts = []
             try:
                 u_memories = supabase.table("user_memories").select("*").eq("user_id", selected_audit_user).execute()
@@ -1296,68 +1289,96 @@ if is_admin:
                             elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
                             elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
                             elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
-                        else: audit_facts.append(fact)
-            except Exception: pass
+                        else: 
+                            audit_facts.append(fact)
+            except Exception: 
+                pass
 
             col_info1, col_info2 = st.columns(2)
-            col_info1.info(f"**【着せ替え・外観設定】**\n・現在のAIの名前： `{audit_concierge_name}`\n・アプリのカラーテーマ： `{audit_theme}`\n・現在の会員プラン： **`{audit_plan}`**")
-            col_info2.info(f"**【ユーザー基本情報】**\n・登録ユーザー名： `{audit_user_name}`\n・自動抽出された過去の記憶： `{len(audit_facts)} 件`")
+            col_info1.info(f"**【デザイン・外観設定】**\n・現在のAIの名称： `{audit_concierge_name}`\n・アプリのカラーテーマ： `{audit_theme}`\n・現在の会員プラン： **`{audit_plan}`**")
+            col_info2.info(f"**【ユーザー基本プロファイル】**\n・登録ユーザー名： `{audit_user_name}`\n・蓄積された過去の長期記憶： `{len(audit_facts)} 件`")
 
+            # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システム監査ログ（最新50件）")
             try:
-                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
+                # 本物のテーブル構造（user_id）でクエリを発行し、時系列の最新順で最大50件を引き抜きます
+                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", ascending=False).limit(50).execute()
                 if log_res.data:
                     for log in log_res.data:
-                        c_at = datetime.fromisoformat(log["created_at"].replace("Z", "+00:00")).astimezone(JST).strftime("%H:%M:%S")
-                        e_type = log.get("event_type", "EVENT")
-                        p_time = log.get("processing_time", 0.0)
-                        in_t, out_t = log.get("in_tokens", 0), log.get("out_tokens", 0)
-                        cost = log.get("api_cost", 0.0)
-                        details = log.get("details", "")
-                        badge = "🟢" if "SUCCESS" in e_type or "RECEIVE" in e_type else "🔵" if "SEND" in e_type or "SEARCH" in e_type else "🚨"
-                        st.markdown(f"{badge} **[{c_at}] {e_type}**\n- ⏱️ 処理時間: `{p_time}秒`  |  🧠 トークン: `In={in_t} / Out={out_t}`  |  💰 実費: `{cost:.4f}円`\n- 📋 詳細/文脈ファクト: *{details}*")
-                        st.markdown("<hr style='margin: 0.3rem 0; border-color: rgba(0,0,0,0.05);' />", unsafe_allow_html=True)
-                else: st.caption("このユーザーのシステム監査ログはまだありません。")
-            except Exception as log_err: st.error(f"監査ログの取得に失敗しました: {log_err}")
+                        created_at = log.get("created_at", "")
+                        clean_time = created_at.split("T")[-1][:8] if "T" in created_at else created_at
+                        action = log.get("action", "CHAT_SUCCESS")
+                        
+                        total_yen = log.get("total_yen_cost", 0.0)
+                        total_time = log.get("total_processing_time", 0.0)
 
-        elif admin_mode == "📈 画面②：全体アクティビティ ＆ エラー・要望アナリティクス":
-            st.subheader("📈 アプリ全体アクティビティ ＆ 機能要望・エラー統計（匿名集計）")
+                        # アコーディオン（expander）のタイトル部分に、その1メッセージの合計実費と総処理時間を表示
+                        with st.expander(f"🟢 [{clean_time}] {action} ➔ 💰 総原価: {total_yen} 円 || ⏱️ 総処理: {total_time} 秒"):
+                            st.markdown(f"""
+
+                            | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
+                            | :--- | :---: | :---: | :---: |
+                            | 💬 **メインチャット対話返答** | `{log.get('chat_processing_time')} 秒` | `{log.get('chat_in_tokens')} t` | `{log.get('chat_out_tokens')} t` |
+                            | 🧠 **裏スレッド長期記憶自動要約** | `{log.get('summary_processing_time')} 秒` | `{log.get('summary_in_tokens')} t` | `{log.get('summary_out_tokens')} t` |
+                            | 🔍 **ベクトル＆意味空間検索** | `{log.get('search_processing_time')} 秒` | `{log.get('search_in_tokens')} t` | `{log.get('search_out_tokens')} t` |
+                            
+                            👑 **【この1メッセージに対する総実費原価】** `¥ {total_yen} 円`  ||  **【ユーザー総待機ラグ】** `{total_time} 秒`
+                            """)
+                else: 
+                    st.caption("このユーザーのシステム監査ログはまだデータベースに記録されていません。")
+            except Exception as log_err: 
+                st.error(f"監査ログの取得に失敗しました: {log_err}")
+
+        # 📈 画面②：アプリ全体の統計アナリティクス画面
+        elif admin_mode == "📈 画面②：全体アクティビティ・統計アナリティクス":
+            st.subheader("📈 アプリ全体アクティビティ ＆ 機能統計（匿名集計）")
             with st.spinner("システム監査ログからプラン別データを高度に集計中..."):
                 try:
                     audit_res = supabase.table("system_audit_logs").select("*").execute()
                     audit_data = audit_res.data if audit_res.data else []
                     total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
+                    
                     stats_matrix = {
                         "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "premium": 0},
                         "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "premium": 0},
                         "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "premium": 0},
-                        "🎨 キャラなりきり・口調変更の実行回数": {"free": 0, "light": 0, "premium": 0},
-                        "🚫 禁止：画像生成の無茶振り（コスト防衛）": {"free": 0, "light": 0, "premium": 0},
-                        "🚫 禁止：コード生成の無茶振り（コスト防衛）": {"free": 0, "light": 0, "premium": 0},
+                        "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "premium": 0},
+                        "🚫 制限緩和：追加検索タスクの制御回数": {"free": 0, "light": 0, "premium": 0},
                     }
                     user_active_dates = {}
+                    
                     for log in audit_data:
-                        u_id, plan, e_type, cost, c_at_str = log.get("user_id", "unknown"), log.get("user_plan", "🆓 無料プラン"), log.get("event_type", ""), log.get("api_cost", 0.0), log.get("created_at", "")
+                        u_id = log.get("user_id", "unknown")
+                        plan = log.get("user_plan", "🆓 無料プラン")
+                        action = log.get("action", "")
+                        cost = log.get("total_yen_cost", 0.0) # 最新の実費カラムに完全シンク！
+                        c_at_str = log.get("created_at", "")
+                        
                         total_users_set.add(u_id)
                         total_app_cost += cost
+                        
                         p_key = "free"
                         if "ライト" in plan: p_key = "light"
                         elif "プレミアム" in plan: p_key = "premium"
 
-                        if e_type == "CHAT_SUCCESS":
+                        if action == "CHAT_SUCCESS":
                             stats_matrix["💬 総会話往復数（送信回数）"][p_key] += 1
                             total_app_chats += 1
-                        elif e_type == "DAILY_LIMIT_EXCEEDED": stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += 1
-                        elif e_type == "SETTING_UPDATE_SUCCESS": stats_matrix["🎨 キャラなりきり・口調変更の実行回数"][p_key] += 1
-                        elif e_type == "PROMPT_BLOCKED_IMAGE": stats_matrix["🚫 禁止：画像生成の無茶振り（コスト防衛）"][p_key] += 1
-                        elif e_type == "PROMPT_BLOCKED_CODE": stats_matrix["🚫 禁止：コード生成の無茶振り（コスト防衛）"][p_key] += 1
+                        elif action == "DAILY_LIMIT_EXCEEDED": 
+                            stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += 1
+                        elif action == "SETTING_UPDATE_SUCCESS": 
+                            stats_matrix["🎨 キャラクター・口調変更の実行回数"][p_key] += 1
+                        elif action == "PROMPT_BLOCKED_SEARCH": 
+                            stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += 1
 
                         if c_at_str:
                             try:
                                 dt_jst = datetime.fromisoformat(c_at_str.replace("Z", "+00:00")).astimezone(JST)
-                                if u_id not in user_active_dates: user_active_dates[u_id] = {"p_key": p_key, "dates": set()}
+                                if u_id not in user_active_dates: 
+                                    user_active_dates[u_id] = {"p_key": p_key, "dates": set()}
                                 user_active_dates[u_id]["dates"].add(dt_jst.date().isoformat())
-                            except Exception: pass
+                            except Exception: 
+                                pass
 
                     for u_id, date_info in user_active_dates.items():
                         stats_matrix["📅 総アクティブ稼働日数"][date_info["p_key"]] += len(date_info["dates"])
@@ -1378,14 +1399,62 @@ if is_admin:
                         })
                     import pandas as pd
                     st.dataframe(pd.DataFrame(analytics_rows), hide_index=True, use_container_width=True)
-                except Exception as ana_err: st.error(f"データ集計中にエラーが発生しました: {ana_err}")
+                except Exception as ana_err: 
+                    st.error(f"データ集計中にエラーが発生しました: {ana_err}")
+
+    # ==========================================
+# 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
+# ==========================================
+if is_admin and tab4:
+    with tab4:
+        st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
+        st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
+        
+        try:
+            # データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
+            all_tester_logs = supabase.table("messages").select("*").order("created_at", ascending=False).limit(100).execute()
+            
+            if all_tester_logs.data:
+                # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
+                grouped_logs = {}
+                for log in all_tester_logs.data:
+                    uid = log.get("user_id", "unknown")
+                    if uid not in grouped_logs:
+                        grouped_logs[uid] = []
+                    grouped_logs[uid].append(log)
+
+                # 各テスターごとにタイムラインを画面に整列して出力
+                for uid, logs in grouped_logs.items():
+                    # 管理者（リュウさん自身）の会話ログは監査のノイズになるため一覧からスキップ
+                    if uid == ADMIN_USER_ID:
+                        continue
+                        
+                    st.markdown(f"### 👤 テスターID: `{uid}`")
+                    
+                    # 該当テスターの会話の往復履歴を時系列に沿って表示
+                    for l in logs:
+                        role = l.get("role", "user")
+                        content = l.get("content", "")
+                        created_at = l.get("created_at", "")
+                        # 見やすい時間表記（YYYY-MM-DD HH:MM）へと文字列をトリミング
+                        clean_time = created_at.replace("T", " ")[:16]
+                        
+                        if role == "user":
+                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
+                        else:
+                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
+                    st.markdown("---")
+            else:
+                st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
+        except Exception as e:
+            st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
 
 # ==================================================================
 # 🆓👤【一般テスター・無料ユーザー画面】（管理者以外には隠す部屋）
 # ==================================================================
 else:
     # 💡 管理者以外のテスター画面には、タブ1（チャット）とタブ2（設定）の2つだけを対等に並べます
-    tab1, tab2 = st.tabs(["💬 おしゃべりの部屋", "🎨 キャラクター・見た目設定"])
+    tab1, tab2 = st.tabs(["💬 トークルーム", "🎨 話し方・見た目設定"])
     
     # ------------------------------------------------------------------
     # 💬 【一般・タブ1】 おしゃべりの部屋
@@ -1396,14 +1465,6 @@ else:
 
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
-
-        # 🚀 【大開通ワープボタン】 押した瞬間にブラウザのセキュリティを突破し、最下部へ強制ジャンプします！
-        if st.button("👇 最下部（チャット入力欄）へ移動", key="scroll_to_bottom_btn", use_container_width=True):
-            st.components.v1.html("""
-                <script>
-                    window.parent.document.querySelector('section.main').scrollTo({ top: 99999, behavior: 'smooth' });
-                </script>
-            """, height=0)
 
         all_messages = get_messages(CURRENT_USER_ID)
         for msg in all_messages:
@@ -1545,14 +1606,14 @@ else:
     # ------------------------------------------------------------------
     with tab2:
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの見た目・口調・アプリのデザインを自分好みにリアルタイムに調教できます。")
+        st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
         st.subheader("🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_user"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
                 save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更したよ！")
+                st.toast("アプリのカラーを変更しました")
                 st.rerun()
 
         st.divider()
@@ -1568,6 +1629,9 @@ else:
             new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
             new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+
+            # 🎨 【大開通！】絵文字3段階パーソナライズドロップダウンを追加！
+            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）"], index=["使用（多め）", "使用（普通）", "使用（少なめ）"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）"] else 1)
 
             st.markdown("【🖼️ アバター（アイコン）設定】")
             col_a, col_u = st.columns(2)
@@ -1588,7 +1652,7 @@ else:
 
             plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
             current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            new_plan = st.selectbox("【デバッグ用】現在の会員プラン", plan_options, index=current_plan_idx)
+            new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
                 save_or_update_user_setting("AIの名前", new_concierge_name)
@@ -1600,7 +1664,8 @@ else:
                 save_or_update_user_setting("AIアバター", ai_avatar_val)
                 save_or_update_user_setting("ユーザーアバター", user_avatar_val)
                 save_or_update_user_setting("会員プラン", new_plan)
-                st.success("設定を更新したよ！")
+                save_or_update_user_setting("絵文字の量", new_emoji_setting)
+                st.success("設定を更新しました")
                 st.rerun()
 
 # ==================================================================
