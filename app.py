@@ -570,7 +570,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         end_summary_time = datetime.now()
         summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
 
-        # 🪙 【完全通電】 トークン原価消費量と処理時間を計測し、セッション状態の引き出しへ100%確実に書き込みます
+        # 🟢 【大正解：裏口直接保存インフラへのリフォーム】
+        # 連続送信時の競合を招くセッション変数（st.session_state）への代入を1文字残さず完全に排除しました。
+        # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」として別行インサートします。
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             in_t = response.usage_metadata.prompt_token_count
             out_t = response.usage_metadata.candidates_token_count
@@ -578,10 +580,22 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
             # 1. データベースの累計トークン金庫へ加算
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
             
-            # 2. メインスレッドの監査ログ（タブ3）へマージ合流させるため、セッション変数へ強制代入
-            st.session_state.summary_in_tokens = int(in_t)
-            st.session_state.summary_out_tokens = int(out_t)
-            st.session_state.summary_processing_time = float(summary_processing_seconds)
+            # 2. ⚡【ここが大開通！】 2026年最新のGemini Flash-Lite原価レートで要約単体の日本円コストをミリ単位で算出
+            sum_in_cost = (int(in_t) / 1000000) * 0.075
+            sum_out_cost = (int(out_t) / 1000000) * 0.30
+            sum_yen = (sum_in_cost + sum_out_cost) * 150.0
+
+            # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独の監査ログとして独立インサート！
+            save_system_audit_log(
+                user_id=target_user_id,
+                plan_type=st.session_state.get("current_user_plan_state", "🆓 無料プラン"),
+                event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
+                processing_time=float(summary_processing_seconds),
+                in_t=int(in_t),
+                out_t=int(out_t),
+                api_cost=float(sum_yen),
+                details=f"長期記憶の自動集約完了（独立ログ仕様）"
+            )
 
         return True
 
@@ -1169,7 +1183,7 @@ if is_admin:
                         # 🧪 【原因特定のための実験メーター】 
                         # 保存関数を呼び出す直前に、セッションの引き出し（裏口）に本物の要約データが届いているかを画面へダイレクトに露出させます。
                         st.write(f"🔬 デバッグ監査 ➔ 現在の要約秒数: {st.session_state.get('summary_processing_time')} 秒 || 入力トークン: {st.session_state.get('summary_in_tokens')} t")
-                        
+
                         save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
 
                     except Exception as gemini_err:
