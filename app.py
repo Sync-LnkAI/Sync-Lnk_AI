@@ -534,15 +534,23 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, summary
         contents_for_summary = [
             {"role": "user", "parts": [f"[指示書]\n{summary_instruction}\n\n[対象の会話ログ]\n{conversation_text}"]}
         ]
+        # 🧪 【生存点検マーカー1：Gemini呼び出しの直前】
+        st.write("🔬 [要約内部デバッグ] ➔ 1.これからGemini APIへ要約の電波を飛ばします...")
 
         # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
         response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
         
+        # 🧪 【生存点検マーカー2：Gemini呼び出しの直後】
+        st.write("🔬 [要約内部デバッグ] ➔ 2.Gemini APIからの返答が正常に手元に返ってきました！")
+
         # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
         if hasattr(response, "candidates") and response.candidates:
             new_summary = response.candidates[0].content.parts[0].text
         else:
             new_summary = response.text
+        
+        # 🧪 【生存点検マーカー3：テキスト抽出の直後】
+        st.write(f"🔬 [要約内部デバッグ] ➔ 3.文字の抽出に成功しました。中身：{new_summary[:20]}...")
 
         if not new_summary:
             return False
