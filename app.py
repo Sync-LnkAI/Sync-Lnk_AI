@@ -1227,6 +1227,9 @@ if is_admin:
                             details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)"
                         )
 
+                        import time
+                        time.sleep(5) # 5秒間の強制ウェイト
+
                         st.rerun()
 
                     except Exception as gemini_err:
