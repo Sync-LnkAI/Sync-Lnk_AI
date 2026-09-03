@@ -1196,24 +1196,44 @@ if is_admin:
                         add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
+
+                        # ==================================================================
+                        # 🧠 長期記憶自動要約マルチスレッド
+                        # ==================================================================
+                        # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しを綺麗にお掃除し、
+                        # 最新の会話履歴（ここでは msgs に該当する最新の履歴リスト）を正確に掴んで、
+                        # 裏の要約関数へ一直線に通電させます。これによりデータベースへ完全に同期します。
+                        import threading
+        
+                        st.session_state.summary_in_tokens = 0
+                        st.session_state.summary_out_tokens = 0
+                        st.session_state.summary_processing_time = 0.0
+        
+                        # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
+                        all_messages_updated = get_messages(CURRENT_USER_ID)
+                        async_thread = threading.Thread(target=check_and_summarize_history, args=(0, all_messages_updated, ""))
+                        async_thread.start()
+                        async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間だけ安全に待ち、データの着金を同期させます
+
+                        # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
+                        save_system_audit_log(
+                            user_id=CURRENT_USER_ID, 
+                            plan_type=current_plan_type, 
+                            event_type="CHAT_SUCCESS", 
+                            processing_time=api_elapsed, 
+                            in_t=in_t, 
+                            out_t=out_t, 
+                            api_cost=current_通_cost, 
+                            details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)"
+                        )
+
+                        st.rerun()
 
                     except Exception as gemini_err:
-                        error_detail = (
-                            f"{type(gemini_err).__name__}: "
-                            f"{str(gemini_err)}"
-                        )
-
+                        error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
                         print(f"🚨 チャット処理エラー: {error_detail}")
-
-                        st.error(
-                            f"チャット処理エラー: {error_detail}"
-                        )
-
-                        increment_error_analytics(
-                            "CHAT_PROCESSING_ERROR",
-                            current_plan_type
-                        )
+                        st.error(f"チャット処理エラー: {error_detail}")
+                        increment_error_analytics("CHAT_PROCESSING_ERROR", current_plan_type)
                         
                         save_system_audit_log(
                             CURRENT_USER_ID,
@@ -1225,29 +1245,6 @@ if is_admin:
                             0.0,
                             error_detail[:500]
                         )
-
-                    # ==================================================================
-                    # 🧠 長期記憶自動要約マルチスレッド
-                    # ==================================================================
-                    # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しを綺麗にお掃除し、
-                    # 最新の会話履歴（ここでは msgs に該当する最新の履歴リスト）を正確に掴んで、
-                    # 裏の要約関数へ一直線に通電させます。これによりデータベースへ完全に同期します。
-                    import threading
-        
-                    st.session_state.summary_in_tokens = 0
-                    st.session_state.summary_out_tokens = 0
-                    st.session_state.summary_processing_time = 0.0
-        
-                    # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
-                    all_messages_updated = get_messages(CURRENT_USER_ID)
-                    async_thread = threading.Thread(target=check_and_summarize_history, args=(0, all_messages_updated, ""))
-                    async_thread.start()
-                    async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間だけ安全に待ち、データの着金を同期させます
-
-                    import time
-                    time.sleep(5) # 5秒間の強制ウェイト
-        
-                    st.rerun()
 
     # ------------------------------------------------------------------
     # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
