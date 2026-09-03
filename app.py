@@ -631,7 +631,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
 # ==================================================================
 # 📊 【新設】 ユーザー別＆全体システムログ（Telemetry）永続保存関数
 # ==================================================================
-def save_system_audit_log(user_id: str, plan_type: str, event_type: str, processing_time: float, in_t: int, out_t: int, api_cost: float, details: str = "", message_id: str = ""):
+def save_system_audit_log(user_id: str, plan_type: str, event_type: str, processing_time: float, in_t: int, out_t: int, api_cost: float, details: str = "", message_id: str = "", search_time: float = 0.0):
     """
     📊 【システムログ・新旧カラム全自動分配保存インフラ】
     メイン対話から渡された処理時間やトークン消費量のデータを、既存の古いカラムへ正常に格納しつつ、
