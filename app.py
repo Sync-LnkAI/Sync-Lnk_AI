@@ -723,79 +723,250 @@ def generate_personality_error_msg(error_reason_text: str, current_instruction: 
 # ==========================================
 # 🛡️ コスト・利用制限（ガードレール）関数
 # ==========================================
-def check_and_update_limits(user_id: str, user_plan: str) -> tuple[bool, str, int, int]:
+def check_and_update_limits(
+    user_id: str
+) -> tuple[bool, str, int, int]:
     """
-    ユーザーの利用制限（1分3通、1日20通）をチェックし、問題なければカウントを更新する。
-    無料プラン（フリー）のみ1日20通の制限をかけ、有料プランはすり抜けさせます。
+    メッセージ送信時だけ呼び出す。
+
+    戻り値:
+        allowed
+        alert_code
+        現在回数
+        最大回数
     """
+    current_plan = st.session_state.get(
+        "current_user_plan_state",
+        "🆓 無料プラン"
+    )
+
+    if current_plan == "🆓 無料プラン":
+        max_limit = 20
+    elif "ライト" in current_plan:
+        max_limit = 100
+    else:
+        max_limit = 99999
+
     try:
-        now = datetime.now(JST)
-        
-        # 1. 現在の利用状況を取得
-        res = supabase.table("user_usage_limits").select("*").eq("user_id", user_id).execute()
-        
-        if not res.data or len(res.data) == 0:
-            supabase.table("user_usage_limits").insert({
-                "user_id": user_id,
-                "daily_chat_count": 1,
-                "last_chat_at": now.isoformat()
-            }).execute()
-            return True, ""
-            
+        now_jst = datetime.now(JST)
+
+        res = (
+            supabase
+            .table("user_usage_limits")
+            .select("*")
+            .eq("user_id", str(user_id))
+            .execute()
+        )
+
+        # 初回利用
+        if not res.data:
+            (
+                supabase
+                .table("user_usage_limits")
+                .insert({
+                    "user_id": str(user_id),
+                    "daily_chat_count": 1,
+                    "last_chat_at": (
+                        now_jst.isoformat()
+                    )
+                })
+                .execute()
+            )
+
+            return True, "", 1, max_limit
+
         usage = res.data[0]
 
-        # データベースから届いた本物の時間データを直接 .astimezone(JST) へ
-        raw_last_at = usage("last_chat_at", "")
-        if not raw_last_at:
-            last_chat_jst = now
-        elif isinstance(raw_last_at, str):
-            # 文字列で届いた場合は、末尾の時差記号のブレを綺麗にお掃除してJSTへ直結
-            clean_date_str = raw_last_at.replace("Z", "").split("+")[0]
-            last_chat_jst = datetime.fromisoformat(clean_date_str).replace(tzinfo=JST)
-        else:
-            # 直接時間型として日本時間（JST）
-            last_chat_jst = raw_last_at.astimezone(JST)
-            
-        # 🪙 カウント数も型安全を100%保証して引っこ抜きます
-        daily_chat_count = int(usage.get("daily_chat_count", 0))
-        
-        # 【防壁1】 1分3通制限（20秒以内の連投ブロック）
-        if now - last_chat_at < timedelta(seconds=BURST_LIMIT_SECONDS):
-            return False, "BURST_LIMIT"
-            
-        # 日本時間に変換して日付を正確に比較
-        now_jst = now.astimezone(JST)
-        if now_jst.date() > last_chat_jst.date():
+        daily_chat_count = int(
+            usage.get(
+                "daily_chat_count",
+                0
+            )
+            or 0
+        )
+
+        raw_last_at = usage.get(
+            "last_chat_at"
+        )
+
+        last_chat_jst = None
+
+        if raw_last_at:
+            if isinstance(
+                raw_last_at,
+                str
+            ):
+                last_chat_jst = (
+                    datetime
+                    .fromisoformat(
+                        raw_last_at.replace(
+                            "Z",
+                            "+00:00"
+                        )
+                    )
+                    .astimezone(JST)
+                )
+            else:
+                last_chat_jst = (
+                    raw_last_at.astimezone(JST)
+                )
+
+        # 日付が変わっていれば今日の回数をリセット
+        if (
+            last_chat_jst is not None
+            and now_jst.date()
+            > last_chat_jst.date()
+        ):
             daily_chat_count = 0
-            
-        # 【防壁2】 1日20通制限
-        clean_plan = str(user_plan)
-        if "無料" in clean_plan or "free" in clean_plan.lower():
-            max_limit = 20
-        elif "ライト" in clean_plan:
-            max_limit = 100
-        else:
-            max_limit = 99999
+            last_chat_jst = None
 
-        # 判定：それぞれのプランの上限を超えていたらブロック
+        # 20秒以内の連投判定
+        if last_chat_jst is not None:
+            elapsed = (
+                now_jst - last_chat_jst
+            )
+
+            if elapsed < timedelta(
+                seconds=BURST_LIMIT_SECONDS
+            ):
+                return (
+                    False,
+                    "BURST_LIMIT",
+                    daily_chat_count,
+                    max_limit
+                )
+
+        # プラン別の1日上限判定
         if daily_chat_count >= max_limit:
-            return False, "DAILY_LIMIT_EXCEEDED", daily_chat_count, max_limit
+            return (
+                False,
+                "DAILY_LIMIT_EXCEEDED",
+                daily_chat_count,
+                max_limit
+            )
 
-        # 2. 制限をクリアしたため、DBのカウントを更新
-        supabase.table("user_usage_limits").update({
-            "daily_chat_count": daily_chat_count + 1,
-            "last_chat_at": now.isoformat()
-        }).eq("user_id", user_id).execute()
-        
-        return True, "", daily_chat_count, max_limit
-        
+        new_count = daily_chat_count + 1
+
+        (
+            supabase
+            .table("user_usage_limits")
+            .update({
+                "daily_chat_count": new_count,
+                "last_chat_at": (
+                    now_jst.isoformat()
+                )
+            })
+            .eq("user_id", str(user_id))
+            .execute()
+        )
+
+        return (
+            True,
+            "",
+            new_count,
+            max_limit
+        )
+
     except Exception as e:
-        # ⚠️ 万が一の例外発生時、コンソールへ本物のエラー内容を明大露出させて隠蔽を防ぎます
-        print(f"⚠️ check_and_update_limits 内部大クラッシュ: {e}")
-        return False, f"ERROR: {str(e)}", 99, 99
-        
-    #except Exception as e:
-    #    return False, f"ERROR: {str(e)}"
+        error_detail = (
+            f"{type(e).__name__}: {e}"
+        )
+
+        print(
+            "⚠️ check_and_update_limits "
+            f"内部エラー: {error_detail}"
+        )
+
+        return (
+            False,
+            "LIMIT_CHECK_ERROR",
+            0,
+            max_limit
+        )
+
+def get_usage_status(
+    user_id: str
+) -> tuple[int, int]:
+    """
+    利用回数を表示するだけの読み取り専用関数。
+    DBのカウントや最終送信時刻は更新しない。
+    """
+    current_plan = st.session_state.get(
+        "current_user_plan_state",
+        "🆓 無料プラン"
+    )
+
+    if current_plan == "🆓 無料プラン":
+        max_limit = 20
+    elif "ライト" in current_plan:
+        max_limit = 100
+    else:
+        max_limit = 99999
+
+    try:
+        res = (
+            supabase
+            .table("user_usage_limits")
+            .select(
+                "daily_chat_count,last_chat_at"
+            )
+            .eq("user_id", str(user_id))
+            .execute()
+        )
+
+        if not res.data:
+            return 0, max_limit
+
+        usage = res.data[0]
+
+        daily_count = int(
+            usage.get(
+                "daily_chat_count",
+                0
+            )
+            or 0
+        )
+
+        raw_last_at = usage.get(
+            "last_chat_at"
+        )
+
+        if raw_last_at:
+            try:
+                last_chat_jst = (
+                    datetime
+                    .fromisoformat(
+                        str(raw_last_at).replace(
+                            "Z",
+                            "+00:00"
+                        )
+                    )
+                    .astimezone(JST)
+                )
+
+                now_jst = datetime.now(JST)
+
+                if (
+                    now_jst.date()
+                    > last_chat_jst.date()
+                ):
+                    daily_count = 0
+
+            except Exception as date_error:
+                print(
+                    "⚠️ 利用状況の日付解析エラー: "
+                    f"{date_error}"
+                )
+
+        return daily_count, max_limit
+
+    except Exception as e:
+        print(
+            "⚠️ 利用状況取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return 0, max_limit
 
 # 🎨【プレミアム・劇的グラデーションカラーパレット】
 # 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
@@ -1127,10 +1298,24 @@ with all_tabs[0]:
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         all_messages = get_messages(CURRENT_USER_ID)
-        
-        _, _, db_count, db_max = check_and_update_limits(CURRENT_USER_ID, current_plan_type)
-        st.info(f"📊【リアルタイム監査】 DBの会話数: {db_count}回 ｜ 計算上の上限値: {db_max}回 ｜ 現在のプラン: {current_plan_type}")
 
+        db_count, db_max = get_usage_status(
+            CURRENT_USER_ID
+        )
+
+        limit_display = (
+            "無制限"
+            if db_max >= 99999
+            else f"{db_max}回"
+        )
+
+        st.info(
+            f"📊【リアルタイム監査】 "
+            f"本日の会話数: {db_count}回 ｜ "
+            f"上限: {limit_display} ｜ "
+            f"現在のプラン: {current_plan_type}"
+        )
+        
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
@@ -1138,10 +1323,38 @@ with all_tabs[0]:
                 with st.chat_message("assistant", avatar=current_ai_avatar):
                     st.write(f"【{current_concierge_name}】: {err_msg}")
             else:
-                is_allowed, alert_code, _, _ = check_and_update_limits(CURRENT_USER_ID, current_plan_type)
+                is_allowed, alert_code, db_count, db_max = (
+                    check_and_update_limits(
+                        CURRENT_USER_ID
+                    )
+                )
                 if not is_allowed:
                     increment_error_analytics(alert_code, current_plan_type)
-                    reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
+                    
+                    if alert_code == "BURST_LIMIT":
+                        reason_text = (
+                        "連続送信が速すぎます。"
+                        "少し間を空けてから送ってください。"
+                    )
+
+                elif alert_code == "DAILY_LIMIT_EXCEEDED":
+                    reason_text = (
+                        f"本日の会話上限"
+                        f"（{db_max}回）に達しました。"
+                    )
+
+                elif alert_code == "LIMIT_CHECK_ERROR":
+                    reason_text = (
+                        "利用回数を確認できませんでした。"
+                        "管理者ログを確認してください。"
+                    )
+
+                else:
+                    reason_text = (
+                        "現在メッセージを送信できません。"
+                        f"コード: {alert_code}"
+                )
+
                     with st.chat_message("assistant", avatar=current_ai_avatar):
                         st.write(f"【{current_concierge_name}】: {reason_text}")
                     
