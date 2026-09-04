@@ -1125,7 +1125,7 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
         
-        _, _, db_count, db_max = check_and_update_limits(current_user_id)
+        _, _, db_count, db_max = check_and_update_limits(CURRENT_USER_ID)
         st.info(f"📊【リアルタイム監査】 DBの会話数: {db_count}回 ｜ 計算上の上限値: {db_max}回 ｜ 現在のプラン: {current_plan_type}")
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
