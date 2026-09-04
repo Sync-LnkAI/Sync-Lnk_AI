@@ -776,7 +776,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
 
         # 判定：それぞれのプランの上限を超えていたらブロック
         if daily_chat_count >= max_limit:
-            return False, "DAILY_LIMIT_EXCEEDED"
+            return False, "DAILY_LIMIT_EXCEEDED", daily_chat_count, max_limit
 
         # 2. 制限をクリアしたため、DBのカウントを更新
         supabase.table("user_usage_limits").update({
@@ -784,12 +784,12 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             "last_chat_at": now.isoformat()
         }).eq("user_id", user_id).execute()
         
-        return True, ""
+        return True, "", daily_chat_count, max_limit
         
     except Exception as e:
         # ⚠️ 万が一の例外発生時、コンソールへ本物のエラー内容を明大露出させて隠蔽を防ぎます
         print(f"⚠️ check_and_update_limits 内部大クラッシュ: {e}")
-        return False, f"ERROR: {str(e)}"
+        return False, f"ERROR: {str(e)}", 0, 0
         
     #except Exception as e:
     #    return False, f"ERROR: {str(e)}"
@@ -1125,6 +1125,9 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
         
+        _, _, db_count, db_max = check_and_update_limits(current_user_id)
+        st.info(f"📊【リアルタイム監査】 DBの会話数: {db_count}回 ｜ 計算上の上限値: {db_max}回 ｜ 現在のプラン: {current_plan_type}")
+
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
