@@ -15,7 +15,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 st.set_page_config(page_title="SYNC-LNK // AI", page_icon="🤖", layout="wide")
 
-MAX_CONTEXT_MESSAGES = 5  # 直近5件を保持
+MAX_CONTEXT_MESSAGES = 10  # 直近10件を保持
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -261,8 +261,8 @@ def search_past_logs_hybrid(query_text: str):
             "match_messages_all",
             {
                 "query_embedding": query_embedding,
-                "match_threshold": 0.65,  # ゴミデータを拾わない厳格な合格ライン
-                "match_count": 3,
+                "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
+                "match_count": 5,
                 "filter_user_id": CURRENT_USER_ID
             }
         ).execute()
@@ -520,11 +520,11 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             real_messages = messages_list # 万が一のフォールバック
 
         # 1. データベース上の本物の全履歴数が6通未満の場合は、コスト防衛のため処理を安全にスキップ
-        #if len(real_messages) < 6:
-        #    st.session_state.summary_in_tokens = 0
-        #    st.session_state.summary_out_tokens = 0
-        #    st.session_state.summary_processing_time = 0.0
-        #    return True
+        if len(real_messages) < 6:
+            st.session_state.summary_in_tokens = 0
+            st.session_state.summary_out_tokens = 0
+            st.session_state.summary_processing_time = 0.0
+            return True
 
         # 3. 過去の会話ログを時系列順（古い順）に並び替えて、一本の構造化されたテキストへとドッキング
         conversation_text = ""
@@ -969,6 +969,41 @@ def get_usage_status(
         )
 
         return 0, max_limit
+
+def generate_personality_msg(raw_system_text: str, concierge_name: str, user_instruction: str) -> str:
+    """
+    🎯【商用AI世界観・完全防衛インフラ共通関数】
+    エラー、連投制限、設定完了などの「システム標準語」を、
+    ユーザーが自由に入力した名前と口調指示に従って全自動翻訳させます。
+    """
+    if not user_instruction or not user_instruction.strip():
+        # 万が一、口調指示書が空っぽの場合はフランクな標準型
+        return f"【{concierge_name}】: {raw_system_text}"
+
+    try:
+        # 指示書（プロンプト）の組み立て
+        prompt = (
+            f"あなたはチャットAIコンシェルジュの『{concierge_name}』です。\n"
+            f"ユーザーからの口調指示：『{user_instruction}』\n\n"
+            f"【絶対厳守の命令】\n"
+            f"上記のキャラクター設定と口調指示を100%完璧に守り、以下の「システム通知内容」を、"
+            f"あなた自身がユーザーに向けて直接優しく話しかけている短いセリフ（1行、絵文字付き）へと全自動翻訳して出力してください。\n"
+            f"余計な解説や、名前のプレフィックス（【ハヤト】: 等）は200%絶対に含めず、純粋なセリフの文字だけを1行で出力すること。\n\n"
+            f"システム通知内容：『{raw_system_text}』"
+        )
+
+        # ⚡ 100t前後の超爆安単発通信（Gemini Flash-Lite駆動）
+        import google.generativeai as genai
+        model = genai.GenerativeModel("models/gemini-1.5-flash-lite")
+        response = model.generate_content(prompt)
+        clean_reply = response.text.strip() if response.text else raw_system_text
+        
+        return f"【{concierge_name}】: {clean_reply}"
+
+    except Exception as e:
+        # 万が一Gemini側が混雑等で落ちた場合の安全フォールバック（防衛線）
+        print(f"⚠️ 口調自動翻訳エラー: {e}")
+        return f"【{concierge_name}】: {raw_system_text}"
 
 # 🎨【プレミアム・劇的グラデーションカラーパレット】
 # 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
