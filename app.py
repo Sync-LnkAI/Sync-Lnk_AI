@@ -723,7 +723,7 @@ def generate_personality_error_msg(error_reason_text: str, current_instruction: 
 # ==========================================
 # 🛡️ コスト・利用制限（ガードレール）関数
 # ==========================================
-def check_and_update_limits(user_id: str) -> tuple[bool, str]:
+def check_and_update_limits(user_id: str, user_plan: str) -> tuple[bool, str, int, int]:
     """
     ユーザーの利用制限（1分3通、1日20通）をチェックし、問題なければカウントを更新する。
     無料プラン（フリー）のみ1日20通の制限をかけ、有料プランはすり抜けさせます。
@@ -769,13 +769,13 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             daily_chat_count = 0
             
         # 【防壁2】 1日20通制限
-        current_plan = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        if current_plan == "🆓 無料プラン":
-            max_limit = 20  # 無料ユーザーは1日20通まで
-        elif "ライト" in current_plan:
-            max_limit = 100 # 🥈 ライトプランは1日100通制限！
+        clean_plan = str(user_plan)
+        if "無料" in clean_plan or "free" in clean_plan.lower():
+            max_limit = 20
+        elif "ライト" in clean_plan:
+            max_limit = 100
         else:
-            max_limit = 99999 # 💎 プレミアムプランは完全無制限（すり抜け）
+            max_limit = 99999
 
         # 判定：それぞれのプランの上限を超えていたらブロック
         if daily_chat_count >= max_limit:
