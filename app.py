@@ -743,7 +743,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             return True, ""
             
         usage = res.data[0]
-        last_chat_at = datetime.fromisoformat(usage["last_chat_at"])
+        last_chat_at = datetime.fromisoformat(usage["last_chat_at"].replace("Z", "+00:00")).astimezone(JST)
         daily_chat_count = usage["daily_chat_count"]
         
         # 【防壁1】 1分3通制限（20秒以内の連投ブロック）
