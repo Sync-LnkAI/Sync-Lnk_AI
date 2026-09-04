@@ -1123,6 +1123,19 @@ with all_tabs[0]:
                     err_msg = generate_personality_error_msg(reason_text, current_user_instruction)
                     with st.chat_message("assistant", avatar=current_ai_avatar):
                         st.write(f"【{current_concierge_name}】: {err_msg}")
+                    
+                    # 制限接触ログの保存
+                    save_system_audit_log(
+                        user_id=CURRENT_USER_ID,
+                        plan_type=current_plan_type,
+                        event_type=str(alert_code), # 🔑 ここに合言葉を直結
+                        processing_time=0.0,
+                        in_t=0,
+                        out_t=0,
+                        api_cost=0.0,
+                        details=str(reason_text)
+                    )
+
                 else:
                     with st.chat_message("user", avatar=current_user_avatar):
                         st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
