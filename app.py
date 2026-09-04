@@ -1136,15 +1136,14 @@ with all_tabs[0]:
                 if not is_allowed:
                     increment_error_analytics(alert_code, current_plan_type)
                     reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
-                    err_msg = generate_personality_error_msg(reason_text, current_user_instruction)
                     with st.chat_message("assistant", avatar=current_ai_avatar):
-                        st.write(f"【{current_concierge_name}】: {err_msg}")
+                        st.write(f"【{current_concierge_name}】: {reason_text}")
                     
                     # 制限接触ログの保存
                     save_system_audit_log(
                         user_id=CURRENT_USER_ID,
                         plan_type=current_plan_type,
-                        event_type=str(alert_code), # 🔑 ここに合言葉を直結
+                        event_type=str(alert_code),
                         processing_time=0.0,
                         in_t=0,
                         out_t=0,
