@@ -1128,7 +1128,7 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
         
-        _, _, db_count, db_max = check_and_update_limits(CURRENT_USER_ID)
+        _, _, db_count, db_max = check_and_update_limits(CURRENT_USER_ID, current_plan_type)
         st.info(f"📊【リアルタイム監査】 DBの会話数: {db_count}回 ｜ 計算上の上限値: {db_max}回 ｜ 現在のプラン: {current_plan_type}")
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
@@ -1138,7 +1138,7 @@ with all_tabs[0]:
                 with st.chat_message("assistant", avatar=current_ai_avatar):
                     st.write(f"【{current_concierge_name}】: {err_msg}")
             else:
-                is_allowed, alert_code, _, _ = check_and_update_limits(CURRENT_USER_ID)
+                is_allowed, alert_code, _, _ = check_and_update_limits(CURRENT_USER_ID, current_plan_type)
                 if not is_allowed:
                     increment_error_analytics(alert_code, current_plan_type)
                     reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
