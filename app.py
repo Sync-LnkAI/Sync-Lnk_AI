@@ -789,7 +789,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
     except Exception as e:
         # ⚠️ 万が一の例外発生時、コンソールへ本物のエラー内容を明大露出させて隠蔽を防ぎます
         print(f"⚠️ check_and_update_limits 内部大クラッシュ: {e}")
-        return False, f"ERROR: {str(e)}", 0, 0
+        return False, f"ERROR: {str(e)}", 99, 99
         
     #except Exception as e:
     #    return False, f"ERROR: {str(e)}"
