@@ -87,18 +87,6 @@ if "tokens_loaded" not in st.session_state:
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
-    try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        # 💡 上部も最下部と同じく、DBのchat_count行（res.data[0]）からリセット後の正しい会話回数を復元させます
-        if res.data and len(res.data) > 0:
-            st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
-        else:
-            st.session_state.conversation_count = 0
-    except Exception as e:
-        print(f"⚠️ 会話回数同期エラー: {e}")
-        st.session_state.conversation_count = 0
-        
-    st.session_state["tokens_loaded"] = True
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -138,9 +126,6 @@ if "debug_logs" not in st.session_state:
     st.session_state.debug_logs = []
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
-
-if "tokens_loaded" not in st.session_state:
-    load_permanent_tokens(CURRENT_USER_ID)
 
 # プリセット定義
 STYLE_PRESETS = {
@@ -213,12 +198,24 @@ def get_messages(target_id: str) -> list[dict]:
 
 def save_message(role: str, content: str) -> bool:
     """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
+    
+    embedding_data = None
+    
     try:
         embedding_data = get_embedding(
             content,
             task_type="RETRIEVAL_DOCUMENT"
         )
+    except Exception as emb_err:
+        print(
+            f"⚠️ Embedding生成失敗: "
+            f"{type(emb_err).__name__}: {emb_err}"
+            f"{emb_err}"
+        )
+    
+        embedding_data = None
 
+    try:
         data = {
             "user_id": CURRENT_USER_ID,
             "role": role,
@@ -229,8 +226,13 @@ def save_message(role: str, content: str) -> bool:
         supabase.table("messages").insert(data).execute()
         return True
 
-    except Exception as e:
-        st.error(f"メッセージ保存エラー: {e}")
+    except Exception as db_err:
+        st.error(
+            f"メッセージ保存エラー: "
+            f"{type(db_err).__name__}: {db_err}"
+            f"{db_err}"
+        )
+        
         return False
 
 # ==================================================================
@@ -1436,7 +1438,6 @@ with all_tabs[0]:
                     contents_for_gemini = [
                         {"role": "user", "parts": [user_input]}
                     ]
-                    #contents_for_gemini = []
 
                     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
@@ -1488,7 +1489,6 @@ with all_tabs[0]:
                             args=(0, all_messages_updated, current_msg_id) 
                         )
                         async_thread.start()
-                        async_thread.join(timeout=2.0) # 裏の要約処理の完了を最大2秒間待ってデータを同期
 
                         # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                         save_system_audit_log(
@@ -1849,13 +1849,3 @@ if is_admin:
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
 
-# ==================================================================
-# 📊 【完全修正】起動時の永久トークン同期処理（最下部・完全防衛ロック仕様）
-# ==================================================================
-if not st.session_state.get("tokens_loaded", False):
-    try:
-        res = supabase.table("user_token_stats").select("*").eq("user_id", str(CURRENT_USER_ID)).eq("feature_type", "chat_count").execute()
-        if res.data and len(res.data) > 0: st.session_state.conversation_count = res.data[0].get("in_tokens", 0)
-        else: st.session_state.conversation_count = 0
-    except Exception: st.session_state.conversation_count = 0
-    st.session_state["tokens_loaded"] = True
