@@ -1498,7 +1498,7 @@ if is_admin:
                     for log in audit_data:
                         u_id = log.get("user_id", "unknown")
                         plan = log.get("user_plan", "🆓 無料プラン")
-                        action = log.get("action", "")
+                        action = log.get("event_type", log.get("action", ""))
                         cost = log.get("total_yen_cost", 0.0) # 最新の実費カラムに完全シンク！
                         c_at_str = log.get("created_at", "")
                         
