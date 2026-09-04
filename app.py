@@ -42,12 +42,11 @@ memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
 summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
 
 # Gemini 3.5 Flash-Lite 従量課金単価定義（1ドル150円換算）
+USD_TO_JPY = 160
 LITE_INPUT_PRICE_PER_MILLION = 0.30
 LITE_OUTPUT_PRICE_PER_MILLION = 2.50
-PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * 150
-PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * 150
-
-USD_TO_JPY = 160
+PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -601,7 +600,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
             sum_in_cost = (int(in_t) / 1000000) * 0.075
             sum_out_cost = (int(out_t) / 1000000) * 0.30
-            sum_yen = (sum_in_cost + sum_out_cost) * 150.0
+            sum_yen = (sum_in_cost + sum_out_cost) * USD_TO_JPY
 
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
             save_system_audit_log(
@@ -641,53 +640,49 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
     try:
         # 1. 2026年最新の日本円コストを丸め処理
         rounded_cost = round(float(api_cost), 4)
-        rounded_time = round(float(processing_time), 2)
+        rounded_chat_time = round(float(processing_time), 2)
+        rounded_search_time = round(float(search_time), 2)
 
         # 2. ⚡【新旧完全マージ構造】 
         # 既存のカラムを維持したまま、右側の新設詳細カラム（chat_processing_time等）へも
         data = {
-            # 📄 既存の基本カラムへの格納（ファクトの維持）
             "user_id": str(user_id),
             "user_plan": str(plan_type),
             "event_type": str(event_type),
-            "processing_time": rounded_time,
+            "processing_time": rounded_chat_time,
             "in_tokens": int(in_t),
             "out_tokens": int(out_t),
             "api_cost": rounded_cost,
             "details": str(details),
-            
-            # ✨【大開通！】 新しくSQLで増設した右側の詳細明細カラムへの全自動分配配線！
-            "chat_processing_time": rounded_time,
-            "chat_in_tokens": int(in_t),
-            "chat_out_tokens": int(out_t),
-            "total_yen_cost": rounded_cost,
-            "total_processing_time": rounded_time,
-            
-            # 🧠 裏スレッド自動要約の最新データがセッションにあれば、それも同時にこの1行へガチッとマージ！
-            "summary_processing_time": float(st.session_state.get("summary_processing_time", 0.0)),
-            "summary_in_tokens": int(st.session_state.get("summary_in_tokens", 0)),
-            "summary_out_tokens": int(st.session_state.get("summary_out_tokens", 0)),
-            
-            # 🔍 将来拡張用の検索コンポーネントの初期化
-            "search_processing_time": 0.0,
-            "search_in_tokens": 0,
-            "search_out_tokens": 0,
-            # ✨message_idをセット
             "created_at": datetime.now(JST).isoformat(),
-
             "message_id": str(message_id)
         }
+
+        # イベントの種別を識別してデータベースに格納
+        if str(event_type) == "SUMMARY_SUCCESS":
+            data["summary_processing_time"] = rounded_chat_time
+            data["summary_in_tokens"] = int(in_t)
+            data["summary_out_tokens"] = int(out_t)
+
+            data["chat_processing_time"] = 0.0
+            data["chat_in_tokens"] = 0
+            data["chat_out_tokens"] = 0
+            data["total_yen_cost"] = rounded_cost
+            data["total_processing_time"] = rounded_chat_time
+        else:
+            data["chat_processing_time"] = rounded_chat_time
+            data["chat_in_tokens"] = int(in_t)
+            data["chat_out_tokens"] = int(out_t)
+            data["search_processing_time"] = rounded_search_time
+            data["search_in_tokens"] = 0
+            data["search_out_tokens"] = 0
+
+            data["summary_processing_time"] = 0.0
+            data["summary_in_tokens"] = 0
+            data["summary_out_tokens"] = 0
+            data["total_yen_cost"] = rounded_cost
+            data["total_processing_time"] = round(float(rounded_chat_time + rounded_search_time), 2)
         
-        data["search_processing_time"] = round(float(search_time), 2)
-        data["search_in_tokens"] = 0 # トークンは現在空振り防衛中のため 0 固定で安全に維持します
-        data["search_out_tokens"] = 0
-
-        data["chat_processing_time"] = round(float(processing_time), 2)
-        data["chat_in_tokens"] = int(in_t)
-        data["chat_out_tokens"] = int(out_t)
-        data["total_yen_cost"] = round(float(api_cost), 4)
-        data["total_processing_time"] = round(float(processing_time + search_time), 2) # 総処理時間に検索秒数も正しく合算します
-
         # Supabaseの金庫へ完全大着金！
         supabase.table("system_audit_logs").insert(data).execute()
 
