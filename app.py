@@ -757,11 +757,18 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         if now_jst.date() > last_chat_jst.date():
             daily_chat_count = 0
             
-        # 【防壁2】 1日20通制限（無料ユーザーのみ適用）
-        current_plan = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        if current_plan == "🆓 無料プラン" and daily_chat_count >= DAILY_LIMIT:
+        # 【防壁2】 1日20通制限
+        if current_plan == "🆓 無料プラン":
+            max_limit = 20  # 無料ユーザーは1日20通まで
+        elif "ライト" in current_plan:
+            max_limit = 100 # 🥈 ライトプランは1日100通制限！
+        else:
+            max_limit = 99999 # 💎 プレミアムプランは完全無制限（すり抜け）
+
+        # 判定：それぞれのプランの上限を超えていたらブロック
+        if daily_chat_count >= max_limit:
             return False, "DAILY_LIMIT_EXCEEDED"
-            
+
         # 2. 制限をクリアしたため、DBのカウントを更新
         supabase.table("user_usage_limits").update({
             "daily_chat_count": daily_chat_count + 1,
@@ -1103,12 +1110,7 @@ with all_tabs[0]:
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         all_messages = get_messages(CURRENT_USER_ID)
-        for msg in all_messages:
-            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            with st.chat_message(msg["role"], avatar=avatar_img):
-                st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
-
+        
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
@@ -1289,6 +1291,12 @@ with all_tabs[0]:
                             error_detail[:500],
                             message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                         )
+
+        for msg in reversed(all_messages):
+            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
+            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
+            with st.chat_message(msg["role"], avatar=avatar_img):
+                st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
