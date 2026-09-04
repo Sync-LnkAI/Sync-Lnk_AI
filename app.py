@@ -745,10 +745,13 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         usage = res.data[0]
 
         # データベースから届いた本物の時間データを直接 .astimezone(JST) へ
-        raw_last_at = usage["last_chat_at"]
-        if isinstance(raw_last_at, str):
-            # 万が一文字列で届いた場合の安全弁
-            last_chat_jst = datetime.fromisoformat(raw_last_at.replace("Z", "+00:00")).astimezone(JST)
+        raw_last_at = usage("last_chat_at", "")
+        if not raw_last_at:
+            last_chat_jst = now
+        elif isinstance(raw_last_at, str):
+            # 文字列で届いた場合は、末尾の時差記号のブレを綺麗にお掃除してJSTへ直結
+            clean_date_str = raw_last_at.replace("Z", "").split("+")[0]
+            last_chat_jst = datetime.fromisoformat(clean_date_str).replace(tzinfo=JST)
         else:
             # 直接時間型として日本時間（JST）
             last_chat_jst = raw_last_at.astimezone(JST)
