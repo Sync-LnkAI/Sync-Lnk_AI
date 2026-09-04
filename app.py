@@ -767,7 +767,7 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             
         # 【防壁2】 1日20通制限
         current_plan = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-         if current_plan == "🆓 無料プラン":
+        if current_plan == "🆓 無料プラン":
             max_limit = 20  # 無料ユーザーは1日20通まで
         elif "ライト" in current_plan:
             max_limit = 100 # 🥈 ライトプランは1日100通制限！
