@@ -743,7 +743,17 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             return True, ""
             
         usage = res.data[0]
-        last_chat_at = datetime.fromisoformat(usage["last_chat_at"].replace("Z", "+00:00")).astimezone(JST)
+
+        # データベースから届いた本物の時間データを直接 .astimezone(JST) へ
+        raw_last_at = usage["last_chat_at"]
+        if isinstance(raw_last_at, str):
+            # 万が一文字列で届いた場合の安全弁
+            last_chat_jst = datetime.fromisoformat(raw_last_at.replace("Z", "+00:00")).astimezone(JST)
+        else:
+            # 直接時間型として日本時間（JST）
+            last_chat_jst = raw_last_at.astimezone(JST)
+            
+        # 🪙 カウント数も型安全を100%保証して引っこ抜きます
         daily_chat_count = int(usage.get("daily_chat_count", 0))
         
         # 【防壁1】 1分3通制限（20秒以内の連投ブロック）
@@ -752,13 +762,12 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
             
         # 日本時間に変換して日付を正確に比較
         now_jst = now.astimezone(JST)
-        last_chat_jst = last_chat_at.astimezone(JST)
-        
         if now_jst.date() > last_chat_jst.date():
             daily_chat_count = 0
             
         # 【防壁2】 1日20通制限
-        if current_plan == "🆓 無料プラン":
+        current_plan = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+         if current_plan == "🆓 無料プラン":
             max_limit = 20  # 無料ユーザーは1日20通まで
         elif "ライト" in current_plan:
             max_limit = 100 # 🥈 ライトプランは1日100通制限！
@@ -778,7 +787,12 @@ def check_and_update_limits(user_id: str) -> tuple[bool, str]:
         return True, ""
         
     except Exception as e:
+        # ⚠️ 万が一の例外発生時、コンソールへ本物のエラー内容を明大露出させて隠蔽を防ぎます
+        print(f"⚠️ check_and_update_limits 内部大クラッシュ: {e}")
         return False, f"ERROR: {str(e)}"
+        
+    #except Exception as e:
+    #    return False, f"ERROR: {str(e)}"
 
 # 🎨【プレミアム・劇的グラデーションカラーパレット】
 # 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
