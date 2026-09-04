@@ -1135,7 +1135,7 @@ with all_tabs[0]:
                 with st.chat_message("assistant", avatar=current_ai_avatar):
                     st.write(f"【{current_concierge_name}】: {err_msg}")
             else:
-                is_allowed, alert_code = check_and_update_limits(CURRENT_USER_ID)
+                is_allowed, alert_code, _, _ = check_and_update_limits(CURRENT_USER_ID)
                 if not is_allowed:
                     increment_error_analytics(alert_code, current_plan_type)
                     reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
