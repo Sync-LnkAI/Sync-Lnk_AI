@@ -1089,16 +1089,20 @@ st.markdown(f"""
 is_admin = CURRENT_USER_ID in ADMIN_USER_ID
 
 if is_admin:
-    # 👑【管理者専用画面】：管理者限定の3つの隠しタブを作成
-    tab1, tab2, tab3, tab4 = st.tabs(["💬 トークルーム", "🎨 話し方・見た目設定", "📊 システム管理者管理","テスター用全データ履歴"])
-    
-    # ------------------------------------------------------------------
-    # 💬 【管理者・タブ1】 おしゃべりの部屋
-    # ------------------------------------------------------------------
-    with tab1:       
+    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
+else:
+    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定"]
+
+# 🎪 【タブの一括展開】
+# Streamlitのタブを動的に生成
+all_tabs = st.tabs(tab_titles)
+
+# ------------------------------------------------------------------
+# 💬 【タブ1】 トークルーム
+# ------------------------------------------------------------------
+with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-        #current_plan_type = "💎 プレミアムプラン"
 
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
@@ -1276,10 +1280,10 @@ if is_admin:
                             message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                         )
 
-    # ------------------------------------------------------------------
-    # 🎨 【管理者・タブ2】 キャラクター・見た目設定画面
-    # ------------------------------------------------------------------
-    with tab2:
+# ------------------------------------------------------------------
+# 🎨 【タブ2】 話し方・見た目設定
+# ------------------------------------------------------------------
+with all_tabs[1]:
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
@@ -1343,10 +1347,11 @@ if is_admin:
                 st.success("設定を更新しました")
                 st.rerun()
 
+if is_admin:
     # ──────────────────────────────────────────
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
-    with tab3:
+    with all_tabs[2]:
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -1549,10 +1554,9 @@ if is_admin:
                     st.error(f"データ集計中にエラーが発生しました: {ana_err}")
 
     # ==========================================
-# 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
-# ==========================================
-if is_admin and tab4:
-    with tab4:
+    # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
+    # ==========================================
+    with all_tabs[3]:
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
         
@@ -1594,225 +1598,6 @@ if is_admin and tab4:
                 st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
-
-# ==================================================================
-# 🆓👤【一般テスター・無料ユーザー画面】（管理者以外には隠す部屋）
-# ==================================================================
-else:
-    # 💡 管理者以外のテスター画面には、タブ1（チャット）とタブ2（設定）の2つだけを対等に並べます
-    tab1, tab2 = st.tabs(["💬 トークルーム", "🎨 話し方・見た目設定"])
-    
-    # ------------------------------------------------------------------
-    # 💬 【一般・タブ1】 おしゃべりの部屋
-    # ------------------------------------------------------------------
-    with tab1:
-        display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
-
-        #st.title(f"💬 {current_concierge_name}の部屋")
-        #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
-
-        all_messages = get_messages(CURRENT_USER_ID)
-        for msg in all_messages:
-            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            with st.chat_message(msg["role"], avatar=avatar_img):
-                st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
-
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
-            if len(user_input) > MAX_INPUT_CHARS:
-                increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
-                err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
-                with st.chat_message("assistant", avatar=current_ai_avatar):
-                    st.write(f"【{current_concierge_name}】: {err_msg}")
-            else:
-                is_allowed, alert_code = check_and_update_limits(CURRENT_USER_ID)
-                if not is_allowed:
-                    increment_error_analytics(alert_code, current_plan_type)
-                    reason_text = "20秒以内の連投制限に接触しました" if alert_code == "BURST_LIMIT" else "1日20通の無料会話上限に達しました"
-                    err_msg = generate_personality_error_msg(reason_text, current_user_instruction)
-                    with st.chat_message("assistant", avatar=current_ai_avatar):
-                        st.write(f"【{current_concierge_name}】: {err_msg}")
-                else:
-                    with st.chat_message("user", avatar=current_user_avatar):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-                    
-                    search_start_time = time.time()
-                    past_logs_context = search_past_logs_hybrid(user_input)
-                    search_elapsed = time.time() - search_start_time
-                        
-                    if past_logs_context:
-                        logs_text = []
-                        for log in past_logs_context:
-                            role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                            logs_text.append(f"・{role_name}: {log.get('content', '')}")
-                        past_logs_str = "\n".join(logs_text)
-                    else: past_logs_str = "該当する過去ログなし"
-
-                    save_message("user", user_input)
-                    all_messages.append({"role": "user", "content": user_input})
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
-
-                    manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
-                    current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
-
-                    # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書（一般用）
-                    system_instruction = f"""
-                    あなたの名前は「{current_concierge_name}」です。
-                    対話相手のユーザー名は「{display_user_name}」です。
-                    あなたの一人称は「{current_first_person}」を使用してください。
-                    【現在の日本時間】\n{current_time_str}
-                    💡【時間帯に合わせた自律的な心配・声かけルール】
-                    現在の「時間帯」を見て、あなた自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
-                    ・深夜（23:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
-                    ・未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。
-                    ・早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
-                    ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください。
-                    【応答スタイル・重複表現の厳禁ルール】
-                    ・直前の対話において、あなたが発言した特定のフレーズ、言い回し、または特定の心配事や定型句（例：「〜無理してないといいけど心配だよ」「〜大丈夫？」等の特定の表現）を、新しいメッセージの冒頭や文中でオウム返しのように連続して何度も使い回す行為は【絶対禁止（厳禁）】とします。
-                    ・ユーザーが新しい日常の話題（料理、家族、学校、仕事、日常の出来事など）へとタイムラインを展開してきた場合は、過去の特定の言い回しや文脈の残像に囚われることなく、その都度、新しく届いたテキストに対して新鮮なリアクションと親身な言葉を選び、あなたが現在設定されているキャラクターの口調・方言・世界観を100%完璧に維持したまま一直線におしゃべりしてください。
-                    【過去の事実と今日の事実の分離ルール】
-                    ・ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、あなたの「今日の返答」が正しい事実であるならば、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。
-                    ・「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、過去と現在の時系列の辻褄を100%完璧に仕分けた上で、スマートかつ自然に過去の記憶だけを訂正しておしゃべりを広げてください。
-                    【応答スタイル】
-                    【対話の時系列・コンテキストの矛盾検知ルール】
-                    ・ユーザーが直前のやり取りで「おやすみ」「もう寝るね」「また明日」といった【対話を終了・切断する明確な発言】をしていたにもかかわらず、日付を跨がず、かつ時間的にも地続きの連続したタイムライン上で、何事もなかったかのように【新しい別の日常の話題】を続けて送信してきた場合、機械的に流して平然と返事をしては【絶対禁止】とします。
-                    ・この時間軸や心理的な文脈の矛盾を検知した場合は、必ずセリフの冒頭で「あれ？さっきもう寝るって言ってなかった？笑」「まだ起きてたの？」といった風に、あなたが現在設定されているキャラクターの口調・世界観（方言やキャラクター性）を100%完璧に維持したまま、【人間らしい自然なツッコミ・問い返し】を必ず1文挟んでください。
-                    ・そのツッコミを入れた上で、地続きでユーザーの新しい話題（料理、学校、忘れ物、日常の出来事など）に対して、親身になってキャラクターの口調のままおしゃべりを広げてください。
-                    {current_user_instruction}
-                    【ユーザーが手動登録した基本情報】
-                    {manual_memory_context}
-                    【現在の発言に関連する過去の会話】
-                    {past_logs_str}
-                    【記憶の利用ルール】
-                    ・過去ログは、現在の話題と自然な関連がある場合だけ使ってください。過去ログにない内容を作らないでください。すべての回答で無理に過去の記憶を持ち出さないでください。ユーザーが明確に話していない感情や事情を決めつけないでください。回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
-                    ★【最重要：過去ログ内の相対時間の誤認防止ルール】
-                    ・過去のメッセージ履歴（recent_messages）に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についている【タイムスタンプの時点を基準にした相対的な言葉】です。現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。
-                    ★【絶対厳守：作業・クリエイティブ無茶振りの完全ガードルール】
-                    ・もし、システムによる事前検知の網をすり抜けて、ユーザーから「プログラムのコードを書いて（教えて）」「画像を生成して（描いて）」「長文を執筆・翻訳して」という専門的・技術的命令をされた場合は、それらを【絶対に実行・出力してはいけません（完全禁止）】。
-                    ・その場合は現在のあなたのキャラクターを完璧に維持したまま、画像作成やコード生成は専門外であることを3行以内で愛らしくスマートに返し、毅然と優しく100%お断り（抑制）してください。
-                    """
-
-                    contents_for_gemini = []
-                    for m in recent_messages:
-                        role = "user" if m["role"] == "user" else "model"
-                        msg_time_str = ""
-                        if "created_at" in m and m["created_at"]:
-                            try:
-                                msg_dt = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00")).astimezone(JST)
-                                msg_time_str = f"[{msg_dt.strftime('%A %H:%M')}] "
-                            except Exception: pass
-                        contents_for_gemini.append({"role": role, "parts": [f"{msg_time_str}{m['content']}"]})
-
-                    try:
-                        api_start_time = time.time()
-                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
-                        api_elapsed = time.time() - api_start_time
-
-                        in_t, out_t = 0, 0
-                        if hasattr(response, "usage_metadata") and response.usage_metadata:
-                            in_t = response.usage_metadata.prompt_token_count
-                            out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                            st.session_state.last_in_tokens = in_t
-                            st.session_state.last_out_tokens = out_t
-                            st.session_state.total_in_tokens += in_t
-                            st.session_state.total_out_tokens += out_t
-
-                        ai_reply = response.text
-                        clean_reply = clean_bold_markdown(ai_reply)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {clean_reply}")
-                            
-                        save_message("assistant", ai_reply)
-                        st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-
-                        current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "CHAT_SUCCESS", api_elapsed, in_t, out_t, current_通_cost, f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)")
-
-                    except Exception as gemini_err:
-                        increment_error_analytics("GEMINI_API_ERROR", current_plan_type)
-                        save_system_audit_log(CURRENT_USER_ID, current_plan_type, "GEMINI_API_ERROR", 0.0, 0, 0, 0.0, str(gemini_err)[:100])
-                        err_msg = generate_personality_error_msg("Gemini APIの通信エラーが発生しました", current_user_instruction)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {err_msg}")
-
-                    import threading
-                    def background_async_tasks(msgs, s_text):
-                        try: check_and_summarize_history(0, msgs, s_text)
-                        except Exception as bg_err: print(f"⚠️ バックグラウンド非同期処理エラー: {bg_err}")
-
-                    async_thread = threading.Thread(target=background_async_tasks, args=(recent_messages,  "なし"))
-                    async_thread.start()
-                    st.rerun()
-
-    # ------------------------------------------------------------------
-    # 🎨 【一般・タブ2】 キャラクター・見た目設定画面
-    # ------------------------------------------------------------------
-    with tab2:
-        st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
-
-        st.subheader("🎨 アプリの外観＆カラー")
-        with st.form("color_form_tab_user"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
-            if st.form_submit_button("カラー設定を保存"):
-                save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更しました")
-                st.rerun()
-
-        st.divider()
-        st.subheader("👤 AIコンシェルジュ設定")
-        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-        preset_keys = list(STYLE_PRESETS.keys())
-        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
-
-        with st.form("profile_form_tab_user"):
-            new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
-            new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
-
-            # 🎨 【大開通！】絵文字3段階パーソナライズドロップダウンを追加！
-            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）"], index=["使用（多め）", "使用（普通）", "使用（少なめ）"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）"] else 1)
-
-            st.markdown("【🖼️ アバター（アイコン）設定】")
-            col_a, col_u = st.columns(2)
-            with col_a:
-                ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
-                default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
-                ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
-                ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
-            with col_u:
-                user_preset_keys = list(AVATAR_PRESETS_USER.keys())
-                default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
-                user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
-                user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
-
-            selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
-            initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
-
-            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
-            current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
-
-            if st.form_submit_button("基本設定を保存"):
-                save_or_update_user_setting("AIの名前", new_concierge_name)
-                save_or_update_user_setting("ユーザー名", new_user_name)
-                save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                save_or_update_user_setting("AI一人称", new_first_person)
-                save_or_update_user_setting("口調プリセット", selected_preset)
-                save_or_update_user_setting("応答方針", new_instruction)
-                save_or_update_user_setting("AIアバター", ai_avatar_val)
-                save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                save_or_update_user_setting("会員プラン", new_plan)
-                save_or_update_user_setting("絵文字の量", new_emoji_setting)
-                st.success("設定を更新しました")
-                st.rerun()
 
 # ==================================================================
 # 📊 【完全修正】起動時の永久トークン同期処理（最下部・完全防衛ロック仕様）
