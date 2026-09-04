@@ -1337,23 +1337,23 @@ with all_tabs[0]:
                         "少し間を空けてから送ってください。"
                     )
 
-                elif alert_code == "DAILY_LIMIT_EXCEEDED":
-                    reason_text = (
-                        f"本日の会話上限"
-                        f"（{db_max}回）に達しました。"
-                    )
+                    elif alert_code == "DAILY_LIMIT_EXCEEDED":
+                        reason_text = (
+                            f"本日の会話上限"
+                            f"（{db_max}回）に達しました。"
+                        )
 
-                elif alert_code == "LIMIT_CHECK_ERROR":
-                    reason_text = (
-                        "利用回数を確認できませんでした。"
-                        "管理者ログを確認してください。"
-                    )
+                    elif alert_code == "LIMIT_CHECK_ERROR":
+                        reason_text = (
+                            "利用回数を確認できませんでした。"
+                            "管理者ログを確認してください。"
+                        )
 
-                else:
-                    reason_text = (
-                        "現在メッセージを送信できません。"
-                        f"コード: {alert_code}"
-                )
+                    else:
+                        reason_text = (
+                            "現在メッセージを送信できません。"
+                            f"コード: {alert_code}"
+                        )
 
                     with st.chat_message("assistant", avatar=current_ai_avatar):
                         st.write(f"【{current_concierge_name}】: {reason_text}")
