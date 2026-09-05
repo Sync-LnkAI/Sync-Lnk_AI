@@ -1866,7 +1866,7 @@ if is_admin:
                 user_list = sorted(list(set([u["user_id"] for u in all_tester_logs.data if u.get("user_id")])))
             else:
                 user_list = [CURRENT_USER_ID]
-        except Exception as名簿エラー:
+        except Exception as e_list:
             print(f"⚠️ 名簿取得エラー: {e_list}")
             user_list = [CURRENT_USER_ID]
 
