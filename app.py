@@ -1323,7 +1323,8 @@ st.markdown(f"""
     }}
     /* テキストエリア（.stTextArea textarea）をカンマで直結マージします！ */
     div.st-emotion-cache-vbnxax:focus-within,
-    div[data-baseweb="textarea"]:focus-within,
+    .stTextArea div[data-baseweb="textarea"]:focus-within,
+    .stTextArea div[data-baseweb="textarea"],
     div[data-baseweb="select"]:focus-within {{
         border-color: {theme_cfg['input_border']} !important;
         box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
