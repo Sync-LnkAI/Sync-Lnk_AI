@@ -1854,19 +1854,26 @@ if is_admin:
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
         
+                # ──────────────────────────────────────────────────────────────────
+        # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
+        # ──────────────────────────────────────────────────────────────────
         try:
-            # データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
+            # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
             all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(100).execute()
             
-            # テスターの名簿リスト作成
-            user_list = sorted(list(set([u["user_id"] for u in all_users_res.data if u.get("user_id")])))
-        except Exception:
-            user_list = [CURRENT_USER_ID] # 万が一取得失敗した場合は自分自身の固定IDをフォールバック
+            # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
+            if all_tester_logs.data:
+                user_list = sorted(list(set([u["user_id"] for u in all_tester_logs.data if u.get("user_id")])))
+            else:
+                user_list = [CURRENT_USER_ID]
+        except Exception as名簿エラー:
+            print(f"⚠️ 名簿取得エラー: {名簿エラー}")
+            user_list = [CURRENT_USER_ID]
 
         if not user_list:
             user_list = [CURRENT_USER_ID]
         
-        # ユーザー切り替えプルダウンを表示
+        # 🎨 ユーザー切り替えプルダウンを最上部に美しく表示
         st.markdown("### 👥 テスター選択（管理者権限）")
         selected_target_user_id = st.selectbox(
             "テスターのIDを選択してください",
@@ -1877,38 +1884,38 @@ if is_admin:
         st.write(f"📁 現在表示中のターゲット: `{selected_target_user_id}`")
         st.divider()
 
-        if all_tester_logs.data:
-            # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
-            grouped_logs = {}
-            for log in all_tester_logs.data:
-                uid = log.get("user_id", "unknown")
-                if uid not in grouped_logs:
-                    grouped_logs[uid] = []
-                grouped_logs[uid].append(log)
+        # プルダウンで選択肢したテスターのログを表示
+        try:
+            if all_tester_logs.data:
+                grouped_logs = {}
+                for log in all_tester_logs.data:
+                    uid = log.get("user_id", "unknown")
+                    if uid not in grouped_logs:
+                        grouped_logs[uid] = []
+                    grouped_logs[uid].append(log)
 
-            # 各テスターごとにタイムラインを画面に整列して出力
-            for uid, logs in grouped_logs.items():
-                # 管理者（リュウさん自身）の会話ログは監査のノイズになるため一覧からスキップ
-                if uid == ADMIN_USER_ID:
-                    continue
-                        
-                st.markdown(f"### 👤 テスターID: `{uid}`")
+                # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
+                if selected_target_user_id in grouped_logs:
+                    logs = grouped_logs[selected_target_user_id]
                     
-                # 該当テスターの会話の往復履歴を時系列に沿って表示
-                for l in logs:
-                    role = l.get("role", "user")
-                    content = l.get("content", "")
-                    created_at = l.get("created_at", "")
-                    # 見やすい時間表記（YYYY-MM-DD HH:MM）へと文字列をトリミング
-                    clean_time = created_at.replace("T", " ")[:16]
+                    st.markdown(f"### 👤 テスターID: `{selected_target_user_id}`")
                         
-                    if role == "user":
-                        st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
-                    else:
-                        st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
-                st.markdown("---")
-        else:
-            st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
+                    # 該当テスターの会話の往復履歴を時系列に沿って表示
+                    for l in logs:
+                        role = l.get("role", "user")
+                        content = l.get("content", "")
+                        created_at = l.get("created_at", "")
+                        clean_time = created_at.replace("T", " ")[:16]
+                            
+                        if role == "user":
+                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
+                        else:
+                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
+                    st.markdown("---")
+                else:
+                    st.info(f"テスター `{selected_target_user_id}` による会話の足跡は、まだデータベースに記録されていません。")
+            else:
+                st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
+                
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
-
