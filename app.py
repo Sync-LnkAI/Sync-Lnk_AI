@@ -1315,9 +1315,8 @@ st.markdown(f"""
         border: 1px solid {theme_cfg["input_border"]} !important;
         border-radius: 8px !important;
     }}
-    .stSelectbox div[data-baseweb="select"], 
-    .stSelectbox div[data-baseweb="select"]:focus-within,
-    .stSelectbox input {{
+    div.st-emotion-cache-vbnxax:focus-within,
+    div[data-baseweb="select"]:focus-within {{
         border-color: {theme_cfg['input_border']} !important;
         box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
         outline: none !important;
