@@ -1526,7 +1526,7 @@ with all_tabs[0]:
                             )
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
-                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME).generate_content(
+                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(
                                 json_instruction,
                                 generation_config={"response_mime_type": "application/json"}
                             )
