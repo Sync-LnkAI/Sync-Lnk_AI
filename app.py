@@ -1316,9 +1316,9 @@ st.markdown(f"""
 is_admin = CURRENT_USER_ID in ADMIN_USER_ID
 
 if is_admin:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
+    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
 else:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定"]
+    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
 
 # 🎪 【タブの一括展開】
 # Streamlitのタブを動的に生成
@@ -1918,3 +1918,5 @@ if is_admin:
                 
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
+    
+
