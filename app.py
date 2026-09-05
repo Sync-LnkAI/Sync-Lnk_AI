@@ -1316,8 +1316,8 @@ st.markdown(f"""
         border-radius: 8px !important;
     }}
     div[data-baseweb="select"]:focus-within {{
-        border-color: {current_theme['input_border']} !important;
-        box-shadow: 0 0 0 1px {current_theme['input_border']} !important;
+        border-color: {theme_cfg['input_border']} !important;
+        box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
     }}
  
  </style>
