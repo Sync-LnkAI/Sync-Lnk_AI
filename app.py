@@ -1320,6 +1320,7 @@ st.markdown(f"""
     .stSelectbox input {{
         border-color: {theme_cfg['input_border']} !important;
         box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
+        outline: none !important;
     }}
  
  </style>
