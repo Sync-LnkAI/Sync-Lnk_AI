@@ -1010,7 +1010,7 @@ THEMES = {
         "dropdown_text": "#1A1A1A"
     },
     "ホワイト": {
-        "bg": "linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 40%, #FFFFFF 70%, #F5F5F7 100%)",    # 純白の最軽量クリーン背景
+        "bg": "linear-gradient(135deg, #E6E8EB 0%, #F5F7FA 35%, #FFFFFF 70%, #E6E8EB 100%)",    # 純白の最軽量クリーン背景
         "text": "#31333F",                  # Streamlit標準の最も目に優しい濃厚な墨色文字
         "card_bg": "#F0F2F6",               # 過去ログの吹き出しを美しく引き立たせる薄いグレー
         "input_border": "#CCA300",          # ハヤト（沙也加）のアイコンと直結する狐色のアクセント線
@@ -1062,6 +1062,15 @@ THEMES = {
         "input_border": "#E53E3E",# 情熱的なファイヤーレッド
         "dropdown_bg": "#FFEBEE",
         "dropdown_text": "#5C0F08"
+    },
+    "レインボーポップ": {
+        # 🟢 【大開通！】 7色のパステルカラーが斜めに美しく溶け合う、圧倒的な遊び心のレインボー背景です！
+        "bg": "linear-gradient(135deg, #FFB7B2 0%, #FFDAC1 20%, #E2F0CB 40%, #B5EAD7 60%, #C7CEEA 80%, #FFB7B2 100%)",
+        "text": "#1A1A1A",                         # 文字がボヤけないように引き締まった墨色
+        "card_bg": "rgba(255, 255, 255, 0.75)",      # 白い吹き出しを75%シースルーにして、裏のレインボーを美しく大露出！
+        "input_border": "#FF6B6B",
+        "dropdown_bg": "#FFFFFF",
+        "dropdown_text": "#1A1A1A"
     }
 }
 
