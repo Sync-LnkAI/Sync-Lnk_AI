@@ -1543,8 +1543,9 @@ with all_tabs[0]:
                             
                             # 🟢 【大開通！】 届いたJSONデータを安全に解体して引き出しを取り出します
                             try:
+                                clean_json_text = response.text.strip().replace("```json", "").replace("```", "").strip()
                                 import json
-                                res_json = json.loads(response.text.strip())
+                                res_json = json.loads(clean_json_text)
                                 ai_reply = res_json.get("reply", "...")
                                 new_manner = res_json.get("new_instruction", "なし")
 
