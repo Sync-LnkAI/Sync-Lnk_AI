@@ -1315,9 +1315,11 @@ st.markdown(f"""
         border: 1px solid {theme_cfg["input_border"]} !important;
         border-radius: 8px !important;
     }}
-    .stSelectbox div[data-baseweb="select"] {{
-        border-color: {theme_cfg['input_border']} !important;
-        box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
+    .stSelectbox div[data-baseweb="select"], 
+    .stSelectbox div[data-baseweb="select"]:focus-within,
+    .stSelectbox input {{
+        border-color: {selected_theme['input_border']} !important;
+        box-shadow: 0 0 0 1px {selected_theme['input_border']} !important;
     }}
  
  </style>
