@@ -1070,8 +1070,8 @@ THEMES = {
 # ==========================================
 manual_memories = get_memories(source="manual")
 
-# 💡 【グラデーション適合】 初めて起動したまっさらな状態のユーザー向けの初期カラーテーマを「モノトーン調」にセットします！
-current_theme_color = "メタリック調"
+#  初めて起動したまっさらな状態のユーザー向けの初期値
+current_theme_color = "メタリック"
 current_concierge_name = "コンシェルジュ"
 current_user_name = "ユーザー"
 current_user_honorific = "さん"
@@ -1113,8 +1113,8 @@ for m in manual_memories:
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
-# 万が一古い選択肢が残っていても、安全弁として「モノトーン調」に自動着地させてエラーを300%永久防衛します！
-theme_cfg = THEMES.get(current_theme_color, THEMES["メタリック調"])
+# 万が一古い選択肢が残っていても、安全弁として「メタリック」に自動着地させてエラーを300%永久防衛します！
+theme_cfg = THEMES.get(current_theme_color, THEMES["メタリック"])
 
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
@@ -1686,7 +1686,7 @@ if is_admin:
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
             # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "メタリック調", "🆓 無料プラン"
+            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "メタリック", "🆓 無料プラン"
             audit_facts = []
             try:
                 u_memories = supabase.table("user_memories").select("*").eq("user_id", selected_audit_user).execute()
