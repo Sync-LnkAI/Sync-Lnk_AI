@@ -1501,8 +1501,22 @@ with all_tabs[0]:
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
                         try:
+                            # 🟢 ここがGeminiへの指示（プロンプト）の流し込み口です！
+                            json_instruction = (
+                                f"{system_instruction}\n\n" # ➔ 憲法（ハヤトの口調など）
+                                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                                "🚨 【絶対厳守の最終出力フォーマット】\n"
+                                "あなたは必ず、以下の2つのキーを持った『純粋なJSON形式』だけでデータを返却してください。余計な解説や、マークダウンの ```json のような囲み記号は200%絶対に含めず、純粋なJSON文字列だけを1行で出力すること。\n"
+                                '1. "reply": ユーザーへ返す、あなたのキャラクター口調のままの優しいお返事のセリフ（1行）。\n'
+                                '2. "new_instruction": 今回の会話の中から、ユーザーが新しく突きつけてきた「細かいおしゃべりマナーやこだわり、要望（例：結論を先に言って、簡潔に話して、等）」を発見した場合、次回からあなた自身を縛るための箇条書きの命令書（例：「・質問の回答を提示する際は…」等）へと美しく綺麗に要約・変換した文言（1行）を出力してください。新しいこだわりが一切見つからなかった場合は必ず「なし」と出力すること。\n'
+                                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                            )
                             api_start_time = time.time()
-                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
+                            # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
+                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME).generate_content(
+                                json_instruction,
+                                generation_config={"response_mime_type": "application/json"}
+                            )
                             api_elapsed = time.time() - api_start_time
 
                             in_t, out_t = 0, 0
@@ -1514,8 +1528,33 @@ with all_tabs[0]:
                                 st.session_state.last_out_tokens = out_t
                                 st.session_state.total_in_tokens += in_t
                                 st.session_state.total_out_tokens += out_t
+                            
+                            # 🟢 【大開通！】 届いたJSONデータを安全に解体して引き出しを取り出します
+                            try:
+                                import json
+                                res_json = json.loads(response.text.strip())
+                                ai_reply = res_json.get("reply", "...")
+                                new_manner = res_json.get("new_instruction", "なし")
+                            except Exception:
+                                ai_reply = response.text
+                                new_manner = "なし"
 
-                            ai_reply = response.candidates[0].content.parts[0].text
+                            # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
+                            if new_manner and new_manner != "なし" and "なし" not in new_manner:
+                                current_instruction_text = str(current_user_instruction)
+                                lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
+                            
+                                if new_manner not in lines:
+                                    lines.append(new_manner)
+                                    if len(lines) > 5:
+                                        lines = lines[-5:] # 常に最新の5個だけを切り取ってキープ
+                                    updated_instruction_text = "\n".join(lines)
+                                
+                                    # 📂 Supabaseの user_profiles の user_instruction のセルを安全にUpdate！
+                                    supabase.table("user_profiles").update({
+                                        "user_instruction": updated_instruction_text
+                                    }).eq("user_id", str(CURRENT_USER_ID)).execute()
+
                             clean_reply = clean_bold_markdown(ai_reply)
                             with st.chat_message("assistant", avatar=current_ai_avatar):
                                 st.write(f"【{current_concierge_name}】: {clean_reply}")
@@ -1523,7 +1562,6 @@ with all_tabs[0]:
                             save_message("assistant", ai_reply)
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-
                         
                             # メッセージIDの自動生成
                             import uuid
@@ -1636,9 +1674,14 @@ with all_tabs[1]:
 
             selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
             initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=initial_instruction)
+            new_instruction = st.text_area(
+                "具体的な口調・振る舞いの指示", 
+                value=str(current_user_instruction),
+                height=200,
+                help="あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。"
+            )
 
-            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 プレミアムプラン"]
+            plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
             current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
@@ -1870,7 +1913,7 @@ if is_admin:
                             "📋 分析項目（ユーザー需要のファクト）": item_name,
                             "🆓 無料プラン": f"{plans['free']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['free']:,} 日",
                             "💸 ライトプラン": f"{plans['light']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['light']:,} 日",
-                            "👑 プレミアムプラン": f"{plans['premium']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['premium']:,} 日"
+                            "👑 スタンダードプラン": f"{plans['premium']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['premium']:,} 日"
                         })
                     import pandas as pd
                     st.dataframe(pd.DataFrame(analytics_rows), hide_index=True, use_container_width=True)
