@@ -1068,7 +1068,7 @@ THEMES = {
         "bg": "linear-gradient(135deg, #FFB7B2 0%, #FFDAC1 20%, #E2F0CB 40%, #B5EAD7 60%, #C7CEEA 80%, #FFB7B2 100%)",
         "text": "#1A1A1A",                         # 文字がボヤけないように引き締まった墨色
         "card_bg": "rgba(255, 255, 255, 0.75)",      # 白い吹き出しを75%シースルーにして、裏のレインボーを美しく大露出！
-        "input_border": "#FF6B6B",
+        "input_border": "#3B82F6",
         "dropdown_bg": "#FFFFFF",
         "dropdown_text": "#1A1A1A"
     }
