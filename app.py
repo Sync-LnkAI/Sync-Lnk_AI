@@ -1858,8 +1858,8 @@ if is_admin:
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
         # ──────────────────────────────────────────────────────────────────
         try:
-            # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(100).execute()
+            # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
+            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(200).execute()
             
             # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
             if all_tester_logs.data:
@@ -1881,7 +1881,6 @@ if is_admin:
             index=user_list.index(CURRENT_USER_ID) if CURRENT_USER_ID in user_list else 0,
             key="admin_user_selector"
         )
-        st.write(f"📁 現在表示中のターゲット: `{selected_target_user_id}`")
         st.divider()
 
         # プルダウンで選択肢したテスターのログを表示
@@ -1908,9 +1907,9 @@ if is_admin:
                         clean_time = created_at.replace("T", " ")[:16]
                             
                         if role == "user":
-                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
+                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **{selected_target_user_id}**: 「 {content} 」")
                         else:
-                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
+                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **{current_concierge_name}**: {content}")
                     st.markdown("---")
                 else:
                     st.info(f"テスター `{selected_target_user_id}` による会話の足跡は、まだデータベースに記録されていません。")
