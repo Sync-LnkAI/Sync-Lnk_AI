@@ -147,14 +147,6 @@ AVATAR_PRESETS_USER = {
     "💫 キラキラ星": "💫", "🧑‍💻 エンジニア": "🧑‍💻", "🐉 ドラゴン": "🐉", "⚡ サンダー": "⚡", "👑 キング": "👑"
 }
 
-# カラーテーマ定義（デフォルト：ライドモード）
-COLOR_THEMES = {
-    "☀ ライドモード（白）": {"bg": "#ffffff", "card_bg": "#f8fafc", "input_border": "#0288d1", "text": "#0f172a", "dropdown_bg": "#ffffff", "dropdown_text": "#0f172a"},
-    "🔷 ダークブルー（濃紺）": {"bg": "#101f33", "card_bg": "#1a2d47", "input_border": "#3b82f6", "text": "#ffffff", "dropdown_bg": "#1a2d47", "dropdown_text": "#ffffff"},
-    "🌿 ナチュラルグリーン": {"bg": "#0f2e1b", "card_bg": "#194328", "input_border": "#10b981", "text": "#ffffff", "dropdown_bg": "#194328", "dropdown_text": "#ffffff"},
-    "💜 ディープパープル": {"bg": "#211132", "card_bg": "#321b4a", "input_border": "#a855f7", "text": "#ffffff", "dropdown_bg": "#321b4a", "dropdown_text": "#ffffff"}
-}
-
 # 画面上の不要な ** 記号を除去する関数
 def clean_bold_markdown(text: str) -> str:
     if not text:
@@ -1008,7 +1000,7 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
 # 🎨【プレミアム・劇的グラデーションカラーパレット】
 # 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
 THEMES = {
-     "メタリック調": {
+     "メタリック": {
         # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
         "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
         "text": "#1A1A1A",
@@ -1017,7 +1009,15 @@ THEMES = {
         "dropdown_bg": "#E0E0E0",
         "dropdown_text": "#1A1A1A"
     },
-    "モノトーン調": {
+    "🤍 ホワイト": {
+        "bg": "linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 40%, #FFFFFF 70%, #F5F5F7 100%)",    # 純白の最軽量クリーン背景
+        "text": "#31333F",                  # Streamlit標準の最も目に優しい濃厚な墨色文字
+        "card_bg": "#F0F2F6",               # 過去ログの吹き出しを美しく引き立たせる薄いグレー
+        "input_border": "#CCA300",          # ハヤト（沙也加）のアイコンと直結する狐色のアクセント線
+        "dropdown_bg": "#FFFFFF",           # プルダウンの背景もクリーンに白
+        "dropdown_text": "#31333F"          # プルダウンの文字も濃厚な墨色
+    },
+    "ダーク": {
         # 🔩 【極大強化】 スタートを圧倒的に明るいプレミアムアルミグレー（#55545B）にし、
         # 画面の中央（#1C1B1F）をすり抜けて、底の極小漆黒（#08080A）へと劇的に変化する垂直3層グラデーション！
         "bg": "linear-gradient(180deg, #55545B 0%, #1C1B1F 35%, #08080A 100%)",
@@ -1027,7 +1027,7 @@ THEMES = {
         "dropdown_bg": "#2D2C33",
         "dropdown_text": "#FFFFFF"
     },
-    "オーシャン風": {
+    "オーシャン": {
         # 🌊 【劇的強化】 白波のようなライトブルー（#E3F2FD）から、深海のディープブルー（#64B5F6）へ深く沈み込むグラデ
         "bg": "linear-gradient(180deg, #E3F2FD 0%, #90CDF4 50%, #64B5F6 100%)",
         "text": "#0A2540",        # コントラストをさらに強めた超濃紺文字
@@ -1036,7 +1036,7 @@ THEMES = {
         "dropdown_bg": "#EDF2F7",
         "dropdown_text": "#0A2540"
     },
-    "フォレスト風": {
+    "フォレスト": {
         # 🌳 【劇的強化】 爽やかな若葉色（#E8F5E9）から、どっしりとした深い木々の緑（#A5D6A7）へのディープグラデ
         "bg": "linear-gradient(180deg, #E8F5E9 0%, #A5D6A7 100%)",
         "text": "#0D2B0D",        # 森の奥深くをイメージした超濃緑文字
@@ -1045,7 +1045,7 @@ THEMES = {
         "dropdown_bg": "#F4FBF4",
         "dropdown_text": "#0D2B0D"
     },
-    "パステル調": {
+    "パステル": {
         # 🌸 【劇的強化】 柔らかなコーラルピンク（#FFF5F5）から、鮮やかなマゼンタ系ピンク（#FFB7B2）へのロマンチックグラデ
         "bg": "linear-gradient(180deg, #FFF5F5 0%, #FFD1D1 50%, #FFB7B2 100%)",
         "text": "#4A1525",        # より深みを増した濃厚ベリー文字
@@ -1054,7 +1054,7 @@ THEMES = {
         "dropdown_bg": "#FFF5F7",
         "dropdown_text": "#4A1525"
     },
-    "ウォーム調": {
+    "ウォーム": {
         # 🔥 【劇的強化】 燃える夕焼け橙（#FFF5F0）から、情熱の茜色・トワイライトレッド（#FF8A65）への超グラデ
         "bg": "linear-gradient(180deg, #FFF5F0 0%, #FFAB91 50%, #FF8A65 100%)",
         "text": "#5C0F08",        # 煉獄の芯を表すドッシリとした超濃赤文字
