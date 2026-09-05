@@ -1009,7 +1009,7 @@ THEMES = {
         "dropdown_bg": "#E0E0E0",
         "dropdown_text": "#1A1A1A"
     },
-    "🤍 ホワイト": {
+    "ホワイト": {
         "bg": "linear-gradient(135deg, #F5F5F7 0%, #FAFAFA 40%, #FFFFFF 70%, #F5F5F7 100%)",    # 純白の最軽量クリーン背景
         "text": "#31333F",                  # Streamlit標準の最も目に優しい濃厚な墨色文字
         "card_bg": "#F0F2F6",               # 過去ログの吹き出しを美しく引き立たせる薄いグレー
