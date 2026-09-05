@@ -1341,7 +1341,7 @@ with all_tabs[0]:
             welcome_text = (
                 f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
                 f"💬 **【はじめに】**\n"
-                f"まずはお隣の「話し方・見た目設定」タブを開いて、あなたのお好みの口調や呼び方を自由に設定してみてくださいね。設定が終わったら、この入力欄から何でも気軽に話しかけてください！\n\n"
+                f"まずは上部の「話し方・見た目設定」タブを開いて、あなたのお好みの口調や呼び方を自由に設定してみてくださいね。設定が終わったら、この入力欄から何でも気軽に話しかけてください！\n\n"
                 f"💡 **【アプリの特徴】**\n"
                 f"あなたとのおしゃべりの歴史（記憶）は裏側で大切に保管されて、時間が経ってもあなたとの歴史を忘れないスマートな会話が楽しめます。\n\n"
                 f"📜 詳しい使い方やプライバシー保護、利用上のルールについては、「利用規約」等のページを合わせてご確認ください。"
@@ -1858,6 +1858,25 @@ if is_admin:
             # データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大100件取得
             all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(100).execute()
             
+            # テスターの名簿リスト作成
+            user_list = sorted(list(set([u["user_id"] for u in all_users_res.data if u.get("user_id")])))
+        except Exception:
+            user_list = [CURRENT_USER_ID] # 万が一取得失敗した場合は自分自身の固定IDをフォールバック
+
+        if not user_list:
+            user_list = [CURRENT_USER_ID]
+        
+        # ユーザー切り替えプルダウンを表示
+        st.markdown("### 👥 テスター選択（管理者権限）")
+        selected_target_user_id = st.selectbox(
+            "テスターのIDを選択してください",
+            options=user_list,
+            index=user_list.index(CURRENT_USER_ID) if CURRENT_USER_ID in user_list else 0,
+            key="admin_user_selector"
+        )
+        st.write(f"📁 現在表示中のターゲット: `{selected_target_user_id}`")
+        st.divider()
+
             if all_tester_logs.data:
                 # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
                 grouped_logs = {}
