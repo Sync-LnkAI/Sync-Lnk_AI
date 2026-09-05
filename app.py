@@ -1412,7 +1412,7 @@ with all_tabs[0]:
                     with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
                         
                         with st.chat_message("user", avatar=current_user_avatar):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
+                            st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
 
                         search_start_time = time.time()
                         past_logs_context = search_past_logs_hybrid(user_input)
