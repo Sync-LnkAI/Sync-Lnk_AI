@@ -1315,7 +1315,11 @@ st.markdown(f"""
         border: 1px solid {theme_cfg["input_border"]} !important;
         border-radius: 8px !important;
     }}
-      
+    div[data-baseweb="select"]:focus-within {{
+        border-color: {current_theme['input_border']} !important;
+        box-shadow: 0 0 0 1px {current_theme['input_border']} !important;
+    }}
+ 
  </style>
 """, unsafe_allow_html=True)
 
