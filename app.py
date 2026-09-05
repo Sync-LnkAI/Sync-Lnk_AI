@@ -1318,8 +1318,8 @@ st.markdown(f"""
     .stSelectbox div[data-baseweb="select"], 
     .stSelectbox div[data-baseweb="select"]:focus-within,
     .stSelectbox input {{
-        border-color: {selected_theme['input_border']} !important;
-        box-shadow: 0 0 0 1px {selected_theme['input_border']} !important;
+        border-color: {theme_cfg['input_border']} !important;
+        box-shadow: 0 0 0 1px {theme_cfg['input_border']} !important;
     }}
  
  </style>
