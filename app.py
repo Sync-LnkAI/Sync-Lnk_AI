@@ -1322,6 +1322,14 @@ st.markdown(f"""
         outline: none !important;
     }}
     /* テキストエリア（.stTextArea textarea）をカンマで直結マージします！ */
+    .stTextInput div[data-baseweb="input"]:after,
+    .stTextArea div[data-baseweb="textarea"]:after,
+    .stSelectbox div[data-baseweb="select"]:after {{
+        background-color: {theme_cfg['input_border']} !important;
+        background-image: none !important;
+    }}
+
+    /* 念のため、外枠の標準の境界線と影も同一カラーへシンクさせて防衛線を2重に敷きます */
     .stTextInput div[data-baseweb="input"]:focus-within,
     .stTextArea div[data-baseweb="textarea"]:focus-within,
     .stSelectbox div[data-baseweb="select"]:focus-within {{
