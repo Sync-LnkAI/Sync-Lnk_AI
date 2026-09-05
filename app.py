@@ -1539,23 +1539,23 @@ with all_tabs[0]:
 
                             st.rerun()
 
-                    except Exception as gemini_err:
-                        error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
-                        print(f"🚨 チャット処理エラー: {error_detail}")
-                        st.error(f"チャット処理エラー: {error_detail}")
-                        increment_error_analytics("CHAT_PROCESSING_ERROR", current_plan_type)
+                        except Exception as gemini_err:
+                            error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
+                            print(f"🚨 チャット処理エラー: {error_detail}")
+                            st.error(f"チャット処理エラー: {error_detail}")
+                            increment_error_analytics("CHAT_PROCESSING_ERROR", current_plan_type)
                         
-                        save_system_audit_log(
-                            CURRENT_USER_ID,
-                            current_plan_type,
-                            "CHAT_PROCESSING_ERROR",
-                            0.0,
-                            0,
-                            0,
-                            0.0,
-                            error_detail[:500],
-                            message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
-                        )
+                            save_system_audit_log(
+                                CURRENT_USER_ID,
+                                current_plan_type,
+                                "CHAT_PROCESSING_ERROR",
+                                0.0,
+                                0,
+                                0,
+                                0.0,
+                                error_detail[:500],
+                                message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
+                            )
 
         for msg in reversed(all_messages):
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
