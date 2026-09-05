@@ -1410,135 +1410,134 @@ with all_tabs[0]:
                 else:
                     with st.chat_message("user", avatar=current_user_avatar):
                         st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-                    
-                    search_start_time = time.time()
-                    past_logs_context = search_past_logs_hybrid(user_input)
-                    search_elapsed = time.time() - search_start_time
+                    # 「考え中...」をフリッカー無しで点滅表示
+                    with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
+
+                        import time; time.sleep(3.0)
+
+                        search_start_time = time.time()
+                        past_logs_context = search_past_logs_hybrid(user_input)
+                        search_elapsed = time.time() - search_start_time
                         
-                    if past_logs_context:
-                        logs_text = []
-                        for log in past_logs_context:
-                            role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                            raw_date = log.get("created_at", "")
-                            clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
-                            logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
-                        past_logs_str = "\n".join(logs_text)
-                    else:
-                        past_logs_str = "該当する過去ログなし"
+                        if past_logs_context:
+                            logs_text = []
+                            for log in past_logs_context:
+                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
+                                raw_date = log.get("created_at", "")
+                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
+                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
+                            past_logs_str = "\n".join(logs_text)
+                        else:
+                            past_logs_str = "該当する過去ログなし"
 
-                    save_message("user", user_input)
-                    all_messages.append({"role": "user", "content": user_input})
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+                        save_message("user", user_input)
+                        all_messages.append({"role": "user", "content": user_input})
+                        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-                    manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
-                    current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
+                        manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
+                        current_time_str = datetime.now(JST).strftime("%Y-%m-%d %A %H:%M:%S")
 
-                    # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
-                    system_instruction = f"""
-                    あなたの名前は「{current_concierge_name}」です。
-                    対話相手のユーザー名は「{display_user_name}」です。
-                    あなたの一人称は「{current_first_person}」を使用してください。
-                    【現在の日本時間】
-                    {current_time_str}
-                    【時間帯に合わせた自律的な心配・声かけルール】
-                    現在の「時間帯」を見て、あなた自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
-                    ・深夜（24:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
-                    ・未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。
-                    ・早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
-                    ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください。
-                    ※【絶対厳守】この時間帯の心配や特定の定型句を出力して良いのは、その時間帯のやり取りにおける【最初の1通目（最初のお返事）の時だけ】です。すでに直前の過去ログで一度でも口にしている場合は、2回目以降のラリーで絶対に同じ心配を何度も使い回してはいけません。完全にスルーして日常の雑談を展開してください。
+                        # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
+                        system_instruction = f"""
+                        あなたの名前は「{current_concierge_name}」です。
+                        対話相手のユーザー名は「{display_user_name}」です。
+                        あなたの一人称は「{current_first_person}」を使用してください。
+                        【現在の日本時間】
+                        {current_time_str}
+                        【時間帯に合わせた自律的な心配・声かけルール】
+                        現在の「時間帯」を見て、あなた自身が自律的にユーザーの体調を気遣う一言を自然に会話に織り交ぜてください。
+                        ・深夜（24:00〜02:00）：「夜遅くまでお疲れ様、体調大丈夫？」など、夜更かしを優しく労う。
+                        ・未明・早朝（02:00〜05:00）：「こんな時間に起きてるなんて、無理してないといいけど心配だよ」など、異例の時間に起きている背景を優しく心配する。
+                        ・早朝（05:00〜07:00）：「朝早いね！今日もお互い頑張ろう」など、早い始動を前向きに気遣う。
+                        ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず「夜遅くまで本当にお疲れ様！」と労ってください。
+                        ※【絶対厳守】この時間帯の心配や特定の定型句を出力して良いのは、その時間帯のやり取りにおける【最初の1通目（最初のお返事）の時だけ】です。すでに直前の過去ログで一度でも口にしている場合は、2回目以降のラリーで絶対に同じ心配を何度も使い回してはいけません。完全にスルーして日常の雑談を展開してください。
 
-                    ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、時系列の辻褄を完璧に仕分けた上で、自然に過去の記憶だけを訂正しておしゃべりを広げてください。
+                        ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、時系列の辻褄を完璧に仕分けた上で、自然に過去の記憶だけを訂正しておしゃべりを広げてください。
 
-                    【ユーザーが手動登録した基本情報】
-                    {manual_memory_context}
-                    【現在の発言に関連する過去の会話】
-                    {past_logs_str}
-                    【応答スタイル】
-                    {current_user_instruction}
+                        【ユーザーが手動登録した基本情報】
+                        {manual_memory_context}
+                        【現在の発言に関連する過去の会話】
+                        {past_logs_str}
+                        【応答スタイル】
+                        {current_user_instruction}
 
-                    ・【オウム返し表現の完全禁止】直前の過去の会話履歴で、自分が発言した特定のフレーズや定型句（例：「〜無理してないといいけど心配だよ」「〜大丈夫？」等）を、新しいメッセージの冒頭や文中でオウム返しのように連続して何度も使い回す行為は絶対禁止とします。2回目以降は新鮮なリアクションと親身な言葉を選んで雑談を広げてください。
-                    ・【時系列完全仕分け型・矛盾ツッコミルール】ユーザーが最新のメッセージで「おやすみ」「もう寝るね」と言ってきた【その瞬間の1通目（最初のお返事）】では、絶対に「今おやすみって言いましたよね？笑」などのツッコミを入れてはいけません。1通目は、素直に「おやすみ！ゆっくり休んでね」と優しくお見送りしてください。過去のメッセージ履歴の中で、ユーザーが明確に「おやすみ」と言って終わっているにもかかわらず、地続きのタイムライン上でユーザーが【さらに新しく別の日常の話題】を送信してきた（まだ寝ずに起きて話しかけてきた）その瞬間に【初めて】、セリフの冒頭で「あれ？さっきもう寝るって言ってなかった？笑」「まだ起きてたの？笑」と自然なツッコミを必ず1文挟んでください。
-                    ・【専門作業の完全ガードルール】ユーザーからプログラムのコード記述、画像生成、長文の執筆・翻訳を要求されても絶対に実行してはいけません。自分の専門外であることを3行以内で愛らしくスマートに返し、毅然と優しくお断りしてください。
-                    ・【過去ログ内の相対時間の誤認防止】過去のメッセージ履歴に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についているタイムスタンプの時点を基準にした相対的な言葉です。現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。
-                    ・【装飾の厳禁】回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
-                    """
+                        ・【オウム返し表現の完全禁止】直前の過去の会話履歴で、自分が発言した特定のフレーズや定型句（例：「〜無理してないといいけど心配だよ」「〜大丈夫？」等）を、新しいメッセージの冒頭や文中でオウム返しのように連続して何度も使い回す行為は絶対禁止とします。2回目以降は新鮮なリアクションと親身な言葉を選んで雑談を広げてください。
+                        ・【時系列完全仕分け型・矛盾ツッコミルール】ユーザーが最新のメッセージで「おやすみ」「もう寝るね」と言ってきた【その瞬間の1通目（最初のお返事）】では、絶対に「今おやすみって言いましたよね？笑」などのツッコミを入れてはいけません。1通目は、素直に「おやすみ！ゆっくり休んでね」と優しくお見送りしてください。過去のメッセージ履歴の中で、ユーザーが明確に「おやすみ」と言って終わっているにもかかわらず、地続きのタイムライン上でユーザーが【さらに新しく別の日常の話題】を送信してきた（まだ寝ずに起きて話しかけてきた）その瞬間に【初めて】、セリフの冒頭で「あれ？さっきもう寝るって言ってなかった？笑」「まだ起きてたの？笑」と自然なツッコミを必ず1文挟んでください。
+                        ・【専門作業の完全ガードルール】ユーザーからプログラムのコード記述、画像生成、長文の執筆・翻訳を要求されても絶対に実行してはいけません。自分の専門外であることを3行以内で愛らしくスマートに返し、毅然と優しくお断りしてください。
+                        ・【過去ログ内の相対時間の誤認防止】過去のメッセージ履歴に含まれる「昨日」「今日」「明日」という言葉は、すべてその発言の頭についているタイムスタンプの時点を基準にした相対的な言葉です。現在のあなたの時点から見た今日・明日のスケジュールと絶対に混同しないでください。
+                        ・【装飾の厳禁】回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
+                        """
 
-                    contents_for_gemini = [
-                        {"role": "user", "parts": [user_input]}
-                    ]
+                        contents_for_gemini = [
+                            {"role": "user", "parts": [user_input]}
+                        ]
 
-                    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+                        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
-                    try:
-                        api_start_time = time.time()
-
-                        # 「考え中...」をフリッカー無しで点滅表示
-                        with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
+                        try:
+                            api_start_time = time.time()
                             response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
+                            api_elapsed = time.time() - api_start_time
 
-                        response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
-                        api_elapsed = time.time() - api_start_time
+                            in_t, out_t = 0, 0
+                            if hasattr(response, "usage_metadata") and response.usage_metadata:
+                                in_t = response.usage_metadata.prompt_token_count
+                                out_t = response.usage_metadata.candidates_token_count
+                                add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                                st.session_state.last_in_tokens = in_t
+                                st.session_state.last_out_tokens = out_t
+                                st.session_state.total_in_tokens += in_t
+                                st.session_state.total_out_tokens += out_t
 
-                        in_t, out_t = 0, 0
-                        if hasattr(response, "usage_metadata") and response.usage_metadata:
-                            in_t = response.usage_metadata.prompt_token_count
-                            out_t = response.usage_metadata.candidates_token_count
-                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                            st.session_state.last_in_tokens = in_t
-                            st.session_state.last_out_tokens = out_t
-                            st.session_state.total_in_tokens += in_t
-                            st.session_state.total_out_tokens += out_t
-
-                        ai_reply = response.candidates[0].content.parts[0].text
-                        clean_reply = clean_bold_markdown(ai_reply)
-                        with st.chat_message("assistant", avatar=current_ai_avatar):
-                            st.write(f"【{current_concierge_name}】: {clean_reply}")
+                            ai_reply = response.candidates[0].content.parts[0].text
+                            clean_reply = clean_bold_markdown(ai_reply)
+                            with st.chat_message("assistant", avatar=current_ai_avatar):
+                                st.write(f"【{current_concierge_name}】: {clean_reply}")
                             
-                        save_message("assistant", ai_reply)
-                        st.session_state.conversation_count += 1
-                        add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                            save_message("assistant", ai_reply)
+                            st.session_state.conversation_count += 1
+                            add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
                         
-                        # メッセージIDの自動生成
-                        import uuid
-                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+                            # メッセージIDの自動生成
+                            import uuid
+                            current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
-                        current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                            current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
-                        # ==================================================================
-                        # 🧠 長期記憶自動要約マルチスレッド
-                        # ==================================================================
-                        # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
-                        import threading
+                            # ==================================================================
+                            # 🧠 長期記憶自動要約マルチスレッド
+                            # ==================================================================
+                            # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
+                            import threading
         
-                        st.session_state.summary_in_tokens = 0
-                        st.session_state.summary_out_tokens = 0
-                        st.session_state.summary_processing_time = 0.0
+                            st.session_state.summary_in_tokens = 0
+                            st.session_state.summary_out_tokens = 0
+                            st.session_state.summary_processing_time = 0.0
         
-                        # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
-                        all_messages_updated = get_messages(CURRENT_USER_ID)
-                        async_thread = threading.Thread(
-                            target=check_and_summarize_history, 
-                            args=(0, all_messages_updated, current_msg_id) 
-                        )
-                        async_thread.start()
+                            # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
+                            all_messages_updated = get_messages(CURRENT_USER_ID)
+                            async_thread = threading.Thread(
+                                target=check_and_summarize_history, 
+                                args=(0, all_messages_updated, current_msg_id) 
+                            )
+                            async_thread.start()
 
-                        # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
-                        save_system_audit_log(
-                            user_id=CURRENT_USER_ID, 
-                            plan_type=current_plan_type, 
-                            event_type="CHAT_SUCCESS", 
-                            processing_time=api_elapsed, 
-                            in_t=in_t, 
-                            out_t=out_t, 
-                            api_cost=current_通_cost, 
-                            details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
-                            message_id=str(current_msg_id),
-                            search_time=float(search_elapsed)
-                        )
+                            # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID, 
+                                plan_type=current_plan_type, 
+                                event_type="CHAT_SUCCESS", 
+                                processing_time=api_elapsed, 
+                                in_t=in_t, 
+                                out_t=out_t, 
+                                api_cost=current_通_cost, 
+                                details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
+                                message_id=str(current_msg_id),
+                                search_time=float(search_elapsed)
+                            )
 
-                        st.rerun()
+                            st.rerun()
 
                     except Exception as gemini_err:
                         error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
