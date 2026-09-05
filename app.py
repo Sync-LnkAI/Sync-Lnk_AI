@@ -1877,38 +1877,38 @@ if is_admin:
         st.write(f"📁 現在表示中のターゲット: `{selected_target_user_id}`")
         st.divider()
 
-            if all_tester_logs.data:
-                # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
-                grouped_logs = {}
-                for log in all_tester_logs.data:
-                    uid = log.get("user_id", "unknown")
-                    if uid not in grouped_logs:
-                        grouped_logs[uid] = []
-                    grouped_logs[uid].append(log)
+        if all_tester_logs.data:
+            # ユーザーIDごとに会話のタイムラインを綺麗にグループ化するためのデータ格納庫
+            grouped_logs = {}
+            for log in all_tester_logs.data:
+                uid = log.get("user_id", "unknown")
+                if uid not in grouped_logs:
+                    grouped_logs[uid] = []
+                grouped_logs[uid].append(log)
 
-                # 各テスターごとにタイムラインを画面に整列して出力
-                for uid, logs in grouped_logs.items():
-                    # 管理者（リュウさん自身）の会話ログは監査のノイズになるため一覧からスキップ
-                    if uid == ADMIN_USER_ID:
-                        continue
+            # 各テスターごとにタイムラインを画面に整列して出力
+            for uid, logs in grouped_logs.items():
+                # 管理者（リュウさん自身）の会話ログは監査のノイズになるため一覧からスキップ
+                if uid == ADMIN_USER_ID:
+                    continue
                         
-                    st.markdown(f"### 👤 テスターID: `{uid}`")
+                st.markdown(f"### 👤 テスターID: `{uid}`")
                     
-                    # 該当テスターの会話の往復履歴を時系列に沿って表示
-                    for l in logs:
-                        role = l.get("role", "user")
-                        content = l.get("content", "")
-                        created_at = l.get("created_at", "")
-                        # 見やすい時間表記（YYYY-MM-DD HH:MM）へと文字列をトリミング
-                        clean_time = created_at.replace("T", " ")[:16]
+                # 該当テスターの会話の往復履歴を時系列に沿って表示
+                for l in logs:
+                    role = l.get("role", "user")
+                    content = l.get("content", "")
+                    created_at = l.get("created_at", "")
+                    # 見やすい時間表記（YYYY-MM-DD HH:MM）へと文字列をトリミング
+                    clean_time = created_at.replace("T", " ")[:16]
                         
-                        if role == "user":
-                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
-                        else:
-                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
-                    st.markdown("---")
-            else:
-                st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
+                    if role == "user":
+                        st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **ユーザー**: 「 {content} 」")
+                    else:
+                        st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **AI**: {content}")
+                st.markdown("---")
+        else:
+            st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
 
