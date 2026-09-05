@@ -1336,6 +1336,18 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
 
+        # 初期ユーザーのみウェルカム表示
+        if not all_messages or len(all_messages) == 0:
+            welcome_text = (
+                f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
+                f"💬 **【はじめに】**\n"
+                f"まずはお隣の「話し方・見た目設定」タブを開いて、あなたのお好みの口調や呼び方を自由に設定してみてくださいね。設定が終わったら、この入力欄から何でも気軽に話しかけてください！\n\n"
+                f"💡 **【アプリの特徴】**\n"
+                f"あなたとのおしゃべりの歴史（記憶）は裏側で大切に保管されて、時間が経ってもあなたとの歴史を忘れないスマートな会話が楽しめます。\n\n"
+                f"📜 詳しい使い方やプライバシー保護、利用上のルールについては、「利用規約」等のページを合わせてご確認ください。"
+            )
+            all_messages = [{"role": "assistant", "content": welcome_text}]
+
         db_count, db_max = get_usage_status(
             CURRENT_USER_ID
         )
@@ -1474,7 +1486,6 @@ with all_tabs[0]:
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
                         try:
-                            import time; time.sleep(3.0)
                             api_start_time = time.time()
                             response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
                             api_elapsed = time.time() - api_start_time
