@@ -1867,7 +1867,7 @@ if is_admin:
             else:
                 user_list = [CURRENT_USER_ID]
         except Exception as名簿エラー:
-            print(f"⚠️ 名簿取得エラー: {名簿エラー}")
+            print(f"⚠️ 名簿取得エラー: {e_list}")
             user_list = [CURRENT_USER_ID]
 
         if not user_list:
