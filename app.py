@@ -1472,6 +1472,11 @@ with all_tabs[0]:
                     
                     try:
                         api_start_time = time.time()
+
+                        # 「考え中...」をフリッカー無しで点滅表示
+                        with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
+                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
+
                         response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
                         api_elapsed = time.time() - api_start_time
 
