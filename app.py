@@ -1408,12 +1408,11 @@ with all_tabs[0]:
                     )
 
                 else:
-                    with st.chat_message("user", avatar=current_user_avatar):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
                     # 「考え中...」をフリッカー無しで点滅表示
                     with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
-
-                        import time; time.sleep(3.0)
+                        
+                        with st.chat_message("user", avatar=current_user_avatar):
+                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
 
                         search_start_time = time.time()
                         past_logs_context = search_past_logs_hybrid(user_input)
@@ -1475,6 +1474,7 @@ with all_tabs[0]:
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
                         try:
+                            import time; time.sleep(3.0)
                             api_start_time = time.time()
                             response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(contents_for_gemini)
                             api_elapsed = time.time() - api_start_time
