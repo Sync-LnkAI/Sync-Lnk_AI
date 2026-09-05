@@ -1907,7 +1907,7 @@ if is_admin:
                         clean_time = created_at.replace("T", " ")[:16]
                             
                         if role == "user":
-                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **{selected_target_user_id}**: 「 {content} 」")
+                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **{display_user_name}**: 「 {content} 」")
                         else:
                             st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **{current_concierge_name}**: {content}")
                     st.markdown("---")
