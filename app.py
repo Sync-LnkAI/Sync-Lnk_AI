@@ -1563,10 +1563,10 @@ with all_tabs[0]:
                                         lines = lines[-5:] # 常に最新の5個だけを切り取ってキープ
                                     updated_instruction_text = "\n".join(lines)
                                 
-                                    # 📂 Supabaseの user_profiles の user_instruction のセルを安全にUpdate！
-                                    supabase.table("user_profiles").update({
-                                        "user_instruction": updated_instruction_text
-                                    }).eq("user_id", str(CURRENT_USER_ID)).execute()
+                                    # 📂 Supabaseの user_memories の user_instruction のセルを安全にUpdate！
+                                    supabase.table("user_memories").update({
+                                        "fact": updated_instruction_text
+                                    }).eq("user_id", str(CURRENT_USER_ID)).eq("category", "基本情報").like("fact", "応答方針:%").execute()
 
                             clean_reply = clean_bold_markdown(ai_reply)
                             with st.chat_message("assistant", avatar=current_ai_avatar):
