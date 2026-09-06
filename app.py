@@ -1334,6 +1334,11 @@ st.markdown(f"""
         background-image: none !important;
         outline: none !important;
     }}
+    div[data-testid="stTextArea"] textarea:focus {{
+        border-color: {theme_cfg["input_border"]} !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px {theme_cfg["input_border"]} !important;
+    }}
  
  </style>
 """, unsafe_allow_html=True)
