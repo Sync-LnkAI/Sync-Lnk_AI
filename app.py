@@ -1719,22 +1719,19 @@ with all_tabs[0]:
                                     supabase
                                     .table("user_memories")
                                     .update({
-                                        "fact": (
-                                            f"応答方針: "
-                                            f"{updated_instruction_text}"
-                                        )
+                                        "fact": updated_instruction_text
                                     })
                                     .eq(
                                         "user_id",
                                         str(CURRENT_USER_ID)
                                     )
                                     .eq(
-                                        "source",
-                                        "manual"
+                                        "category",
+                                        "基本情報"
                                     )
                                     .like(
-                                        "fact",
-                                        "応答方針:%"
+                                        "source",
+                                        "manual"
                                     )
                                     .execute()
                                 )
