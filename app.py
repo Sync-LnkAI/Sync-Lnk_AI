@@ -1109,8 +1109,14 @@ for m in manual_memories:
         current_first_person = fact.replace("AI一人称:", "").strip()
     elif fact.startswith("口調プリセット:"):
         current_style_preset = fact.replace("口调プリセット:", "").strip()
-    elif fact.startswith("応答方針:"):
-        current_user_instruction = fact.replace("応答方針:", "").strip()
+    elif (
+    m.get("category") == "基本情報"
+    and
+    m.get("source") == "manual"
+    ):
+    current_user_instruction = fact
+    #elif fact.startswith("応答方針:"):
+    #    current_user_instruction = fact.replace("応答方針:", "").strip()
     elif fact.startswith("絵文字の量:"):
         current_emoji_setting = fact.replace("絵文字の量:", "").strip()
     elif fact.startswith("AIアバター:"):
