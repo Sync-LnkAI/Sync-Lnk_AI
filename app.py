@@ -1507,28 +1507,55 @@ with all_tabs[0]:
                         ・【装飾の厳禁】回答では太字装飾記号（**）は絶対に使用禁止（使わない）とします。
                         """
 
-                        contents_for_gemini = [
-                            {"role": "user", "parts": [user_input]}
-                        ]
-
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
                         try:
                             # 🟢 ここがGeminiへの指示（プロンプト）の流し込み口です！
-                            json_instruction = (
-                                f"{system_instruction}\n\n" # ➔ 憲法（ハヤトの口調など）
-                                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                                "🚨 【絶対厳守の最終出力フォーマット】\n"
-                                "あなたは必ず、以下の2つのキーを持った『純粋なJSON形式』だけでデータを返却してください。余計な解説や、マークダウンの ```json のような囲み記号は200%絶対に含めず、純粋なJSON文字列だけを1行で出力すること。\n"
-                                '1. "reply": ユーザーへ返す、あなたのキャラクター口調のままの優しいお返事のセリフテキスト。\n'
-                                '2. "new_instruction": 今回の会話の中から、ユーザーがあなたに対して新しく突きつけてきた「キャラクター口調や話し方の激変命令（例：特定のキャラクター性やトーンの指定）」、あるいは「メッセージのボリューム感や出力形式に関する細かいマナー、制約・禁止要望」を発見した場合、次回からあなた自身を厳格に縛るための箇条書きの命令書（例：「・会話の口調は、〇〇風に返すこと。」「・お返事の際は、必ず〇〇すること。」等）へと美しく綺麗に要約・変換した文言（1行）を出力してください。新しい要望やこだわりが一切見つからなかった場合は必ず「なし」と出力すること。\n'
-                            )
+                            json_instruction = """
+                            以下のユーザー発言に回答してください。
+
+                            同時に、ユーザーが今回の発言で新しく指定した
+                            口調、話し方、回答の長さ、回答形式、禁止事項などの
+                            継続的な要望があれば抽出してください。
+
+                            必ず次のJSONオブジェクトだけを返してください。
+
+                            {
+                                "reply": "ユーザーへの回答",
+                                "new_instruction": "新しく指定された継続的な要望。なければ、なし"
+                            }
+
+                            ルール:
+                            ・replyには、ユーザーへの自然な回答を入れてください。
+                            ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
+                            ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
+                            ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
+                            ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
+                            ・JSONの外に説明文を出さないでください。
+                            ・```jsonなどの囲み記号を付けないでください。
+
+                            ユーザー発言:
+                            """ + user_input
+
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
-                            response = genai.GenerativeModel(model_name=CHAT_MODEL_NAME, system_instruction=system_instruction).generate_content(
-                                json_instruction,
-                                generation_config={"response_mime_type": "application/json"}
+                            json_model = genai.GenerativeModel(
+                                model_name=CHAT_MODEL_NAME,
+                                system_instruction=system_instruction
                             )
+
+                            response = json_model.generate_content(
+                                [
+                                    {
+                                        "role": "user",
+                                        "parts": [json_instruction]
+                                    }
+                                ],
+                                generation_config={
+                                    "response_mime_type": "application/json"
+                                }
+                            )
+                                
                             api_elapsed = time.time() - api_start_time
 
                             in_t, out_t = 0, 0
@@ -1543,17 +1570,113 @@ with all_tabs[0]:
                             
                             # 🟢 【大開通！】 届いたJSONデータを安全に解体して引き出しを取り出します
                             try:
-                                clean_json_text = response.text.strip().replace("```json", "").replace("```", "").strip()
-                                import json
-                                res_json = json.loads(clean_json_text)
-                                ai_reply = res_json.get("reply", "...")
-                                new_manner = res_json.get("new_instruction", "なし")
+                                st.write("=== Gemini生レス ===")
+                                
+                                st.code(
+                                    response.text,
+                                    language="json"
+                                )
+                                
+                                raw_json_text = response.text or ""
 
-                                print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
-                                print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
+                                clean_json_text = (
+                                    raw_json_text
+                                    .strip()
+                                    .replace("```json", "")
+                                    .replace("```JSON", "")
+                                    .replace("```", "")
+                                    .strip()
+                                )
 
-                            except Exception:
-                                ai_reply = response.text
+                                st.write("=== json.loads直前 ===")
+                                
+                                st.code(
+                                    response.text,
+                                    language="json"
+                                )
+
+                                # 開発中だけ画面へ表示
+                                st.caption(
+                                    f"JSON受信文字数: {len(clean_json_text)}"
+                                )
+
+                                res_json = json.loads(
+                                    clean_json_text
+                                )
+
+                                if not isinstance(res_json, dict):
+                                    raise ValueError(
+                                        "GeminiのJSON応答がobject形式ではありません"
+                                    )
+
+                                ai_reply = str(
+                                    res_json.get(
+                                        "reply",
+                                        "申し訳ありません。応答を正しく処理できませんでした。"
+                                    )
+                                    or ""
+                                ).strip()
+
+                                raw_new_manner = res_json.get(
+                                    "new_instruction",
+                                    "なし"
+                                )
+
+                                if isinstance(
+                                    raw_new_manner,
+                                    list
+                                ):
+                                    new_manner = "\n".join(
+                                        str(item).strip()
+                                        for item in raw_new_manner
+                                        if str(item).strip()
+                                    )
+                                else:
+                                    new_manner = str(
+                                        raw_new_manner or "なし"
+                                    ).strip()
+
+                                if not ai_reply:
+                                    raise ValueError(
+                                        "JSON内のreplyが空です"
+                                    )
+
+                                st.caption(
+                                    "JSON解析成功"
+                                )
+
+                                st.caption(
+                                    f"抽出された新規指示: {new_manner}"
+                                )
+
+                            except Exception as json_err:
+                                json_error_detail = (
+                                    f"{type(json_err).__name__}: "
+                                    f"{json_err}"
+                                )
+
+                                print(
+                                    f"⚠️ JSON解析エラー: "
+                                    f"{json_error_detail}"
+                                )
+
+                                st.error(
+                                    f"JSON解析エラー: "
+                                    f"{json_error_detail}"
+                                )
+
+                                st.code(
+                                    response.text or "(空の応答)",
+                                    language="json"
+                                )
+
+                                # JSON解析に失敗しても、空返答にはしない
+                                ai_reply = (
+                                    response.text
+                                    if response.text
+                                    else "申し訳ありません。応答を正しく処理できませんでした。"
+                                )
+
                                 new_manner = "なし"
 
                             # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
@@ -1561,16 +1684,44 @@ with all_tabs[0]:
                                 current_instruction_text = str(current_user_instruction)
                                 lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
-                                if new_manner not in lines:
-                                    lines.append(new_manner)
-                                    if len(lines) > 5:
-                                        lines = lines[-5:] # 常に最新の5個だけを切り取ってキープ
-                                    updated_instruction_text = "\n".join(lines)
-                                
-                                    # 📂 Supabaseの user_memories の user_instruction のセルを安全にUpdate！
-                                    supabase.table("user_memories").update({
-                                        "fact": updated_instruction_text
-                                    }).eq("user_id", str(CURRENT_USER_ID)).eq("category", "基本情報").like("fact", "応答方針:%").execute()
+                            if new_manner not in lines:
+
+                                lines.append(new_manner)
+
+                                if len(lines) > 5:
+                                    lines = lines[-5:]
+
+                                updated_instruction_text = "\n".join(lines)
+
+                                update_result = (
+                                    supabase
+                                    .table("user_memories")
+                                    .update({
+                                        "fact": (
+                                            f"応答方針: "
+                                            f"{updated_instruction_text}"
+                                        )
+                                    })
+                                    .eq(
+                                        "user_id",
+                                        str(CURRENT_USER_ID)
+                                    )
+                                    .eq(
+                                        "source",
+                                        "manual"
+                                    )
+                                    .like(
+                                        "fact",
+                                        "応答方針:%"
+                                    )
+                                    .execute()
+                                ) 
+
+                                print(
+                                    "✅ 応答方針更新結果:",
+                                    update_result.data
+                                )    
+
 
                             clean_reply = clean_bold_markdown(ai_reply)
                             with st.chat_message("assistant", avatar=current_ai_avatar):
