@@ -1690,6 +1690,8 @@ with all_tabs[0]:
                             
                             if new_manner not in lines:
 
+                                st.write("ifブロックに入りました")
+
                                 lines.append(new_manner)
 
                                 if len(lines) > 5:
