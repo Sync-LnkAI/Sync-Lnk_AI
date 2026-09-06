@@ -293,7 +293,7 @@ def increment_error_analytics(error_type: str, plan_type: str):
     """
     🔒【製品版対応・プライバシー100%完全防衛】
     ユーザーの会話の中身（生文字）は一切触れず、
-    「無料／ライト／プレミアム」の各プランで、どのガードレール（無茶振り等）に接触したか
+    「無料／ライト／スタンダード」の各プランで、どのガードレール（無茶振り等）に接触したか
     という『回数（数字）』だけを匿名で自動集計・カウントアップ（+1）します。
     """
     try:
@@ -304,8 +304,8 @@ def increment_error_analytics(error_type: str, plan_type: str):
         column_name = "count_free"
         if "ライト" in plan_type:
             column_name = "count_light"
-        elif "プレミアム" in plan_type:
-            column_name = "count_premium"
+        elif "スタンダード" in plan_type:
+            column_name = "count_standard"
         
         if res.data and len(res.data) > 0:
             current_row = res.data[0]
@@ -317,7 +317,7 @@ def increment_error_analytics(error_type: str, plan_type: str):
         else:
             data = {
                 "error_type": error_type,
-                "count_free": 0, "count_light": 0, "count_premium": 0,
+                "count_free": 0, "count_light": 0, "count_standard": 0,
                 "last_occurred_at": now_str
             }
             data[column_name] = 1
@@ -735,7 +735,7 @@ def check_and_update_limits(
     )
 
     if current_plan == "🆓 無料プラン":
-        max_limit = 20
+        max_limit = 100
     elif "ライト" in current_plan:
         max_limit = 100
     else:
@@ -891,7 +891,7 @@ def get_usage_status(
     )
 
     if current_plan == "🆓 無料プラン":
-        max_limit = 20
+        max_limit = 100
     elif "ライト" in current_plan:
         max_limit = 100
     else:
@@ -997,8 +997,7 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         print(f"⚠️ 口調自動翻訳エラー: {e}")
         return f"【{concierge_name}】: {raw_system_text}"
 
-# 🎨【プレミアム・劇的グラデーションカラーパレット】
-# 境目の明暗差をグッと強め、上がフワッと明るく、下に向かってディープに染まる超立体デザインです！
+# 🎨グラデーションカラーパレット
 THEMES = {
      "メタリック": {
         # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
@@ -1018,7 +1017,7 @@ THEMES = {
         "dropdown_text": "#31333F"          # プルダウンの文字も濃厚な墨色
     },
     "ダーク": {
-        # 🔩 【極大強化】 スタートを圧倒的に明るいプレミアムアルミグレー（#55545B）にし、
+        # 🔩 【極大強化】 スタートを圧倒的に明るいアルミグレー（#55545B）にし、
         # 画面の中央（#1C1B1F）をすり抜けて、底の極小漆黒（#08080A）へと劇的に変化する垂直3層グラデーション！
         "bg": "linear-gradient(180deg, #55545B 0%, #1C1B1F 35%, #08080A 100%)",
         "text": "#FFFFFF",        # クッキリ浮き出る純白文字
@@ -1139,7 +1138,7 @@ st.markdown(f"""
     ヘッダーの背景をチャット画面のグラデーションと100%完全同調させ、
     さらにハネが美しく知的に伸びる世界最高峰のドレスアップフォントを斜体で召喚します。
     ================================================================== */
-/* 1. ネット上から、圧倒的なプレミアム感を放つ最高級フォントをリアルタイムに召喚します */
+/* 1. 最高級フォント */
 @import url('https://googleapis.com');
 
 [data-testid="stHeader"] {{
@@ -1381,19 +1380,6 @@ with all_tabs[0]:
 
         db_count, db_max = get_usage_status(
             CURRENT_USER_ID
-        )
-
-        limit_display = (
-            "無制限"
-            if db_max >= 99999
-            else f"{db_max}回"
-        )
-
-        st.info(
-            f"📊【リアルタイム監査】 "
-            f"本日の会話数: {db_count}回 ｜ "
-            f"上限: {limit_display} ｜ "
-            f"現在のプラン: {current_plan_type}"
         )
         
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
@@ -2092,11 +2078,11 @@ if is_admin:
                     total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
                     
                     stats_matrix = {
-                        "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "premium": 0},
-                        "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "premium": 0},
-                        "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "premium": 0},
-                        "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "premium": 0},
-                        "🚫 制限緩和：追加検索タスクの制御回数": {"free": 0, "light": 0, "premium": 0},
+                        "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "standard": 0},
+                        "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "standard": 0},
+                        "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "standard": 0},
+                        "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "standard": 0},
+                        "🚫 制限緩和：追加検索タスクの制御回数": {"free": 0, "light": 0, "standard": 0},
                     }
                     user_active_dates = {}
                     
@@ -2112,7 +2098,7 @@ if is_admin:
                         
                         p_key = "free"
                         if "ライト" in plan: p_key = "light"
-                        elif "プレミアム" in plan: p_key = "premium"
+                        elif "スタンダード" in plan: p_key = "standard"
 
                         if action == "CHAT_SUCCESS":
                             stats_matrix["💬 総会話往復数（送信回数）"][p_key] += 1
@@ -2148,7 +2134,7 @@ if is_admin:
                             "📋 分析項目（ユーザー需要のファクト）": item_name,
                             "🆓 無料プラン": f"{plans['free']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['free']:,} 日",
                             "💸 ライトプラン": f"{plans['light']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['light']:,} 日",
-                            "👑 スタンダードプラン": f"{plans['premium']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['premium']:,} 日"
+                            "👑 スタンダードプラン": f"{plans['standard']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['standard']:,} 日"
                         })
                     import pandas as pd
                     st.dataframe(pd.DataFrame(analytics_rows), hide_index=True, use_container_width=True)
