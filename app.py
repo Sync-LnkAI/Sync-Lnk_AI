@@ -1334,9 +1334,8 @@ st.markdown(f"""
         background-image: none !important;
         outline: none !important;
     }}
-    div[data-testid="stTextArea"]:focus-within {{
-        border-color: {theme_cfg["input_border"]} !important;
-        box-shadow: 0 0 0 2px {theme_cfg["input_border"]} !important;
+    div[data-testid="stTextInput"] > div:focus-within {{
+        border-color: {{theme_cfg["input_border"]}} !important;
     }}
  
  </style>
