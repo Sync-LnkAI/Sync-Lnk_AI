@@ -1847,7 +1847,7 @@ with all_tabs[1]:
                 save_or_update_user_setting("応答方針", new_instruction)
                 save_or_update_user_setting("AIアバター", ai_avatar_val)
                 save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                save_or_update_user_setting("会員プラン", new_plan)
+                #save_or_update_user_setting("会員プラン", new_plan)
                 save_or_update_user_setting("絵文字の量", new_emoji_setting)
                 st.success("設定を更新しました")
                 st.rerun()
