@@ -1886,9 +1886,6 @@ if is_admin:
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
     with all_tabs[3]:
-        
-        import datetime
-
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -1930,6 +1927,42 @@ if is_admin:
                         else: 
                             audit_facts.append(fact)
             except Exception: 
+                pass
+            
+                        # 🟢 【最終確定製品版：リアルタイムKPI自動計算インフラの再通電】
+            # すべての行の頭を、管理画面の部屋の高さ（半角スペース12枚分）へと一直線に完璧に揃えます！
+            
+            import datetime # 念のため、確実にエラーを殺すためにここに再度配置します
+            
+            total_chats = 0
+            start_date = "データなし"
+            last_date = "データなし"
+            total_active_days = 0
+            avg_chats_per_day = 0
+            total_cost_jpy = 0.0
+            avg_cost_per_chat = 0.0
+
+            try:
+                user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
+                if user_logs:
+                    # ユーザーからの送信回数（会話回数）
+                    total_chats = len([m for m in user_logs if m.get("role") == "user"])
+                    
+                    # 使用開始日・最終会話日・総稼働日数を計算
+                    timestamps = [datetime.datetime.fromisoformat(m.get("created_at").replace("Z", "+00:00")) for m in user_logs if m.get("created_at")]
+                    if timestamps:
+                        start_date = min(timestamps).strftime("%Y/%m/%d")
+                        last_date = max(timestamps).strftime("%Y/%m/%d")
+                        active_days_set = {t.date() for t in timestamps}
+                        total_active_days = len(active_days_set)
+                        
+                        # 1日あたりの平均会話通数の算出
+                        avg_chats_per_day = round(total_chats / total_active_days, 1) if total_active_days > 0 else 0
+
+                    # 1通1.15円のファクトで安全に概算算出させます
+                    total_cost_jpy = total_chats * 1.15
+                    avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
+            except Exception:
                 pass
 
             #  ユーザー設定情報、アクティビティ集計表示
