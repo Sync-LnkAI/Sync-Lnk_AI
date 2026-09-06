@@ -1688,9 +1688,6 @@ with all_tabs[0]:
                                 current_instruction_text = str(current_user_instruction)
                                 lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
-                            st.write("=== 保存直前 ===")
-                            st.code(updated_instruction_text)
-
                             if new_manner not in lines:
 
                                 lines.append(new_manner)
@@ -1699,6 +1696,9 @@ with all_tabs[0]:
                                     lines = lines[-5:]
 
                                 updated_instruction_text = "\n".join(lines)
+
+                                st.write("=== 保存直前 ===")
+                                st.code(updated_instruction_text)
 
                                 update_result = (
                                     supabase
