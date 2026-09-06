@@ -1821,7 +1821,7 @@ with all_tabs[1]:
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
 
             # 🎨 【大開通！】絵文字3段階パーソナライズドロップダウンを追加！
-            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）"], index=["使用（多め）", "使用（普通）", "使用（少なめ）"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）"] else 1)
+            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"], index=["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"] else 1)
 
             st.markdown("【🖼️ アバター（アイコン）設定】")
             col_a, col_u = st.columns(2)
