@@ -1965,6 +1965,8 @@ if is_admin:
                     "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶カルテ数：</b> {len(audit_facts)} 件</p>"
+                    "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
+                    f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_plan_instruction}</pre>"
                     "</div>",
                     unsafe_allow_html=True
                 )
