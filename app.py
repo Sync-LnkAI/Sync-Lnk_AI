@@ -1929,69 +1929,39 @@ if is_admin:
             except Exception: 
                 pass
 
-            
-                        # 🟢 【最終確定製品版：管理者専用リアルタイムKPIダッシュボードインフラ】
-            # 横に詰まっていた情報を美しく縦に改行整理し、ご指定のインフラ原価・アクティビティKPIを1秒で逆算して大露出させます！
-            
-            import datetime
-
-            # 📊 1. 既存の messages テーブルの生履歴から、選択されたテスターの数理ファクトを1秒で逆算（集計）
-            total_chats = 0
-            start_date = "データなし"
-            last_date = "データなし"
-            total_active_days = 0
-            avg_chats_per_day = 0
-            total_cost_jpy = 0.0
-            avg_cost_per_chat = 0.0
-
-            try:
-                user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
-                if user_logs:
-                    # ユーザーからの送信回数（会話回数）
-                    total_chats = len([m for m in user_logs if m.get("role") == "user"])
-                    
-                    # 💡 [日付の集計] 使用開始日・最終会話日・総稼働日数を計算
-                    timestamps = [datetime.datetime.fromisoformat(m.get("created_at").replace("Z", "+00:00")) for m in user_logs if m.get("created_at")]
-                    if timestamps:
-                        start_date = min(timestamps).strftime("%Y/%m/%d")
-                        last_date = max(timestamps).strftime("%Y/%m/%d")
-                        active_days_set = {t.date() for t in timestamps}
-                        total_active_days = len(active_days_set) # 実際にアプリを動かした総稼働日数
-                        
-                        # 💡 [追加KPI] 1日あたりの平均会話通数の算出
-                        avg_chats_per_day = round(total_chats / total_active_days, 1) if total_active_days > 0 else 0
-
-                    # 💡 [原価コストの集計] テスター全員ライトプラン固定（1通1.15円のファクト）で安全に概算算出させます
-                    total_cost_jpy = total_chats * 1.15
-                    avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
-            except Exception:
-                pass
-
-            # 📊 2. 左右の部屋（2列のグリッド）に、見やすく改行を入れてドバッと大露出！
+            #  ユーザー設定情報、アクティビティ集計表示
             col_info1, col_info2 = st.columns(2)
 
             with col_info1:
-                st.info(
-                    "### 🎨 【デザイン・外観・プラン設定】\n"
-                    f"・**会員プラン：** `{audit_plan}`\n"
-                    f"・**現在のAI名称：** `{audit_concierge_name}`\n"
-                    f"・**カラーテーマ：** `{audit_theme}`\n\n"
-                    "### 👤 【ユーザー基本プロファイル】\n"
-                    f"・**登録ユーザー名：** `{audit_user_name}`\n"
-                    f"・**蓄積された長期記憶カルテ数：** `{len(audit_facts)} 件`"
+                st.markdown(
+                    "<div style='background-color: rgba(2, 136, 209, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #0288d1;'>"
+                    "<h5 style='margin-top:0; color:#0288d1; font-weight:bold;'>🎨 【デザイン・外観・プラン設定】</h5>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>会員プラン：</b> {audit_plan}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>現在のAI名称：</b> {audit_concierge_name}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>カラーテーマ：</b> {audit_theme}</p>"
+                    "<br>"
+                    "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶カルテ数：</b> {len(audit_facts)} 件</p>"
+                    "</div>",
+                    unsafe_allow_html=True
                 )
 
             with col_info2:
-                st.success(
-                    "### 📈 【アクティビティ・統計KPI】\n"
-                    f"・**総会話回数：** `{total_chats}` 回\n"
-                    f"・**正式運用開始日：** `{start_date}`\n"
-                    f"・**最終会話日時：** `{last_date}`\n"
-                    f"・**総システム稼働日数：** `{total_active_days}` 日間\n"
-                    f"・**1日あたりの平均通数：** `{avg_chats_per_day}` 通/日\n\n"
-                    "### 💰 【インフラ原価・サーバーコスト】\n"
-                    f"・**累計消費コスト：** `{round(total_cost_jpy, 2)}` 円\n"
-                    f"・**1会話あたりの平均原価：** `{avg_cost_per_chat}` 円/通"
+                st.markdown(
+                    "<div style='background-color: rgba(16, 185, 129, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #10b981;'>"
+                    "<h5 style='margin-top:0; color:#10b981; font-weight:bold;'>📈 【アクティビティ・統計KPI】</h5>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>総会話回数：</b> {total_chats} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>正式運用開始日：</b> {start_date}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>最終会話日時：</b> {last_date}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>総システム稼働日数：</b> {total_active_days} 日間</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>1日あたりの平均通数：** {avg_chats_per_day} 通/日</p>"
+                    "<br>"
+                    "<h5 style='color:#10b981; font-weight:bold;'>💰 【インフラ原価・サーバーコスト】</h5>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {round(total_cost_jpy, 2)} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat} 円/通</p>"
+                    "</div>",
+                    unsafe_allow_html=True
                 )
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
