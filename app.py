@@ -1109,14 +1109,8 @@ for m in manual_memories:
         current_first_person = fact.replace("AI一人称:", "").strip()
     elif fact.startswith("口調プリセット:"):
         current_style_preset = fact.replace("口调プリセット:", "").strip()
-    elif (
-        m.get("category") == "基本情報"
-        and
-        m.get("source") == "manual"
-    ):
-        current_user_instruction = fact
-    #elif fact.startswith("応答方針:"):
-    #    current_user_instruction = fact.replace("応答方針:", "").strip()
+    elif fact.startswith("応答方針:"):
+        current_user_instruction = fact.replace("応答方針:", "").strip()
     elif fact.startswith("絵文字の量:"):
         current_emoji_setting = fact.replace("絵文字の量:", "").strip()
     elif fact.startswith("AIアバター:"):
@@ -1576,17 +1570,7 @@ with all_tabs[0]:
                             
                             # 🟢 【大開通！】 届いたJSONデータを安全に解体して引き出しを取り出します
                             try:
-                                st.write("=== Gemini生レス ===")
-                                
-                                st.session_state["last_gemini_json"] = (
-                                    response.text
-                                )
-
-                                st.code(
-                                    st.session_state["last_gemini_json"],
-                                    language="json"
-                                )
-                                
+    
                                 raw_json_text = response.text or ""
 
                                 clean_json_text = (
@@ -1596,18 +1580,6 @@ with all_tabs[0]:
                                     .replace("```JSON", "")
                                     .replace("```", "")
                                     .strip()
-                                )
-
-                                st.write("=== json.loads直前 ===")
-                                
-                                st.code(
-                                    response.text,
-                                    language="json"
-                                )
-
-                                # 開発中だけ画面へ表示
-                                st.caption(
-                                    f"JSON受信文字数: {len(clean_json_text)}"
                                 )
 
                                 res_json = json.loads(
@@ -1696,14 +1668,54 @@ with all_tabs[0]:
                             
                             if new_manner not in lines:
 
-                                st.write("ifブロックに入りました")
-
                                 lines.append(new_manner)
 
                                 if len(lines) > 5:
                                     lines = lines[-5:]
 
                                 updated_instruction_text = "\n".join(lines)
+
+                                # 応答方針のレコードを探す
+                                instruction_res = (
+                                    supabase
+                                    .table("user_memories")
+                                    .select("*")
+                                    .eq(
+                                        "user_id",
+                                        str(CURRENT_USER_ID)
+                                    )
+                                    .eq(
+                                        "source",
+                                        "manual"
+                                    )
+                                    .execute()
+                                )
+                                instruction_row = None
+
+                                for row in instruction_res.data:
+
+                                    fact = row.get("fact", "")
+
+                                    if fact.startswith("応答方針:"):
+                                        instruction_row = row
+                                        break
+
+                                if instruction_row:
+
+                                    update_result = (
+                                        supabase
+                                        .table("user_memories")
+                                        .update({
+                                        "fact":
+                                        "応答方針: "
+                                        + updated_instruction_text
+                                        })
+                                        .eq(
+                                            "id",
+                                            instruction_row["id"]
+                                        )
+                                        .execute()
+                                    )
 
                                 st.write("=== 保存直前 ===")
                                 st.code(updated_instruction_text)
@@ -1718,29 +1730,6 @@ with all_tabs[0]:
                                     .execute()
                                 )
 
-                                st.write("=== user_memories確認 ===")
-                                st.write(check_res.data)
-
-                                update_result = (
-                                    supabase
-                                    .table("user_memories")
-                                    .update({
-                                        "fact": updated_instruction_text
-                                    })
-                                    .eq(
-                                        "user_id",
-                                        str(CURRENT_USER_ID)
-                                    )
-                                    .eq(
-                                        "category",
-                                        "基本情報"
-                                    )
-                                    .like(
-                                        "source",
-                                        "manual"
-                                    )
-                                    .execute()
-                                )
                                 st.write("=== update結果 ===")
                                 st.write(update_result) 
 
