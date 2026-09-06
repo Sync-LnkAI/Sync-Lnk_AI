@@ -1688,6 +1688,9 @@ with all_tabs[0]:
                                 current_instruction_text = str(current_user_instruction)
                                 lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
+                            st.write("=== 保存直前 ===")
+                            st.code(updated_instruction_text)
+
                             if new_manner not in lines:
 
                                 lines.append(new_manner)
@@ -1719,7 +1722,9 @@ with all_tabs[0]:
                                         "応答方針:%"
                                     )
                                     .execute()
-                                ) 
+                                )
+                                st.write("=== update結果 ===")
+                                    st.write(update_result) 
 
                                 print(
                                     "✅ 応答方針更新結果:",
