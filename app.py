@@ -1915,11 +1915,18 @@ if is_admin:
             except Exception: 
                 pass
             
-                        # 🟢 【最終確定製品版：リアルタイムKPI自動計算インフラの再通電】
-            # すべての行の頭を、管理画面の部屋の高さ（半角スペース12枚分）へと一直線に完璧に揃えます！
-            
-            import datetime # 念のため、確実にエラーを殺すためにここに再度配置します
-            
+            audit_real_instruction = "設定データなし"
+            try:
+                # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
+                if u_memories and u_memories.data:
+                    for m in u_memories.data:
+                        fact_text = m.get("fact", "")
+                        if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
+                            audit_real_instruction = fact_text
+            except Exception:
+                pass
+
+            # リアルタイムKPI自動計算            
             total_chats = 0
             start_date = "データなし"
             last_date = "データなし"
