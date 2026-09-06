@@ -1510,7 +1510,7 @@ with all_tabs[0]:
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
                     
                         try:
-                            # 🟢 ここがGeminiへの指示（プロンプト）の流し込み口です！
+                            # Geminiへの指示（プロンプト）の流し込み口
                             json_instruction = """
                             以下のユーザー発言に回答してください。
 
@@ -1555,7 +1555,7 @@ with all_tabs[0]:
                                     "response_mime_type": "application/json"
                                 }
                             )
-                                
+
                             api_elapsed = time.time() - api_start_time
 
                             in_t, out_t = 0, 0
@@ -1568,7 +1568,7 @@ with all_tabs[0]:
                                 st.session_state.total_in_tokens += in_t
                                 st.session_state.total_out_tokens += out_t
                             
-                            # 🟢 【大開通！】 届いたJSONデータを安全に解体して引き出しを取り出します
+                            # 届いたJSONデータをを解体して引き出しを取り出します
                             try:
     
                                 raw_json_text = response.text or ""
@@ -1623,14 +1623,6 @@ with all_tabs[0]:
                                         "JSON内のreplyが空です"
                                     )
 
-                                st.caption(
-                                    "JSON解析成功"
-                                )
-
-                                st.caption(
-                                    f"抽出された新規指示: {new_manner}"
-                                )
-
                             except Exception as json_err:
                                 json_error_detail = (
                                     f"{type(json_err).__name__}: "
@@ -1666,78 +1658,66 @@ with all_tabs[0]:
                                 current_instruction_text = str(current_user_instruction)
                                 lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
-                            if new_manner not in lines:
+                                if new_manner not in lines:
 
-                                lines.append(new_manner)
+                                    lines.append(new_manner)
 
-                                if len(lines) > 5:
-                                    lines = lines[-5:]
+                                    if len(lines) > 5:
+                                        lines = lines[-5:]
 
-                                updated_instruction_text = "\n".join(lines)
+                                    updated_instruction_text = "\n".join(lines)
 
-                                # 応答方針のレコードを探す
-                                instruction_res = (
-                                    supabase
-                                    .table("user_memories")
-                                    .select("*")
-                                    .eq(
-                                        "user_id",
-                                        str(CURRENT_USER_ID)
-                                    )
-                                    .eq(
-                                        "source",
-                                        "manual"
-                                    )
-                                    .execute()
-                                )
-                                instruction_row = None
-
-                                for row in instruction_res.data:
-
-                                    fact = row.get("fact", "")
-
-                                    if fact.startswith("応答方針:"):
-                                        instruction_row = row
-                                        break
-
-                                if instruction_row:
-
-                                    update_result = (
+                                    # 応答方針のレコードを探す
+                                    instruction_res = (
                                         supabase
                                         .table("user_memories")
-                                        .update({
-                                        "fact":
-                                        "応答方針: "
-                                        + updated_instruction_text
-                                        })
+                                        .select("*")
                                         .eq(
-                                            "id",
-                                            instruction_row["id"]
+                                            "user_id",
+                                            str(CURRENT_USER_ID)
+                                        )
+                                        .eq(
+                                            "source",
+                                            "manual"
                                         )
                                         .execute()
                                     )
+                                    instruction_row = None
 
-                                st.write("=== 保存直前 ===")
-                                st.code(updated_instruction_text)
-                                check_res = (
-                                    supabase
-                                    .table("user_memories")
-                                    .select("*")
-                                    .eq(
-                                        "user_id",
-                                        str(CURRENT_USER_ID)
+                                    for row in instruction_res.data:
+
+                                        fact = row.get("fact", "")
+
+                                        if fact.startswith("応答方針:"):
+                                            instruction_row = row
+                                            break
+
+                                    if instruction_row:
+
+                                        update_result = (
+                                            supabase
+                                            .table("user_memories")
+                                            .update({
+                                            "fact":
+                                            "応答方針: "
+                                            + updated_instruction_text
+                                            })
+                                            .eq(
+                                                "id",
+                                                instruction_row["id"]
+                                            )
+                                            .execute()
+                                        )
+
+                                    print(
+                                        "✅ 応答方針更新結果:",
+                                        update_result.data
                                     )
-                                    .execute()
-                                )
+                                else:
 
-                                st.write("=== update結果 ===")
-                                st.write(update_result) 
-
-                                print(
-                                    "✅ 応答方針更新結果:",
-                                    update_result.data
-                                )    
-
+                                    print(
+                                        "⚠️ 応答方針レコードが見つかりませんでした"
+                                    )    
 
                             clean_reply = clean_bold_markdown(ai_reply)
                             with st.chat_message("assistant", avatar=current_ai_avatar):
@@ -1785,7 +1765,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            #st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
