@@ -1724,7 +1724,7 @@ with all_tabs[0]:
                                     .execute()
                                 )
                                 st.write("=== update結果 ===")
-                                    st.write(update_result) 
+                                st.write(update_result) 
 
                                 print(
                                     "✅ 応答方針更新結果:",
