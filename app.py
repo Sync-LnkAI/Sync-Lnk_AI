@@ -1572,8 +1572,12 @@ with all_tabs[0]:
                             try:
                                 st.write("=== Gemini生レス ===")
                                 
+                                st.session_state["last_gemini_json"] = (
+                                    response.text
+                                )
+
                                 st.code(
-                                    response.text,
+                                    st.session_state["last_gemini_json"],
                                     language="json"
                                 )
                                 
