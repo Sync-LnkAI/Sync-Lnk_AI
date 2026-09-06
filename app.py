@@ -1110,11 +1110,11 @@ for m in manual_memories:
     elif fact.startswith("口調プリセット:"):
         current_style_preset = fact.replace("口调プリセット:", "").strip()
     elif (
-    m.get("category") == "基本情報"
-    and
-    m.get("source") == "manual"
+        m.get("category") == "基本情報"
+        and
+        m.get("source") == "manual"
     ):
-    current_user_instruction = fact
+        current_user_instruction = fact
     #elif fact.startswith("応答方針:"):
     #    current_user_instruction = fact.replace("応答方針:", "").strip()
     elif fact.startswith("絵文字の量:"):
