@@ -1701,6 +1701,19 @@ with all_tabs[0]:
 
                                 st.write("=== 保存直前 ===")
                                 st.code(updated_instruction_text)
+                                check_res = (
+                                    supabase
+                                    .table("user_memories")
+                                    .select("*")
+                                    .eq(
+                                        "user_id",
+                                        str(CURRENT_USER_ID)
+                                    )
+                                    .execute()
+                                )
+
+                                st.write("=== user_memories確認 ===")
+                                st.write(check_res.data)
 
                                 update_result = (
                                     supabase
