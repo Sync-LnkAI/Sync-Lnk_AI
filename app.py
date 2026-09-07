@@ -1889,7 +1889,8 @@ with all_tabs[1]:
             #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
-            success = True
+            if st.form_submit_button("基本設定を保存"):
+                success = True
                 success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
                 success = success and save_or_update_user_setting("ユーザー名", new_user_name)
                 success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
