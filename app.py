@@ -1843,6 +1843,10 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
+        print(
+            "読込テーブル名=",
+            DB_MEMORIES_TABLE
+        )
         check = (
             supabase
             .table(DB_MEMORIES_TABLE)
