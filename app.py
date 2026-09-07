@@ -68,14 +68,10 @@ if not user_param:
 CURRENT_USER_ID = str(user_param)
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 
-st.write(CURRENT_USER_ID)
 # アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
-#is_dev_site = "dev" in st.query_params or st.config.get_option("server.headless") == False
-#is_dev_site = "dev" in st.query_params.to_dict() or st.config.get_option("server.headless") == False
 is_dev_site = st.query_params.get("dev") is not None or st.config.get_option("server.headless") == False
 
 DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_testuser"
-#DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
 
 st.write("dev =", st.query_params.get("dev"))
 st.write("is_dev_site =", is_dev_site)
@@ -1843,46 +1839,6 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
-        st.write(
-            "設定ロードテーブル",
-            DB_MEMORIES_TABLE
-        )
-
-        tmp = (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .select("*")
-            .limit(5)
-            .execute()
-        )
-
-        st.write(tmp.data)
-        st.write(st.secrets["SUPABASE_URL"])
-        check = (
-            supabase
-            .table("user_memories")
-            .select("*")
-            .limit(5)
-            .execute()
-        )
-
-        st.write(check.data)
-        check = (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .select("*")
-            .eq(
-                "user_id",
-                str(CURRENT_USER_ID)
-            )
-            .execute()
-        )
-
-        st.write(
-            "DB件数=",
-            len(check.data)
-        )
-        
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
