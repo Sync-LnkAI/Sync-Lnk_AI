@@ -71,7 +71,8 @@ ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 # アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
 is_dev_site = "dev" in st.query_params or st.config.get_option("server.headless") == False
 
-DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
+DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_testuser"
+#DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
