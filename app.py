@@ -1843,6 +1843,20 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
+        st.write(
+            "設定ロードテーブル",
+            DB_MEMORIES_TABLE
+        )
+
+        tmp = (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .select("*")
+            .limit(5)
+            .execute()
+        )
+
+        st.write(tmp.data)
         st.write(st.secrets["SUPABASE_URL"])
         check = (
             supabase
