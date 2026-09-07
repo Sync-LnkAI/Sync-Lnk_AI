@@ -69,7 +69,7 @@ CURRENT_USER_ID = str(user_param)
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 
 # アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
-is_dev_site = "dev" in st.experimental_get_query_params() or st.config.get_option("server.headless") == False
+is_dev_site = "dev" in st.query_params or st.config.get_option("server.headless") == False
 
 DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
 
