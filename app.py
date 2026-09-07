@@ -1849,6 +1849,15 @@ with all_tabs[1]:
         )
         check = (
             supabase
+            .table("user_memories")
+            .select("*")
+            .limit(5)
+            .execute()
+        )
+
+        st.write(check.data)
+        check = (
+            supabase
             .table(DB_MEMORIES_TABLE)
             .select("*")
             .eq(
