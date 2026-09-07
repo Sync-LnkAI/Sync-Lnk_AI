@@ -1843,6 +1843,22 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
+        check = (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .select("*")
+            .eq(
+                "user_id",
+                str(CURRENT_USER_ID)
+            )
+            .execute()
+        )
+
+        st.write(
+            "DB件数=",
+            len(check.data)
+        )
+        
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
