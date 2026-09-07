@@ -76,6 +76,10 @@ is_dev_site = st.query_params.get("dev") is not None or st.config.get_option("se
 DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_testuser"
 #DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
 
+st.write("dev =", st.query_params.get("dev"))
+st.write("is_dev_site =", is_dev_site)
+st.write("DB =", DB_MEMORIES_TABLE)
+
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
     import threading
