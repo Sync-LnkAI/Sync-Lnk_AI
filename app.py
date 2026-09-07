@@ -68,6 +68,11 @@ if not user_param:
 CURRENT_USER_ID = str(user_param)
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 
+# アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
+is_dev_site = "dev" in st.experimental_get_query_params() or st.config.get_option("server.headless") == False
+
+DB_MEMORIES_TABLE = "DB_MEMORIES_TABLE" if is_dev_site else "DB_MEMORIES_TABLE_dev"
+
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
     import threading
@@ -186,7 +191,7 @@ def get_messages(target_id: str) -> list[dict]:
             f"{type(e).__name__}: {e}"
         )   
         
-        return []
+        return None
 
 def save_message(role: str, content: str) -> bool:
     """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
@@ -218,12 +223,12 @@ def save_message(role: str, content: str) -> bool:
         supabase.table("messages").insert(data).execute()
         return True
 
-    except Exception as db_err:
-        st.error(
-            f"メッセージ保存エラー: "
-            f"{type(db_err).__name__}: {db_err}"
-            f"{db_err}"
-        )
+        except Exception as db_err:
+        # デバッグログ出力
+        print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
+        
+        # エラー画面表示
+        st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
         
         return False
 
@@ -334,7 +339,7 @@ def get_memories(source="manual"):
     try:
         res = (
             supabase
-            .table("user_memories")
+            .table(DB_MEMORIES_TABLE)
             .select("*")
             .eq("user_id", CURRENT_USER_ID)
             .eq("source", source)
@@ -362,26 +367,27 @@ def save_memory(fact: str, source="manual") -> bool:
             "embedding": embedding_data
         }
 
-        supabase.table("user_memories").insert(data).execute()
+        supabase.table(DB_MEMORIES_TABLE).insert(data).execute()
         return True
 
     except Exception as e:
-        st.error(f"設定保存エラー: {e}")
+        print(f"❌ [DBメモリ保存エラー] {e}")
         return False
 
 def delete_memory(memory_id: int) -> bool:
     try:
         (
             supabase
-            .table("user_memories")
+            .table(DB_MEMORIES_TABLE)
             .delete()
             .eq("id", memory_id)
             .execute()
         )
         return True
     except Exception as e:
-        st.error(f"設定削除エラー: {e}")
+        print(f"❌ [DBメモリ削除エラー] {e}")
         return False
+
 
 def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     """
@@ -392,7 +398,7 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     
     try:
         # 1. 既存の手動設定（source='manual'）をすべて取得
-        res = supabase.table("user_memories").select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
+        res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
         
         # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
         if res.data:
@@ -554,7 +560,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
 
         # 📊 【Supabase連動・大修正！】 
         # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
-        mem_check = supabase.table("user_memories").select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
+        mem_check = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
 
         if mem_check.data:
             # 既存の要約レコードが存在する場合は、最新のテキストと本物のベクトル数値でアップデート！
@@ -565,7 +571,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             if new_vector is not None:
                 update_data["embedding"] = new_vector # ⚡ 右端の NULL を本物のベクトルで上書きします！
 
-            supabase.table("user_memories").update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
+            supabase.table("DB_MEMORIES_TABLE").update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
         else:
             # 記憶の器がまだ作成されていない最初の1回目は、新しくインサート
             insert_data = {
@@ -577,7 +583,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             if new_vector is not None:
                 insert_data["embedding"] = new_vector
 
-            supabase.table("user_memories").insert(insert_data).execute()
+            supabase.table(DB_MEMORIES_TABLE).insert(insert_data).execute()
 
         # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
         end_summary_time = datetime.now(JST)
@@ -682,7 +688,6 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
 
     except Exception as e:
         print(f"⚠️ システム監査ログ保存処理エラー: {type(e).__name__}: {e}")
-        st.error(f"システム監査ログの保存に失敗しました: {type(e).__name__}: {e}")
 
 # ==================================================================
 # 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
@@ -1366,8 +1371,15 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
 
-        # 初期ユーザーのみウェルカム表示
-        if not all_messages or len(all_messages) == 0:
+        # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
+        #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
+        #     ・電波瞬断エラー（None）の時 ➔ エラーメッセージを表示して停止
+        
+        if all_messages is None:
+            st.error("データベース通信に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
+            st.stop()
+            
+        elif len(all_messages) == 0:
             welcome_text = (
                 f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
                 f"💬 **【はじめに】**\n"
@@ -1379,6 +1391,7 @@ with all_tabs[0]:
             all_messages = [{"role": "assistant", "content": welcome_text}]
 
         db_count, db_max = get_usage_status(
+
             CURRENT_USER_ID
         )
         
@@ -1458,7 +1471,9 @@ with all_tabs[0]:
                         else:
                             past_logs_str = "該当する過去ログなし"
 
-                        save_message("user", user_input)
+                        if not save_message("user", user_input):
+                            st.stop()
+
                         all_messages.append({"role": "user", "content": user_input})
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
@@ -1654,11 +1669,6 @@ with all_tabs[0]:
                                     f"{json_error_detail}"
                                 )
 
-                                st.error(
-                                    f"JSON解析エラー: "
-                                    f"{json_error_detail}"
-                                )
-
                                 st.code(
                                     response.text or "(空の応答)",
                                     language="json"
@@ -1672,6 +1682,19 @@ with all_tabs[0]:
                                 )
 
                                 new_manner = "なし"
+                            
+                                                            new_manner = "なし"
+
+                            # 🟢 【電波瞬断（Geminiエラー）のガードレール】
+                            #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
+                            #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
+                            if not response or not hasattr(response, "text") or not response.text:
+                                st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
+                                st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
+
+                            # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
+                            print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
+                            print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
 
                             # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
                             if new_manner and new_manner != "なし" and "なし" not in new_manner:
@@ -1690,7 +1713,7 @@ with all_tabs[0]:
                                     # 応答方針のレコードを探す
                                     instruction_res = (
                                         supabase
-                                        .table("user_memories")
+                                        .table(DB_MEMORIES_TABLE)
                                         .select("*")
                                         .eq(
                                             "user_id",
@@ -1716,7 +1739,7 @@ with all_tabs[0]:
 
                                         update_result = (
                                             supabase
-                                            .table("user_memories")
+                                            .table(DB_MEMORIES_TABLE)
                                             .update({
                                             "fact":
                                             "応答方針: "
@@ -1790,7 +1813,6 @@ with all_tabs[0]:
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
                             print(f"🚨 チャット処理エラー: {error_detail}")
-                            st.error(f"チャット処理エラー: {error_detail}")
                             increment_error_analytics("CHAT_PROCESSING_ERROR", current_plan_type)
                         
                             save_system_audit_log(
@@ -1869,19 +1891,24 @@ with all_tabs[1]:
             #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
-            if st.form_submit_button("基本設定を保存"):
-                save_or_update_user_setting("AIの名前", new_concierge_name)
-                save_or_update_user_setting("ユーザー名", new_user_name)
-                save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                save_or_update_user_setting("AI一人称", new_first_person)
-                save_or_update_user_setting("口調プリセット", selected_preset)
-                save_or_update_user_setting("応答方針", new_instruction)
-                save_or_update_user_setting("AIアバター", ai_avatar_val)
-                save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                #save_or_update_user_setting("会員プラン", new_plan)
-                save_or_update_user_setting("絵文字の量", new_emoji_setting)
-                st.success("設定を更新しました")
-                st.rerun()
+            success = True
+                success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
+                success = success and save_or_update_user_setting("ユーザー名", new_user_name)
+                success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
+                success = success and save_or_update_user_setting("AI一人称", new_first_person)
+                success = success and save_or_update_user_setting("口調プリセット", selected_preset)
+                success = success and save_or_update_user_setting("応答方針", new_instruction)
+                success = success and save_or_update_user_setting("AIアバター", ai_avatar_val)
+                success = success and save_or_update_user_setting("ユーザーアバター", user_avatar_val)
+                #success = success and save_or_update_user_setting("会員プラン", new_plan)
+                success = success and save_or_update_user_setting("絵文字の量", new_emoji_setting)
+
+                if success:
+                    st.success("設定を更新しました")
+                    st.rerun()
+                else:
+                    st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
+                    st.stop()
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
@@ -1932,7 +1959,7 @@ if is_admin:
             audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "メタリック", "🆓 無料プラン"
             audit_facts = []
             try:
-                u_memories = supabase.table("user_memories").select("*").eq("user_id", selected_audit_user).execute()
+                u_memories = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", selected_audit_user).execute()
                 if u_memories.data:
                     for m in u_memories.data:
                         fact = m.get("fact", "")
