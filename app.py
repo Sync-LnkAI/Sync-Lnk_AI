@@ -223,12 +223,12 @@ def save_message(role: str, content: str) -> bool:
         supabase.table("messages").insert(data).execute()
         return True
 
-        except Exception as db_err:
-            # デバッグログ出力
-            print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
+    except Exception as db_err:
+        # デバッグログ出力
+        print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
         
-            # エラー画面表示
-            st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
+        # エラー画面表示
+        st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
         
         return False
 
