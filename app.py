@@ -382,8 +382,6 @@ def save_memory(fact: str, source="manual") -> bool:
             .execute()
         )
 
-        st.write("insert成功", result)
-
         return True
 
     except Exception as e:
