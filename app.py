@@ -404,6 +404,7 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     古い設定を削除してから最新の設定を1件だけ保存する。
     """
     new_fact = f"{setting_key}: {new_value}"
+    st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {new_fact} 】")
     
     try:
         # 1. 既存の手動設定（source='manual'）をすべて取得
