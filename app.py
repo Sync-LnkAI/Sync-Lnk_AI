@@ -1964,6 +1964,7 @@ with all_tabs[1]:
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
+                print(f"🚨 [ボタン直撃監査] いま選ばれているプリセット文字は 【 {selected_preset} 】 です")
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     success = True
                     success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
