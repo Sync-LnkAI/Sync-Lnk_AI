@@ -1556,6 +1556,8 @@ with all_tabs[0]:
                         あなたの名前は「{current_concierge_name}」です。
                         対話相手のユーザー名は「{display_user_name}」です。
                         あなたの一人称は「{current_first_person}」を使用してください。
+                        あなたは【 {STYLE_PRESETS.get(current_style_preset, '')} 】です。
+                        以下の具体的な口調や細かい振る舞いのルール、ユーザーとのこれまでのマナー守って対話してください：
                            
                         【現在の日本時間】
                         {current_time_str}
@@ -1584,8 +1586,6 @@ with all_tabs[0]:
                         {recent_history_str}
                         【現在の発言に関連する過去の会話】
                         {past_logs_str}
-                        あなたは【 {STYLE_PRESETS.get(current_style_preset, '')} 】です。
-                        以下の具体的な口調や細かい振る舞いのルール、ユーザーとのこれまでのマナー守って対話してください：
                      
                         【応答スタイル】
                         {current_user_instruction}
@@ -1918,7 +1918,11 @@ with all_tabs[1]:
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
 
             # AIの人格を選択
-            selected_preset = st.selectbox("AIの人格・スタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
+            selected_preset = st.selectbox(
+                "AIの人格・スタイル", 
+                list(STYLE_PRESETS.keys()),
+                index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
+            )
             new_instruction = st.text_area(
                 "具体的な口調・振る舞いの指示（細かいマナー・追加のこだわり）", 
                 value=str(current_user_instruction),
