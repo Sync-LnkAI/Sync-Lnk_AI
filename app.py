@@ -1918,14 +1918,12 @@ with all_tabs[1]:
                 user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
                 user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
 
-            selected_preset = st.selectbox("口調・振る舞いのスタイル", preset_keys, index=default_preset_idx)
-            initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            new_instruction = st.text_area(
-                "具体的な口調・振る舞いの指示", 
-                value=str(current_user_instruction),
-                height=200,
-                help="あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。"
-            )
+            selected_preset = st.selectbox("口調・振る舞いのスタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
+            #initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
+            if selected_preset != "✍️ カスタム（自由入力）":
+                current_instruction = STYLE_PRESETS[selected_preset]
+            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=current_instruction, height=150)
+            st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
 
             #plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
             #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
