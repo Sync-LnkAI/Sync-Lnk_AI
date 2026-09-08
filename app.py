@@ -1902,8 +1902,6 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
-        st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {current_style_preset} 】")
-
         st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
@@ -1964,7 +1962,7 @@ with all_tabs[1]:
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
-                print(f"🚨 [ボタン直撃監査] いま選ばれているプリセット文字は 【 {selected_preset} 】 です")
+                st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {selected_preset} 】")
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     success = True
                     success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
