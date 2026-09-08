@@ -567,6 +567,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             ・長期的な目標
             ・継続中のプロジェクト
             ・定期的な生活習慣
+            ・継続的に楽しんでいる娯楽（ドラマ鑑賞、映画鑑賞、読書など）は継続的な嗜好として保存してください。
 
             保存対象外:
             ・明日や来週などの一時的な予定
