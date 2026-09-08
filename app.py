@@ -434,7 +434,10 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
         return save_memory(fact=new_fact, source="manual")
         
     except Exception as e:
+        st.error(f"設定更新エラー: {e}")
         print(f"設定更新エラー: {e}")
+        st.write(type(e))
+        st.write(str(e))
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
