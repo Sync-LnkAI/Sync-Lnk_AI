@@ -66,7 +66,7 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 CURRENT_USER_ID = str(user_param)
-ADMIN_USER_ID = in st.secrets["ADMIN_USER_ID"]
+ADMIN_USER_ID in st.secrets["ADMIN_USER_ID"]
 
 # アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
 # is_dev_site = st.query_params.get("dev") is not None or st.config.get_option("server.headless") == False
