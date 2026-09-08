@@ -2022,7 +2022,7 @@ with all_tabs[1]:
 )
                     if success:
                         st.success("設定を更新しました")
-                        st.rerun()
+                        #st.rerun()
                     else:
                         st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
                         st.stop()
