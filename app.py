@@ -1542,12 +1542,16 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
+
+                        summary_memories = get_memories(source="summary")
+                                st.write(summary_memories)
+                        
                         #　要約の読み込み
-                        summary_rows = [
-                            r["fact"]
-                            for r in memories
-                            if r.get("source") == "summary"
-                        ]
+                        #summary_rows = [
+                        #    r["fact"]
+                        #    for r in memories
+                        #    if r.get("source") == "summary"
+                        #]
 
                         summary_memory_context = "\n".join(summary_rows)
 
@@ -1624,9 +1628,6 @@ with all_tabs[0]:
 
                             ユーザー発言:
                             """ + user_input
-
-                            summary_memories = get_memories(source="summary")
-                                st.write(summary_memories)
 
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
