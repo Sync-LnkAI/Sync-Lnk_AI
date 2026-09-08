@@ -376,25 +376,30 @@ def save_memory(fact: str, source="manual") -> bool:
             "embedding": embedding_data
         }
         
-        #result = (
-        #    supabase.table(DB_MEMORIES_TABLE)
-        #    .insert(data)
-        #    .execute()
-        #)
+        result = (
+            supabase.table(DB_MEMORIES_TABLE)
+            .insert(data)
+            .execute()
+        )
 
-        st.write("保存先", DB_MEMORIES_TABLE)
-        st.write("保存内容", data)
-        st.write("insert結果", result)
-        st.write("setting_key", setting_key)
-        st.write("new_fact", new_fact)
-        st.write("save_result", result)
+        st.write("insert成功", result)
 
-        supabase.table(DB_MEMORIES_TABLE).insert(data).execute()
         return True
 
     except Exception as e:
-        print(f"❌ [DBメモリ保存エラー] {e}")
+        st.error(
+            f"save_memoryエラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
         return False
+
+        #supabase.table(DB_MEMORIES_TABLE).insert(data).execute()
+        #return True
+
+    #except Exception as e:
+    #    print(f"❌ [DBメモリ保存エラー] {e}")
+    #    return False
 
 def delete_memory(memory_id: int) -> bool:
     try:
