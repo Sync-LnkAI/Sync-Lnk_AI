@@ -375,6 +375,19 @@ def save_memory(fact: str, source="manual") -> bool:
             "source": source,
             "embedding": embedding_data
         }
+        
+        result = (
+            supabase.table(DB_MEMORIES_TABLE)
+            .insert(data)
+            .execute()
+        )
+
+        st.write("保存先", DB_MEMORIES_TABLE)
+        st.write("保存内容", data)
+        st.write("insert結果", result)
+        st.write("setting_key", setting_key)
+        st.write("new_fact", new_fact)
+        st.write("save_result", result)
 
         supabase.table(DB_MEMORIES_TABLE).insert(data).execute()
         return True
@@ -405,7 +418,7 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     """
     new_fact = f"{setting_key}: {new_value}"
     st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {new_fact} 】")
-    
+
     try:
         # 1. 既存の手動設定（source='manual'）をすべて取得
         res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
