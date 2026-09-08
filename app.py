@@ -1921,7 +1921,7 @@ with all_tabs[1]:
             selected_preset = st.selectbox(
                 "AIの人格・スタイル", 
                 list(STYLE_PRESETS.keys()),
-                index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
+                index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
             )
             new_instruction = st.text_area(
                 "具体的な口調・振る舞いの指示（細かいマナー・追加のこだわり）", 
@@ -1958,7 +1958,7 @@ with all_tabs[1]:
                     success = success and save_or_update_user_setting("ユーザー名", new_user_name)
                     success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
                     success = success and save_or_update_user_setting("AI一人称", new_first_person)
-                    success = success and save_or_update_user_setting("口調プリセット", selected_preset)
+                    success = success and save_or_update_user_setting("応答方針: 人格", selected_preset)
                     success = success and save_or_update_user_setting("応答方針", new_instruction)
                     success = success and save_or_update_user_setting("AIアバター", ai_avatar_val)
                     success = success and save_or_update_user_setting("ユーザーアバター", user_avatar_val)
