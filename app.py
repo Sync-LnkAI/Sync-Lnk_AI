@@ -1921,8 +1921,13 @@ with all_tabs[1]:
             selected_preset = st.selectbox("口調・振る舞いのスタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
             #initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
             if selected_preset != "✍️ カスタム（自由入力）":
-                current_instruction = STYLE_PRESETS[selected_preset]
-            new_instruction = st.text_area("具体的な口調・振る舞いの指示", value=current_instruction, height=150)
+                st.session_state["instruction_textarea_key"] = STYLE_PRESETS[selected_preset]
+            new_instruction = st.text_area(
+                "具体的な口調・振る舞いの指示", 
+                value=current_instruction if "instruction_textarea_key" not in st.session_state else st.session_state["instruction_textarea_key"],
+                height=200,
+                key="instruction_textarea_key"
+            )
             st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。\n\n※「口調・振る舞いのスタイル」を切り替えると、ここに追加された内容はリセットされますのでご注意ください。")
 
             #plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
