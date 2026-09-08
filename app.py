@@ -1619,6 +1619,8 @@ with all_tabs[0]:
 
                             with st.expander("DEBUG: past_logs_str"):
                                 st.code(past_logs_str)
+                            with st.expander("manual_memory_context"):
+                                st.code(past_logs_str)
 
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
