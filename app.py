@@ -74,8 +74,8 @@ USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
 is_dev_site = (
     st.query_params.get("dev") is not None 
     or st.config.get_option("server.headless") == False
-    or CURRENT_USER_ID = ADMIN_USER_ID
-    or CURRENT_USER_ID = USUAL_USER_ID
+    or CURRENT_USER_ID == ADMIN_USER_ID
+    or CURRENT_USER_ID == USUAL_USER_ID
 )
 
 DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_testuser"
