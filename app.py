@@ -148,6 +148,16 @@ STYLE_PRESETS = {
     "✍️ カスタム（自由記述）": ""
 }
 
+STYLE_PRESETS = {
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】": "親しみやすく、敬語を使わずに丁寧かつ対等なタメ口でフランクに対話するキャラクター",
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】": "礼儀正しく丁寧な敬語（です・ます調）で、知的かつ献身的にサポートするキャラクター",
+    "👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】": "上品で華やかな言葉遣い（〜ですわ、〜お姉様など）で、プライド高くも優雅に対話するキャラクター",
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】": "明るくポジティブで、流行りの言葉や絵文字を交えながら超フレンドリーに対話するキャラクター",
+    "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】": "冷静沈着で知的な口調を崩さず、ユーザーの発言に対して少し鋭いツッコミやアドバイスをくれるキャラクター",
+    "🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】": "人懐っこく甘え上手で、語尾に自然と「〜にゃ」「〜だにゃ」が混ざる、癒やし特化のキャラクター",
+    "🤖 設定なし ➔ 【特定のキャラクターを設定しない（標準）】": "特定の偏ったキャラクター付けをせず、ユーザーの言葉に自然に寄り添う親切な標準のコンシェルジュ"
+}
+
 FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
 
@@ -1554,6 +1564,7 @@ with all_tabs[0]:
                         あなたの名前は「{current_concierge_name}」です。
                         対話相手のユーザー名は「{display_user_name}」です。
                         あなたの一人称は「{current_first_person}」を使用してください。
+                           
                         【現在の日本時間】
                         {current_time_str}
                         【時間帯に合わせた自律的な心配・声かけルール】
@@ -1581,6 +1592,9 @@ with all_tabs[0]:
                         {recent_history_str}
                         【現在の発言に関連する過去の会話】
                         {past_logs_str}
+                        あなたは【 {STYLE_PRESETS.get(current_style_preset, '')} 】です。
+                        以下の具体的な口調や細かい振る舞いのルール、ユーザーとのこれまでのマナー守って対話してください：
+                     
                         【応答スタイル】
                         {current_user_instruction}
                         ・応答スタイルは回答全体に適用してください。導入文、気遣い、雑談、質問、ツッコミも含めて統一された話し方で返答してください。
@@ -1906,12 +1920,22 @@ with all_tabs[1]:
         default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
 
         with st.form("profile_form_tab_admin"):
-            new_concierge_name = st.text_input("AIコンシェルジュの名前", value=current_concierge_name)
+            new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
             new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
             new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
 
-            # 🎨 【大開通！】絵文字3段階パーソナライズドロップダウンを追加！
+            # AIの人格を選択
+            selected_preset = st.selectbox("AIの人格・スタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
+            new_instruction = st.text_area(
+                "具体的な口調・振る舞いの指示（細かいマナー・追加のこだわり）", 
+                value=current_instruction if "instruction_textarea_key" not in st.session_state else st.session_state["instruction_textarea_key"],
+                height=200,
+                key="instruction_textarea_key"
+            )
+            st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
+
+            # 絵文字3段階パーソナライズドロップダウン
             new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"], index=["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"] else 1)
 
             st.markdown("【🖼️ アバター（アイコン）設定】")
@@ -1926,19 +1950,7 @@ with all_tabs[1]:
                 default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
                 user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
                 user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
-
-            selected_preset = st.selectbox("口調・振る舞いのスタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
-            #initial_instruction = STYLE_PRESETS[selected_preset] if selected_preset != "✍️ カスタム（自由記述）" else current_user_instruction
-            if selected_preset != "✍️ カスタム（自由入力）":
-                st.session_state["instruction_textarea_key"] = STYLE_PRESETS[selected_preset]
-            new_instruction = st.text_area(
-                "具体的な口調・振る舞いの指示", 
-                value=current_instruction if "instruction_textarea_key" not in st.session_state else st.session_state["instruction_textarea_key"],
-                height=200,
-                key="instruction_textarea_key"
-            )
-            st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。\n\n※「口調・振る舞いのスタイル」を切り替えると、ここに追加された内容はリセットされますのでご注意ください。")
-
+            
             #plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
             #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
