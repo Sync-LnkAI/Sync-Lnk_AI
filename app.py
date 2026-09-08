@@ -1189,13 +1189,9 @@ for m in manual_memories:
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
     if fact.startswith("会員プラン:"):
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
-
-    # 💡 【人格プリセットの部屋】 
-    if fact.startswith("応答方針: 人格:"):
-        current_style_preset = fact.replace("応答方針: 人格:", "").strip()
-
-    # 💡 【テキストエリア（こだわり）の部屋】 
-    if fact.startswith("応答方針:") and "人格:" not in fact:
+    if fact.startswith("人格:"):
+        current_style_preset = fact.replace("人格:", "").strip()
+    if fact.startswith("応答方針:")
         current_user_instruction = fact.replace("応答方針:", "").strip()
 
 # 💡 【ここが大開通スイッチ！】 
@@ -1990,41 +1986,19 @@ with all_tabs[1]:
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
-                st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {selected_preset} 】")
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
-                    #success = True
-                    #success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
-                    #success = success and save_or_update_user_setting("ユーザー名", new_user_name)
-                    #success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                    #success = success and save_or_update_user_setting("AI一人称", new_first_person)
-                    #success = success and save_or_update_user_setting("AI一人称", new_first_person)
-                    #success = success and save_or_update_user_setting("応答方針: 人格", selected_preset)
-                    #success = success and save_or_update_user_setting("応答方針", new_instruction)
-                    #success = success and save_or_update_user_setting("AIアバター", ai_avatar_val)
-                    #success = success and save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                    #success = success and save_or_update_user_setting("会員プラン", new_plan)
-                    #success = success and save_or_update_user_setting("絵文字の量", new_emoji_setting)
-
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
-                    st.write("AIの名前 =", r1)
-
                     r2 = save_or_update_user_setting("ユーザー名", new_user_name)
-                    st.write("ユーザー名 =", r2)
-
                     r3 = save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                    st.write("ユーザー敬称 =", r3)
-
                     r4 = save_or_update_user_setting("AI一人称", new_first_person)
-                    st.write("AI一人称 =", r4)
-
-                    r5 = save_or_update_user_setting("応答方針: 人格", selected_preset)
-                    st.write("人格 =", r5)
-
+                    r5 = save_or_update_user_setting("人格", selected_preset)
                     r6 = save_or_update_user_setting("応答方針", new_instruction)
-                    st.write("応答方針 =", r6)
-
+                    r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
+                    r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
+                    r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
+                    #r10 = save_or_update_user_setting("会員プラン", new_plan)
                     success = (
-                        r1 and r2 and r3 and r4 and r5 and r6
+                        r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
 )
                     if success:
                         st.success("設定を更新しました")
