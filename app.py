@@ -1614,13 +1614,7 @@ with all_tabs[0]:
                             ユーザー発言:
                             """ + user_input
 
-                            with st.expander("DEBUG: recent_history_str"):
-                                st.code(recent_history_str)
-
-                            with st.expander("DEBUG: past_logs_str"):
-                                st.code(past_logs_str)
-                            with st.expander("DEBUG: manual_memory_context"):
-                                st.code(manual_memory_context)
+                            st.code(summary_memory_context)
 
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
