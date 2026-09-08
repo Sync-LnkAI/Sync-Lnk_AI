@@ -362,8 +362,6 @@ def get_memories(source="manual"):
 
 def save_memory(fact: str, source="manual") -> bool:
     """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
-    st.write("実際に保存するfact")
-    st.code(fact)
     try:
         embedding_data = get_embedding(
             fact,
@@ -396,13 +394,6 @@ def save_memory(fact: str, source="manual") -> bool:
 
         return False
 
-        #supabase.table(DB_MEMORIES_TABLE).insert(data).execute()
-        #return True
-
-    #except Exception as e:
-    #    print(f"❌ [DBメモリ保存エラー] {e}")
-    #    return False
-
 def delete_memory(memory_id: int) -> bool:
     try:
         (
@@ -424,7 +415,6 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
     古い設定を削除してから最新の設定を1件だけ保存する。
     """
     new_fact = f"{setting_key}: {new_value}"
-    st.write(f"🔍 金庫からロードされた現在の変数の中身: 【 {new_fact} 】")
 
     try:
         # 1. 既存の手動設定（source='manual'）をすべて取得
@@ -434,10 +424,6 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
         if res.data:
             for item in res.data:
                 if item.get("fact", "").startswith(f"{setting_key}:"):
-                    st.write(
-                        "削除対象",
-                        item.get("fact")
-                    )
                     delete_memory(item["id"])
                     print(f"古い設定を上書き削除しました: {item['fact']}")
                 
@@ -445,10 +431,7 @@ def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
         return save_memory(fact=new_fact, source="manual")
         
     except Exception as e:
-        st.error(f"設定更新エラー: {e}")
         print(f"設定更新エラー: {e}")
-        st.write(type(e))
-        st.write(str(e))
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
