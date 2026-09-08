@@ -1047,6 +1047,12 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         print(f"⚠️ 口調自動翻訳エラー: {e}")
         return f"【{concierge_name}】: {raw_system_text}"
 
+def build_manual_memory_context():
+    manual_memories = get_memories(source="manual")
+    return "\n".join(
+        [f"・{m['fact']}" for m in manual_memories]
+    ) if manual_memories else "なし"
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "メタリック": {
@@ -1417,6 +1423,7 @@ with all_tabs[0]:
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
 
+        st.code(build_manual_memory_context())
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
