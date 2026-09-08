@@ -1191,7 +1191,7 @@ for m in manual_memories:
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
     if fact.startswith("人格:"):
         current_style_preset = fact.replace("人格:", "").strip()
-    if fact.startswith("応答方針:")
+    if fact.startswith("応答方針:"):
         current_user_instruction = fact.replace("応答方針:", "").strip()
 
 # 💡 【ここが大開通スイッチ！】 
