@@ -598,11 +598,13 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         
         if not new_summary:
             return False
-        
+
         # 🔮　get_embedding 関数を流用
         embed_fact = f"【記憶の要約サマリー】\n{new_summary}"
         new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
         
+        st.code(new_summary)
+
 
         # 📊 【Supabase連動・大修正！】 
         # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
