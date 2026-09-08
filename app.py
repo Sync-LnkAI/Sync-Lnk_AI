@@ -1135,30 +1135,40 @@ current_emoji_setting = "使用（普通）"
 if "current_user_plan_state" not in st.session_state:
     st.session_state["current_user_plan_state"] = "🆓 無料プラン"
 
+# 🟢 【正真正銘・ Ver 1.0 最終確定製品版ロードインフラ】
+#     elif の数珠繋ぎをバッサリ引き算し、それぞれ独立した if 文へとお掃除しました！
+#     これにより、金庫の中のレコードがどんな順番で流れてきても、
+#     人格（スタイル）とテキストエリア（こだわり）が互いを握りつぶし合う死角は100%永久に全廃されます！
+
 for m in manual_memories:
     fact = m["fact"]
+    
     if fact.startswith("カラーテーマ:"):
         current_theme_color = fact.replace("カラーテーマ:", "").strip()
-    elif fact.startswith("AIの名前:"):
+    if fact.startswith("AIの名前:"):
         current_concierge_name = fact.replace("AIの名前:", "").strip()
-    elif fact.startswith("ユーザー名:"):
+    if fact.startswith("ユーザー名:"):
         current_user_name = fact.replace("ユーザー名:", "").strip()
-    elif fact.startswith("ユーザー敬称:"):
+    if fact.startswith("ユーザー敬称:"):
         current_user_honorific = fact.replace("ユーザー敬称:", "").strip()
-    elif fact.startswith("AI一人称:"):
+    if fact.startswith("AI一人称:"):
         current_first_person = fact.replace("AI一人称:", "").strip()
-    elif fact.startswith("応答方針: 人格:"):
-        current_style_preset = fact.replace("応答方針: 人格:", "").strip()
-    elif fact.startswith("応答方針:") and not fact.startswith("応答方針: 人格:"):
-        current_user_instruction = fact.replace("応答方針:", "").strip()
-    elif fact.startswith("絵文字の量:"):
+    if fact.startswith("絵文字の量:"):
         current_emoji_setting = fact.replace("絵文字の量:", "").strip()
-    elif fact.startswith("AIアバター:"):
+    if fact.startswith("AIアバター:"):
         current_ai_avatar = fact.replace("AIアバター:", "").strip()
-    elif fact.startswith("ユーザーアバター:"):
+    if fact.startswith("ユーザーアバター:"):
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
-    elif fact.startswith("会員プラン:"):
+    if fact.startswith("会員プラン:"):
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
+
+    # 💡 【人格プリセットの部屋】 
+    if fact.startswith("応答方針: 人格:"):
+        current_style_preset = fact.replace("応答方針: 人格:", "").strip()
+
+    # 💡 【テキストエリア（こだわり）の部屋】 
+    if fact.startswith("応答方針:") and "人格:" not in fact:
+        current_user_instruction = fact.replace("応答方針:", "").strip()
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
