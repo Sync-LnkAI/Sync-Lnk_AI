@@ -1147,9 +1147,9 @@ for m in manual_memories:
         current_user_honorific = fact.replace("ユーザー敬称:", "").strip()
     elif fact.startswith("AI一人称:"):
         current_first_person = fact.replace("AI一人称:", "").strip()
-    elif fact.startswith("口調プリセット:"):
-        current_style_preset = fact.replace("口调プリセット:", "").strip()
-    elif fact.startswith("応答方針:"):
+    elif fact.startswith("応答方針: 人格:"):
+        current_style_preset = fact.replace("応答方針: 人格:", "").strip()
+    elif fact.startswith("応答方針:") and not fact.startswith("応答方針: 人格:"):
         current_user_instruction = fact.replace("応答方針:", "").strip()
     elif fact.startswith("絵文字の量:"):
         current_emoji_setting = fact.replace("絵文字の量:", "").strip()
@@ -2034,7 +2034,7 @@ if is_admin:
                             audit_facts.append(fact)
             except Exception: 
                 pass
-            
+
             audit_real_instruction = "設定データなし"
             try:
                 # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
