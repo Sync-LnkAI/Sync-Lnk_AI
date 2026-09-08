@@ -405,6 +405,10 @@ def save_memory(fact: str, source="manual") -> bool:
 
 def delete_memory(memory_id: int) -> bool:
     try:
+        st.write(
+            "削除対象",
+            item.get("fact")
+        )
         (
             supabase
             .table(DB_MEMORIES_TABLE)
