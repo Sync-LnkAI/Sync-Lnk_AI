@@ -1952,24 +1952,25 @@ with all_tabs[1]:
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
-                success = True
-                success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
-                success = success and save_or_update_user_setting("ユーザー名", new_user_name)
-                success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                success = success and save_or_update_user_setting("AI一人称", new_first_person)
-                success = success and save_or_update_user_setting("口調プリセット", selected_preset)
-                success = success and save_or_update_user_setting("応答方針", new_instruction)
-                success = success and save_or_update_user_setting("AIアバター", ai_avatar_val)
-                success = success and save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                #success = success and save_or_update_user_setting("会員プラン", new_plan)
-                success = success and save_or_update_user_setting("絵文字の量", new_emoji_setting)
+                with st.spinner("⏳ 設定を登録しています...しばらくお待ちください"):
+                    success = True
+                    success = success and save_or_update_user_setting("AIの名前", new_concierge_name)
+                    success = success and save_or_update_user_setting("ユーザー名", new_user_name)
+                    success = success and save_or_update_user_setting("ユーザー敬称", new_user_honorific)
+                    success = success and save_or_update_user_setting("AI一人称", new_first_person)
+                    success = success and save_or_update_user_setting("口調プリセット", selected_preset)
+                    success = success and save_or_update_user_setting("応答方針", new_instruction)
+                    success = success and save_or_update_user_setting("AIアバター", ai_avatar_val)
+                    success = success and save_or_update_user_setting("ユーザーアバター", user_avatar_val)
+                    #success = success and save_or_update_user_setting("会員プラン", new_plan)
+                    success = success and save_or_update_user_setting("絵文字の量", new_emoji_setting)
 
-                if success:
-                    st.success("設定を更新しました")
-                    st.rerun()
-                else:
-                    st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
-                    st.stop()
+                    if success:
+                        st.success("設定を更新しました")
+                        st.rerun()
+                    else:
+                        st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
+                        st.stop()
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
