@@ -619,7 +619,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             if new_vector is not None:
                 update_data["embedding"] = new_vector # ⚡ 右端の NULL を本物のベクトルで上書きします！
 
-            supabase.table("DB_MEMORIES_TABLE").update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
+            supabase.table(DB_MEMORIES_TABLE).update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
         else:
             # 記憶の器がまだ作成されていない最初の1回目は、新しくインサート
             insert_data = {
