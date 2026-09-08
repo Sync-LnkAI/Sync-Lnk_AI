@@ -1047,11 +1047,46 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         print(f"⚠️ 口調自動翻訳エラー: {e}")
         return f"【{concierge_name}】: {raw_system_text}"
 
+#デバッグ用データ作成
 def build_manual_memory_context():
     manual_memories = get_memories(source="manual")
     return "\n".join(
         [f"・{m['fact']}" for m in manual_memories]
     ) if manual_memories else "なし"
+
+#デバッグ用データ作成
+def build_recent_history_str():
+    all_messages = get_messages(CURRENT_USER_ID)
+
+    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+
+    recent_history_lines = []
+
+    for m in recent_messages:
+        role_name = (
+            display_user_name
+            if m.get("role") == "user"
+            else current_concierge_name
+        )
+
+        created_at = m.get("created_at", "")
+
+        time_label = (
+            created_at.replace("T", " ")[:16]
+            if created_at
+            else "時刻不明"
+        )
+
+        recent_history_lines.append(
+            f"[{time_label}] {role_name}: "
+            f"{m.get('content', '')}"
+        )
+
+    return (
+        "\n".join(recent_history_lines)
+        if recent_history_lines
+        else "直近の会話履歴なし"
+    )
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1424,6 +1459,10 @@ with all_tabs[0]:
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
 
         st.code(build_manual_memory_context())
+        if st.button("記憶確認"):
+            st.code(build_manual_memory_context())
+        if st.button("直近履歴確認"):
+            st.code(build_recent_history_str())
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
