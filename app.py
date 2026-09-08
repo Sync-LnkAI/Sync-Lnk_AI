@@ -1921,7 +1921,7 @@ with all_tabs[1]:
             selected_preset = st.selectbox("AIの人格・スタイル", list(STYLE_PRESETS.keys()), index=default_preset_idx)
             new_instruction = st.text_area(
                 "具体的な口調・振る舞いの指示（細かいマナー・追加のこだわり）", 
-                value=current_instruction if "instruction_textarea_key" not in st.session_state else st.session_state["instruction_textarea_key"],
+                value=str(current_user_instruction),
                 height=200,
                 key="instruction_textarea_key"
             )
