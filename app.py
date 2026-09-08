@@ -500,7 +500,7 @@ def add_permanent_tokens(
 
 def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
-    🧠 【長期記憶集約エンジン - 確定最終製品版】
+    🧠 【記憶の要約】
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
@@ -588,7 +588,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             return False
         
         # 🔮　get_embedding 関数を流用
-        embed_fact = f"【長期記憶サマリー】\n{new_summary}"
+        embed_fact = f"【記憶の要約サマリー】\n{new_summary}"
         new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
         
 
@@ -645,7 +645,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
                 in_t=int(in_t),
                 out_t=int(out_t),
                 api_cost=float(sum_yen),
-                details=f"長期記憶の自動集約完了（独立ログ仕様）",
+                details=f"記憶の要約完了（独立ログ仕様）",
                 message_id=str(message_id)
             )
 
@@ -1549,8 +1549,6 @@ with all_tabs[0]:
                             [m["fact"] for m in summary_memories]
                         ) if summary_memories else "なし"
 
-                        st.code(summary_memory_context)
-
                         # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                         system_instruction = f"""
                         あなたの名前は「{current_concierge_name}」です。
@@ -1567,12 +1565,12 @@ with all_tabs[0]:
                         【最重要】
                         ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、時系列の辻褄を完璧に仕分けた上で、自然に過去の記憶だけを訂正しておしゃべりを広げてください。
 
-                        【長期記憶サマリー】
+                        【記憶の要約】
                         {summary_memory_context}
 
                         【ユーザーが手動登録した基本情報】
                         {manual_memory_context}
-                        【記憶参照ルール】ユーザーの趣味、好きなこと、休日の過ごし方について質問された場合は、長期記憶および手動登録情報を最優先してください。
+                        【記憶参照ルール】ユーザーの趣味、好きなこと、休日の過ごし方について質問された場合は、記憶の要約および手動登録情報を最優先してください。
                         ・家族構成、子供、仕事、価値観、継続中のプロジェクトについても同様です。
                         ・定期的に行っている活動や休日によく行う活動は、趣味として扱って構いません。
                         ・記憶に存在する情報がある場合は、「分からない」「教えてください」と回答せず、まず記憶されている内容を答えてください。
@@ -1828,7 +1826,7 @@ with all_tabs[0]:
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
                             # ==================================================================
-                            # 🧠 長期記憶自動要約マルチスレッド
+                            # 🧠 記憶の自動要約マルチスレッド
                             # ==================================================================
                             # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
                             import threading
@@ -2084,7 +2082,7 @@ if is_admin:
                     "<br>"
                     "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶カルテ数：</b> {len(audit_facts)} 件</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>記憶カルテ数：</b> {len(audit_facts)} 件</p>"
                     "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
                     f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_real_instruction }</pre>"
                     "</div>",
@@ -2180,7 +2178,7 @@ if is_admin:
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
                             | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
-                            | 🧠 **裏スレッド長期記憶自動要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
+                            | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
                             | 🔍 **ベクトル＆意味空間検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
                             👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
