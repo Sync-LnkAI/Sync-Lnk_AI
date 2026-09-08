@@ -564,6 +564,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         【保存対象】
         ・趣味
         ・継続的な嗜好
+        ・仕事
         ・家族構成
         ・価値観
         ・長期的な目標
@@ -591,6 +592,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         ○○
 
         ・継続的な嗜好:
+        ○○
+
+         ・仕事:
         ○○
 
         ・継続中のプロジェクト:
