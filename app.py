@@ -362,6 +362,8 @@ def get_memories(source="manual"):
 
 def save_memory(fact: str, source="manual") -> bool:
     """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
+    st.write("実際に保存するfact")
+        st.code(fact)
     try:
         embedding_data = get_embedding(
             fact,
