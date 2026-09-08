@@ -1542,6 +1542,14 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
+                        #　要約の読み込み
+                        summary_rows = [
+                            r["fact"]
+                            for r in memories
+                            if r.get("source") == "summary"
+                        ]
+
+                        summary_memory_context = "\n".join(summary_rows)
 
                         # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                         system_instruction = f"""
@@ -1558,6 +1566,9 @@ with all_tabs[0]:
                         ※ただし、手動登録情報に「夜勤がある」「夜型生活」という明確なファクトが保存されている場合は、上記の心配はせず現在の応答スタイルで自然に労ってください。
                         【最重要】
                         ユーザーから「過去のあの日は〇〇だったよ」と指摘された際、自分の今日の言葉まで嘘だと誤認して自爆（平謝り）しないでください。「過去のあの日（過去ログ）の事実」と「今日の正しい事実」は両方とも同時に成立すると理解し、時系列の辻褄を完璧に仕分けた上で、自然に過去の記憶だけを訂正しておしゃべりを広げてください。
+
+                        【長期記憶サマリー】
+                        {summary_memory_context}
 
                         【ユーザーが手動登録した基本情報】
                         {manual_memory_context}
