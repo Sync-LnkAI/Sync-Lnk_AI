@@ -1544,16 +1544,12 @@ with all_tabs[0]:
                         )
 
                         summary_memories = get_memories(source="summary")
-                                st.write(summary_memories)
-                        
-                        #　要約の読み込み
-                        #summary_rows = [
-                        #    r["fact"]
-                        #    for r in memories
-                        #    if r.get("source") == "summary"
-                        #]
 
-                        summary_memory_context = "\n".join(summary_rows)
+                        summary_memory_context = "\n".join(
+                            [m["fact"] for m in summary_memories]
+                        ) if summary_memories else "なし"
+
+                        st.code(summary_memory_context)
 
                         # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                         system_instruction = f"""
