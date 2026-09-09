@@ -15,7 +15,8 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🤖", layout="wide")
 
-MAX_CONTEXT_MESSAGES = 10  # 直近10件を保持
+MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
+SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -533,9 +534,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        st.session_state.summary_in_tokens = 0
-        st.session_state.summary_out_tokens = 0
-        st.session_state.summary_processing_time = 0.0
+        #st.session_state.summary_in_tokens = 0
+        #st.session_state.summary_out_tokens = 0
+        #st.session_state.summary_processing_time = 0.0
 
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
@@ -586,10 +587,6 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             last_summarized_message_count = 0
             previous_summary = "既存の要約なし"
         
-        # 10メッセージごと。10往復ごとなら20にする
-        SUMMARY_INTERVAL_MESSAGES = 20
-        #SUMMARY_INTERVAL_MESSAGES = MAX_CONTEXT_MESSAGES
-
         messages_added_since_last_summary = (
             total_message_count
             - last_summarized_message_count
@@ -797,7 +794,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
             save_system_audit_log(
                 user_id=target_user_id,
-                plan_type=current_plan_type if 'current_plan_type' in locals() else st.session_state.get("current_user_plan_state", "🆓 無料プラン"),
+                plan_type=current_plan_type,
                 event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
                 processing_time=float(summary_processing_seconds),
                 in_t=int(in_t),
@@ -808,9 +805,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             )
 
             # 4. メインスレッドの監査ログ（タブ3）への保険用マージ変数代入
-            st.session_state.summary_in_tokens = int(in_t)
-            st.session_state.summary_out_tokens = int(out_t)
-            st.session_state.summary_processing_time = float(summary_processing_seconds)
+            #st.session_state.summary_in_tokens = int(in_t)
+            #st.session_state.summary_out_tokens = int(out_t)
+            #st.session_state.summary_processing_time = float(summary_processing_seconds)
 
         return True
 
@@ -1587,7 +1584,7 @@ st.markdown(f"""
 # ==================================================================
 # 🔒【完全防衛】権限（ID）に応じて、画面最上部のタブ構造を動的に切り替えます
 # ==================================================================
-is_admin = CURRENT_USER_ID in ADMIN_USER_ID
+is_admin = CURRENT_USER_ID == ADMIN_USER_ID
 
 if is_admin:
     tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
@@ -2110,15 +2107,15 @@ with all_tabs[0]:
                             # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
                             import threading
         
-                            st.session_state.summary_in_tokens = 0
-                            st.session_state.summary_out_tokens = 0
-                            st.session_state.summary_processing_time = 0.0
+                            #st.session_state.summary_in_tokens = 0
+                            #st.session_state.summary_out_tokens = 0
+                            #st.session_state.summary_processing_time = 0.0
         
                             # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
                             all_messages_updated = get_messages(CURRENT_USER_ID)
                             async_thread = threading.Thread(
                                 target=check_and_summarize_history, 
-                                args=(0, all_messages_updated, current_msg_id) 
+                                args=(all_messages_updated, current_msg_id, current_plan_type) 
                             )
                             async_thread.start()
 
