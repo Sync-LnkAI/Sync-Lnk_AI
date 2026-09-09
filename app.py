@@ -2299,7 +2299,6 @@ with all_tabs[1]:
                         r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
                     )
                     if success:
-                        st.session_state["new_rule_input"] = ""
                         st.success("設定を更新しました")
                         st.rerun()
                     else:
