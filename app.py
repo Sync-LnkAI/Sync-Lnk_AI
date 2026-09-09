@@ -2445,7 +2445,7 @@ if is_admin:
                     avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
             except Exception:
                 st.error(f"統計取得エラー: {type(e).__name__}: {e}")
-                pass
+                #pass
 
             #  ユーザー設定情報、アクティビティ集計表示
             col_info1, col_info2 = st.columns(2)
