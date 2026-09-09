@@ -2179,7 +2179,7 @@ with all_tabs[1]:
                 st.rerun()
 
         st.divider()
-        st.markdown("👤 AIコンシェルジュ設定")
+        st.markdown("👤 基本設定")
         honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
         default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
         preset_keys = list(STYLE_PRESETS.keys())
