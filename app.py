@@ -2282,31 +2282,6 @@ with all_tabs[1]:
             #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
-            st.divider()
-            #st.markdown("---")
-
-            #　要約を取得・作成
-            summary_memories_setting = get_memories(
-                source="summary"
-            )
-            summary_memory_context_setting = (
-                "\n".join(
-                    [m["fact"] for m in summary_memories_setting]
-                )
-                if summary_memories_setting
-                else "なし"
-            )
-            
-            #　要約を表示
-            st.markdown("🧠 現在AIが覚えていること")
-            if summary_memory_context_setting != "なし":
-                #st.info(summary_memory_context_setting)
-                st.markdown(summary_memory_context_setting.replace("\n"," \n"))
-            else:
-                st.caption(
-                    "まだ覚えている情報はありません。"
-                )
-
             if st.form_submit_button("基本設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
@@ -2329,6 +2304,31 @@ with all_tabs[1]:
                     else:
                         st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
                         st.stop()
+        
+        st.divider()
+        #st.markdown("---")
+
+        #　要約を取得・作成
+        summary_memories_setting = get_memories(
+            source="summary"
+        )
+        summary_memory_context_setting = (
+            "\n".join(
+                [m["fact"] for m in summary_memories_setting]
+            )
+            if summary_memories_setting
+            else "なし"
+        )
+            
+        #　要約を表示
+        st.markdown("🧠 現在AIが覚えていること")
+        if summary_memory_context_setting != "なし":
+            #st.info(summary_memory_context_setting)
+            st.markdown(summary_memory_context_setting.replace("\n"," \n"))
+        else:
+            st.caption(
+                "まだ覚えている情報はありません。"
+            )
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
