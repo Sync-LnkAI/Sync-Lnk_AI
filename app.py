@@ -2430,7 +2430,14 @@ if is_admin:
                     total_chats = len([m for m in user_logs if m.get("role") == "user"])
                     
                     # 使用開始日・最終会話日・総稼働日数を計算
-                    timestamps = [datetime.datetime.fromisoformat(m.get("created_at").replace("Z", "+00:00")) for m in user_logs if m.get("created_at")]
+                    #timestamps = [datetime.datetime.fromisoformat(m.get("created_at").replace("Z", "+00:00")) for m in user_logs if m.get("created_at")]
+                    timestamps = [
+                        datetime.fromisoformat(
+                            m.get("created_at").replace("Z", "+00:00")
+                        )
+                        for m in user_logs
+                        if m.get("created_at")
+                    ]
                     if timestamps:
                         start_date = min(timestamps).strftime("%Y/%m/%d")
                         last_date = max(timestamps).strftime("%Y/%m/%d")
