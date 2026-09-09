@@ -2443,7 +2443,7 @@ if is_admin:
                     # 1通1.15円のファクトで安全に概算算出させます
                     total_cost_jpy = total_chats * 1.15
                     avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
-            except Exception:
+            except Exception as e:
                 st.error(f"統計取得エラー: {type(e).__name__}: {e}")
                 #pass
 
