@@ -2165,10 +2165,10 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
-        st.write(f"### 🎨 {current_concierge_name}のカスタマイズ")
+        st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
-        st.subheader("🎨 アプリの外観＆カラー")
+        st.write(f"#### 🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
@@ -2177,7 +2177,7 @@ with all_tabs[1]:
                 st.rerun()
 
         st.divider()
-        st.subheader("👤 AIコンシェルジュ設定")
+        st.write(f"##### 👤 AIコンシェルジュ設定")
         honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
         default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
         preset_keys = list(STYLE_PRESETS.keys())
@@ -2197,7 +2197,9 @@ with all_tabs[1]:
                 index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
             )
 
-            st.markdown("### 📝 応答方針")
+            st.markdown("---")
+
+            st.write(f"##### 📝 応答方針")
 
             instruction_rules = [
                 r.strip()
@@ -2228,7 +2230,7 @@ with all_tabs[1]:
                     edited_rules.append(
                         rule_text.strip()
                     )
-            st.markdown("---")
+            #st.markdown("---")
 
             new_rule = st.text_input(
                 "➕ 新しい応答方針を追加"
@@ -2245,6 +2247,8 @@ with all_tabs[1]:
                 )
 
             st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
+
+            st.markdown("---")
 
             # 絵文字3段階パーソナライズドロップダウン
             new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"], index=["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"] else 1)
