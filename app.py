@@ -2413,18 +2413,22 @@ if is_admin:
             avg_chats_per_day = 0
             total_cost_jpy = 0.0
             avg_cost_per_chat = 0.0
-
+            user_logs = []
             try:
+                user_logs = (
+                    supabase
+                    .table("messages")
+                    .select("created_at", "role")
+                    .eq("user_id", selected_audit_user)
+                    .execute()
+                    .data
+                )
+                st.write("取得件数", len(user_logs))
                 st.write(
                     "対象ユーザー",
                     selected_audit_user
                 )
-
-                st.write(
-                    "取得件数",
-                    len(user_logs)
-                )
-                user_logs = []
+                
                 user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
                 if user_logs:
                     # ユーザーからの送信回数（会話回数）
