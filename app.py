@@ -2423,19 +2423,12 @@ if is_admin:
                     .execute()
                     .data
                 )
-                st.write("取得件数", len(user_logs))
-                st.write(
-                    "対象ユーザー",
-                    selected_audit_user
-                )
                 
-                user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
                 if user_logs:
                     # ユーザーからの送信回数（会話回数）
                     total_chats = len([m for m in user_logs if m.get("role") == "user"])
                     
                     # 使用開始日・最終会話日・総稼働日数を計算
-                    #timestamps = [datetime.datetime.fromisoformat(m.get("created_at").replace("Z", "+00:00")) for m in user_logs if m.get("created_at")]
                     timestamps = [
                         datetime.fromisoformat(
                             m.get("created_at").replace("Z", "+00:00")
@@ -2452,12 +2445,26 @@ if is_admin:
                         # 1日あたりの平均会話通数の算出
                         avg_chats_per_day = round(total_chats / total_active_days, 1) if total_active_days > 0 else 0
 
-                    # 1通1.15円のファクトで安全に概算算出させます
-                    total_cost_jpy = total_chats * 1.15
+                    # system_audit_logsから実際の原価を集計
+                    cost_logs = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("api_cost")
+                        .eq("user_id", selected_audit_user)
+                        .execute()
+                    )
+
+                    if cost_logs.data:
+                        total_cost_jpy = round(sum(float(log.get("api_cost", 0) or 0) for log in cost_logs.data), 2)
+                    else:
+                        total_cost_jpy = 0.0
                     avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
+
             except Exception as e:
-                st.error(f"統計取得エラー: {type(e).__name__}: {e}")
-                #pass
+                print(
+                    f"統計取得エラー: "
+                    f"{type(e).__name__}: {e}"
+                )
 
             #  ユーザー設定情報、アクティビティ集計表示
             col_info1, col_info2 = st.columns(2)
