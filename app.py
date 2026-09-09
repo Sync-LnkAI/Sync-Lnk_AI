@@ -2196,12 +2196,54 @@ with all_tabs[1]:
                 list(STYLE_PRESETS.keys()),
                 index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
             )
-            new_instruction = st.text_area(
-                "具体的な口調・振る舞いの指示（細かいマナー・追加のこだわり）", 
-                value=str(current_user_instruction),
-                height=200,
-                key="instruction_textarea_key"
+
+            st.markdown("### 📝 応答方針")
+
+            instruction_rules = [
+                r.strip()
+                for r in str(current_user_instruction).split("\n")
+                if r.strip()
+            ]
+
+            edited_rules = []
+
+            for idx, rule in enumerate(instruction_rules):
+
+                col_rule, col_del = st.columns([9,1])
+
+                with col_rule:
+                    rule_text = st.text_input(
+                        f"rule_{idx}",
+                        value=rule,
+                        label_visibility="collapsed"
+                    )
+
+                with col_del:
+                    delete_flag = st.checkbox(
+                        "削除",
+                        key=f"delete_rule_{idx}"
+                    )
+
+                if not delete_flag and rule_text.strip():
+                    edited_rules.append(
+                        rule_text.strip()
+                    )
+            st.markdown("---")
+
+            new_rule = st.text_input(
+                "➕ 新しい応答方針を追加"
             )
+
+            add_rule_clicked = st.checkbox(
+                "この応答方針を追加",
+                key="add_new_rule"
+            )
+
+            if add_rule_clicked and new_rule.strip():
+                edited_rules.append(
+                    new_rule.strip()
+                )
+
             st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
 
             # 絵文字3段階パーソナライズドロップダウン
@@ -2231,6 +2273,8 @@ with all_tabs[1]:
                     r3 = save_or_update_user_setting("ユーザー敬称", new_user_honorific)
                     r4 = save_or_update_user_setting("AI一人称", new_first_person)
                     r5 = save_or_update_user_setting("人格", selected_preset)
+                    final_instruction = "\n".join(edited_rules)
+                    r6 = save_or_update_user_setting("応答方針", final_instruction)
                     r6 = save_or_update_user_setting("応答方針", new_instruction)
                     r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
                     r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
