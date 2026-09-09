@@ -2165,6 +2165,29 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
+        # 保存成功後、前回の入力欄と削除チェックを
+        # ウィジェット生成前にリセットする
+        if st.session_state.pop(
+            "reset_response_rule_widgets",
+            False
+        ):
+            st.session_state.pop(
+                "new_rule_input",
+                None
+            )
+
+            delete_keys = [
+                key
+                for key in list(st.session_state.keys())
+                if key.startswith("delete_rule_")
+            ]
+
+            for key in delete_keys:
+                st.session_state.pop(
+                    key,
+                    None
+                )
+
         #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.markdown("")
         st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
@@ -2299,6 +2322,11 @@ with all_tabs[1]:
                         r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
                     )
                     if success:
+                        # 次の再描画時に、入力欄と削除チェックを
+                        # ウィジェット生成前にリセットする
+                        st.session_state[
+                            "reset_response_rule_widgets"
+                        ] = True
                         st.success("設定を更新しました")
                         st.rerun()
                     else:
