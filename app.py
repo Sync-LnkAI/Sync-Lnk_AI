@@ -2236,14 +2236,21 @@ with all_tabs[1]:
                     )
             #st.markdown("---")
 
-            st.markdown("---")
-
             st.markdown("➕ AIの話し方を追加")
             new_rule = st.text_input(
                 "",
                 key="new_rule_input"
             )
-
+            st.caption("追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。")
+            if new_rule.strip():
+                edited_rules.append(
+                    new_rule.strip()
+                )
+            
+            # 重複削除
+            edited_rules = list(dict.fromkeys(edited_rules))
+            # 最新5件のみ保持
+            edited_rules = edited_rules[-5:]
 
             #st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
 
@@ -2293,10 +2300,7 @@ with all_tabs[1]:
                         r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
                     )
                     if success:
-                        if new_rule.strip():
-                            edited_rules.append(
-                                new_rule.strip()
-                            )
+                        st.session_state["new_rule_input"] = ""
                         st.success("設定を更新しました")
                         st.rerun()
                     else:
