@@ -2424,6 +2424,7 @@ if is_admin:
                     "取得件数",
                     len(user_logs)
                 )
+                user_logs = []
                 user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
                 if user_logs:
                     # ユーザーからの送信回数（会話回数）
