@@ -2319,7 +2319,8 @@ with all_tabs[1]:
             if summary_memories_setting
             else "なし"
         )
-            
+        display_summary = summary_memory_context.replace("【記憶の要約サマリー】","") 
+        
         #　要約を表示
         st.markdown("🧠 現在AIが覚えていること")
         if summary_memory_context_setting != "なし":
