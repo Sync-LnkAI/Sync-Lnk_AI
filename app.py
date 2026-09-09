@@ -2166,6 +2166,7 @@ with all_tabs[0]:
 # ------------------------------------------------------------------
 with all_tabs[1]:
         #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
+        st.markdown("")
         st.markdown("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
         st.divider()
 
