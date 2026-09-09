@@ -2324,7 +2324,7 @@ with all_tabs[1]:
         st.markdown("🧠 現在AIが覚えていること")
         if summary_memory_context_setting != "なし":
             #st.info(summary_memory_context_setting)
-            st.caption("AIが長期記憶として覚えている内容です。")
+            st.caption("　AIが長期記憶として覚えている内容です。")
             st.markdown(summary_memory_context_setting.replace("\n"," \n"))
         else:
             st.caption("まだ覚えている情報はありません。")
