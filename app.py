@@ -2237,11 +2237,11 @@ with all_tabs[1]:
             #st.markdown("---")
 
             st.markdown("➕ AIの話し方を追加")
+            st.caption("追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。")
             new_rule = st.text_input(
                 "",
                 key="new_rule_input"
             )
-            st.caption("追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。")
             if new_rule.strip():
                 edited_rules.append(
                     new_rule.strip()
