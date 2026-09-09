@@ -534,27 +534,102 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         except Exception as db_err:
             print(f"⚠️ 要約関数内の履歴取得エラー: {db_err}")
             real_messages = messages_list # 万が一のフォールバック
+        
+        total_message_count = len(real_messages)
 
-        # 1. データベース上の本物の全履歴数が6通未満の場合は、コスト防衛のため処理を安全にスキップ
-        if len(real_messages) < 6:
-            st.session_state.summary_in_tokens = 0
-            st.session_state.summary_out_tokens = 0
-            st.session_state.summary_processing_time = 0.0
+        # 最新10件以内なら押し出された履歴がない
+        if total_message_count <= MAX_CONTEXT_MESSAGES:
             return True
 
-        # 3. 過去の会話ログを時系列順（古い順）に並び替えて、一本の構造化されたテキストへとドッキング
-        conversation_text = ""
-        for m in reversed(real_messages): # 最新順で取得したため、reversedで古い順に戻して文脈を綺麗にします
-            role_label = "ユーザー" if m.get("role") == "user" else "コンシェルジュ"
-            conversation_text += f"・{role_label}: {m.get('content', '')}\n"
+        # 現在保存されている要約と、前回要約時の件数を取得
+        mem_check = (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .select("id, fact, last_summarized_message_count")
+            .eq("user_id",target_user_id)
+            .eq("source","summary")
+            .order("id",desc=True)
+            .limit(1)
+            .execute()
+        )
+
+        if mem_check.data:
+            summary_row = mem_check.data[0]
+
+            last_summarized_message_count = int(
+                summary_row.get("last_summarized_message_count") or 0
+            )
+
+            previous_summary = str(
+                summary_row.get("fact", "") or ""
+            ).strip()
+
+        else:
+            summary_row = None
+            last_summarized_message_count = 0
+            previous_summary = "既存の要約なし"
+        
+        # 10メッセージごと。10往復ごとなら20にする
+        SUMMARY_INTERVAL_MESSAGES = 20
+        #SUMMARY_INTERVAL_MESSAGES = MAX_CONTEXT_MESSAGES
+
+        messages_added_since_last_summary = (
+            total_message_count
+            - last_summarized_message_count
+        )
+
+        # 初回以外は、前回要約から10件増えるまで何もしない
+        if (
+            last_summarized_message_count > 0
+            and messages_added_since_last_summary < SUMMARY_INTERVAL_MESSAGES
+        ):
+            return True
+
+        # DB取得時は新しい順なので、古い順へ変更
+        chronological_messages = list(reversed(real_messages))
+
+        # 最新10件より前だけが要約対象
+        summarizable_end_index = max(
+            0,
+            total_message_count - MAX_CONTEXT_MESSAGES
+        )
+
+        # 前回の時点で、どこまで要約対象になっていたか
+        previous_summarizable_end_index = max(
+            0,
+            last_summarized_message_count - MAX_CONTEXT_MESSAGES
+        )
+
+        # 今回新しく直近10件から押し出されたメッセージ
+        new_messages_for_summary = chronological_messages[
+            previous_summarizable_end_index:
+            summarizable_end_index
+        ]
+
+        if not new_messages_for_summary:
+            return True
+
+        conversation_lines = []
+
+        for m in new_messages_for_summary:
+            role_label = (
+                "ユーザー"
+                if m.get("role") == "user"
+                else "コンシェルジュ"
+            )
+
+            conversation_lines.append(
+                f"・{role_label}: {m.get('content', '')}"
+            )
+
+        conversation_text = "\n".join(conversation_lines)
 
         # 🧠 Google Gemini に対する、バックグラウンド処理専用の要約指示書（システムプロンプト）の構築
         summary_instruction = """
         あなたは優秀な記憶整理システムです。
-
-        以下の会話ログを読み、
-        数週間〜数ヶ月後の会話でも役立つ長期的な情報のみを抽出してください。
-        過去に保存されている同種の情報が存在する場合は、新しい情報で更新してください。
+        現在保存されている要約と、今回新しく追加された会話を統合し、最新の要約を作成してください。
+        既存要約にある有効な情報は、新しい会話で否定または変更されていない限り保持してください。
+        以下の会話ログを読み、数週間〜数ヶ月後の会話でも役立つ長期的な情報のみを抽出してください。
 
         例:
         ・趣味が変わった場合は新しい趣味へ更新
@@ -584,7 +659,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
 
         【重要】
         趣味、継続的な嗜好、継続中のプロジェクトを混同しないでください。
-        仕事や開発プロジェクトは、継続中のプロジェクトへ分類してください。
+        職業や通常の勤務形態は「仕事」に分類してください。
+        特定の制作・開発・研究など、継続して取り組んでいる活動は「継続中のプロジェクト」に分類してください。
+        テレワークや出社は職業名ではなく、働き方または生活習慣として扱ってください。
         好きなドラマ名や作品名は、趣味ではなく継続的な嗜好として扱ってください。
 
         【出力形式】
@@ -617,7 +694,17 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         """
 
         contents_for_summary = [
-            {"role": "user", "parts": [f"[指示書]\n{summary_instruction}\n\n[対象の会話ログ]\n{conversation_text}"]}
+            {
+                "role": "user",
+                "parts": [
+                    f"[指示書]\n"
+                    f"{summary_instruction}\n\n"
+                    f"[現在保存されている要約]\n"
+                    f"{previous_summary}\n\n"
+                    f"[今回新しく要約へ統合する会話]\n"
+                    f"{conversation_text}"
+                ]
+            }
         ]
         
         # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
@@ -635,36 +722,43 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         # 🔮　get_embedding 関数を流用
         embed_fact = f"【記憶の要約サマリー】\n{new_summary}"
         new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
-        
-        st.code(new_summary)
 
-
-        # 📊 【Supabase連動・大修正！】 
-        # 本物の列名（fact, updated_at）および識別キー（source='summary'）へ100%シンクさせます！
-        mem_check = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", target_user_id).eq("source", "summary").execute()
-
-        if mem_check.data:
+        if summary_row is not None:
             # 既存の要約レコードが存在する場合は、最新のテキストと本物のベクトル数値でアップデート！
             update_data = {
                 "fact": embed_fact,
-                "updated_at": datetime.now(JST).isoformat()
+                "updated_at": datetime.now(JST).isoformat(),
+                "last_summarized_message_count":total_message_count
             }
             if new_vector is not None:
-                update_data["embedding"] = new_vector # ⚡ 右端の NULL を本物のベクトルで上書きします！
-
-            supabase.table(DB_MEMORIES_TABLE).update(update_data).eq("user_id", target_user_id).eq("source", "summary").execute()
+                update_data["embedding"] = new_vector
+            (
+                    supabase
+                    .table(DB_MEMORIES_TABLE)
+                    .update(update_data)
+                    .eq("id", summary_row["id"])
+                    .execute()
+            )
+            
         else:
             # 記憶の器がまだ作成されていない最初の1回目は、新しくインサート
             insert_data = {
                 "user_id": target_user_id,
+                "category": "基本情報",
                 "source": "summary",
                 "fact": embed_fact,
-                "updated_at": datetime.now(JST).isoformat()
+                "updated_at": datetime.now(JST).isoformat(),
+                "last_summarized_message_count":total_message_count
             }
             if new_vector is not None:
                 insert_data["embedding"] = new_vector
 
-            supabase.table(DB_MEMORIES_TABLE).insert(insert_data).execute()
+            (
+                    supabase
+                    .table(DB_MEMORIES_TABLE)
+                    .insert(insert_data)
+                    .execute()
+            )
 
         # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
         end_summary_time = datetime.now(JST)
