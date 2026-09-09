@@ -2167,7 +2167,7 @@ with all_tabs[0]:
 with all_tabs[1]:
         #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.markdown("")
-        st.markdown("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
+        st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
         st.divider()
 
         st.markdown("🎨 アプリの外観＆カラー")
@@ -2253,8 +2253,15 @@ with all_tabs[1]:
             st.markdown("---")
 
             # 絵文字3段階パーソナライズドロップダウン
+            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
+            default_emoji_idx = (
+                emoji_options.index(current_emoji_setting)
+                if current_emoji_setting in emoji_options
+                else 1
+            )
             st.markdown("💬 AIの発言内の絵文字の量")
-            new_emoji_setting = st.selectbox("",["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"],index=...,label_visibility="collapsed")
+            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+
             st.markdown("🖼️ アバター（アイコン）設定")
             col_a, col_u = st.columns(2)
             with col_a:
