@@ -2288,7 +2288,6 @@ with all_tabs[1]:
                     r5 = save_or_update_user_setting("人格", selected_preset)
                     final_instruction = "\n".join(edited_rules)
                     r6 = save_or_update_user_setting("応答方針", final_instruction)
-                    r6 = save_or_update_user_setting("応答方針", new_instruction)
                     r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
                     r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
                     r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
