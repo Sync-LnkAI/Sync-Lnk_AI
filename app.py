@@ -2319,14 +2319,14 @@ with all_tabs[1]:
             if summary_memories_setting
             else "なし"
         )
-        display_summary = summary_memory_context.replace("【記憶の要約サマリー】","") 
-        
+        display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
+
         #　要約を表示
         st.markdown("🧠 現在AIが覚えていること")
-        if summary_memory_context_setting != "なし":
-            #st.info(summary_memory_context_setting)
+        if display_summary != "なし":
+            #st.info(display_summary)
             st.caption("　AIが長期記憶として覚えている内容です。")
-            st.markdown(summary_memory_context_setting.replace("\n"," \n"))
+            st.markdown(display_summary.replace("\n"," \n"))
         else:
             st.caption("まだ覚えている情報はありません。")
         st.divider()
