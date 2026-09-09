@@ -2415,6 +2415,15 @@ if is_admin:
             avg_cost_per_chat = 0.0
 
             try:
+                st.write(
+                    "対象ユーザー",
+                    selected_audit_user
+                )
+
+                st.write(
+                    "取得件数",
+                    len(user_logs)
+                )
                 user_logs = supabase.table("messages").select("created_at", "role").eq("user_id", selected_audit_user).execute().data
                 if user_logs:
                     # ユーザーからの送信回数（会話回数）
@@ -2435,6 +2444,7 @@ if is_admin:
                     total_cost_jpy = total_chats * 1.15
                     avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
             except Exception:
+                st.error(f"統計取得エラー: {type(e).__name__}: {e}")
                 pass
 
             #  ユーザー設定情報、アクティビティ集計表示
