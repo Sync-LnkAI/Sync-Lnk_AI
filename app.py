@@ -2236,19 +2236,14 @@ with all_tabs[1]:
                     )
             #st.markdown("---")
 
+            st.markdown("---")
+
+            st.markdown("➕ AIの話し方を追加")
             new_rule = st.text_input(
-                "➕ 新しい応答方針を追加"
+                "",
+                key="new_rule_input"
             )
 
-            add_rule_clicked = st.checkbox(
-                "この応答方針を追加",
-                key="add_new_rule"
-            )
-
-            if add_rule_clicked and new_rule.strip():
-                edited_rules.append(
-                    new_rule.strip()
-                )
 
             #st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
 
@@ -2296,8 +2291,12 @@ with all_tabs[1]:
                     #r10 = save_or_update_user_setting("会員プラン", new_plan)
                     success = (
                         r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
-)
+                    )
                     if success:
+                        if new_rule.strip():
+                            edited_rules.append(
+                                new_rule.strip()
+                            )
                         st.success("設定を更新しました")
                         st.rerun()
                     else:
