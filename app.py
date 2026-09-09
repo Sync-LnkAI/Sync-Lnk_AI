@@ -2165,10 +2165,11 @@ with all_tabs[0]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[1]:
-        st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
-        st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
+        #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
+        st.markdown("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
+        st.divider()
 
-        st.write(f"##### 🎨 アプリの外観＆カラー")
+        st.markdown("🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
@@ -2177,7 +2178,7 @@ with all_tabs[1]:
                 st.rerun()
 
         st.divider()
-        st.write(f"##### 👤 AIコンシェルジュ設定")
+        st.markdown("👤 AIコンシェルジュ設定")
         honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
         default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
         preset_keys = list(STYLE_PRESETS.keys())
@@ -2199,7 +2200,7 @@ with all_tabs[1]:
 
             st.markdown("---")
 
-            st.write(f"##### 📝 応答方針")
+            st.markdown("📝 応答方針")
 
             instruction_rules = [
                 r.strip()
@@ -2251,9 +2252,9 @@ with all_tabs[1]:
             st.markdown("---")
 
             # 絵文字3段階パーソナライズドロップダウン
-            new_emoji_setting = st.selectbox("💬 AIの発言内の絵文字の量", ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"], index=["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"].index(current_emoji_setting) if current_emoji_setting in ["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"] else 1)
-
-            st.markdown("【🖼️ アバター（アイコン）設定】")
+            st.markdown("💬 AIの発言内の絵文字の量")
+            new_emoji_setting = st.selectbox("",["使用（多め）", "使用（普通）", "使用（少なめ）", "無し"],index=...,label_visibility="collapsed")
+            st.markdown("🖼️ アバター（アイコン）設定")
             col_a, col_u = st.columns(2)
             with col_a:
                 ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
@@ -2298,7 +2299,7 @@ with all_tabs[1]:
 # 🎨 📜 利用規約・ポリシー
 # ------------------------------------------------------------------
 with all_tabs[2]:
-    st.markdown("## 📜 利用規約・プライバシーポリシー")
+    st.markdown("##### 📜 利用規約・プライバシーポリシー")
     st.caption("※本規約は、現在実施中のクローズドテスト、および将来の正式リリース運用を想定した共通のサービス利用基本規約です。")
     
     st.info(
