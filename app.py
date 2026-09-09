@@ -2168,7 +2168,7 @@ with all_tabs[1]:
         st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.caption("AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
 
-        st.write(f"#### 🎨 アプリの外観＆カラー")
+        st.write(f"##### 🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
