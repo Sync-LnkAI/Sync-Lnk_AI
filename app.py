@@ -2316,7 +2316,7 @@ with all_tabs[1]:
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
                 for personality, sample in PERSONALITY_SAMPLES.items():
-                    st.markdown(f"#### {personality}")
+                    st.markdown(f" {personality}")
                     st.markdown(sample)
                     st.divider()
 
