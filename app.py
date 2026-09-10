@@ -2314,17 +2314,11 @@ with all_tabs[1]:
                 index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
             )
 
-            st.write("current_style_preset =", repr(current_style_preset))
-            st.write("selected_preset =", repr(selected_preset))
-
-            st.write(selected_preset)
-
-            sample = PERSONALITY_SAMPLES.get(selected_preset)
-            if sample:
-                st.markdown("##### 💬 会話イメージ")
-                st.info(sample)
-            with st.expander("💬 この人格の会話イメージを見る"):
-                st.markdown(sample)
+            with st.expander("💬 人格ごとの会話サンプルを見る"):
+                for personality, sample in PERSONALITY_SAMPLES.items():
+                    st.markdown(f"#### {personality}")
+                    st.markdown(sample)
+                    st.divider()
 
             st.markdown("---")
 
