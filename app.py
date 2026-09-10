@@ -2314,7 +2314,7 @@ with all_tabs[1]:
                 index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
             )
 
-            st.write(selected_personality)
+            st.write(selected_preset)
 
             sample = PERSONALITY_SAMPLES.get(selected_preset)
             if sample:
