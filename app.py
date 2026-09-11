@@ -2293,7 +2293,7 @@ with all_tabs[1]:
         st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
         st.divider()
 
-        st.markdown("#####🎨 アプリの外観＆カラー")
+        st.markdown("##### 🎨 アプリの外観＆カラー")
         with st.form("color_form_tab_admin"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             if st.form_submit_button("カラー設定を保存"):
@@ -2302,7 +2302,7 @@ with all_tabs[1]:
                 st.rerun()
 
         st.divider()
-        st.markdown("#####👤 基本設定")
+        st.markdown("##### 👤 基本設定")
         honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
         default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
         preset_keys = list(STYLE_PRESETS.keys())
@@ -2330,7 +2330,7 @@ with all_tabs[1]:
 
             st.markdown("---")
 
-            st.markdown("#####📝 AIの話し方")
+            st.markdown("##### 📝 AIの話し方")
             st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
             st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
             st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
@@ -2392,7 +2392,7 @@ with all_tabs[1]:
                 if current_emoji_setting in emoji_options
                 else 1
             )
-            st.markdown("#####💬 AIの発言内の絵文字の量")
+            st.markdown("##### 💬 AIの発言内の絵文字の量")
             new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
             # st.markdown("🖼️ アバター（アイコン）設定")
@@ -2452,7 +2452,7 @@ with all_tabs[1]:
         display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
 
         #　要約を表示
-        st.markdown("#####🧠 現在AIが覚えていること")
+        st.markdown("##### 🧠 現在AIが覚えていること")
         if display_summary != "なし":
             #st.info(display_summary)
             st.caption("　AIが長期記憶として覚えている内容です。")
