@@ -2259,9 +2259,12 @@ with all_tabs[0]:
                     """
                     <hr style="
                         border: none;
-                        border-top: 1px solid rgba(120,120,120,0.2);
-                        margin-top: 10px;
-                        margin-bottom: 10px;
+                        border-top: 1px dashed #999999;
+                        margin-top: 15px;
+                        margin-bottom: 15px;
+                        # border-top: 1px solid rgba(120,120,120,0.2);
+                        # margin-top: 10px;
+                        # margin-bottom: 10px;
                     ">
                     """,
                     unsafe_allow_html=True
