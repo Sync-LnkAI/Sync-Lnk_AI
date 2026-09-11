@@ -2237,20 +2237,20 @@ with all_tabs[0]:
                                 message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                             )
 
+        # for msg in reversed(all_messages):
+        #     role_label = display_user_name if msg["role"] == "user" else current_concierge_name
+        #     avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
         for msg in reversed(all_messages):
-            role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-            avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            for msg in reversed(all_messages):
-                role_label = (
-                    display_user_name
-                    if msg["role"] == "user"
-                    else current_concierge_name
-                )
+            role_label = (
+                display_user_name
+                if msg["role"] == "user"
+                else current_concierge_name
+            )
 
-                st.write(
-                    f"【{role_label}】: "
-                    f"{clean_bold_markdown(msg['content'])}"
-                )
+            st.write(
+                f"【{role_label}】: "
+                f"{clean_bold_markdown(msg['content'])}"
+            )
             # with st.chat_message(msg["role"]):
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
             # with st.chat_message(msg["role"], avatar=avatar_img):
