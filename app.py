@@ -2254,7 +2254,7 @@ with all_tabs[0]:
             st.markdown(
                 f"{role_label}: {clean_bold_markdown(msg['content'])}"
             )
-            if msg["role"] == "assistant":
+            if msg["role"] == "user":
                 st.divider()
 
             # st.write(
