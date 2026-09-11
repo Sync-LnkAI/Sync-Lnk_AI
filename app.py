@@ -2255,7 +2255,17 @@ with all_tabs[0]:
                 f"{role_label}: {clean_bold_markdown(msg['content'])}"
             )
             if msg["role"] == "user":
-                border-top: 1px solid rgba(120,120,120,0.15);
+                st.markdown(
+                    """
+                    <hr style="
+                        border: none;
+                        border-top: 1px solid rgba(120,120,120,0.15);
+                        margin-top: 10px;
+                        margin-bottom: 10px;
+                    ">
+                    """,
+                    unsafe_allow_html=True
+                )
                 #st.divider()
 
             # st.write(
