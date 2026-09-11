@@ -2259,7 +2259,7 @@ with all_tabs[0]:
                     """
                     <hr style="
                         border: none;
-                        border-top: 1px dashed #999999;
+                        border-top: 1px dashed rgba(120,120,120,0.4);
                         margin-top: 15px;
                         margin-bottom: 15px;
                     ">
