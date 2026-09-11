@@ -2236,8 +2236,10 @@ with all_tabs[0]:
         for msg in reversed(all_messages):
             role_label = display_user_name if msg["role"] == "user" else current_concierge_name
             avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-            with st.chat_message(msg["role"], avatar=avatar_img):
+            with st.chat_message(msg["role"]):
                 st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
+            # with st.chat_message(msg["role"], avatar=avatar_img):
+            #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
@@ -2350,22 +2352,22 @@ with all_tabs[1]:
             st.markdown("💬 AIの発言内の絵文字の量")
             new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
-            st.markdown("🖼️ アバター（アイコン）設定")
-            col_a, col_u = st.columns(2)
-            with col_a:
-                ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
-                default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
-                ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
-                ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
-            with col_u:
-                user_preset_keys = list(AVATAR_PRESETS_USER.keys())
-                default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
-                user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
-                user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
+            # st.markdown("🖼️ アバター（アイコン）設定")
+            # col_a, col_u = st.columns(2)
+            # with col_a:
+            #     ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
+            #     default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
+            #     ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
+            #     ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
+            # with col_u:
+            #     user_preset_keys = list(AVATAR_PRESETS_USER.keys())
+            #     default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
+            #     user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
+            #     user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
             
-            #plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
-            #current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            #new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
+            # plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
+            # current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
+            # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             if st.form_submit_button("基本設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
@@ -2376,12 +2378,12 @@ with all_tabs[1]:
                     r5 = save_or_update_user_setting("人格", selected_preset)
                     final_instruction = "\n".join(edited_rules)
                     r6 = save_or_update_user_setting("応答方針", final_instruction)
-                    r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
-                    r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
+                    # r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
+                    # r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
                     r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
                     #r10 = save_or_update_user_setting("会員プラン", new_plan)
                     success = (
-                        r1 and r2 and r3 and r4 and r5 and r6 and r7 and r8 and r9
+                        r1 and r2 and r3 and r4 and r5 and r6 and r9
                     )
                     if success:
                         st.success("設定を更新しました")
