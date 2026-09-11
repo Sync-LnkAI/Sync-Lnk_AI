@@ -2864,56 +2864,73 @@ if is_admin:
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
 
-# 🟢 【正真正銘・ Ver 1.0 フロントエンド高級化デザインインフラ】
-#     業務システム感をバサッと引き算し、市販の高級チャットアプリの佇まいへ一撃で変貌させます！
-#     （※ unsafe_allow_html=True を使うことで、Streamlitの見た目を裏側から美しく調教します）
+# 🟢 【正真正銘・ Ver 1.0 フロントエンド高級化デザインインフラ（完全大開通版）】
+#     隔離されたチャットパーツの最深部の部屋（ st.chat_message ）を裏側から力技で直撃ハッキング！
+#     業務システム感を200%完全に引き算し、極上のダークグラデーションUIへ変貌させます！
 
 st.markdown("""
     <style>
-        /* 📱 アプリ全体の背景を洗練された高級感のあるダークネイビー/ブラックへ */
-        .stApp {
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%) !important;
+        /* 📱 1. アプリ全体の最背面の背景を洗練された高級ダークネイビーへ */
+        .stApp, [data-testid="stAppViewContainer"] {
+            background: linear-gradient(135deg, #090d16 0%, #111326 100%) !important;
+            background-color: #090d16 !important;
+        }
+        
+        /* 📱 2. メインのスクロールエリアも暗闇仕様へ強制上書き */
+        [data-testid="stMainBlockContainer"], .main .block-container {
+            background: transparent !important;
+            color: #f1f5f9 !important;
+        }
+
+        /* 💬 3. チャットメッセージのハコ（ st.chat_message ）の背景と枠線を100%支配！ */
+        [data-testid="stChatMessage"] {
+            border: none !important;
+            margin-bottom: 16px !important;
+            padding: 16px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        /* 🤖 4. AI（ハヤト）側のトークバブル：シックな深みのあるグレーグラデーション */
+        [data-testid="stChatMessage"]:nth-of-type(even), 
+        [data-testid="stChatMessage"]::id(ai),
+        .stChatMessage:id(assistant) {
+            background: linear-gradient(135deg, #1e293b 0%, #273549 100%) !important;
+            border-radius: 20px 20px 20px 6px !important;
             color: #f8fafc !important;
         }
         
-        /* 💬 AI（ハヤト）のトークバブルを、丸みのある高級グラデーションに */
-        [data-testid="stChatMessage"]:nth-child(even) {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
-            border-radius: 20px 20px 20px 4px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-            border: 1px solid rgba(255,255,255,0.05) !important;
-            margin-bottom: 15px !important;
-        }
-        
-        /* 🧑 ユーザー側のトークバブルを、鮮やかなネオンパープル/ブルーに */
-        [data-testid="stChatMessage"]:nth-child(odd) {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
-            border-radius: 20px 20px 4px 20px !important;
-            box-shadow: 0 4px 12px rgba(79,70,229,0.3) !important;
-            margin-bottom: 15px !important;
+        /* 🧑 5. ユーザー側のトークバブル：鮮やかなネオンパープル（市販アプリの佇まい） */
+        [data-testid="stChatMessage"]:nth-of-type(odd),
+        [data-testid="stChatMessage"]::id(user),
+        .stChatMessage:id(user) {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+            border-radius: 20px 20px 6px 20px !important;
+            color: #ffffff !important;
         }
 
-        /* ⚙️ 設定タブ（ st.tabs ）の文字やデザインを今風の洗練されたボタンへ */
+        /* 📝 6. チャット内の文字の色を、視認性の高いホワイト・グレー系へ完全統一 */
+        [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] span, [data-testid="stChatMessage"] div {
+            color: inherit !important;
+        }
+
+        /* ⚙️ 7. タブ（ st.tabs ）全体のデザインをコンパクトでモダンなボタンに集約 */
+        .stTabs [data-baseweb="tab-list"] {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+            border-radius: 12px !important;
+            padding: 6px !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        }
         .stTabs [data-baseweb="tab"] {
             color: #94a3b8 !important;
             font-weight: bold !important;
             border-radius: 8px !important;
-            padding: 8px 16px !important;
+            border: none !important;
         }
         .stTabs [aria-selected="true"] {
-            background-color: #4f46e5 !important;
+            background: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%) !important;
             color: #ffffff !important;
-        }
-
-        /* 💾 入力欄や保存ボタンの角を丸くして、市販アプリのボタンの佇まいに */
-        .stButton>button {
-            background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%) !important;
-            color: white !important;
-            border-radius: 50px !important;
-            border: none !important;
-            font-weight: bold !important;
-            box-shadow: 0 4px 12px rgba(124,58,237,0.3) !important;
-            transition: all 0.3s ease !important;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4) !important;
         }
     </style>
 """, unsafe_allow_html=True)
+
