@@ -2321,8 +2321,9 @@ with all_tabs[1]:
                 if current_emoji_setting in emoji_options
                 else 1
             )
-            st.caption("AIの発言内の絵文字の量")
-            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+            new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
+            # st.caption("AIの発言内の絵文字の量")
+            # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
 
             # AIの人格を選択
