@@ -1705,7 +1705,8 @@ with all_tabs[0]:
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
                 # with st.chat_message("assistant", avatar=current_ai_avatar):
                 # with st.chat_message("assistant"):
-                st.write(f"【{current_concierge_name}】: {err_msg}")
+                # st.write(f"【{current_concierge_name}】: {err_msg}")
+                st.markdown(f"{current_concierge_name}: {err_msg}")
             else:
                 is_allowed, alert_code, db_count, db_max = (
                     check_and_update_limits(
@@ -1741,7 +1742,8 @@ with all_tabs[0]:
 
                     # with st.chat_message("assistant", avatar=current_ai_avatar):
                     # with st.chat_message("assistant"):
-                    st.write(f"【{current_concierge_name}】: {reason_text}")
+                    # st.write(f"【{current_concierge_name}】: {reason_text}")
+                    st.markdown(f"{current_concierge_name}: {reason_text}")
                     
                     # 制限接触ログの保存
                     save_system_audit_log(
@@ -1761,7 +1763,9 @@ with all_tabs[0]:
                         
                         # with st.chat_message("user", avatar=current_user_avatar):
                         # with st.chat_message("user"):
-                        st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
+                        # st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
+                        st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
+                        
 
                         search_start_time = time.time()
                         past_logs_context = search_past_logs_hybrid(user_input)
@@ -2174,7 +2178,8 @@ with all_tabs[0]:
                             clean_reply = clean_bold_markdown(ai_reply)
                             # with st.chat_message("assistant", avatar=current_ai_avatar):
                             # with st.chat_message("assistant"):
-                            st.write(f"【{current_concierge_name}】: {clean_reply}")
+                            # st.write(f"【{current_concierge_name}】: {clean_reply}")
+                            st.markdown(f"{current_concierge_name}: {clean_reply}")
                             
                             save_message("assistant", ai_reply)
                             st.session_state.conversation_count += 1
@@ -2246,11 +2251,14 @@ with all_tabs[0]:
                 if msg["role"] == "user"
                 else current_concierge_name
             )
-
-            st.write(
-                f"【{role_label}】: "
-                f"{clean_bold_markdown(msg['content'])}"
+            st.markdown(
+                f"{role_label}: {clean_bold_markdown(msg['content'])}"
             )
+
+            # st.write(
+            #     f"【{role_label}】: "
+            #     f"{clean_bold_markdown(msg['content'])}"
+            # )
             # with st.chat_message(msg["role"]):
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
             # with st.chat_message(msg["role"], avatar=avatar_img):
