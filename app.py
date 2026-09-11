@@ -1297,7 +1297,25 @@ def build_recent_history_str():
 
 # 🎨グラデーションカラーパレット
 THEMES = {
-     "メタリック": {
+     "パステル": {
+        # 🌸 【劇的強化】 柔らかなコーラルピンク（#FFF5F5）から、鮮やかなマゼンタ系ピンク（#FFB7B2）へのロマンチックグラデ
+        "bg": "linear-gradient(180deg, #FFF5F5 0%, #FFD1D1 50%, #FFB7B2 100%)",
+        "text": "#4A1525",        # より深みを増した濃厚ベリー文字
+        "card_bg": "#FEFCBF",     # 優しいパステルイエローのカード
+        "input_border": "#ED64A6",# 華やかなローズピンク
+        "dropdown_bg": "#FFF5F7",
+        "dropdown_text": "#4A1525"
+    },
+    "レインボーポップ": {
+        # 🟢 【大開通！】 7色のパステルカラーが斜めに美しく溶け合う、圧倒的な遊び心のレインボー背景です！
+        "bg": "linear-gradient(135deg, #FFB7B2 0%, #FFDAC1 20%, #E2F0CB 40%, #B5EAD7 60%, #C7CEEA 80%, #FFB7B2 100%)",
+        "text": "#1A1A1A",                         # 文字がボヤけないように引き締まった墨色
+        "card_bg": "rgba(255, 255, 255, 0.75)",      # 白い吹き出しを75%シースルーにして、裏のレインボーを美しく大露出！
+        "input_border": "#3B82F6",
+        "dropdown_bg": "#FFFFFF",
+        "dropdown_text": "#1A1A1A"
+    },
+    "メタリック": {
         # 🟢 【完全死守】 リュウさんお気に入りの、本物の削り出しチタンシルバーの比率は1ミリも変えずに100%残します！
         "bg": "linear-gradient(135deg, #E0E0E0 0%, #F5F5F5 25%, #BEBEBE 50%, #9E9E9E 75%, #E0E0E0 100%)",
         "text": "#1A1A1A",
@@ -1313,16 +1331,6 @@ THEMES = {
         "input_border": "#CCA300",          # ハヤト（沙也加）のアイコンと直結する狐色のアクセント線
         "dropdown_bg": "#FFFFFF",           # プルダウンの背景もクリーンに白
         "dropdown_text": "#31333F"          # プルダウンの文字も濃厚な墨色
-    },
-    "ダーク": {
-        # 🔩 【極大強化】 スタートを圧倒的に明るいアルミグレー（#55545B）にし、
-        # 画面の中央（#1C1B1F）をすり抜けて、底の極小漆黒（#08080A）へと劇的に変化する垂直3層グラデーション！
-        "bg": "linear-gradient(180deg, #55545B 0%, #1C1B1F 35%, #08080A 100%)",
-        "text": "#FFFFFF",        # クッキリ浮き出る純白文字
-        "card_bg": "#222126",     # 背景のグレーと美しく溶け合うダークカード
-        "input_border": "#66656C",# 視認性を上げたメタルグレーの境界線
-        "dropdown_bg": "#2D2C33",
-        "dropdown_text": "#FFFFFF"
     },
     "オーシャン": {
         # 🌊 【劇的強化】 白波のようなライトブルー（#E3F2FD）から、深海のディープブルー（#64B5F6）へ深く沈み込むグラデ
@@ -1342,15 +1350,6 @@ THEMES = {
         "dropdown_bg": "#F4FBF4",
         "dropdown_text": "#0D2B0D"
     },
-    "パステル": {
-        # 🌸 【劇的強化】 柔らかなコーラルピンク（#FFF5F5）から、鮮やかなマゼンタ系ピンク（#FFB7B2）へのロマンチックグラデ
-        "bg": "linear-gradient(180deg, #FFF5F5 0%, #FFD1D1 50%, #FFB7B2 100%)",
-        "text": "#4A1525",        # より深みを増した濃厚ベリー文字
-        "card_bg": "#FEFCBF",     # 優しいパステルイエローのカード
-        "input_border": "#ED64A6",# 華やかなローズピンク
-        "dropdown_bg": "#FFF5F7",
-        "dropdown_text": "#4A1525"
-    },
     "ウォーム": {
         # 🔥 【劇的強化】 燃える夕焼け橙（#FFF5F0）から、情熱の茜色・トワイライトレッド（#FF8A65）への超グラデ
         "bg": "linear-gradient(180deg, #FFF5F0 0%, #FFAB91 50%, #FF8A65 100%)",
@@ -1360,14 +1359,15 @@ THEMES = {
         "dropdown_bg": "#FFEBEE",
         "dropdown_text": "#5C0F08"
     },
-    "レインボーポップ": {
-        # 🟢 【大開通！】 7色のパステルカラーが斜めに美しく溶け合う、圧倒的な遊び心のレインボー背景です！
-        "bg": "linear-gradient(135deg, #FFB7B2 0%, #FFDAC1 20%, #E2F0CB 40%, #B5EAD7 60%, #C7CEEA 80%, #FFB7B2 100%)",
-        "text": "#1A1A1A",                         # 文字がボヤけないように引き締まった墨色
-        "card_bg": "rgba(255, 255, 255, 0.75)",      # 白い吹き出しを75%シースルーにして、裏のレインボーを美しく大露出！
-        "input_border": "#3B82F6",
-        "dropdown_bg": "#FFFFFF",
-        "dropdown_text": "#1A1A1A"
+    "ダーク": {
+        # 🔩 【極大強化】 スタートを圧倒的に明るいアルミグレー（#55545B）にし、
+        # 画面の中央（#1C1B1F）をすり抜けて、底の極小漆黒（#08080A）へと劇的に変化する垂直3層グラデーション！
+        "bg": "linear-gradient(180deg, #55545B 0%, #1C1B1F 35%, #08080A 100%)",
+        "text": "#FFFFFF",        # クッキリ浮き出る純白文字
+        "card_bg": "#222126",     # 背景のグレーと美しく溶け合うダークカード
+        "input_border": "#66656C",# 視認性を上げたメタルグレーの境界線
+        "dropdown_bg": "#2D2C33",
+        "dropdown_text": "#FFFFFF"
     }
 }
 
@@ -1377,7 +1377,7 @@ THEMES = {
 manual_memories = get_memories(source="manual")
 
 #  初めて起動したまっさらな状態のユーザー向けの初期値
-current_theme_color = "メタリック"
+current_theme_color = "パステル"
 current_concierge_name = "コンシェルジュ"
 current_user_name = "ユーザー"
 current_user_honorific = "さん"
@@ -1425,8 +1425,8 @@ for m in manual_memories:
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
-# 万が一古い選択肢が残っていても、安全弁として「メタリック」に自動着地させてエラーを300%永久防衛します！
-theme_cfg = THEMES.get(current_theme_color, THEMES["メタリック"])
+# 万が一古い選択肢が残っていても、安全弁として「パステル」に自動着地させてエラーを300%永久防衛します！
+theme_cfg = THEMES.get(current_theme_color, THEMES["パステル"])
 
 
 # ★画面最適化CSS（スマホメニュー表示維持 & ドロップダウン選択肢の全階層テキスト完全強制補正）
@@ -2508,7 +2508,7 @@ if is_admin:
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
             # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "メタリック", "🆓 無料プラン"
+            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "パステル", "🆓 無料プラン"
             audit_facts = []
             try:
                 u_memories = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", selected_audit_user).execute()
