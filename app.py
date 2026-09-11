@@ -2314,6 +2314,16 @@ with all_tabs[1]:
             new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
             new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            # 絵文字3段階パーソナライズドロップダウン
+            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
+            default_emoji_idx = (
+                emoji_options.index(current_emoji_setting)
+                if current_emoji_setting in emoji_options
+                else 1
+            )
+            st.markdown("💬 AIの発言内の絵文字の量")
+            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+
 
             # AIの人格を選択
             selected_preset = st.selectbox(
@@ -2327,16 +2337,6 @@ with all_tabs[1]:
                     st.markdown(f" {personality}")
                     st.markdown(sample)
                     st.divider()
-
-            # 絵文字3段階パーソナライズドロップダウン
-            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
-            default_emoji_idx = (
-                emoji_options.index(current_emoji_setting)
-                if current_emoji_setting in emoji_options
-                else 1
-            )
-            st.markdown("##### 💬 AIの発言内の絵文字の量")
-            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
             st.markdown("---")
 
@@ -2391,8 +2391,6 @@ with all_tabs[1]:
             # 最新5件のみ保持
             edited_rules = edited_rules[-5:]
 
-            # st.markdown("---")
-
             # st.markdown("🖼️ アバター（アイコン）設定")
             # col_a, col_u = st.columns(2)
             # with col_a:
@@ -2410,6 +2408,7 @@ with all_tabs[1]:
             # current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
             # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
+            st.markdown("---")
             if st.form_submit_button("基本設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
