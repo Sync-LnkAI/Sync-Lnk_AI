@@ -2255,7 +2255,8 @@ with all_tabs[0]:
                 f"{role_label}: {clean_bold_markdown(msg['content'])}"
             )
             if msg["role"] == "user":
-                st.divider()
+                border-top: 1px solid rgba(120,120,120,0.15);
+                #st.divider()
 
             # st.write(
             #     f"【{role_label}】: "
