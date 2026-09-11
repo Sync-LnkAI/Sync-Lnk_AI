@@ -2863,3 +2863,57 @@ if is_admin:
     
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
+
+# 🟢 【正真正銘・ Ver 1.0 フロントエンド高級化デザインインフラ】
+#     業務システム感をバサッと引き算し、市販の高級チャットアプリの佇まいへ一撃で変貌させます！
+#     （※ unsafe_allow_html=True を使うことで、Streamlitの見た目を裏側から美しく調教します）
+
+st.markdown("""
+    <style>
+        /* 📱 アプリ全体の背景を洗練された高級感のあるダークネイビー/ブラックへ */
+        .stApp {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%) !important;
+            color: #f8fafc !important;
+        }
+        
+        /* 💬 AI（ハヤト）のトークバブルを、丸みのある高級グラデーションに */
+        [data-testid="stChatMessage"]:nth-child(even) {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+            border-radius: 20px 20px 20px 4px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            margin-bottom: 15px !important;
+        }
+        
+        /* 🧑 ユーザー側のトークバブルを、鮮やかなネオンパープル/ブルーに */
+        [data-testid="stChatMessage"]:nth-child(odd) {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+            border-radius: 20px 20px 4px 20px !important;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.3) !important;
+            margin-bottom: 15px !important;
+        }
+
+        /* ⚙️ 設定タブ（ st.tabs ）の文字やデザインを今風の洗練されたボタンへ */
+        .stTabs [data-baseweb="tab"] {
+            color: #94a3b8 !important;
+            font-weight: bold !important;
+            border-radius: 8px !important;
+            padding: 8px 16px !important;
+        }
+        .stTabs [aria-selected="true"] {
+            background-color: #4f46e5 !important;
+            color: #ffffff !important;
+        }
+
+        /* 💾 入力欄や保存ボタンの角を丸くして、市販アプリのボタンの佇まいに */
+        .stButton>button {
+            background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%) !important;
+            color: white !important;
+            border-radius: 50px !important;
+            border: none !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 12px rgba(124,58,237,0.3) !important;
+            transition: all 0.3s ease !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
