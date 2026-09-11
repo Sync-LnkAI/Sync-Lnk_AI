@@ -2328,6 +2328,16 @@ with all_tabs[1]:
                     st.markdown(sample)
                     st.divider()
 
+            # 絵文字3段階パーソナライズドロップダウン
+            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
+            default_emoji_idx = (
+                emoji_options.index(current_emoji_setting)
+                if current_emoji_setting in emoji_options
+                else 1
+            )
+            st.markdown("##### 💬 AIの発言内の絵文字の量")
+            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+
             st.markdown("---")
 
             st.markdown("##### 📝 AIの話し方")
@@ -2381,19 +2391,7 @@ with all_tabs[1]:
             # 最新5件のみ保持
             edited_rules = edited_rules[-5:]
 
-            #st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。不要な場合はいつでも自分で消去・修正して保存できます。")
-
-            st.markdown("---")
-
-            # 絵文字3段階パーソナライズドロップダウン
-            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
-            default_emoji_idx = (
-                emoji_options.index(current_emoji_setting)
-                if current_emoji_setting in emoji_options
-                else 1
-            )
-            st.markdown("##### 💬 AIの発言内の絵文字の量")
-            new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+            # st.markdown("---")
 
             # st.markdown("🖼️ アバター（アイコン）設定")
             # col_a, col_u = st.columns(2)
