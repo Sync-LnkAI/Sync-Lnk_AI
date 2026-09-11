@@ -1703,7 +1703,8 @@ with all_tabs[0]:
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
-                with st.chat_message("assistant", avatar=current_ai_avatar):
+                # with st.chat_message("assistant", avatar=current_ai_avatar):
+                with st.chat_message("assistant"):
                     st.write(f"【{current_concierge_name}】: {err_msg}")
             else:
                 is_allowed, alert_code, db_count, db_max = (
@@ -1738,7 +1739,8 @@ with all_tabs[0]:
                             f"コード: {alert_code}"
                         )
 
-                    with st.chat_message("assistant", avatar=current_ai_avatar):
+                    # with st.chat_message("assistant", avatar=current_ai_avatar):
+                    with st.chat_message("assistant"):
                         st.write(f"【{current_concierge_name}】: {reason_text}")
                     
                     # 制限接触ログの保存
@@ -1757,7 +1759,8 @@ with all_tabs[0]:
                     # 「考え中...」をフリッカー無しで点滅表示
                     with st.spinner(f"{current_concierge_name}が言葉を紡いでいます..."):
                         
-                        with st.chat_message("user", avatar=current_user_avatar):
+                        # with st.chat_message("user", avatar=current_user_avatar):
+                        with st.chat_message("user"):
                             st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
 
                         search_start_time = time.time()
@@ -2169,7 +2172,8 @@ with all_tabs[0]:
                                     )    
 
                             clean_reply = clean_bold_markdown(ai_reply)
-                            with st.chat_message("assistant", avatar=current_ai_avatar):
+                            # with st.chat_message("assistant", avatar=current_ai_avatar):
+                            with st.chat_message("assistant"):
                                 st.write(f"【{current_concierge_name}】: {clean_reply}")
                             
                             save_message("assistant", ai_reply)
