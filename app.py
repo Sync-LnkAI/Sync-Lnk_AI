@@ -6,6 +6,7 @@ import time
 import json
 from datetime import datetime, timezone, timedelta
 import zoneinfo
+import pandas as pd
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -2822,8 +2823,187 @@ if is_admin:
     with all_tabs[4]:
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-        
-                # ──────────────────────────────────────────────────────────────────
+
+        st.write(users.keys())
+        tester_rows = []
+        try:
+            memories_res = (
+                supabase
+                .table("user_memories_tester")
+                .select("*")
+                .execute()
+            )
+
+            users = {}
+
+            for row in memories_res.data:
+                uid = row["user_id"]
+
+                if uid not in users:
+                    users[uid] = {
+                        "ユーザーID": uid,
+                        "AI名称": "",
+                        "ユーザー名": "",
+                        "呼び方": "",
+                        "一人称": "",
+                        "絵文字": "",
+                        "人格": "",
+                        "テーマ": ""
+                    }
+
+                fact = row.get("fact", "")
+
+                if fact.startswith("AIの名前:"):
+                    users[uid]["AI名称"] = fact.replace("AIの名前:", "").strip()
+
+                elif fact.startswith("ユーザー名:"):
+                    users[uid]["ユーザー名"] = fact.replace("ユーザー名:", "").strip()
+
+                elif fact.startswith("ユーザー敬称:"):
+                    users[uid]["呼び方"] = fact.replace("ユーザー敬称:", "").strip()
+
+                elif fact.startswith("AI一人称:"):
+                    users[uid]["一人称"] = fact.replace("AI一人称:", "").strip()
+
+                elif fact.startswith("絵文字の量:"):
+                    users[uid]["絵文字"] = fact.replace("絵文字の量:", "").strip()
+
+                elif fact.startswith("人格:"):
+                    users[uid]["人格"] = fact.replace("人格:", "").strip()
+
+                elif fact.startswith("カラーテーマ:"):
+                    users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
+
+            tester_rows = list(users.values())
+
+            st.markdown("### 🎨 テスター設定状況一覧")
+            st.dataframe(
+                pd.DataFrame(tester_rows),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        except Exception as e:
+            st.error(f"設定一覧取得エラー: {e}")
+
+        usage_rows = []
+
+        for uid in users.keys():
+
+            try:
+
+                msg_res = (
+                    supabase
+                    .table("messages")
+                    .select("*")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                msgs = msg_res.data or []
+
+                user_msgs = [
+                    m for m in msgs
+                    if m.get("role") == "user"
+                ]
+
+                total_chat = len(user_msgs)
+
+                if msgs:
+
+                    times = [
+                        datetime.fromisoformat(
+                            m["created_at"].replace("Z", "+00:00")
+                        )
+                        for m in msgs
+                    ]
+
+                    start_date = min(times)
+
+                    last_date = max(times)
+
+                    active_days = len(
+                        set(t.date() for t in times)
+                    )
+
+                else:
+
+                    start_date = None
+                    last_date = None
+                    active_days = 0
+
+                cost_res = (
+                    supabase
+                    .table("system_audit_logs")
+                    .select("api_cost")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                total_cost = sum(
+                    float(x.get("api_cost", 0) or 0)
+                    for x in cost_res.data
+                )
+
+                avg_cost = (
+                    round(total_cost / total_chat, 3)
+                    if total_chat > 0
+                    else 0
+                )
+
+                usage_rows.append({
+
+                    "ユーザーID": uid,
+
+                    "開始日":
+                        start_date.strftime("%Y-%m-%d")
+                        if start_date else "-",
+
+                    "利用日数":
+                        active_days,
+
+                    "最終利用":
+                        last_date.strftime("%Y-%m-%d %H:%M")
+                        if last_date else "-",
+
+                    "総会話数":
+                        total_chat,
+
+                    "累計コスト":
+                        round(total_cost, 2),
+
+                    "1会話コスト":
+                        avg_cost,
+
+                    "会話進捗":
+                        f"{total_chat}/20",
+
+                    "利用日数進捗":
+                        f"{active_days}/4"
+                })
+
+            except Exception as e:
+                print(uid, e)
+
+        st.markdown("### 📈 テスター利用状況一覧")
+
+        st.dataframe(
+            pd.DataFrame(usage_rows),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        "会話進捗":
+        f"{total_chat}/*0",
+        "利用日数進捗":
+        f"{active_days}/4",*
+
+        if total_chat*>= 20 and active_days >= 4:
+            status = "達成"
+        else:
+            status = "未達"
+
+        # ──────────────────────────────────────────────────────────────────
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
         # ──────────────────────────────────────────────────────────────────
         try:
@@ -2861,6 +3041,12 @@ if is_admin:
                     if uid not in grouped_logs:
                         grouped_logs[uid] = []
                     grouped_logs[uid].append(log)
+                
+                target_display_user_name = (
+                    f"{audit_user_name}{audit_user_honorific}"
+                    if audit_user_honorific != "（呼び捨て/なし）"
+                    else audit_user_name
+                )
 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
@@ -2876,9 +3062,15 @@ if is_admin:
                         clean_time = created_at.replace("T", " ")[:16]
                             
                         if role == "user":
-                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **{display_user_name}**: 「 {content} 」")
+                            st.markdown(
+                                f"&nbsp;&nbsp;💫 `[{clean_time}]` "
+                                f"**{target_display_user_name}**: 「{content}」"
+                            )
                         else:
-                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **{current_concierge_name}**: {content}")
+                            st.markdown(
+                                f"&nbsp;&nbsp;🔮 `[{clean_time}]` "
+                                f"**{audit_concierge_name}**: {content}"
+                            )
                     st.markdown("---")
                 else:
                     st.info(f"テスター `{selected_target_user_id}` による会話の足跡は、まだデータベースに記録されていません。")
