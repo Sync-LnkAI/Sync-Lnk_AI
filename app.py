@@ -3013,6 +3013,38 @@ if is_admin:
             use_container_width=True,
             hide_index=True
         )
+        total_all_cost = sum(
+            float(row["累計コスト"].replace("円", ""))
+            for row in usage_rows
+        )
+
+        total_all_chats = sum(
+            int(row["総会話数"].replace("回", ""))
+            for row in usage_rows
+        )
+
+        overall_avg_cost = (
+            total_all_cost / total_all_chats
+            if total_all_chats > 0
+            else 0
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            "全テスター累計コスト",
+            f"{total_all_cost:.2f}円"
+        )
+
+        col2.metric(
+            "全テスター総会話数",
+            f"{total_all_chats}回"
+        )
+
+        col3.metric(
+            "全体平均・1会話コスト",
+            f"{overall_avg_cost:.3f}円"
+        )
 
         # ──────────────────────────────────────────────────────────────────
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
