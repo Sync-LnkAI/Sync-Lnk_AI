@@ -2635,7 +2635,9 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIの一人称：</b> {audit_first_person}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>絵文字の量：</b> {audit_emoji_setting}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>人格：</b> {audit_style_preset}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>記憶カルテ数：</b> {len(audit_facts)} 件</p>"
+                    has_long_memory = "あり" if len(audit_facts) > 0 else "なし"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶：</b> {has_long_memory}</p>"
+                    # f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶有無：</b> {len(audit_facts)} 件</p>"
                     "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
                     f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_real_instruction }</pre>"
                     "</div>",
