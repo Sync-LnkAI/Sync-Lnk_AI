@@ -2951,6 +2951,11 @@ if is_admin:
                     else 0
                 )
 
+                if total_chat*>= 20 and active_days >= 4:
+                    status = "達成"
+                else:
+                    status = "未達"
+
                 usage_rows.append({
 
                     "ユーザーID": uid,
@@ -2980,6 +2985,10 @@ if is_admin:
 
                     "利用日数進捗":
                         f"{active_days}/4"
+                    "会話進捗":
+                        f"{total_chat}/*0",
+                    "利用日数進捗":
+                        f"{active_days}/4",*
                 })
 
             except Exception as e:
@@ -2992,16 +3001,6 @@ if is_admin:
             use_container_width=True,
             hide_index=True
         )
-
-        "会話進捗":
-        f"{total_chat}/*0",
-        "利用日数進捗":
-        f"{active_days}/4",*
-
-        if total_chat*>= 20 and active_days >= 4:
-            status = "達成"
-        else:
-            status = "未達"
 
         # ──────────────────────────────────────────────────────────────────
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
