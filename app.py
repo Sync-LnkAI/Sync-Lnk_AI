@@ -2986,9 +2986,9 @@ if is_admin:
                     "利用日数進捗":
                         f"{active_days}/4"
                     "会話進捗":
-                        f"{total_chat}/*0",
+                        f"{total_chat}/20",
                     "利用日数進捗":
-                        f"{active_days}/4",*
+                        f"{active_days}/4"
                 })
 
             except Exception as e:
