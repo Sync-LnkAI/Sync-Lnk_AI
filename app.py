@@ -2515,7 +2515,12 @@ if is_admin:
             audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "パステル", "🆓 無料プラン"
             audit_facts = []
             try:
-                u_memories = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", selected_audit_user).execute()
+                selected_memory_table = (
+                    "user_memories"
+                    if selected_audit_user in [ADMIN_USER_ID, USUAL_USER_ID]
+                    else "user_memories_tester"
+                )
+                u_memories = supabase.table(selected_memory_table).select("*").eq("user_id", selected_audit_user).execute()
                 if u_memories.data:
                     for m in u_memories.data:
                         fact = m.get("fact", "")
