@@ -2877,7 +2877,7 @@ if is_admin:
 
             st.markdown("### 🎨 テスター設定状況一覧")
             #st.dataframe(
-            st.table()
+            st.table(
                 pd.DataFrame(tester_rows),
                 use_container_width=True,
                 hide_index=True
