@@ -79,7 +79,7 @@ is_dev_site = (
     or CURRENT_USER_ID == USUAL_USER_ID
 )
 
-DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_testuser"
+DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_tester"
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
