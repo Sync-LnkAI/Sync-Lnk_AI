@@ -2951,7 +2951,7 @@ if is_admin:
                     else 0
                 )
 
-                if total_chat*>= 20 and active_days >= 4:
+                if total_chat >= 20 and active_days >= 4:
                     status = "達成"
                 else:
                     status = "未達"
