@@ -2834,7 +2834,6 @@ if is_admin:
             )
 
             users = {}
-            st.write(users.keys())
 
             for row in memories_res.data:
                 uid = row["user_id"]
@@ -2877,7 +2876,8 @@ if is_admin:
             tester_rows = list(users.values())
 
             st.markdown("### 🎨 テスター設定状況一覧")
-            st.dataframe(
+            #st.dataframe(
+            st.table()
                 pd.DataFrame(tester_rows),
                 use_container_width=True,
                 hide_index=True
@@ -2951,11 +2951,6 @@ if is_admin:
                     else 0
                 )
 
-                if total_chat >= 20 and active_days >= 4:
-                    status = "達成"
-                else:
-                    status = "未達"
-
                 usage_rows.append({
 
                     "ユーザーID": uid,
@@ -2965,20 +2960,20 @@ if is_admin:
                         if start_date else "-",
 
                     "利用日数":
-                        active_days,
+                        f"{active_days}日",
 
                     "最終利用":
                         last_date.strftime("%Y-%m-%d %H:%M")
                         if last_date else "-",
 
                     "総会話数":
-                        total_chat,
+                        f"{total_chat}回",
 
                     "累計コスト":
-                        round(total_cost, 2),
+                        f"{round(total_cost, 2)}円",
 
                     "1会話コスト":
-                        avg_cost,
+                        f"{avg_cost}円",
 
                     "会話進捗":
                         f"{total_chat}/20",
@@ -2996,7 +2991,8 @@ if is_admin:
 
         st.markdown("### 📈 テスター利用状況一覧")
 
-        st.dataframe(
+        #st.dataframe(
+        st.table(
             pd.DataFrame(usage_rows),
             use_container_width=True,
             hide_index=True
