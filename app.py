@@ -2823,8 +2823,7 @@ if is_admin:
     with all_tabs[4]:
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-
-        st.write(users.keys())
+        
         tester_rows = []
         try:
             memories_res = (
@@ -2835,6 +2834,7 @@ if is_admin:
             )
 
             users = {}
+            st.write(users.keys())
 
             for row in memories_res.data:
                 uid = row["user_id"]
