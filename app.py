@@ -2875,9 +2875,16 @@ if is_admin:
 
             tester_rows = list(users.values())
 
+            st.markdown("""
+            <style>
+            [data-testid="stDataFrame"] table {
+                font-size: 16px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             st.markdown("### 🎨 テスター設定状況一覧")
-            #st.dataframe(
-            st.table(
+            st.dataframe(
                 pd.DataFrame(tester_rows),
                 use_container_width=True,
                 hide_index=True
@@ -2991,8 +2998,7 @@ if is_admin:
 
         st.markdown("### 📈 テスター利用状況一覧")
 
-        #st.dataframe(
-        st.table(
+        st.dataframe(
             pd.DataFrame(usage_rows),
             use_container_width=True,
             hide_index=True
