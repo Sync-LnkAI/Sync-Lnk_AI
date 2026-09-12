@@ -2512,7 +2512,15 @@ if is_admin:
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
             # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "パステル", "🆓 無料プラン"
+            audit_concierge_name = "コンシェルジュ"
+            audit_user_name = "ユーザー"
+            audit_user_honorific = "さん"
+            audit_first_person = "私"
+            audit_emoji_setting = "使用（普通）"
+            audit_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
+            audit_theme = "パステル"
+            audit_plan = "🆓 無料プラン"
+
             audit_facts = []
             try:
                 selected_memory_table = (
@@ -2528,6 +2536,10 @@ if is_admin:
                             if fact.startswith("AIの名前:"): audit_concierge_name = fact.replace("AIの名前:", "").strip()
                             elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
                             elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
+                            elif fact.startswith("ユーザー敬称:"): audit_user_honorific = fact.replace("ユーザー敬称:", "").strip()
+                            elif fact.startswith("AI一人称:"): audit_first_person = fact.replace("AI一人称:", "").strip()
+                            elif fact.startswith("絵文字の量:"): audit_emoji_setting = fact.replace("絵文字の量:", "").strip()
+                            elif fact.startswith("人格:"): audit_style_preset = fact.replace("人格:", "").strip()
                             elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
                         else: 
                             audit_facts.append(fact)
