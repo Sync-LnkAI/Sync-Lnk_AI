@@ -2426,6 +2426,10 @@ with all_tabs[1]:
                     success = (
                         r1 and r2 and r3 and r4 and r5 and r6 and r9
                     )
+                    st.write(
+                        f"r1={r1}, r2={r2}, r3={r3}, r4={r4}, "
+                        f"r5={r5}, r6={r6}, r9={r9}"
+                    )
                     if success:
                         st.success("設定を更新しました")
                         st.rerun()
