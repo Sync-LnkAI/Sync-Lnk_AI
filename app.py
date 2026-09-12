@@ -2834,6 +2834,15 @@ if is_admin:
             )
 
             users = {}
+            USER_PROFILE = {
+                "m.kawamura00": "40代女性",
+                "yasusan_cw": "50代男性",
+                "shigenoi": "40代男性",
+                "kham1014": "20代男性",
+                "pom_neko": "30代女性",
+                "kumii_5451": "40代女性",
+                "kotobayomi": "30代男性",
+            }
 
             for row in memories_res.data:
                 uid = row["user_id"]
@@ -2961,6 +2970,7 @@ if is_admin:
                 usage_rows.append({
 
                     "ユーザーID": uid,
+                    "属性": USER_PROFILE.get(uid, "不明"),
 
                     "開始日":
                         start_date.strftime("%Y-%m-%d")
