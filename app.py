@@ -1383,7 +1383,7 @@ current_user_name = "ユーザー"
 current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
-current_user_instruction = STYLE_PRESETS["🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"]
+current_user_instruction = ""
 current_ai_avatar = "🤖"
 current_user_avatar = "💫"
 current_emoji_setting = "使用（普通）"
@@ -2425,10 +2425,6 @@ with all_tabs[1]:
                     #r10 = save_or_update_user_setting("会員プラン", new_plan)
                     success = (
                         r1 and r2 and r3 and r4 and r5 and r6 and r9
-                    )
-                    st.write(
-                        f"r1={r1}, r2={r2}, r3={r3}, r4={r4}, "
-                        f"r5={r5}, r6={r6}, r9={r9}"
                     )
                     if success:
                         st.success("設定を更新しました")
