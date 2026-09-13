@@ -2902,6 +2902,8 @@ if is_admin:
                     users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
             
             for uid in all_user_ids:
+                if uid == CURRENT_USER_ID:
+                    continue
                 if uid not in users:
                     users[uid] = {
                         "ユーザーID": uid,
@@ -3122,15 +3124,22 @@ if is_admin:
                     {}
                 )
 
-                target_display_user_name = (
-                    f"{selected_user_info.get('ユーザー名','ユーザー')}"
-                    f"{selected_user_info.get('呼び方','さん')}"
-                )
+                user_name = selected_user_info.get("ユーザー名", "")
+                honorific = selected_user_info.get("呼び方", "")
 
-                target_ai_name = selected_user_info.get(
-                    "AI名称",
-                    "コンシェルジュ"
-                )
+                if not user_name or user_name == "未設定":
+                    target_display_user_name = "私"
+                else:
+                    target_display_user_name = (
+                        f"{user_name}{honorific}"
+                        if honorific != "（呼び捨て/なし）"
+                        else user_name
+                    )
+
+                target_ai_name = selected_user_info.get("AI名称", "")
+
+                if not target_ai_name or target_ai_name == "未設定":
+                    target_ai_name = "コンシェルジュ"
                 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
