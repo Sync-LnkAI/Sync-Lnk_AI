@@ -3084,17 +3084,27 @@ if is_admin:
                     if uid not in grouped_logs:
                         grouped_logs[uid] = []
                     grouped_logs[uid].append(log)
-                
+
+                selected_user_info = users.get(
+                    selected_target_user_id,
+                    {}
+                )
+
                 target_display_user_name = (
-                    f"{audit_user_name}{audit_user_honorific}"
-                    if audit_user_honorific != "（呼び捨て/なし）"
-                    else audit_user_name
+                    f"{selected_user_info.get('ユーザー名','ユーザー')}"
+                    f"{selected_user_info.get('呼び方','さん')}"
                 )
-                st.write(
-                    audit_user_name,
-                    audit_user_honorific,
-                    audit_concierge_name
+
+                target_ai_name = selected_user_info.get(
+                    "AI名称",
+                    "コンシェルジュ"
                 )
+                
+                #target_display_user_name = (
+                #    f"{audit_user_name}{audit_user_honorific}"
+                #    if audit_user_honorific != "（呼び捨て/なし）"
+                #    else audit_user_name
+                #)
 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
@@ -3117,7 +3127,7 @@ if is_admin:
                         else:
                             st.markdown(
                                 f"&nbsp;&nbsp;🔮 `[{clean_time}]` "
-                                f"**{audit_concierge_name}**: {content}"
+                                f"**{target_ai_name}**: {content}"
                             )
                     st.markdown("---")
                 else:
