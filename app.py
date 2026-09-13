@@ -2901,8 +2901,12 @@ if is_admin:
                 elif fact.startswith("カラーテーマ:"):
                     users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
             
+            EXCLUDED_USERS = {
+                CURRENT_USER_ID,
+                USUAL_USER_ID
+            }
             for uid in all_user_ids:
-                if uid == CURRENT_USER_ID:
+                if uid in EXCLUDED_USERS:
                     continue
                 if uid not in users:
                     users[uid] = {
