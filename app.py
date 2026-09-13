@@ -3090,6 +3090,11 @@ if is_admin:
                     if audit_user_honorific != "（呼び捨て/なし）"
                     else audit_user_name
                 )
+                st.write(
+                    audit_user_name,
+                    audit_user_honorific,
+                    audit_concierge_name
+                )
 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
