@@ -3100,12 +3100,6 @@ if is_admin:
                     "コンシェルジュ"
                 )
                 
-                #target_display_user_name = (
-                #    f"{audit_user_name}{audit_user_honorific}"
-                #    if audit_user_honorific != "（呼び捨て/なし）"
-                #    else audit_user_name
-                #)
-
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
                     logs = grouped_logs[selected_target_user_id]
