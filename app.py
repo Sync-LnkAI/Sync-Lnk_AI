@@ -2836,12 +2836,15 @@ if is_admin:
             users = {}
             USER_PROFILE = {
                 "m.kawamura00": "40代女性",
-                "yasusan_cw": "50代男性",
-                "shigenoi": "40代男性",
-                "kham1014": "20代男性",
-                "pom_neko": "30代女性",
-                "kumii_5451": "40代女性",
-                "kotobayomi": "30代男性",
+                "yasusan_cw": "40代男性",
+                "shigenoi": "40代女性",
+                "kham1014": "40代男性",
+                "pom_neko": "20代女性",
+                "kumii_5451": "50代女性",
+                "kotobayomi": "40代女性",
+                "reirou": "30代男性",
+                "yoimachigusa": "30代女性",
+                "yong3127": "30代女性",
             }
 
             for row in memories_res.data:
