@@ -2846,6 +2846,22 @@ if is_admin:
                 "yoimachigusa": "30代女性",
                 "yong3127": "30代女性",
             }
+            msg_users_res = (
+                supabase
+                .table("messages")
+                .select("user_id")
+                .execute()
+            )
+
+            all_user_ids = sorted(
+                list(
+                    set(
+                        row["user_id"]
+                        for row in msg_users_res.data
+                        if row.get("user_id")
+                    )
+                )
+            )
 
             for row in memories_res.data:
                 uid = row["user_id"]
@@ -2884,6 +2900,19 @@ if is_admin:
 
                 elif fact.startswith("カラーテーマ:"):
                     users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
+            
+            for uid in all_user_ids:
+                if uid not in users:
+                    users[uid] = {
+                        "ユーザーID": uid,
+                        "AI名称": "未設定",
+                        "ユーザー名": "未設定",
+                        "呼び方": "",
+                        "一人称": "",
+                        "絵文字": "",
+                        "人格": "",
+                        "テーマ": ""
+                    }
 
             tester_rows = list(users.values())
 
