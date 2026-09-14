@@ -53,7 +53,7 @@ PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
 DAILY_LIMIT = 20
-BURST_LIMIT_SECONDS = 20  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
+BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
 # ==================================================================
 # 🔒【完全防衛】 URLパラメータの強制チェック（セキュリティシャッター）
