@@ -6,6 +6,7 @@ import time
 import json
 from datetime import datetime, timezone, timedelta
 import zoneinfo
+import pandas as pd
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -1878,6 +1879,9 @@ with all_tabs[0]:
                         ・記憶内に根拠がない情報は推測や創作で補わず、「その情報はまだ覚えていない」と正直に答えてください。
                         ・読書、映画、散歩など、記憶に存在しない一般的な情報を作ってはいけません。
                         ・記憶は必要な部分だけ自然に利用し、無関係なプロフィール情報を一度に列挙しないでください。
+                        ・AI自身の趣味、好み、経験、思い出、生活習慣を実在するものとして創作しないでください。
+                        ・ユーザーから質問された場合は会話を円滑にする範囲で軽く返答してもよいですが、AI自身の好みを長く語らないでください。
+                        ・会話の中心はユーザーとし、ユーザーの話題や考えを深掘りすることを優先してください。
 
                         【直近の会話履歴・古い順】
                         {recent_history_str}
@@ -1896,11 +1900,17 @@ with all_tabs[0]:
                         ・ユーザーの発言を言い換えるだけで終わらず、感想、共感、質問、または人格に合った自然な反応を返してください。
 
                         【会話の自然さルール】
-                        ユーザーの発言内容をそのまま言い換えて返すことを避けてください。
-                        回答の冒頭で「○○だったんだね」「○○なんだね」「○○してきたんだね」のような単純な復唱を毎回行わないでください。
-                        まず感想、驚き、共感、質問、ツッコミ、考察のいずれかから会話を始めてください。
-                        復唱は本当に重要な確認が必要な場合のみ使用してください。
-                        同じ言い回しが続かないよう、会話の始め方に変化を持たせてください
+                        ・ユーザーの発言内容をそのまま言い換えて返すことを避けてください。
+                        ・回答の冒頭で「○○だったんだね」「○○なんだね」「○○してきたんだね」のような単純な復唱を毎回行わないでください。
+                        ・まず感想、驚き、共感、質問、ツッコミ、考察のいずれかから会話を始めてください。
+                        ・復唱は本当に重要な確認が必要な場合のみ使用してください。
+                        ・同じ言い回しが続かないよう、会話の始め方に変化を持たせてください。
+                        ・共感や労いは大切ですが、毎回同じ励ましや休息提案だけで終わらせないでください。
+                        ・必要に応じて話題を広げたり、軽い雑談や考察を加えてください。
+                        ・「休んでね」「無理しないでね」などの表現を短い間隔で繰り返さないでください。
+                        ・質問は有効ですが、毎回質問で返さないでください。
+                        ・感想や考察だけで会話を続けることも許容してください。
+                        ・インタビューのように質問が連続しないようにしてください。
 
                         【質問への対応】
                         ・映画、ドラマ、ゲーム、ニュース、流行、商品、ランキングなど最新情報が必要な質問については、最新情報を確認できないことを正直に伝える。
@@ -1990,6 +2000,7 @@ with all_tabs[0]:
                             ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
                             ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
                             ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
+                            ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
                             ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
                             ・JSONの外に説明文を出さないでください。
                             ・```jsonなどの囲み記号を付けないでください。
@@ -2512,10 +2523,23 @@ if is_admin:
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
             # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
-            audit_concierge_name, audit_user_name, audit_theme, audit_plan = "コンシェルジュ", "ユーザー", "パステル", "🆓 無料プラン"
+            audit_concierge_name = "コンシェルジュ"
+            audit_user_name = "ユーザー"
+            audit_user_honorific = "さん"
+            audit_first_person = "私"
+            audit_emoji_setting = "使用（普通）"
+            audit_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
+            audit_theme = "パステル"
+            audit_plan = "🆓 無料プラン"
+
             audit_facts = []
             try:
-                u_memories = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", selected_audit_user).execute()
+                selected_memory_table = (
+                    "user_memories"
+                    if selected_audit_user in [ADMIN_USER_ID, USUAL_USER_ID]
+                    else "user_memories_tester"
+                )
+                u_memories = supabase.table(selected_memory_table).select("*").eq("user_id", selected_audit_user).execute()
                 if u_memories.data:
                     for m in u_memories.data:
                         fact = m.get("fact", "")
@@ -2523,6 +2547,10 @@ if is_admin:
                             if fact.startswith("AIの名前:"): audit_concierge_name = fact.replace("AIの名前:", "").strip()
                             elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
                             elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
+                            elif fact.startswith("ユーザー敬称:"): audit_user_honorific = fact.replace("ユーザー敬称:", "").strip()
+                            elif fact.startswith("AI一人称:"): audit_first_person = fact.replace("AI一人称:", "").strip()
+                            elif fact.startswith("絵文字の量:"): audit_emoji_setting = fact.replace("絵文字の量:", "").strip()
+                            elif fact.startswith("人格:"): audit_style_preset = fact.replace("人格:", "").strip()
                             elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
                         else: 
                             audit_facts.append(fact)
@@ -2605,6 +2633,7 @@ if is_admin:
             col_info1, col_info2 = st.columns(2)
 
             with col_info1:
+                has_long_memory = "あり" if len(audit_facts) > 0 else "なし"
                 st.markdown(
                     "<div style='background-color: rgba(2, 136, 209, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #0288d1;'>"
                     "<h5 style='margin-top:0; color:#0288d1; font-weight:bold;'>🎨 【デザイン・外観・プラン設定】</h5>"
@@ -2614,7 +2643,12 @@ if is_admin:
                     "<br>"
                     "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>記憶カルテ数：</b> {len(audit_facts)} 件</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIからの呼び方：</b> {audit_user_honorific}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIの一人称：</b> {audit_first_person}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>絵文字の量：</b> {audit_emoji_setting}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>人格：</b> {audit_style_preset}</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶：</b> {has_long_memory}</p>"
+                    # f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶有無：</b> {len(audit_facts)} 件</p>"
                     "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
                     f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_real_instruction }</pre>"
                     "</div>",
@@ -2800,12 +2834,273 @@ if is_admin:
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
         
-                # ──────────────────────────────────────────────────────────────────
+        tester_rows = []
+        try:
+            memories_res = (
+                supabase
+                .table("user_memories_tester")
+                .select("*")
+                .execute()
+            )
+
+            users = {}
+            USER_PROFILE = {
+                "m.kawamura00": "40代女性",
+                "yasusan_cw": "40代男性",
+                "shigenoi": "40代女性",
+                "kham1014": "40代男性",
+                "pom_neko": "20代女性",
+                "kumii_5451": "50代女性",
+                "kotobayomi": "40代女性",
+                "reirou": "30代男性",
+                "yoimachigusa": "30代女性",
+                "yong3127": "30代女性",
+            }
+            msg_users_res = (
+                supabase
+                .table("messages")
+                .select("user_id")
+                .execute()
+            )
+
+            all_user_ids = sorted(
+                list(
+                    set(
+                        row["user_id"]
+                        for row in msg_users_res.data
+                        if row.get("user_id")
+                    )
+                )
+            )
+
+            for row in memories_res.data:
+                uid = row["user_id"]
+
+                if uid not in users:
+                    users[uid] = {
+                        "ユーザーID": uid,
+                        "AI名称": "",
+                        "ユーザー名": "",
+                        "呼び方": "",
+                        "一人称": "",
+                        "絵文字": "",
+                        "人格": "",
+                        "テーマ": ""
+                    }
+
+                fact = row.get("fact", "")
+
+                if fact.startswith("AIの名前:"):
+                    users[uid]["AI名称"] = fact.replace("AIの名前:", "").strip()
+
+                elif fact.startswith("ユーザー名:"):
+                    users[uid]["ユーザー名"] = fact.replace("ユーザー名:", "").strip()
+
+                elif fact.startswith("ユーザー敬称:"):
+                    users[uid]["呼び方"] = fact.replace("ユーザー敬称:", "").strip()
+
+                elif fact.startswith("AI一人称:"):
+                    users[uid]["一人称"] = fact.replace("AI一人称:", "").strip()
+
+                elif fact.startswith("絵文字の量:"):
+                    users[uid]["絵文字"] = fact.replace("絵文字の量:", "").strip()
+
+                elif fact.startswith("人格:"):
+                    users[uid]["人格"] = fact.replace("人格:", "").strip()
+
+                elif fact.startswith("カラーテーマ:"):
+                    users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
+            
+            EXCLUDED_USERS = {
+                CURRENT_USER_ID,
+                USUAL_USER_ID
+            }
+            for uid in all_user_ids:
+                if uid in EXCLUDED_USERS:
+                    continue
+                if uid not in users:
+                    users[uid] = {
+                        "ユーザーID": uid,
+                        "AI名称": "未設定",
+                        "ユーザー名": "未設定",
+                        "呼び方": "",
+                        "一人称": "",
+                        "絵文字": "",
+                        "人格": "",
+                        "テーマ": ""
+                    }
+
+            tester_rows = list(users.values())
+
+            st.markdown("""
+            <style>
+            [data-testid="stDataFrame"] table {
+                font-size: 16px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            st.markdown("### 🎨 テスター設定状況一覧")
+            st.dataframe(
+                pd.DataFrame(tester_rows),
+                use_container_width=True,
+                hide_index=True
+            )
+
+        except Exception as e:
+            st.error(f"設定一覧取得エラー: {e}")
+
+        usage_rows = []
+
+        for uid in users.keys():
+
+            try:
+
+                msg_res = (
+                    supabase
+                    .table("messages")
+                    .select("*")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                msgs = msg_res.data or []
+
+                user_msgs = [
+                    m for m in msgs
+                    if m.get("role") == "user"
+                ]
+
+                total_chat = len(user_msgs)
+
+                if msgs:
+
+                    times = [
+                        datetime.fromisoformat(
+                            m["created_at"].replace("Z", "+00:00")
+                        )
+                        for m in msgs
+                    ]
+
+                    start_date = min(times)
+
+                    last_date = max(times)
+
+                    active_days = len(
+                        set(t.date() for t in times)
+                    )
+
+                else:
+
+                    start_date = None
+                    last_date = None
+                    active_days = 0
+
+                cost_res = (
+                    supabase
+                    .table("system_audit_logs")
+                    .select("api_cost")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                total_cost = sum(
+                    float(x.get("api_cost", 0) or 0)
+                    for x in cost_res.data
+                )
+
+                avg_cost = (
+                    round(total_cost / total_chat, 3)
+                    if total_chat > 0
+                    else 0
+                )
+
+                usage_rows.append({
+
+                    "ユーザーID": uid,
+                    "属性": USER_PROFILE.get(uid, "不明"),
+
+                    "開始日":
+                        start_date.strftime("%Y-%m-%d")
+                        if start_date else "-",
+
+                    "利用日数":
+                        f"{active_days}日",
+
+                    "最終利用":
+                        last_date.strftime("%Y-%m-%d %H:%M")
+                        if last_date else "-",
+
+                    "総会話数":
+                        f"{total_chat}回",
+
+                    "累計コスト":
+                        f"{round(total_cost, 2)}円",
+
+                    "1会話コスト":
+                        f"{avg_cost}円",
+
+                    "会話進捗":
+                        f"{total_chat}/20",
+
+                    "利用日数進捗":
+                        f"{active_days}/4",
+                    "会話進捗":
+                        f"{total_chat}/20",
+                    "利用日数進捗":
+                        f"{active_days}/4"
+                })
+
+            except Exception as e:
+                print(uid, e)
+
+        st.markdown("### 📈 テスター利用状況一覧")
+
+        st.dataframe(
+            pd.DataFrame(usage_rows),
+            use_container_width=True,
+            hide_index=True
+        )
+        total_all_cost = sum(
+            float(row["累計コスト"].replace("円", ""))
+            for row in usage_rows
+        )
+
+        total_all_chats = sum(
+            int(row["総会話数"].replace("回", ""))
+            for row in usage_rows
+        )
+
+        overall_avg_cost = (
+            total_all_cost / total_all_chats
+            if total_all_chats > 0
+            else 0
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            "全テスター累計コスト",
+            f"{total_all_cost:.2f}円"
+        )
+
+        col2.metric(
+            "全テスター総会話数",
+            f"{total_all_chats}回"
+        )
+
+        col3.metric(
+            "全体平均・1会話コスト",
+            f"{overall_avg_cost:.3f}円"
+        )
+
+        # ──────────────────────────────────────────────────────────────────
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
         # ──────────────────────────────────────────────────────────────────
+        all_tester_logs = None
         try:
             # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(200).execute()
+            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(500).execute()
             
             # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
             if all_tester_logs.data:
@@ -2813,6 +3108,7 @@ if is_admin:
             else:
                 user_list = [CURRENT_USER_ID]
         except Exception as e_list:
+            st.error(f"名簿取得エラー: {e_list}")
             print(f"⚠️ 名簿取得エラー: {e_list}")
             user_list = [CURRENT_USER_ID]
 
@@ -2839,6 +3135,28 @@ if is_admin:
                         grouped_logs[uid] = []
                     grouped_logs[uid].append(log)
 
+                selected_user_info = users.get(
+                    selected_target_user_id,
+                    {}
+                )
+
+                user_name = selected_user_info.get("ユーザー名", "")
+                honorific = selected_user_info.get("呼び方", "")
+
+                if not user_name or user_name == "未設定":
+                    target_display_user_name = "私"
+                else:
+                    target_display_user_name = (
+                        f"{user_name}{honorific}"
+                        if honorific != "（呼び捨て/なし）"
+                        else user_name
+                    )
+
+                target_ai_name = selected_user_info.get("AI名称", "")
+
+                if not target_ai_name or target_ai_name == "未設定":
+                    target_ai_name = "コンシェルジュ"
+                
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 if selected_target_user_id in grouped_logs:
                     logs = grouped_logs[selected_target_user_id]
@@ -2853,9 +3171,15 @@ if is_admin:
                         clean_time = created_at.replace("T", " ")[:16]
                             
                         if role == "user":
-                            st.markdown(f"&nbsp;&nbsp;💫 `[{clean_time}]` **{display_user_name}**: 「 {content} 」")
+                            st.markdown(
+                                f"&nbsp;&nbsp;💫 `[{clean_time}]` "
+                                f"**{target_display_user_name}**: 「{content}」"
+                            )
                         else:
-                            st.markdown(f"&nbsp;&nbsp;🔮 `[{clean_time}]` **{current_concierge_name}**: {content}")
+                            st.markdown(
+                                f"&nbsp;&nbsp;🔮 `[{clean_time}]` "
+                                f"**{target_ai_name}**: {content}"
+                            )
                     st.markdown("---")
                 else:
                     st.info(f"テスター `{selected_target_user_id}` による会話の足跡は、まだデータベースに記録されていません。")
