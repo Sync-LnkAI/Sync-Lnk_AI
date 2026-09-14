@@ -3090,7 +3090,7 @@ if is_admin:
         all_tester_logs = None
         try:
             # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(1000).execute()
+            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(500).execute()
             
             # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
             if all_tester_logs.data:
