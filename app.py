@@ -3087,6 +3087,7 @@ if is_admin:
         # ──────────────────────────────────────────────────────────────────
         # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
         # ──────────────────────────────────────────────────────────────────
+        all_tester_logs = None
         try:
             # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
             all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(1000).execute()
@@ -3097,6 +3098,7 @@ if is_admin:
             else:
                 user_list = [CURRENT_USER_ID]
         except Exception as e_list:
+            st.error(f"名簿取得エラー: {e_list}")
             print(f"⚠️ 名簿取得エラー: {e_list}")
             user_list = [CURRENT_USER_ID]
 
