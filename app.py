@@ -1951,10 +1951,18 @@ with all_tabs[0]:
                             st.write("✅検索実行")
                             st.code(search_result[:500])
 
-                            supabase.table("search_logs").insert({
-                                "user_id": CURRENT_USER_ID,
-                                "search_query": user_input
-                            }).execute()
+                            try:
+                                supabase.table("search_logs").insert({
+                                    "user_id": CURRENT_USER_ID,
+                                    "search_query": user_input
+                                    }).execute()
+                                except Exception as e:
+                                    st.error(f"検索ログ保存エラー: {e}")
+
+                            # supabase.table("search_logs").insert({
+                            #     "user_id": CURRENT_USER_ID,
+                            #     "search_query": user_input
+                            # }).execute()
                         else:
                             st.write("❌検索なし")
                             search_result = "なし"
