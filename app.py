@@ -1919,6 +1919,7 @@ with all_tabs[0]:
                             user_input=user_input,
                             recent_history_str=recent_history_str
                         )
+                        st.write(f"🔍検索判定: {need_search}")
 
                         # if need_search:
                         #     search_response_text, search_response = test_google_search(
@@ -1947,12 +1948,15 @@ with all_tabs[0]:
                             search_result = test_google_search(
                                 search_query
                             )
+                            st.write("✅検索実行")
+                            st.code(search_result[:500])
 
                             supabase.table("search_logs").insert({
                                 "user_id": CURRENT_USER_ID,
                                 "search_query": user_input
                             }).execute()
                         else:
+                            st.write("❌検索なし")
                             search_result = "なし"
 
                         summary_memories = get_memories(source="summary")
