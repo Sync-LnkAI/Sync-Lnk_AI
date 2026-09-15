@@ -2800,12 +2800,12 @@ if is_admin:
                     )
 
                     search_judge_total_in = sum(
-                        int(row.get("in_t", 0) or 0)
+                        int(row.get("in_tokens", 0) or 0)
                         for row in judge_rows
                     )
 
                     search_judge_total_out = sum(
-                        int(row.get("out_t", 0) or 0)
+                        int(row.get("out_tokens", 0) or 0)
                         for row in judge_rows
                     )
                     # 検索回数を取得
