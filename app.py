@@ -1317,7 +1317,7 @@ def test_google_search(query):
     )
 
     response = client.models.generate_content(
-        model="SEARCH_MODEL_NAME",
+        model=SEARCH_MODEL_NAME,
         contents=query,
         config=types.GenerateContentConfig(
             tools=[grounding_tool]
