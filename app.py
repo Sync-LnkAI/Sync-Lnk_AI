@@ -1324,7 +1324,7 @@ def test_google_search(query):
         )
     )
 
-    return response
+    return response.text
 
 
 # 🎨グラデーションカラーパレット
