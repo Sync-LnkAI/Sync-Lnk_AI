@@ -1843,10 +1843,6 @@ with all_tabs[0]:
                             or "上映" in user_input
                         )
 
-                        need_search = any(
-                            keyword in user_input
-                            for keyword in SEARCH_KEYWORDS
-                        )
                         if need_search:
                             st.write("検索発動")
                             search_result = test_google_search(user_input)
