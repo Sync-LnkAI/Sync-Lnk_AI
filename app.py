@@ -38,6 +38,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
 MEMORY_MODEL_NAME = "gemini-3.5-flash-lite"
 SUMMARY_MODEL_NAME = "gemini-3.5-flash-lite"
+SEARCH_MODEL_NAME = "gemini-3.5-flash-lite"
 
 chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
 memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
@@ -1316,14 +1317,14 @@ def test_google_search(query):
     )
 
     response = client.models.generate_content(
-        model="gemini-3.5-flash",
+        model="SEARCH_MODEL_NAME",
         contents=query,
         config=types.GenerateContentConfig(
             tools=[grounding_tool]
         )
     )
 
-    return response.text
+    return response
 
 
 # 🎨グラデーションカラーパレット
@@ -1824,8 +1825,34 @@ with all_tabs[0]:
 
                         recent_history_lines = []
 
-                        #　直近の過去会話履歴の作成
+                        SEARCH_KEYWORDS = [
+                            "今日の天気",
+                            "明日の天気",
+                            "天気予報",
+                            "ニュース",
+                            "最新",
+                            "最近の",
+                            "今話題",
+                            "ランキング",
+                            "イベント",
+                            "上映",
+                            "公開",
+                            "発売日",
+                            "おすすめ本",
+                            "おすすめ映画",
+                            "おすすめドラマ"
+                        ]
 
+                        need_search = any(
+                            keyword in user_input
+                            for keyword in SEARCH_KEYWORDS
+                        )
+                        if need_search:
+                            search_result = test_google_search(user_input)
+                        else:
+                            search_result = "なし"
+
+                        #　直近の過去会話履歴の作成
                         for m in recent_messages:
                             role_name = (
                                 display_user_name
@@ -2008,8 +2035,11 @@ with all_tabs[0]:
                     
                         try:
                             # Geminiへの指示（プロンプト）の流し込み口
-                            json_instruction = """
+                            json_instruction = f"""
                             以下のユーザー発言に回答してください。
+
+                            【検索結果】
+                            {search_result}
 
                             同時に、ユーザーが今回の発言で新しく指定した
                             口調、話し方、回答の長さ、回答形式、禁止事項などの
@@ -2033,7 +2063,8 @@ with all_tabs[0]:
                             ・```jsonなどの囲み記号を付けないでください。
 
                             ユーザー発言:
-                            """ + user_input
+                            {user_input}
+                            """
 
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
@@ -2858,19 +2889,19 @@ if is_admin:
     # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
     # ==========================================
     with all_tabs[4]:
-
+        # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
+        # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
         if CURRENT_USER_ID == ADMIN_USER_ID:
-            if st.button("検索テスト"):
 
-                result = test_google_search(
+            if st.button("🔍検索テスト"):
+
+                response = test_google_search(
                     "今日の東京の天気"
                 )
 
-                st.write(result)
-
-        st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
-        st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-        
+                st.write(response)
+                st.write(dir(response))
+                    
         tester_rows = []
         try:
             memories_res = (
