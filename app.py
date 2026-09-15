@@ -38,6 +38,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
 MEMORY_MODEL_NAME = "gemini-3.5-flash-lite"
 SUMMARY_MODEL_NAME = "gemini-3.5-flash-lite"
+SEARCH_MODEL_NAME = "gemini-3.5-flash-lite"
 
 chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
 memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
@@ -1301,6 +1302,89 @@ def build_recent_history_str():
         else "直近の会話履歴なし"
     )
 
+# 検索関数
+from google import genai as search_genai
+from google.genai import types
+
+def google_search(query):
+
+    client = search_genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+
+    grounding_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
+
+    response = client.models.generate_content(
+        model=SEARCH_MODEL_NAME,
+        contents=query,
+        config=types.GenerateContentConfig(
+            tools=[grounding_tool]
+        )
+    )
+
+    return response.text
+
+def should_use_google_search(user_input, recent_history_str=""):
+    try:
+        judge_model = genai.GenerativeModel(
+            model_name=CHAT_MODEL_NAME
+        )
+        judge_prompt = f"""
+        検索が必要なら YES
+        不要なら NO
+
+        【最新ユーザー発言】
+        {user_input}
+        """
+
+        judge_response = judge_model.generate_content(
+            judge_prompt,
+            generation_config={
+                "temperature": 0,
+                "max_output_tokens": 5
+            }
+        )
+
+        judge_text = (
+            judge_response.text or ""
+        ).strip().upper()
+
+        judge_in_t = 0
+        judge_out_t = 0
+
+        if (
+            hasattr(judge_response, "usage_metadata")
+            and judge_response.usage_metadata
+        ):
+            judge_in_t = (
+                judge_response.usage_metadata.prompt_token_count or 0
+            )
+
+            judge_out_t = (
+                judge_response.usage_metadata.candidates_token_count or 0
+            )
+
+        judge_cost = (
+            judge_in_t * PRICE_LITE_IN
+            + judge_out_t * PRICE_LITE_OUT
+        )
+
+        return (
+            judge_text.startswith("YES"),
+            judge_in_t,
+            judge_out_t,
+            judge_cost
+        )
+
+    except Exception as judge_error:
+        print(
+            f"⚠️ 検索要否判定エラー: "
+            f"{type(judge_error).__name__}: {judge_error}"
+        )
+        return False, 0, 0, 0.0
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -1790,6 +1874,10 @@ with all_tabs[0]:
 
                         if not save_message("user", user_input):
                             st.stop()
+                        
+                        # メッセージIDの自動生成
+                        import uuid
+                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         all_messages.append({"role": "user", "content": user_input})
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
@@ -1800,7 +1888,6 @@ with all_tabs[0]:
                         recent_history_lines = []
 
                         #　直近の過去会話履歴の作成
-
                         for m in recent_messages:
                             role_name = (
                                 display_user_name
@@ -1820,11 +1907,68 @@ with all_tabs[0]:
                                 f"{m.get('content', '')}"
                             )
 
+                        # 会話用直近会話履歴作成
                         recent_history_str = (
                             "\n".join(recent_history_lines)
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
+                        # 検索判定用直近会話履歴作成
+                        recent_history_for_search = (
+                            "\n".join(recent_history_lines[-4:])
+                            if recent_history_lines
+                            else "直近の会話履歴なし"
+                        )
+
+                        (
+                            need_search,
+                            search_judge_in_t,
+                            search_judge_out_t,
+                            search_judge_cost
+                        ) = should_use_google_search(
+                            user_input=user_input,
+                            recent_history_str=recent_history_for_search
+                        )
+                        save_system_audit_log(
+                            user_id=CURRENT_USER_ID,
+                            plan_type=current_plan_type,
+                            event_type="SEARCH_JUDGE",
+                            processing_time=0.0,
+                            in_t=search_judge_in_t,
+                            out_t=search_judge_out_t,
+                            api_cost=search_judge_cost,
+                            details=(
+                                f"検索要否判定: "
+                                f"{'YES' if need_search else 'NO'}"
+                            ),
+                            message_id=str(current_msg_id)
+                        )
+
+                        if need_search:
+                            search_query = f"""
+                            直近の会話を踏まえて、最新ユーザー発言に必要な情報を検索してください。
+
+                            【直近の会話】
+                            {recent_history_str}
+
+                            【最新ユーザー発言】
+                            {user_input}
+                            """
+                            search_result = google_search(
+                                search_query
+                            )
+                            # st.code(search_result[:500])
+
+                            try:
+                                supabase.table("search_logs").insert({
+                                    "user_id": CURRENT_USER_ID,
+                                    "search_query": user_input
+                                    }).execute()
+                            except Exception as e:
+                                print(f"検索ログ取得エラー {uid}: {e}")
+
+                        else:
+                            search_result = "なし"
 
                         summary_memories = get_memories(source="summary")
 
@@ -1882,7 +2026,7 @@ with all_tabs[0]:
                         ・読書、映画、散歩など、記憶に存在しない一般的な情報を作ってはいけません。
                         ・記憶は必要な部分だけ自然に利用し、無関係なプロフィール情報を一度に列挙しないでください。
                         ・AI自身の趣味、好み、経験、思い出、生活習慣を実在するものとして創作しないでください。
-                        ・ユーザーから質問された場合は会話を円滑にする範囲で軽く返答してもよいですが、AI自身の好みを長く語らないでください。
+                        ・ユーザーからAI自身の好みや体験について質問された場合は、実際に経験したかのように断言せず、人格に沿った仮定や会話上の表現として回答してください。
                         ・会話の中心はユーザーとし、ユーザーの話題や考えを深掘りすることを優先してください。
 
                         【直近の会話履歴・古い順】
@@ -1890,6 +2034,8 @@ with all_tabs[0]:
 
                         【現在の発言に関連する過去の会話】
                         {past_logs_str}
+                        【検索結果】
+                        {search_result}
 
                         【履歴の利用ルール】
                         ・直近履歴は、現在の会話の順序や文脈を判断するために使用してください。
@@ -1915,7 +2061,8 @@ with all_tabs[0]:
                         ・インタビューのように質問が連続しないようにしてください。
 
                         【質問への対応】
-                        ・映画、ドラマ、ゲーム、ニュース、流行、商品、ランキングなど最新情報が必要な質問については、最新情報を確認できないことを正直に伝える。
+                        ・検索結果が存在する場合は、検索結果を優先して回答してください。
+                        ・検索結果と記憶の両方が存在する場合は、検索結果を基にしつつユーザーの過去の会話や好みに合わせて回答してください。
                         ・不確かな内容や現在の状況を推測で断定しない。
                         ・無理にそれらしい作品名や情報を作らない。
                         ・ユーザーの好みや過去の会話が分かる場合は、それを活用して会話を続ける。
@@ -1948,6 +2095,8 @@ with all_tabs[0]:
                         ・過去ログ内の「今日」「昨日」「明日」は、その発言日時を基準とした相対表現です。現在日時と混同しないでください。
                         ・過去の事実を訂正された場合、現在の正しい事実まで否定せず、該当する過去情報だけを自然に訂正してください。
                         ・ユーザーが明示していない感情、予定、経験、趣味、事情を決めつけないでください。
+                        ・ユーザーが「行ってくる」「寝る」「仕事に行く」など未来の予定を話した場合、その後の会話で実行済みとして扱ってはいけません。
+                        ・実行済みであることは、ユーザー本人が明示した場合のみ事実として扱ってください。
 
                         【専門作業の制限】
                         プログラムのコード記述、画像生成、長文の執筆や翻訳を依頼された場合は実行せず、現在の人格を保ちながら丁寧に断ってください。
@@ -1983,7 +2132,7 @@ with all_tabs[0]:
                     
                         try:
                             # Geminiへの指示（プロンプト）の流し込み口
-                            json_instruction = """
+                            json_instruction = f"""
                             以下のユーザー発言に回答してください。
 
                             同時に、ユーザーが今回の発言で新しく指定した
@@ -1992,10 +2141,10 @@ with all_tabs[0]:
 
                             必ず次のJSONオブジェクトだけを返してください。
 
-                            {
+                            {{
                                 "reply": "ユーザーへの回答",
                                 "new_instruction": "新しく指定された継続的な要望。なければ、なし"
-                            }
+                            }}
 
                             ルール:
                             ・replyには、ユーザーへの自然な回答を入れてください。
@@ -2008,7 +2157,8 @@ with all_tabs[0]:
                             ・```jsonなどの囲み記号を付けないでください。
 
                             ユーザー発言:
-                            """ + user_input
+                            {user_input}
+                            """
 
                             api_start_time = time.time()
                             # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
@@ -2207,10 +2357,6 @@ with all_tabs[0]:
                             save_message("assistant", ai_reply)
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-                        
-                            # メッセージIDの自動生成
-                            import uuid
-                            current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
@@ -2578,6 +2724,10 @@ if is_admin:
             avg_chats_per_day = 0
             total_cost_jpy = 0.0
             avg_cost_per_chat = 0.0
+            search_judge_count = 0
+            search_judge_total_cost = 0.0
+            search_judge_total_in = 0
+            search_judge_total_out = 0
             user_logs = []
             try:
                 user_logs = (
@@ -2617,6 +2767,46 @@ if is_admin:
                         .select("api_cost")
                         .eq("user_id", selected_audit_user)
                         .execute()
+                    )
+
+                    # system_audit_logsから検索コストを集計
+                    judge_cost_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "SEARCH_JUDGE")
+                        .execute()
+                    )
+
+                    judge_rows = judge_cost_res.data or []
+
+                    search_judge_count = len(judge_rows)
+
+                    search_judge_total_cost = sum(
+                        float(row.get("api_cost", 0) or 0)
+                        for row in judge_rows
+                    )
+
+                    search_judge_total_in = sum(
+                        int(row.get("in_tokens", 0) or 0)
+                        for row in judge_rows
+                    )
+
+                    search_judge_total_out = sum(
+                        int(row.get("out_tokens", 0) or 0)
+                        for row in judge_rows
+                    )
+                    # 検索回数を取得
+                    search_res = (
+                        supabase
+                        .table("search_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .execute()
+                    )
+                    search_count = len(
+                        search_res.data or []
                     )
 
                     if cost_logs.data:
@@ -2666,10 +2856,19 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>最終会話日時：</b> {last_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総システム稼働日数：</b> {total_active_days} 日間</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>1日あたりの平均通数：** {avg_chats_per_day} 通/日</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>検索回数：** {search_count} 回</p>"
                     "<br>"
                     "<h5 style='color:#10b981; font-weight:bold;'>💰 【インフラ原価・サーバーコスト】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {round(total_cost_jpy, 2)} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat} 円/通</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定回数：</b> {search_judge_count} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定入力：</b> {search_judge_total_in:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定出力：</b> {search_judge_total_out:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定コスト：</b> {search_judge_total_cost:.4f} 円</p>"
                     "</div>",
                     unsafe_allow_html=True
                 )
@@ -2703,6 +2902,7 @@ if is_admin:
                                 "user_plan": log.get("user_plan", "🆓 無料プラン"),
                                 "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
                                 "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
+                                "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                 "search_time": 0.0, "search_in": 0, "search_out": 0,
                                 "total_yen": 0.0, "total_time": 0.0
                             }
@@ -2713,22 +2913,57 @@ if is_admin:
                         in_t = log.get("in_tokens", 0)
                         out_t = log.get("out_tokens", 0)
 
-                        # 各コンポーネントの役割（名義）に応じて、同じメッセージIDの部屋の、対応する引き出しへ数値をドッキング
+                        # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
                         if action == "SUMMARY_SUCCESS":
                             merged_logs[msg_id]["sum_time"] = proc_time
                             merged_logs[msg_id]["sum_in"] = in_t
                             merged_logs[msg_id]["sum_out"] = out_t
-                        else:
-                            # 通常のメインチャット（または新設詳細カラムからのダイレクト抽出）
-                            merged_logs[msg_id]["chat_time"] = log.get("chat_processing_time", proc_time) if log.get("chat_processing_time") is not None else proc_time
-                            merged_logs[msg_id]["chat_in"] = log.get("chat_in_tokens", in_t) if log.get("chat_in_tokens") is not None else in_t
-                            merged_logs[msg_id]["chat_out"] = log.get("chat_out_tokens", out_t) if log.get("chat_out_tokens") is not None else out_t
-                            
-                            # 🔍 【将来拡張対応版・予約席】 将来ベクトル検索（search）を実装した際にも、
-                            # データベースから引っこ抜いた数値を安全にここでサルベージして自動復活（合流）させます！
-                            merged_logs[msg_id]["search_time"] = log.get("search_processing_time", 0.0) if log.get("search_processing_time") is not None else 0.0
-                            merged_logs[msg_id]["search_in"] = log.get("search_in_tokens", 0) if log.get("search_in_tokens") is not None else 0
-                            merged_logs[msg_id]["search_out"] = log.get("search_out_tokens", 0) if log.get("search_out_tokens") is not None else 0
+
+                        elif action == "SEARCH_JUDGE":
+                            merged_logs[msg_id]["judge_time"] = proc_time
+                            merged_logs[msg_id]["judge_in"] = in_t
+                            merged_logs[msg_id]["judge_out"] = out_t
+                            merged_logs[msg_id]["judge_cost"] = cost
+                            merged_logs[msg_id]["judge_result"] = (
+                                log.get("details", "")
+                            )
+
+                        elif action == "CHAT_SUCCESS":
+                            merged_logs[msg_id]["chat_time"] = (
+                                log.get("chat_processing_time", proc_time)
+                                if log.get("chat_processing_time") is not None
+                                else proc_time
+                            )
+
+                            merged_logs[msg_id]["chat_in"] = (
+                                log.get("chat_in_tokens", in_t)
+                                if log.get("chat_in_tokens") is not None
+                                else in_t
+                            )
+
+                            merged_logs[msg_id]["chat_out"] = (
+                                log.get("chat_out_tokens", out_t)
+                                if log.get("chat_out_tokens") is not None
+                                else out_t
+                            )
+
+                            merged_logs[msg_id]["search_time"] = (
+                                log.get("search_processing_time", 0.0)
+                                if log.get("search_processing_time") is not None
+                                else 0.0
+                            )
+
+                            merged_logs[msg_id]["search_in"] = (
+                                log.get("search_in_tokens", 0)
+                                if log.get("search_in_tokens") is not None
+                                else 0
+                            )
+
+                            merged_logs[msg_id]["search_out"] = (
+                                log.get("search_out_tokens", 0)
+                                if log.get("search_out_tokens") is not None
+                                else 0
+                            )
 
                         # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
                         merged_logs[msg_id]["total_yen"] += cost
@@ -2745,10 +2980,13 @@ if is_admin:
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
+                            | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
                             | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
                             | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                            | 🔍 **ベクトル＆意味空間検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                            | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
+                            🔎 **【検索判定結果】** {item['judge_result']}
+
                             👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                             """)
                 else: 
@@ -2833,9 +3071,9 @@ if is_admin:
     # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
     # ==========================================
     with all_tabs[4]:
-        st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
-        st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-        
+        # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
+        # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
+                    
         tester_rows = []
         try:
             memories_res = (
@@ -3005,6 +3243,17 @@ if is_admin:
                     .eq("user_id", uid)
                     .execute()
                 )
+                search_res = (
+                    supabase
+                    .table("search_logs")
+                    .select("*")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                search_count = len(
+                    search_res.data or []
+                )
 
                 total_cost = sum(
                     float(x.get("api_cost", 0) or 0)
@@ -3050,11 +3299,14 @@ if is_admin:
                     "会話進捗":
                         f"{total_chat}/20",
                     "利用日数進捗":
-                        f"{active_days}/4"
+                        f"{active_days}/4",
+                    "検索回数":
+                        f"{search_count}回"
                 })
 
             except Exception as e:
-                print(uid, e)
+                # print(uid, e)
+                st.error(f"{uid}: {e}")
 
         st.markdown("### 📈 テスター利用状況一覧")
 
@@ -3130,12 +3382,24 @@ if is_admin:
         # プルダウンで選択肢したテスターのログを表示
         try:
             if all_tester_logs.data:
-                grouped_logs = {}
-                for log in all_tester_logs.data:
-                    uid = log.get("user_id", "unknown")
-                    if uid not in grouped_logs:
-                        grouped_logs[uid] = []
-                    grouped_logs[uid].append(log)
+                selected_logs = (
+                    supabase
+                    .table("messages")
+                    .select("*")
+                    .eq("user_id", selected_target_user_id)
+                    .order("created_at", desc=True)
+                    .limit(1000)
+                    .execute()
+                )
+
+                logs = selected_logs.data or []
+
+                # grouped_logs = {}
+                # for log in all_tester_logs.data:
+                #     uid = log.get("user_id", "unknown")
+                #     if uid not in grouped_logs:
+                #         grouped_logs[uid] = []
+                #     grouped_logs[uid].append(log)
 
                 selected_user_info = users.get(
                     selected_target_user_id,
@@ -3160,9 +3424,9 @@ if is_admin:
                     target_ai_name = "コンシェルジュ"
                 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
-                if selected_target_user_id in grouped_logs:
-                    logs = grouped_logs[selected_target_user_id]
-                    
+                # if selected_target_user_id in grouped_logs:
+                #     logs = grouped_logs[selected_target_user_id]
+                if logs:
                     st.markdown(f"### 👤 テスターID: `{selected_target_user_id}`")
                         
                     # 該当テスターの会話の往復履歴を時系列に沿って表示
