@@ -1324,7 +1324,7 @@ def test_google_search(query):
         )
     )
 
-    return response.text
+    return response.text, response
 
 
 # 🎨グラデーションカラーパレット
@@ -2555,6 +2555,24 @@ if is_admin:
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
     with all_tabs[3]:
+
+        if CURRENT_USER_ID == ADMIN_USER_ID:
+            if st.button("🔍 検索テスト"):
+                search_text, search_response = test_google_search(
+                    "今日の東京の天気"
+                )
+
+                st.write(search_text)
+
+                grounding_metadata = (
+                    search_response.candidates[0].grounding_metadata
+                    if search_response.candidates
+                    else None
+                )
+
+                st.write("Grounding metadata:")
+                st.write(grounding_metadata)
+
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -2891,16 +2909,6 @@ if is_admin:
     with all_tabs[4]:
         # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-        if CURRENT_USER_ID == ADMIN_USER_ID:
-
-            if st.button("🔍検索テスト"):
-
-                response = test_google_search(
-                    "今日の東京の天気"
-                )
-
-                st.write(response)
-                st.write(dir(response))
                     
         tester_rows = []
         try:
