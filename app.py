@@ -3135,12 +3135,13 @@ if is_admin:
                     "利用日数進捗":
                         f"{active_days}/4",
                     "検索回数":
-                        f"{search_count}回"
+                        f"{search_count}回",
                 })
 
             except Exception as e:
-                print(uid, e)
-
+                # print(uid, e)
+                st.error(f"{uid}: {e}")
+S
         st.markdown("### 📈 テスター利用状況一覧")
 
         st.dataframe(
