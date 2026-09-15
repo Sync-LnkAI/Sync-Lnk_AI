@@ -1887,6 +1887,10 @@ with all_tabs[0]:
 
                         if not save_message("user", user_input):
                             st.stop()
+                        
+                        # メッセージIDの自動生成
+                        import uuid
+                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         all_messages.append({"role": "user", "content": user_input})
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
@@ -1950,6 +1954,7 @@ with all_tabs[0]:
                                 f"検索要否判定: "
                                 f"{'YES' if need_search else 'NO'}"
                             )
+                            message_id=str(current_msg_id)
                         )
 
                         if need_search:
@@ -2363,10 +2368,6 @@ with all_tabs[0]:
                             save_message("assistant", ai_reply)
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-                        
-                            # メッセージIDの自動生成
-                            import uuid
-                            current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
@@ -2912,6 +2913,7 @@ if is_admin:
                                 "user_plan": log.get("user_plan", "🆓 無料プラン"),
                                 "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
                                 "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
+                                "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                 "search_time": 0.0, "search_in": 0, "search_out": 0,
                                 "total_yen": 0.0, "total_time": 0.0
                             }
@@ -2922,22 +2924,57 @@ if is_admin:
                         in_t = log.get("in_tokens", 0)
                         out_t = log.get("out_tokens", 0)
 
-                        # 各コンポーネントの役割（名義）に応じて、同じメッセージIDの部屋の、対応する引き出しへ数値をドッキング
+                        # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
                         if action == "SUMMARY_SUCCESS":
                             merged_logs[msg_id]["sum_time"] = proc_time
                             merged_logs[msg_id]["sum_in"] = in_t
                             merged_logs[msg_id]["sum_out"] = out_t
-                        else:
-                            # 通常のメインチャット（または新設詳細カラムからのダイレクト抽出）
-                            merged_logs[msg_id]["chat_time"] = log.get("chat_processing_time", proc_time) if log.get("chat_processing_time") is not None else proc_time
-                            merged_logs[msg_id]["chat_in"] = log.get("chat_in_tokens", in_t) if log.get("chat_in_tokens") is not None else in_t
-                            merged_logs[msg_id]["chat_out"] = log.get("chat_out_tokens", out_t) if log.get("chat_out_tokens") is not None else out_t
-                            
-                            # 🔍 【将来拡張対応版・予約席】 将来ベクトル検索（search）を実装した際にも、
-                            # データベースから引っこ抜いた数値を安全にここでサルベージして自動復活（合流）させます！
-                            merged_logs[msg_id]["search_time"] = log.get("search_processing_time", 0.0) if log.get("search_processing_time") is not None else 0.0
-                            merged_logs[msg_id]["search_in"] = log.get("search_in_tokens", 0) if log.get("search_in_tokens") is not None else 0
-                            merged_logs[msg_id]["search_out"] = log.get("search_out_tokens", 0) if log.get("search_out_tokens") is not None else 0
+
+                        elif action == "SEARCH_JUDGE":
+                            merged_logs[msg_id]["judge_time"] = proc_time
+                            merged_logs[msg_id]["judge_in"] = in_t
+                            merged_logs[msg_id]["judge_out"] = out_t
+                            merged_logs[msg_id]["judge_cost"] = cost
+                            merged_logs[msg_id]["judge_result"] = (
+                                log.get("details", "")
+                            )
+
+                        elif action == "CHAT_SUCCESS":
+                            merged_logs[msg_id]["chat_time"] = (
+                                log.get("chat_processing_time", proc_time)
+                                if log.get("chat_processing_time") is not None
+                                else proc_time
+                            )
+
+                            merged_logs[msg_id]["chat_in"] = (
+                                log.get("chat_in_tokens", in_t)
+                                if log.get("chat_in_tokens") is not None
+                                else in_t
+                            )
+
+                            merged_logs[msg_id]["chat_out"] = (
+                                log.get("chat_out_tokens", out_t)
+                                if log.get("chat_out_tokens") is not None
+                                else out_t
+                            )
+
+                            merged_logs[msg_id]["search_time"] = (
+                                log.get("search_processing_time", 0.0)
+                                if log.get("search_processing_time") is not None
+                                else 0.0
+                            )
+
+                            merged_logs[msg_id]["search_in"] = (
+                                log.get("search_in_tokens", 0)
+                                if log.get("search_in_tokens") is not None
+                                else 0
+                            )
+
+                            merged_logs[msg_id]["search_out"] = (
+                                log.get("search_out_tokens", 0)
+                                if log.get("search_out_tokens") is not None
+                                else 0
+                            )
 
                         # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
                         merged_logs[msg_id]["total_yen"] += cost
@@ -2954,10 +2991,13 @@ if is_admin:
 
                             | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
                             | :--- | :---: | :---: | :---: |
+                            | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
                             | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
                             | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                            | 🔍 **ベクトル＆意味空間検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                            | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
+                            🔎 **【検索判定結果】** {item['judge_result']}
+
                             👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                             """)
                 else: 
