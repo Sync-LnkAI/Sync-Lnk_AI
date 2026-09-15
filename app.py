@@ -1944,15 +1944,14 @@ with all_tabs[0]:
                             【最新ユーザー発言】
                             {user_input}
                             """
+                            search_result = test_google_search(
+                                search_query
+                            )
 
-                                search_result = test_google_search(
-                                    search_query
-                                )
-
-                                supabase.table("search_logs").insert({
-                                    "user_id": CURRENT_USER_ID,
-                                    "search_query": user_input
-                                }).execute()
+                            supabase.table("search_logs").insert({
+                                "user_id": CURRENT_USER_ID,
+                                "search_query": user_input
+                            }).execute()
                         else:
                             search_result = "なし"
 
