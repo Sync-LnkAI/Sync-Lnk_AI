@@ -1953,7 +1953,7 @@ with all_tabs[0]:
                             details=(
                                 f"検索要否判定: "
                                 f"{'YES' if need_search else 'NO'}"
-                            )
+                            ),
                             message_id=str(current_msg_id)
                         )
 
