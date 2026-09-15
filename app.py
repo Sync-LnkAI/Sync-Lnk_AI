@@ -1306,7 +1306,7 @@ def build_recent_history_str():
 from google import genai as search_genai
 from google.genai import types
 
-def test_google_search(query):
+def google_search(query):
 
     client = search_genai.Client(
         api_key=GEMINI_API_KEY
@@ -1871,24 +1871,6 @@ with all_tabs[0]:
 
                         recent_history_lines = []
 
-                        need_search = (
-                            (
-                                "天気" in user_input
-                                and (
-                                    "今日" in user_input
-                                    or "明日" in user_input
-                                    or "明後日" in user_input
-                                    or "今週" in user_input
-                                    or "来週" in user_input
-                                )
-                            )
-                            or "ニュース" in user_input
-                            or "ランキング" in user_input
-                            or "イベント" in user_input
-                            or "発売日" in user_input
-                            or "上映" in user_input
-                        )
-
                         #　直近の過去会話履歴の作成
                         for m in recent_messages:
                             role_name = (
@@ -1909,32 +1891,24 @@ with all_tabs[0]:
                                 f"{m.get('content', '')}"
                             )
 
+                        # 会話用直近会話履歴作成
                         recent_history_str = (
                             "\n".join(recent_history_lines)
+                            if recent_history_lines
+                            else "直近の会話履歴なし"
+                        )
+                        # 検索判定用直近会話履歴作成
+                        recent_history_for_search = (
+                            "\n".join(recent_history_lines[-4:])
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
 
                         need_search = should_use_google_search(
                             user_input=user_input,
-                            recent_history_str=recent_history_str
+                            recent_history_str=recent_history_for_search
                         )
-                        st.write(f"🔍検索判定: {need_search}")
 
-                        # if need_search:
-                        #     search_response_text, search_response = test_google_search(
-                        #         user_input
-                        #     )
-
-                        #     search_result = search_response_text
-
-                        #     supabase.table("search_logs").insert({
-                        #         "user_id": CURRENT_USER_ID,
-                        #         "search_query": user_input
-                        #     }).execute()
-
-                        # else:
-                        #     search_result = "なし"
                         if need_search:
                             search_query = f"""
                             直近の会話を踏まえて、最新ユーザー発言に必要な情報を検索してください。
@@ -1945,10 +1919,9 @@ with all_tabs[0]:
                             【最新ユーザー発言】
                             {user_input}
                             """
-                            search_result = test_google_search(
+                            search_result = google_search(
                                 search_query
                             )
-                            st.write("✅検索実行")
                             st.code(search_result[:500])
 
                             try:
@@ -1957,14 +1930,9 @@ with all_tabs[0]:
                                     "search_query": user_input
                                     }).execute()
                             except Exception as e:
-                                st.error(f"検索ログ保存エラー: {e}")
+                                print(f"検索ログ取得エラー {uid}: {e}")
 
-                            # supabase.table("search_logs").insert({
-                            #     "user_id": CURRENT_USER_ID,
-                            #     "search_query": user_input
-                            # }).execute()
                         else:
-                            st.write("❌検索なし")
                             search_result = "なし"
 
                         summary_memories = get_memories(source="summary")
