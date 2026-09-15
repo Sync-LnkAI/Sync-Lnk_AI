@@ -1301,6 +1301,31 @@ def build_recent_history_str():
         else "直近の会話履歴なし"
     )
 
+# 検索関数
+from google import genai as search_genai
+from google.genai import types
+
+def test_google_search(query):
+
+    client = search_genai.Client(
+        api_key=GEMINI_API_KEY
+    )
+
+    grounding_tool = types.Tool(
+        google_search=types.GoogleSearch()
+    )
+
+    response = client.models.generate_content(
+        model="gemini-3.5-flash",
+        contents=query,
+        config=types.GenerateContentConfig(
+            tools=[grounding_tool]
+        )
+    )
+
+    return response.text
+
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -2833,6 +2858,16 @@ if is_admin:
     # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
     # ==========================================
     with all_tabs[4]:
+
+        if CURRENT_USER_ID == ADMIN_USER_ID:
+            if st.button("検索テスト"):
+
+                result = test_google_search(
+                    "今日の東京の天気"
+                )
+
+                st.write(result)
+
         st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
         
