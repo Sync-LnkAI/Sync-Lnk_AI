@@ -1364,14 +1364,39 @@ def should_use_google_search(user_input, recent_history_str=""):
             judge_response.text or ""
         ).strip().upper()
 
-        return judge_text.startswith("YES")
+        judge_in_t = 0
+        judge_out_t = 0
+
+        if (
+            hasattr(judge_response, "usage_metadata")
+            and judge_response.usage_metadata
+        ):
+            judge_in_t = (
+                judge_response.usage_metadata.prompt_token_count or 0
+            )
+
+            judge_out_t = (
+                judge_response.usage_metadata.candidates_token_count or 0
+            )
+
+        judge_cost = (
+            judge_in_t * PRICE_LITE_IN
+            + judge_out_t * PRICE_LITE_OUT
+        )
+
+        return (
+            judge_text.startswith("YES"),
+            judge_in_t,
+            judge_out_t,
+            judge_cost
+        )
 
     except Exception as judge_error:
         print(
             f"⚠️ 検索要否判定エラー: "
             f"{type(judge_error).__name__}: {judge_error}"
         )
-        return False
+        return False, 0, 0, 0.0
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1904,9 +1929,27 @@ with all_tabs[0]:
                             else "直近の会話履歴なし"
                         )
 
-                        need_search = should_use_google_search(
+                        (
+                            need_search,
+                            search_judge_in_t,
+                            search_judge_out_t,
+                            search_judge_cost
+                        ) = should_use_google_search(
                             user_input=user_input,
                             recent_history_str=recent_history_for_search
+                        )
+                        save_system_audit_log(
+                            user_id=CURRENT_USER_ID,
+                            plan_type=current_plan_type,
+                            event_type="SEARCH_JUDGE",
+                            processing_time=0.0,
+                            in_t=search_judge_in_t,
+                            out_t=search_judge_out_t,
+                            api_cost=search_judge_cost,
+                            details=(
+                                f"検索要否判定: "
+                                f"{'YES' if need_search else 'NO'}"
+                            )
                         )
 
                         if need_search:
@@ -2691,6 +2734,10 @@ if is_admin:
             avg_chats_per_day = 0
             total_cost_jpy = 0.0
             avg_cost_per_chat = 0.0
+            search_judge_count = 0
+            search_judge_total_cost = 0.0
+            search_judge_total_in = 0
+            search_judge_total_out = 0
             user_logs = []
             try:
                 user_logs = (
@@ -2730,6 +2777,35 @@ if is_admin:
                         .select("api_cost")
                         .eq("user_id", selected_audit_user)
                         .execute()
+                    )
+
+                    # system_audit_logsから検索コストを集計
+                    judge_cost_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "SEARCH_JUDGE")
+                        .execute()
+                    )
+
+                    judge_rows = judge_cost_res.data or []
+
+                    search_judge_count = len(judge_rows)
+
+                    search_judge_total_cost = sum(
+                        float(row.get("api_cost", 0) or 0)
+                        for row in judge_rows
+                    )
+
+                    search_judge_total_in = sum(
+                        int(row.get("in_t", 0) or 0)
+                        for row in judge_rows
+                    )
+
+                    search_judge_total_out = sum(
+                        int(row.get("out_t", 0) or 0)
+                        for row in judge_rows
                     )
                     # 検索回数を取得
                     search_res = (
@@ -2795,6 +2871,14 @@ if is_admin:
                     "<h5 style='color:#10b981; font-weight:bold;'>💰 【インフラ原価・サーバーコスト】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {round(total_cost_jpy, 2)} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat} 円/通</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定回数：</b> {search_judge_count} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定入力：</b> {search_judge_total_in:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定出力：</b> {search_judge_total_out:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>検索判定コスト：</b> {search_judge_total_cost:.4f} 円</p>"
                     "</div>",
                     unsafe_allow_html=True
                 )
