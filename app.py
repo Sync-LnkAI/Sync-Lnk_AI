@@ -2738,6 +2738,7 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>最終会話日時：</b> {last_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総システム稼働日数：</b> {total_active_days} 日間</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>1日あたりの平均通数：** {avg_chats_per_day} 通/日</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>検索回数：** {search_count} 回</p>"
                     "<br>"
                     "<h5 style='color:#10b981; font-weight:bold;'>💰 【インフラ原価・サーバーコスト】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {round(total_cost_jpy, 2)} 円</p>"
