@@ -1328,19 +1328,12 @@ def google_search(query):
 
 def should_use_google_search(user_input, recent_history_str=""):
     try:
-        st.write(
-            "検索判定履歴長:",
-            len(recent_history_str)
-        )
         judge_model = genai.GenerativeModel(
             model_name=CHAT_MODEL_NAME
         )
         judge_prompt = f"""
         検索が必要なら YES
         不要なら NO
-
-        【直近の会話】
-        {recent_history_str}
 
         【最新ユーザー発言】
         {user_input}
