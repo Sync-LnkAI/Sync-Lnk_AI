@@ -1326,6 +1326,52 @@ def test_google_search(query):
 
     return response.text
 
+def should_use_google_search(user_input, recent_history_str=""):
+    try:
+        judge_model = genai.GenerativeModel(
+            model_name=CHAT_MODEL_NAME
+        )
+        judge_prompt = f"""
+        次の最新ユーザー発言に回答するために、
+        現在の天気、ニュース、イベント、発売情報、上映情報、
+        価格、営業状況、ランキングなど、インターネット上の
+        最新情報を確認する必要があるか判定してください。
+
+        直前の会話で検索に必要な地域、対象、条件を質問しており、
+        最新ユーザー発言がその回答になっている場合も YES にしてください。
+
+        単なる雑談、感想、過去の出来事、一般知識、
+        ユーザー自身についての会話なら NO にしてください。
+
+        YES または NO のどちらか一語だけを出力してください。
+
+        【直近の会話】
+        {recent_history_str}
+
+        【最新ユーザー発言】
+        {user_input}
+        """
+
+        judge_response = judge_model.generate_content(
+            judge_prompt,
+            generation_config={
+                "temperature": 0,
+                "max_output_tokens": 5
+            }
+        )
+
+        judge_text = (
+            judge_response.text or ""
+        ).strip().upper()
+
+        return judge_text.startswith("YES")
+
+    except Exception as judge_error:
+        print(
+            f"⚠️ 検索要否判定エラー: "
+            f"{type(judge_error).__name__}: {judge_error}"
+        )
+        return False
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1843,17 +1889,6 @@ with all_tabs[0]:
                             or "上映" in user_input
                         )
 
-                        if need_search:
-                            st.write("検索発動")
-                            search_result = test_google_search(user_input)
-                            supabase.table("search_logs").insert({
-                                "user_id": CURRENT_USER_ID,
-                                "search_query": user_input
-                            }).execute()
-                        else:
-                            st.write("検索なし")
-                            search_result = "なし"
-
                         #　直近の過去会話履歴の作成
                         for m in recent_messages:
                             role_name = (
@@ -1879,6 +1914,47 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
+
+                        need_search = should_use_google_search(
+                            user_input=user_input,
+                            recent_history_str=recent_history_str
+                        )
+
+                        # if need_search:
+                        #     search_response_text, search_response = test_google_search(
+                        #         user_input
+                        #     )
+
+                        #     search_result = search_response_text
+
+                        #     supabase.table("search_logs").insert({
+                        #         "user_id": CURRENT_USER_ID,
+                        #         "search_query": user_input
+                        #     }).execute()
+
+                        # else:
+                        #     search_result = "なし"
+                        if need_search:
+                            search_query = f"""
+                            直近の会話を踏まえて、最新ユーザー発言に必要な情報を検索してください。
+
+                            【直近の会話】
+                            {recent_history_str}
+
+                            【最新ユーザー発言】
+                            {user_input}
+                            """
+
+                                search_result = test_google_search(
+                                    search_query
+                                )
+
+                                supabase.table("search_logs").insert({
+                                    "user_id": CURRENT_USER_ID,
+                                    "search_query": user_input
+                                }).execute()
+                        else:
+                            search_result = "なし"
 
                         summary_memories = get_memories(source="summary")
 
