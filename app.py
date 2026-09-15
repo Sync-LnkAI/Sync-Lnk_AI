@@ -1328,6 +1328,10 @@ def google_search(query):
 
 def should_use_google_search(user_input, recent_history_str=""):
     try:
+        st.write(
+            "検索判定履歴長:",
+            len(recent_history_str)
+        )
         judge_model = genai.GenerativeModel(
             model_name=CHAT_MODEL_NAME
         )
@@ -1970,7 +1974,7 @@ with all_tabs[0]:
                             search_result = google_search(
                                 search_query
                             )
-                            st.code(search_result[:500])
+                            # st.code(search_result[:500])
 
                             try:
                                 supabase.table("search_logs").insert({
