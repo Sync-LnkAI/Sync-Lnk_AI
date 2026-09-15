@@ -3141,6 +3141,7 @@ if is_admin:
                 )
 
                 logs = selected_logs.data or []
+
                 # grouped_logs = {}
                 # for log in all_tester_logs.data:
                 #     uid = log.get("user_id", "unknown")
@@ -3173,7 +3174,7 @@ if is_admin:
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
                 # if selected_target_user_id in grouped_logs:
                 #     logs = grouped_logs[selected_target_user_id]
-                    
+                if logs:
                     st.markdown(f"### 👤 テスターID: `{selected_target_user_id}`")
                         
                     # 該当テスターの会話の往復履歴を時系列に沿って表示
