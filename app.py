@@ -1848,12 +1848,14 @@ with all_tabs[0]:
                             for keyword in SEARCH_KEYWORDS
                         )
                         if need_search:
+                            st.write("検索発動")
                             search_result = test_google_search(user_input)
                             supabase.table("search_logs").insert({
                                 "user_id": CURRENT_USER_ID,
                                 "search_query": user_input
                             }).execute()
                         else:
+                            st.write("検索なし")
                             search_result = "なし"
 
                         #　直近の過去会話履歴の作成
