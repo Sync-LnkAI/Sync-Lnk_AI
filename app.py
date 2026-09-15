@@ -2684,7 +2684,7 @@ if is_admin:
                         supabase
                         .table("search_logs")
                         .select("*")
-                        .eq("user_id", CURRENT_USER_ID)
+                        .eq("user_id", selected_audit_user)
                         .execute()
                     )
                     search_count = len(
