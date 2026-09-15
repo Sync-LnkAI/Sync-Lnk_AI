@@ -3130,12 +3130,23 @@ if is_admin:
         # プルダウンで選択肢したテスターのログを表示
         try:
             if all_tester_logs.data:
-                grouped_logs = {}
-                for log in all_tester_logs.data:
-                    uid = log.get("user_id", "unknown")
-                    if uid not in grouped_logs:
-                        grouped_logs[uid] = []
-                    grouped_logs[uid].append(log)
+                selected_logs = (
+                    supabase
+                    .table("messages")
+                    .select("*")
+                    .eq("user_id", selected_target_user_id)
+                    .order("created_at", desc=True)
+                    .limit(1000)
+                    .execute()
+                )
+
+                logs = selected_logs.data or []
+                # grouped_logs = {}
+                # for log in all_tester_logs.data:
+                #     uid = log.get("user_id", "unknown")
+                #     if uid not in grouped_logs:
+                #         grouped_logs[uid] = []
+                #     grouped_logs[uid].append(log)
 
                 selected_user_info = users.get(
                     selected_target_user_id,
@@ -3160,8 +3171,8 @@ if is_admin:
                     target_ai_name = "コンシェルジュ"
                 
                 # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
-                if selected_target_user_id in grouped_logs:
-                    logs = grouped_logs[selected_target_user_id]
+                # if selected_target_user_id in grouped_logs:
+                #     logs = grouped_logs[selected_target_user_id]
                     
                     st.markdown(f"### 👤 テスターID: `{selected_target_user_id}`")
                         
