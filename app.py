@@ -1324,7 +1324,7 @@ def test_google_search(query):
         )
     )
 
-    return response.text, response
+    return response.text
 
 
 # 🎨グラデーションカラーパレット
@@ -1849,6 +1849,10 @@ with all_tabs[0]:
                         )
                         if need_search:
                             search_result = test_google_search(user_input)
+                            supabase.table("search_logs").insert({
+                                "user_id": CURRENT_USER_ID,
+                                "search_query": user_input
+                            }).execute()
                         else:
                             search_result = "なし"
 
@@ -1967,7 +1971,8 @@ with all_tabs[0]:
                         ・インタビューのように質問が連続しないようにしてください。
 
                         【質問への対応】
-                        ・映画、ドラマ、ゲーム、ニュース、流行、商品、ランキングなど最新情報が必要な質問については、最新情報を確認できないことを正直に伝える。
+                        ・検索結果が存在する場合は、検索結果を優先して回答してください。
+                        ・検索結果と記憶の両方が存在する場合は、検索結果を基にしつつユーザーの過去の会話や好みに合わせて回答してください。
                         ・不確かな内容や現在の状況を推測で断定しない。
                         ・無理にそれらしい作品名や情報を作らない。
                         ・ユーザーの好みや過去の会話が分かる場合は、それを活用して会話を続ける。
@@ -2555,24 +2560,6 @@ if is_admin:
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
     with all_tabs[3]:
-
-        if CURRENT_USER_ID == ADMIN_USER_ID:
-            if st.button("🔍 検索テスト"):
-                search_text, search_response = test_google_search(
-                    "今日の東京の天気"
-                )
-
-                st.write(search_text)
-
-                grounding_metadata = (
-                    search_response.candidates[0].grounding_metadata
-                    if search_response.candidates
-                    else None
-                )
-
-                st.write("Grounding metadata:")
-                st.write(grounding_metadata)
-
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -2691,6 +2678,17 @@ if is_admin:
                         .select("api_cost")
                         .eq("user_id", selected_audit_user)
                         .execute()
+                    )
+                    # 検索回数を取得
+                    search_res = (
+                        supabase
+                        .table("search_logs")
+                        .select("*")
+                        .eq("user_id", uid)
+                        .execute()
+                    )
+                    search_count = len(
+                        search_res.data or []
                     )
 
                     if cost_logs.data:
@@ -3079,6 +3077,17 @@ if is_admin:
                     .eq("user_id", uid)
                     .execute()
                 )
+                search_res = (
+                    supabase
+                    .table("search_logs")
+                    .select("*")
+                    .eq("user_id", uid)
+                    .execute()
+                )
+
+                search_count = len(
+                    search_res.data or []
+                )
 
                 total_cost = sum(
                     float(x.get("api_cost", 0) or 0)
@@ -3124,7 +3133,9 @@ if is_admin:
                     "会話進捗":
                         f"{total_chat}/20",
                     "利用日数進捗":
-                        f"{active_days}/4"
+                        f"{active_days}/4",
+                    "検索回数":
+                        f"{search_count}回"
                 })
 
             except Exception as e:
