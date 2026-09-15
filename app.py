@@ -1956,8 +1956,8 @@ with all_tabs[0]:
                                     "user_id": CURRENT_USER_ID,
                                     "search_query": user_input
                                     }).execute()
-                                except Exception as e:
-                                    st.error(f"検索ログ保存エラー: {e}")
+                            except Exception as e:
+                                st.error(f"検索ログ保存エラー: {e}")
 
                             # supabase.table("search_logs").insert({
                             #     "user_id": CURRENT_USER_ID,
