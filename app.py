@@ -1825,23 +1825,23 @@ with all_tabs[0]:
 
                         recent_history_lines = []
 
-                        SEARCH_KEYWORDS = [
-                            "今日の天気",
-                            "明日の天気",
-                            "天気予報",
-                            "ニュース",
-                            "最新",
-                            "最近の",
-                            "今話題",
-                            "ランキング",
-                            "イベント",
-                            "上映",
-                            "公開",
-                            "発売日",
-                            "おすすめ本",
-                            "おすすめ映画",
-                            "おすすめドラマ"
-                        ]
+                        need_search = (
+                            (
+                                "天気" in user_input
+                                and (
+                                    "今日" in user_input
+                                    or "明日" in user_input
+                                    or "明後日" in user_input
+                                    or "今週" in user_input
+                                    or "来週" in user_input
+                                )
+                            )
+                            or "ニュース" in user_input
+                            or "ランキング" in user_input
+                            or "イベント" in user_input
+                            or "発売日" in user_input
+                            or "上映" in user_input
+                        )
 
                         need_search = any(
                             keyword in user_input
