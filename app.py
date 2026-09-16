@@ -1332,8 +1332,14 @@ def should_use_google_search(user_input, recent_history_str=""):
             model_name=CHAT_MODEL_NAME
         )
         judge_prompt = f"""
-        検索が必要なら YES
-        不要なら NO
+        次のユーザー発言について判定してください。
+
+        最新の情報や現在進行中の情報を取得するために
+        インターネット検索が必要なら YES
+
+        一般知識で回答できる内容なら NO
+
+        YES または NO だけ返してください。
 
         【最新ユーザー発言】
         {user_input}
