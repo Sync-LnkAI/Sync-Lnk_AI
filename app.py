@@ -36,9 +36,9 @@ genai.configure(api_key=GEMINI_API_KEY)
 # ==========================================
 # 💡 表側の雑談も、裏方の要約・エラー翻訳も、すべて最安・最速の「Flash-Lite」に固定してインフラコストを完全防衛します
 CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
-MEMORY_MODEL_NAME = "gemini-3.5-flash-lite"
-SUMMARY_MODEL_NAME = "gemini-3.5-flash-lite"
-SEARCH_MODEL_NAME = "gemini-3.5-flash-lite"
+MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
+SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
+SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
 
 chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
 memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
@@ -1250,7 +1250,8 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
 
         # ⚡ 100t前後の超爆安単発通信（Gemini Flash-Lite駆動）
         import google.generativeai as genai
-        model = genai.GenerativeModel("models/gemini-1.5-flash-lite")
+        model = genai.GenerativeModel(model_name=SEARCH_MODEL_NAME)
+        # model = genai.GenerativeModel("models/gemini-1.5-flash-lite")
         response = model.generate_content(prompt)
         clean_reply = response.text.strip() if response.text else raw_system_text
         
@@ -1329,11 +1330,20 @@ def google_search(query):
 def should_use_google_search(user_input, recent_history_str=""):
     try:
         judge_model = genai.GenerativeModel(
-            model_name=CHAT_MODEL_NAME
+            model_name=SEARCH_MODEL_NAME
         )
         judge_prompt = f"""
-        検索が必要なら YES
-        不要なら NO
+        次のユーザー発言について判定してください。
+
+        最新の情報や現在進行中の情報を取得するために
+        インターネット検索が必要なら YES
+
+        一般知識で回答できる内容なら NO
+
+        YES または NO だけ返してください。
+
+        【直近の会話】
+        {recent_history_str}
 
         【最新ユーザー発言】
         {user_input}
@@ -1915,7 +1925,7 @@ with all_tabs[0]:
                         )
                         # 検索判定用直近会話履歴作成
                         recent_history_for_search = (
-                            "\n".join(recent_history_lines[-4:])
+                            "\n".join(recent_history_lines[-1:])
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
@@ -2093,7 +2103,8 @@ with all_tabs[0]:
 
                         【時系列と事実の扱い】
                         ・過去ログ内の「今日」「昨日」「明日」は、その発言日時を基準とした相対表現です。現在日時と混同しないでください。
-                        ・過去の事実を訂正された場合、現在の正しい事実まで否定せず、該当する過去情報だけを自然に訂正してください。
+                        ・ユーザーから事実誤認、認識違い、解釈違いの指摘や訂正を受けた場合は、現在の正しい事実まで否定せず、該当する内容だけを自然に訂正してください。
+                        ・訂正や謝罪だけで会話を終了せず、可能であれば元の依頼や質問へ戻って回答を続けてください。
                         ・ユーザーが明示していない感情、予定、経験、趣味、事情を決めつけないでください。
                         ・ユーザーが「行ってくる」「寝る」「仕事に行く」など未来の予定を話した場合、その後の会話で実行済みとして扱ってはいけません。
                         ・実行済みであることは、ユーザー本人が明示した場合のみ事実として扱ってください。
