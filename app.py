@@ -3341,6 +3341,7 @@ if is_admin:
                             st.success(ai_msg)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
+            except Exception as log_err:
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
