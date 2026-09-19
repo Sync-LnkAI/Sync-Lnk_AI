@@ -3342,6 +3342,9 @@ if is_admin:
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
             except Exception as log_err:
+                st.error(
+                    f"ユーザーログの取得に失敗しました: {log_err}"
+                )
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
