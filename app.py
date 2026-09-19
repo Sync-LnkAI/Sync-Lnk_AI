@@ -335,7 +335,7 @@ def save_message(role: str, content: str,message_id: str = "") -> bool:
         error_text = (
             f"{type(db_err).__name__}: {db_err}"
         )
-        
+
         # デバッグログ出力
         print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
         
@@ -2169,16 +2169,13 @@ with all_tabs[0]:
                         else:
                             past_logs_str = "該当する過去ログなし"
 
+                        # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         if not save_message("user", user_input, current_msg_id):
                             st.stop()
                         
-                        # メッセージIDの自動生成
-                        import uuid
-                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
-
                         all_messages.append({"role": "user", "content": user_input})
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
