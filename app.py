@@ -51,6 +51,21 @@ LITE_OUTPUT_PRICE_PER_MILLION = 2.50
 PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 
+# Gemini 3.1 Flash-Lite 従量課金単価定義（1ドル150円換算）
+BACKGROUND_INPUT_PRICE_PER_MILLION = 0.25
+BACKGROUND_OUTPUT_PRICE_PER_MILLION = 1.50
+
+PRICE_BACKGROUND_IN = (
+    BACKGROUND_INPUT_PRICE_PER_MILLION
+    / 1_000_000
+) * USD_TO_JPY
+
+PRICE_BACKGROUND_OUT = (
+    BACKGROUND_OUTPUT_PRICE_PER_MILLION
+    / 1_000_000
+) * USD_TO_JPY
+
+
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
 DAILY_LIMIT = 20
@@ -858,9 +873,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
             
             # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
-            sum_in_cost = (int(in_t) / 1000000) * 0.075
-            sum_out_cost = (int(out_t) / 1000000) * 0.30
-            sum_yen = (sum_in_cost + sum_out_cost) * USD_TO_JPY
+            sum_in_cost = in_t * PRICE_BACKGROUND_IN
+            sum_out_cost = int * PRICE_BACKGROUND_OUT
+            sum_yen = sum_in_cost + sum_out_cost
 
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
             save_system_audit_log(
@@ -1328,39 +1343,159 @@ def google_search(query):
 
     return response.text
 
-def should_use_google_search(user_input, recent_history_str=""):
+RESPONSE_MODES = {
+    "short_chat",
+    "conversation",
+    "support",
+    "analysis",
+    "factual",
+    "default"
+}
+# short_chat: 挨拶、相づち、短い呼びかけ
+# conversation: 日常会話、趣味、出来事の共有
+# support: 悩み、愚痴、体調、感情的な相談
+# analysis: 壁打ち、比較、企画、仕事、原因分析
+# factual: 事実質問、検索結果を使う回答
+# default: 判断困難、複数用途、従来ルールを使う場合
+
+def classify_search_and_response_mode(
+    user_input: str,
+    recent_history_str: str = ""
+):
+    """
+    検索要否と回答モードを1回のGemini呼び出しで判定する。
+
+    戻り値:
+        need_search: bool
+        response_mode: str
+        confidence: float
+        judge_in_t: int
+        judge_out_t: int
+        judge_cost: float
+    """
+
     try:
         judge_model = genai.GenerativeModel(
             model_name=SEARCH_MODEL_NAME
         )
+
         judge_prompt = f"""
-        次のユーザー発言について判定してください。
+        あなたはAIチャットの振り分けシステムです。
+        直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
 
-        最新の情報や現在進行中の情報を取得するために
-        インターネット検索が必要なら YES
+        【検索要否】
+        最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、
+        上映情報、店舗情報、製品仕様などを正確に回答するために
+        インターネット検索が必要なら true にしてください。
 
-        一般知識で回答できる内容なら NO
+        一般知識、日常会話、悩み相談、感想、アイデア出し、
+        文章内に十分な情報がある計算や分析なら false にしてください。
 
-        YES または NO だけ返してください。
+        直前の会話で検索を必要とする質問があり、
+        最新発言が地域、条件、対象などを追加または訂正している場合は、
+        前の質問を具体化する発言として判断してください。
+
+        【回答モード】
+        次のうち、今回の回答に最も適したものを1つ選んでください。
+
+        short_chat:
+        挨拶、お礼、短い呼びかけ、相づち、短い終了宣言。
+
+        conversation:
+        日常の出来事、趣味、家族、雑談、感想の共有。
+        親しみやすい自然な会話が中心。
+
+        support:
+        悩み、愚痴、疲労、体調、落ち込み、対人関係など。
+        受け止めと状況整理が必要。
+
+        analysis:
+        企画、壁打ち、比較、仕事、技術、事業、意思決定、原因分析。
+        具体的な整理、選択肢、利点と欠点、次の行動が必要。
+
+        factual:
+        事実質問、最新情報、検索結果、数値や仕様の確認。
+        正確性と根拠を重視する回答が必要。
+
+        default:
+        複数モードが混在する、意図が不明、または分類に自信がない場合。
+
+        【重要】
+        ・話題名ではなく、今回どのような回答方法が必要かで分類してください。
+        ・短文でも、直近の会話の続きなら文脈を考慮してください。
+        ・不明確な場合は無理に分類せず default にしてください。
+        ・検索が必要な場合は、原則として response_mode を factual にしてください。
+        ・JSON以外の説明文は出力しないでください。
 
         【直近の会話】
         {recent_history_str}
 
         【最新ユーザー発言】
         {user_input}
+
+        【出力形式】
+        {{
+            "need_search": false,
+            "response_mode": "conversation",
+            "confidence": 0.90
+        }}
         """
 
         judge_response = judge_model.generate_content(
             judge_prompt,
             generation_config={
                 "temperature": 0,
-                "max_output_tokens": 5
+                "max_output_tokens": 60,
+                "response_mime_type": "application/json"
             }
         )
 
-        judge_text = (
+        raw_text = (
             judge_response.text or ""
-        ).strip().upper()
+        ).strip()
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        judge_data = json.loads(clean_text)
+
+        need_search = bool(
+            judge_data.get("need_search", False)
+        )
+
+        response_mode = str(
+            judge_data.get("response_mode", "default")
+        ).strip().lower()
+
+        try:
+            confidence = float(
+                judge_data.get("confidence", 0.0)
+            )
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        # 想定外のモードはdefaultへ着地
+        if response_mode not in RESPONSE_MODES:
+            response_mode = "default"
+
+        # 信頼度を0.0から1.0に補正
+        confidence = max(
+            0.0,
+            min(confidence, 1.0)
+        )
+
+        # 低信頼度なら従来プロンプト相当のdefaultを使用
+        if confidence < 0.65:
+            response_mode = "default"
+
+        # 検索を実行する場合は事実回答を優先
+        if need_search:
+            response_mode = "factual"
 
         judge_in_t = 0
         judge_out_t = 0
@@ -1370,20 +1505,28 @@ def should_use_google_search(user_input, recent_history_str=""):
             and judge_response.usage_metadata
         ):
             judge_in_t = (
-                judge_response.usage_metadata.prompt_token_count or 0
+                judge_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
             )
 
             judge_out_t = (
-                judge_response.usage_metadata.candidates_token_count or 0
+                judge_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
             )
 
         judge_cost = (
-            judge_in_t * PRICE_LITE_IN
-            + judge_out_t * PRICE_LITE_OUT
+            judge_in_t * PRICE_BACKGROUND_IN
+            + judge_out_t * PRICE_BACKGROUND_OUT
         )
 
         return (
-            judge_text.startswith("YES"),
+            need_search,
+            response_mode,
+            confidence,
             judge_in_t,
             judge_out_t,
             judge_cost
@@ -1391,10 +1534,148 @@ def should_use_google_search(user_input, recent_history_str=""):
 
     except Exception as judge_error:
         print(
-            f"⚠️ 検索要否判定エラー: "
-            f"{type(judge_error).__name__}: {judge_error}"
+            f"⚠️ 検索・応答モード判定エラー: "
+            f"{type(judge_error).__name__}: "
+            f"{judge_error}"
         )
-        return False, 0, 0, 0.0
+
+        # 判定失敗時は検索せず、従来のフルプロンプトへ着地
+        return (
+            False,
+            "default",
+            0.0,
+            0,
+            0,
+            0.0
+        )
+
+# プロンプトの定義
+MODE_PROMPTS = {
+    "short_chat": """
+    【今回の回答モード: 短い会話】
+    ・挨拶、呼びかけ、お礼、相づちには短く自然に返答してください。
+    ・説明、分析、見出し、箇条書きは原則不要です。
+    ・無理に質問を追加しないでください。
+    ・直近履歴に続きがある場合は、その流れを切らないでください。
+    ・通常は1〜3文程度を目安にしてください。
+    """,
+
+    "conversation": """
+    【今回の回答モード: 日常会話】
+    ・ユーザーの出来事、趣味、家族、日常の話題へ自然に反応してください。
+    ・肯定や大げさなリアクションだけで終わらず、具体的な感想や軽い考察を加えてください。
+    ・共感、質問、軽いツッコミ、感想を会話に応じて使い分けてください。
+    ・毎回質問で終わらず、自然な余韻を残しても構いません。
+    ・通常は2〜6文程度を目安にしてください。
+    """,
+
+    "support": """
+    【今回の回答モード: 悩み相談・サポート】
+    ・まずユーザーの状況や気持ちを短く受け止めてください。
+    ・共感や「休んで」の繰り返しだけで終わらせないでください。
+    ・必要に応じて、状況整理、考えられる選択肢、負担の小さい次の行動を示してください。
+    ・ユーザーが求めていない断定的な助言や説教は避けてください。
+    ・体調や専門判断に関わる内容では、一般的情報と専門家の判断を区別してください。
+    ・緊急性や深刻さが疑われる場合は、無理に会話だけで解決しようとしないでください。
+    """,
+
+    "analysis": """
+    【今回の回答モード: 分析・壁打ち】
+    ・肯定や応援だけで終わらず、具体的な分析を行ってください。
+    ・最初に結論または現時点の見立てを示してください。
+    ・目的、前提、選択肢、利点、欠点、リスク、次の行動を必要に応じて整理してください。
+    ・不足情報と、現在の情報から判断できる内容を区別してください。
+    ・ユーザーの案を無条件に肯定せず、改善点や見落としも自然に示してください。
+    ・複数の選択肢がある場合は比較し、判断材料を提示してください。
+    ・ユーザーが追加条件を示した場合は、その条件を反映した新しい結論を返してください。
+    """,
+
+    "factual": """
+    【今回の回答モード: 事実・最新情報】
+    ・正確性を最優先してください。
+    ・検索結果がある場合は、その内容を根拠として回答してください。
+    ・検索結果に存在しない情報を推測して補ってはいけません。
+    ・日付、場所、対象、単位などの条件を明確にしてください。
+    ・検索結果が質問へ十分に答えていない場合は、分かる範囲と不足情報を区別してください。
+    ・一般論だけで終わらず、ユーザーが指定した条件へ当てはめて回答してください。
+    """,
+
+    "default": """
+    【今回の回答モード: 標準】
+    ・最新のユーザー発言と直近の会話を踏まえ、自然かつ正確に回答してください。
+    ・今回の目的が明確でない場合は、勝手に目的や事情を決めつけないでください。
+    ・必要に応じて、現在の会話の意図を自然に確認してください。
+    """
+}
+
+
+# def should_use_google_search(user_input, recent_history_str=""):
+#     try:
+#         judge_model = genai.GenerativeModel(
+#             model_name=SEARCH_MODEL_NAME
+#         )
+#         judge_prompt = f"""
+#         次のユーザー発言について判定してください。
+
+#         最新の情報や現在進行中の情報を取得するために
+#         インターネット検索が必要なら YES
+
+#         一般知識で回答できる内容なら NO
+
+#         YES または NO だけ返してください。
+
+#         【直近の会話】
+#         {recent_history_str}
+
+#         【最新ユーザー発言】
+#         {user_input}
+#         """
+
+#         judge_response = judge_model.generate_content(
+#             judge_prompt,
+#             generation_config={
+#                 "temperature": 0,
+#                 "max_output_tokens": 5
+#             }
+#         )
+
+#         judge_text = (
+#             judge_response.text or ""
+#         ).strip().upper()
+
+#         judge_in_t = 0
+#         judge_out_t = 0
+
+#         if (
+#             hasattr(judge_response, "usage_metadata")
+#             and judge_response.usage_metadata
+#         ):
+#             judge_in_t = (
+#                 judge_response.usage_metadata.prompt_token_count or 0
+#             )
+
+#             judge_out_t = (
+#                 judge_response.usage_metadata.candidates_token_count or 0
+#             )
+
+#         judge_cost = (
+#             judge_in_t * PRICE_LITE_IN
+#             + judge_out_t * PRICE_LITE_OUT
+#         )
+
+#         return (
+#             judge_text.startswith("YES"),
+#             judge_in_t,
+#             judge_out_t,
+#             judge_cost
+#         )
+
+#     except Exception as judge_error:
+#         print(
+#             f"⚠️ 検索要否判定エラー: "
+#             f"{type(judge_error).__name__}: {judge_error}"
+#         )
+#         return False, 0, 0, 0.0
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1924,33 +2205,52 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
-                        # 検索判定用直近会話履歴作成
-                        recent_history_for_search = (
-                            "\n".join(recent_history_lines[-1:])
-                            if recent_history_lines
+                        # 会話種別＆検索判定用の直近会話履歴作成
+                        previous_messages = recent_messages[:-1]
+
+                        router_history_lines = []
+
+                        for m in previous_messages[-2:]:
+                            role_name = (
+                                display_user_name
+                                if m.get("role") == "user"
+                                else current_concierge_name
+                            )
+
+                            router_history_lines.append(
+                                f"{role_name}: {m.get('content', '')}"
+                            )
+
+                        recent_history_for_router = (
+                            "\n".join(router_history_lines)
+                            if router_history_lines
                             else "直近の会話履歴なし"
                         )
 
                         (
                             need_search,
+                            response_mode,
+                            route_confidence,
                             search_judge_in_t,
                             search_judge_out_t,
                             search_judge_cost
-                        ) = should_use_google_search(
+                        ) = classify_search_and_response_mode(
                             user_input=user_input,
-                            recent_history_str=recent_history_for_search
+                            recent_history_str=recent_history_for_router
                         )
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
                             plan_type=current_plan_type,
-                            event_type="SEARCH_JUDGE",
+                            event_type="RESPONSE_ROUTER",
                             processing_time=0.0,
                             in_t=search_judge_in_t,
                             out_t=search_judge_out_t,
                             api_cost=search_judge_cost,
                             details=(
-                                f"検索要否判定: "
+                                f"検索要否: "
                                 f"{'YES' if need_search else 'NO'}"
+                                f" | 回答モード: {response_mode}"
+                                f" | 信頼度: {route_confidence:.2f}"
                             ),
                             message_id=str(current_msg_id)
                         )
@@ -2122,6 +2422,8 @@ with all_tabs[0]:
                         ・複数の金額や条件を比較する場合は、可能な限り比較表形式で整理する
                         ・推測や概算で計算している部分と、確定している数値は区別して説明する
                         ・太字装飾記号は使用しない
+
+                        {selected_mode_prompt}
                         """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
@@ -2771,7 +3073,7 @@ if is_admin:
                         .table("system_audit_logs")
                         .select("*")
                         .eq("user_id", selected_audit_user)
-                        .eq("event_type", "SEARCH_JUDGE")
+                        .eq("event_type", "RESPONSE_ROUTER")
                         .execute()
                     )
 
@@ -2915,7 +3217,7 @@ if is_admin:
                             merged_logs[msg_id]["sum_in"] = in_t
                             merged_logs[msg_id]["sum_out"] = out_t
 
-                        elif action == "SEARCH_JUDGE":
+                        elif action == "RESPONSE_ROUTER":
                             merged_logs[msg_id]["judge_time"] = proc_time
                             merged_logs[msg_id]["judge_in"] = in_t
                             merged_logs[msg_id]["judge_out"] = out_t
