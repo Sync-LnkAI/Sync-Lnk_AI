@@ -2280,6 +2280,11 @@ with all_tabs[0]:
 
                         else:
                             search_result = "なし"
+                        
+                        selected_mode_prompt = MODE_PROMPTS.get(
+                            response_mode,
+                            MODE_PROMPTS["default"]
+                        )
 
                         summary_memories = get_memories(source="summary")
 
