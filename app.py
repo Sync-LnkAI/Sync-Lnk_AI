@@ -300,7 +300,7 @@ def get_messages(target_id: str) -> list[dict]:
         
         return None
 
-def save_message(role: str, content: str) -> bool:
+def save_message(role: str, content: str,message_id: str = "") -> bool:
     """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
     
     embedding_data = None
