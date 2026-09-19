@@ -3228,13 +3228,14 @@ if is_admin:
                         in_t = log.get("in_tokens", 0)
                         out_t = log.get("out_tokens", 0)
 
+                        st.write(action)
+                        
                         # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
                         if action == "SUMMARY_SUCCESS":
                             merged_logs[msg_id]["sum_time"] = proc_time
                             merged_logs[msg_id]["sum_in"] = in_t
                             merged_logs[msg_id]["sum_out"] = out_t
 
-                        st.write(action)
                         elif action == "RESPONSE_ROUTER":
                             merged_logs[msg_id]["judge_time"] = proc_time
                             merged_logs[msg_id]["judge_in"] = in_t
