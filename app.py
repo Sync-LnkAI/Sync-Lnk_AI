@@ -3234,6 +3234,7 @@ if is_admin:
                             merged_logs[msg_id]["sum_in"] = in_t
                             merged_logs[msg_id]["sum_out"] = out_t
 
+                        st.write(action)
                         elif action == "RESPONSE_ROUTER":
                             merged_logs[msg_id]["judge_time"] = proc_time
                             merged_logs[msg_id]["judge_in"] = in_t
@@ -3287,66 +3288,61 @@ if is_admin:
                     
                     # message_idで会話取得
                     try:
-                        
 
-                    # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
-                    for k, item in merged_logs.items():
-                        
-                        msg_res = (
-                            supabase
-                            .table("messages")
-                            .select("*")
-                            .eq("user_id", selected_audit_user)
-                            .eq("message_id", item["id"])
-                            .order("created_at", desc=False)
-                            .execute()
-                        )
+                        # コーディオンtyusu出力
+                        for k, item in merged_logs.items():
+                            
+                            msg_res = (
+                                supabase
+                                .table("messages")
+                                .select("*")
+                                .eq("user_id", selected_audit_user)
+                                .eq("message_id", item["id"])
+                                .order("created_at", desc=False)
+                                .execute()
+                            )
 
-                        user_msg = ""
-                        ai_msg = ""
-
-                        for row in (msg_res.data or []):
-                            if row.get("role") == "user":
-                                user_msg = row.get("content", "")
-                            elif row.get("role") == "assistant":
-                                ai_msg = row.get("content", "")
-
-                        except Exception:
                             user_msg = ""
                             ai_msg = ""
-                    
-                        st.write("message_id:", item["id"])
-                        st.write(msg_res.data)
+
+                            for row in (msg_res.data or []):
+                                if row.get("role") == "user":
+                                    user_msg = row.get("content", "")
+                                elif row.get("role") == "assistant":
+                                    ai_msg = row.get("content", "")
                         
-                        c_plan = item["user_plan"]
-                        t_yen = item["total_yen"]
-                        t_time = item["total_time"]
-
-                        with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
-                            st.markdown(f"""
-
-                            | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
-                            | :--- | :---: | :---: | :---: |
-                            | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
-                            | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
-                            | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                            | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                            st.write("message_id:", item["id"])
+                            st.write(msg_res.data)
                             
-                            🔎 **【検索判定結果】** {item['judge_result']}
+                            c_plan = item["user_plan"]
+                            t_yen = item["total_yen"]
+                            t_time = item["total_time"]
 
-                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                            """)
-                            st.markdown("---")
+                            with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                st.markdown(f"""
 
-                            st.markdown("##### 👤 ユーザー発言")
-                            st.info(user_msg)
+                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
+                                | :--- | :---: | :---: | :---: |
+                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
+                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
+                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
+                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                                
+                                🔎 **【検索判定結果】** {item['judge_result']}
 
-                            st.markdown("##### 🤖 AI返答")
-                            st.success(ai_msg)
-                else: 
-                    st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
-            except Exception as log_err: 
-                st.error(f"ユーザーログの取得に失敗しました: {log_err}")
+                                👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                                """)
+                                st.markdown("---")
+
+                                st.markdown("##### 👤 ユーザー発言")
+                                st.info(user_msg)
+
+                                st.markdown("##### 🤖 AI返答")
+                                st.success(ai_msg)
+                    else: 
+                        st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
+                except Exception as log_err: 
+                    st.error(f"ユーザーログの取得に失敗しました: {log_err}")
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
