@@ -332,6 +332,10 @@ def save_message(role: str, content: str,message_id: str = "") -> bool:
         return True
 
     except Exception as db_err:
+        error_text = (
+            f"{type(db_err).__name__}: {db_err}"
+        )
+        
         # デバッグログ出力
         print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
         
