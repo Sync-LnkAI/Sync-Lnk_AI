@@ -324,7 +324,8 @@ def save_message(role: str, content: str,message_id: str = "") -> bool:
             "user_id": CURRENT_USER_ID,
             "role": role,
             "content": content,
-            "embedding": embedding_data
+            "embedding": embedding_data,
+            "message_id": message_id
         }
 
         supabase.table("messages").insert(data).execute()
@@ -2164,7 +2165,7 @@ with all_tabs[0]:
                         else:
                             past_logs_str = "該当する過去ログなし"
 
-                        if not save_message("user", user_input):
+                        if not save_message("user", user_input, current_msg_id):
                             st.stop()
                         
                         # メッセージIDの自動生成
@@ -2227,6 +2228,8 @@ with all_tabs[0]:
                             else "直近の会話履歴なし"
                         )
 
+                        router_start_time = time.time()
+
                         (
                             need_search,
                             response_mode,
@@ -2238,11 +2241,14 @@ with all_tabs[0]:
                             user_input=user_input,
                             recent_history_str=recent_history_for_router
                         )
+                        
+                        router_elapsed = time.time() - router_start_time
+                        
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
                             plan_type=current_plan_type,
                             event_type="RESPONSE_ROUTER",
-                            processing_time=0.0,
+                            processing_time=router_elapsed,
                             in_t=search_judge_in_t,
                             out_t=search_judge_out_t,
                             api_cost=search_judge_cost,
@@ -2657,7 +2663,7 @@ with all_tabs[0]:
                             # st.write(f"【{current_concierge_name}】: {clean_reply}")
                             st.markdown(f"{current_concierge_name}: {clean_reply}")
                             
-                            save_message("assistant", ai_reply)
+                            save_message("assistant", ai_reply, current_msg_id)
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
 
@@ -3203,6 +3209,8 @@ if is_admin:
                                 "id": msg_id,
                                 "time": time_display,
                                 "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                "user_message": "",
+                                "ai_message": "",
                                 "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
                                 "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
                                 "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
@@ -3272,6 +3280,33 @@ if is_admin:
                         merged_logs[msg_id]["total_yen"] += cost
                         merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
 
+                    
+                    # message_idで会話取得
+                    try:
+                        msg_res = (
+                            supabase
+                            .table("messages")
+                            .select("*")
+                            .eq("user_id", selected_audit_user)
+                            .eq("message_id", item["id"])
+                            .order("created_at", desc=False)
+                            .execute()
+                        )
+
+                        user_msg = ""
+                        ai_msg = ""
+
+                        for row in (msg_res.data or []):
+                            if row.get("role") == "user":
+                                user_msg = row.get("content", "")
+                            elif row.get("role") == "assistant":
+                                ai_msg = row.get("content", "")
+
+                    except Exception:
+                        user_msg = ""
+                        ai_msg = ""
+                        
+
                     # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
                     for k, item in merged_logs.items():
                         c_plan = item["user_plan"]
@@ -3289,6 +3324,13 @@ if is_admin:
                             | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
                             🔎 **【検索判定結果】** {item['judge_result']}
+                            st.markdown("---")
+
+                            st.markdown("### 👤 ユーザー発言")
+                            st.info(user_msg)
+
+                            st.markdown("### 🤖 AI返答")
+                            st.success(ai_msg)
 
                             👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                             """)
