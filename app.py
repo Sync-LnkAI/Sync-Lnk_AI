@@ -3287,6 +3287,11 @@ if is_admin:
                     
                     # message_idで会話取得
                     try:
+                        
+
+                    # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
+                    for k, item in merged_logs.items():
+                        
                         msg_res = (
                             supabase
                             .table("messages")
@@ -3306,15 +3311,13 @@ if is_admin:
                             elif row.get("role") == "assistant":
                                 ai_msg = row.get("content", "")
 
-                    except Exception:
-                        user_msg = ""
-                        ai_msg = ""
+                        except Exception:
+                            user_msg = ""
+                            ai_msg = ""
                     
-                    st.write("message_id:", item["id"])
-                    st.write(msg_res.data)
-
-                    # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
-                    for k, item in merged_logs.items():
+                        st.write("message_id:", item["id"])
+                        st.write(msg_res.data)
+                        
                         c_plan = item["user_plan"]
                         t_yen = item["total_yen"]
                         t_time = item["total_time"]
