@@ -3229,7 +3229,7 @@ if is_admin:
                         out_t = log.get("out_tokens", 0)
 
                         st.write(action)
-                        
+
                         # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
                         if action == "SUMMARY_SUCCESS":
                             merged_logs[msg_id]["sum_time"] = proc_time
@@ -3288,9 +3288,8 @@ if is_admin:
 
                     
                     # message_idで会話取得
-                    try:
 
-                        # コーディオンtyusu出力
+                        # アコーディオンtyusu出力
                         for k, item in merged_logs.items():
                             
                             msg_res = (
@@ -3342,8 +3341,7 @@ if is_admin:
                                 st.success(ai_msg)
                     else: 
                         st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
-                except Exception as log_err: 
-                    st.error(f"ユーザーログの取得に失敗しました: {log_err}")
+            except Exception as log_err:
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
