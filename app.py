@@ -2165,6 +2165,9 @@ with all_tabs[0]:
                         else:
                             past_logs_str = "該当する過去ログなし"
 
+                        import uuid
+                        current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+
                         if not save_message("user", user_input, current_msg_id):
                             st.stop()
                         
