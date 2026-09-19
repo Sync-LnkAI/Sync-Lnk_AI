@@ -3329,10 +3329,10 @@ if is_admin:
                             """)
                             st.markdown("---")
 
-                            st.markdown("### 👤 ユーザー発言")
+                            st.markdown("##### 👤 ユーザー発言")
                             st.info(user_msg)
 
-                            st.markdown("### 🤖 AI返答")
+                            st.markdown("##### 🤖 AI返答")
                             st.success(ai_msg)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
