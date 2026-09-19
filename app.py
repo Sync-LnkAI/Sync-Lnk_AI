@@ -3324,6 +3324,9 @@ if is_admin:
                             | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
                             
                             🔎 **【検索判定結果】** {item['judge_result']}
+
+                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                            """)
                             st.markdown("---")
 
                             st.markdown("### 👤 ユーザー発言")
@@ -3331,9 +3334,6 @@ if is_admin:
 
                             st.markdown("### 🤖 AI返答")
                             st.success(ai_msg)
-
-                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                            """)
                 else: 
                     st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
             except Exception as log_err: 
