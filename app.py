@@ -3309,7 +3309,9 @@ if is_admin:
                     except Exception:
                         user_msg = ""
                         ai_msg = ""
-                        
+                    
+                    st.write("message_id:", item["id"])
+                    st.write(msg_res.data)
 
                     # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
                     for k, item in merged_logs.items():
