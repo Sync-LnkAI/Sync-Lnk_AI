@@ -2952,7 +2952,6 @@ with all_tabs[2]:
         "6. **個人情報の入力について：** 電話番号、クレジットカード番号、パスワードその他の機密情報は入力しないでください。利用者自身の判断で入力した情報については、利用者の責任で管理するものとします。\n"
     )
 
-
 if is_admin:
     # ──────────────────────────────────────────
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
@@ -3228,8 +3227,6 @@ if is_admin:
                         in_t = log.get("in_tokens", 0)
                         out_t = log.get("out_tokens", 0)
 
-                        st.write(action)
-
                         # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
                         if action == "SUMMARY_SUCCESS":
                             merged_logs[msg_id]["sum_time"] = proc_time
@@ -3285,10 +3282,7 @@ if is_admin:
                         # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
                         merged_logs[msg_id]["total_yen"] += cost
                         merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
-
                     
-                    # message_idで会話取得
-
                     # アコーディオンtyusu出力
                     for k, item in merged_logs.items():
                             
@@ -3310,10 +3304,7 @@ if is_admin:
                                 user_msg = row.get("content", "")
                             elif row.get("role") == "assistant":
                                 ai_msg = row.get("content", "")
-                        
-                        st.write("message_id:", item["id"])
-                        st.write(msg_res.data)
-                            
+                         
                         c_plan = item["user_plan"]
                         t_yen = item["total_yen"]
                         t_time = item["total_time"]
