@@ -279,6 +279,7 @@ def get_messages(target_id: str) -> list[dict]:
     ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
     エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
     """
+    start_time = time.time()
     try:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         res = (
@@ -288,16 +289,23 @@ def get_messages(target_id: str) -> list[dict]:
             .eq("user_id", str(target_id))
             .order("created_at", desc=False)
             .execute()
-        )  
-
-        return res.data if res.data else []
+        ) 
+        messages = res.data or []
+        elapsed = time.time() - start_time
+        save_debug_log(
+            event_type="DEBUG_GET_MESSAGES_SUCCESS",
+            processing_time=elapsed,
+            details=f"count={len(messages)}"
+        )
+        return messages
   
     except Exception as e:
-        print(
-            f"⚠️ メッセージ履歴取得エラー: "
-            f"{type(e).__name__}: {e}"
-        )   
-        
+        elapsed = time.time() - start_time
+        save_debug_log(
+            event_type="DEBUG_GET_MESSAGES_ERROR",
+            processing_time=elapsed,
+            details=(f"{type(e).__name__}: {str(e)[:500]}")
+        )
         return None
 
 def save_message(role: str, content: str,message_id: str = "") -> bool:
@@ -422,6 +430,21 @@ def search_past_logs_hybrid(query_text: str):
             key=lambda x: x["final_score"],
             reverse=True
         )
+
+        elapsed = time.time() - start_time
+
+        save_debug_log(
+            event_type="DEBUG_PAST_SEARCH_SUCCESS",
+            processing_time=elapsed,
+            details=(
+                f"vector_results={len(response.data or [])}"
+                f" | final_results={len(results[:3])}"
+            ),
+            message_id=str(current_msg_id)
+        )
+
+        return results[:3]
+
         results = results[:3]
 
         if keywords and len(results) < 3:
@@ -442,7 +465,15 @@ def search_past_logs_hybrid(query_text: str):
         return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
 
     except Exception as e:
-        print(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
+        elapsed = time.time() - start_time
+
+        save_debug_log(
+            event_type="DEBUG_PAST_SEARCH_ERROR",
+            processing_time=elapsed,
+            details=(f"{type(e).__name__}: {str(e)[:500]}"),
+            message_id=str(current_msg_id)
+        )
+
         return []
 
 # ==================================================================
@@ -1635,6 +1666,28 @@ def classify_search_and_response_mode(
             0.0
         )
 
+def save_debug_log(
+    event_type: str,
+    processing_time: float = 0.0,
+    details: str = "",
+    message_id: str = ""
+):
+    try:
+        supabase.table("system_audit_logs").insert({
+            "user_id": str(CURRENT_USER_ID),
+            "user_plan": current_plan_type,
+            "event_type": event_type,
+            "processing_time": processing_time,
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "api_cost": 0.0,
+            "details": details,
+            "message_id": str(message_id or "")
+        }).execute()
+    except Exception:
+        # デバッグログ保存の失敗で本処理を止めない
+        pass
+
 # プロンプトの定義
 MODE_PROMPTS = {
     "short_chat": """
@@ -2180,8 +2233,7 @@ with all_tabs[0]:
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages(CURRENT_USER_ID) or []
-        all_messages = all_messages[-100:]
+        all_messages = get_messages(CURRENT_USER_ID)
 
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
         #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
