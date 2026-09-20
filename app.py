@@ -287,11 +287,13 @@ def get_messages(target_id: str) -> list[dict]:
             .table("messages")
             .select("*")
             .eq("user_id", str(target_id))
-            .order("created_at", desc=False)
+            .order("created_at", desc=True)
             .limit(100)
             .execute()
         ) 
         messages = res.data or []
+        messages.reverse()
+        
         elapsed = time.time() - start_time
         save_debug_log(
             event_type="DEBUG_GET_MESSAGES_SUCCESS",
