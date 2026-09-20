@@ -375,15 +375,16 @@ def search_past_logs_hybrid(query_text: str):
             return []
 
         # ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
-        response = supabase.rpc(
-            "match_messages_all",
-            {
-                "query_embedding": query_embedding,
-                "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
-                "match_count": 5,
-                "filter_user_id": CURRENT_USER_ID
-            }
-        ).execute()
+        # response = supabase.rpc(
+        #     "match_messages_all",
+        #     {
+        #         "query_embedding": query_embedding,
+        #         "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
+        #         "match_count": 5,
+        #         "filter_user_id": CURRENT_USER_ID
+        #     }
+        # ).execute()
+        return []
 
         results = response.data if response.data else []
 
