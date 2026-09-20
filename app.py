@@ -2180,7 +2180,7 @@ with all_tabs[0]:
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages(CURRENT_USER_ID)
+        all_messages = get_messages(CURRENT_USER_ID) or []
         all_messages = all_messages[-100:]
 
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
