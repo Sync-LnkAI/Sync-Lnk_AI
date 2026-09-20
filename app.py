@@ -3467,6 +3467,14 @@ if is_admin:
                         merged_logs[msg_id]["total_yen"] += cost
                         merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
                     
+                    if (
+                        item["chat_in"] == 0
+                        and item["chat_out"] == 0
+                        and item["judge_in"] == 0
+                        and item["judge_out"] == 0
+                    ):
+                        continue
+
                     # アコーディオンtyusu出力
                     for k, item in merged_logs.items():
                             
