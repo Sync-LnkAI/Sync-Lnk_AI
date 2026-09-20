@@ -288,6 +288,7 @@ def get_messages(target_id: str) -> list[dict]:
             .select("*")
             .eq("user_id", str(target_id))
             .order("created_at", desc=False)
+            .limit(100)
             .execute()
         ) 
         messages = res.data or []
