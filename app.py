@@ -293,7 +293,7 @@ def get_messages(target_id: str) -> list[dict]:
         ) 
         messages = res.data or []
         messages.reverse()
-        
+
         elapsed = time.time() - start_time
         save_debug_log(
             event_type="DEBUG_GET_MESSAGES_SUCCESS",
@@ -377,17 +377,16 @@ def search_past_logs_hybrid(query_text: str):
         if not query_embedding:
             return []
 
-        # ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
-        # response = supabase.rpc(
-        #     "match_messages_all",
-        #     {
-        #         "query_embedding": query_embedding,
-        #         "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
-        #         "match_count": 5,
-        #         "filter_user_id": CURRENT_USER_ID
-        #     }
-        # ).execute()
-        return []
+        ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
+        response = supabase.rpc(
+            "match_messages_all",
+            {
+                "query_embedding": query_embedding,
+                "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
+                "match_count": 5,
+                "filter_user_id": CURRENT_USER_ID
+            }
+        ).execute()
 
         results = response.data if response.data else []
 
