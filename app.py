@@ -280,7 +280,6 @@ def get_messages(target_id: str) -> list[dict]:
     エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
     """
     try:
-        start_time = time.time()
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         res = (
             supabase
@@ -291,15 +290,7 @@ def get_messages(target_id: str) -> list[dict]:
             .execute()
         )  
 
-        messages = res.data if res.data else []
-        elapsed = time.time() - start_time
-        st.caption(
-            f"get_messages: "
-            f"{len(all_messages)}件 "
-            f"{elapsed:.2f}秒"
-        )
-
-        return messages
+        return res.data if res.data else []
   
     except Exception as e:
         print(
@@ -362,7 +353,6 @@ def search_past_logs_hybrid(query_text: str):
     2. もしヒット数が最大値（3件）に満たない場合、裏口で『LIKE部分一致検索（文字の完全一致）』を自動で重ね、
        文脈の角度のズレや固有名詞の不一致による大切な思い出の聞き逃しを完全に防衛します。
     """
-    start_time = time.time()
     if not query_text or not query_text.strip():
         return []
 
@@ -385,11 +375,6 @@ def search_past_logs_hybrid(query_text: str):
                 "filter_user_id": CURRENT_USER_ID
             }
         ).execute()
-
-        lapsed = time.time() - start_time
-        st.caption(
-            f"past_search={lapsed:.2f}秒"
-        )
 
         results = response.data if response.data else []
 
