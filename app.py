@@ -291,14 +291,15 @@ def get_messages(target_id: str) -> list[dict]:
             .execute()
         )  
 
-        return res.data if res.data else []
-
+        messages = res.data if res.data else []
         elapsed = time.time() - start_time
         st.caption(
             f"get_messages: "
             f"{len(all_messages)}件 "
             f"{elapsed:.2f}秒"
         )
+
+        return messages
   
     except Exception as e:
         print(
@@ -387,7 +388,7 @@ def search_past_logs_hybrid(query_text: str):
 
         lapsed = time.time() - start_time
         st.caption(
-            f"past_search={elapsed:.2f}秒"
+            f"past_search={lapsed:.2f}秒"
         )
 
         results = response.data if response.data else []
