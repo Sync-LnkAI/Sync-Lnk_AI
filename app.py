@@ -441,7 +441,7 @@ def search_past_logs_hybrid(query_text: str):
                 f"vector_results={len(response.data or [])}"
                 f" | final_results={len(results[:3])}"
             ),
-            message_id=str(current_msg_id)
+            # message_id=str(current_msg_id)
         )
 
         return results[:3]
@@ -472,7 +472,7 @@ def search_past_logs_hybrid(query_text: str):
             event_type="DEBUG_PAST_SEARCH_ERROR",
             processing_time=elapsed,
             details=(f"{type(e).__name__}: {str(e)[:500]}"),
-            message_id=str(current_msg_id)
+            # message_id=str(current_msg_id)
         )
 
         return []
