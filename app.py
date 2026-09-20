@@ -382,6 +382,48 @@ def search_past_logs_hybrid(query_text: str):
         # ユーザーの発言から2文字以上の重要な名詞・キーワードの塊を簡易的に抽出
         keywords = [w.group() for w in re.finditer(r'[一-龠々𠮷々〆]+|[ぁ-ん]{2,}|[ァ-ヶー]{2,}', query_text) if len(w.group()) >= 2]
 
+        for item in results:
+
+            score = float(
+                item.get("similarity", 0)
+            )
+
+            content = item.get(
+                "content",
+                ""
+            )
+
+            bonus = 0.0
+
+            for keyword in keywords:
+
+                if (
+                    len(keyword) >= 4
+                    and keyword in content
+                ):
+                    bonus += 0.10
+                    break
+
+            item["final_score"] = score + bonus
+            # created_at = item.get("created_at")
+            # now = datetime.now(timezone.utc)
+            # msg_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            # days_old =  (now - msg_dt).total_seconds() / 86400
+        
+            # if days_old <= 3:
+            #     bonus += 0.10
+            
+            # elif days_old <= 7:
+            #     bonus += 0.05
+
+            # item["final_score"] = score + bonus
+
+        results.sort(
+            key=lambda x: x["final_score"],
+            reverse=True
+        )
+        results = results[:3]
+
         if keywords and len(results) < 3:
             try:
                 # 直近の自分のユーザー発言を最大20件引っ張ってきてキーワードが含まれるか突合
@@ -2534,6 +2576,8 @@ with all_tabs[0]:
                             ・ユーザーが「行ってくる」「寝る」「仕事に行く」など未来の予定を話した場合、その後の会話で実行済みとして扱ってはいけません。
                             ・実行済みであることは、ユーザー本人が明示した場合のみ事実として扱ってください。
                             ・曖昧な発言は、最も都合の良い解釈を決めつけず、会話文脈と現在時刻の両方を考慮してください。
+                            ・過去ログ内の未来予定を参照する場合は、現在日時との整合性を確認してください。
+                            ・予定日当日を過ぎている場合は、出発前提で話さず、結果や当日の出来事として扱うか、未確認の場合は状況を確認してください。
 
                             【専門作業の制限】
                             プログラムのコード記述、画像生成、長文の執筆や翻訳を依頼された場合は実行せず、現在の人格を保ちながら丁寧に断ってください。
