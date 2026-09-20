@@ -361,6 +361,7 @@ def search_past_logs_hybrid(query_text: str):
     2. もしヒット数が最大値（3件）に満たない場合、裏口で『LIKE部分一致検索（文字の完全一致）』を自動で重ね、
        文脈の角度のズレや固有名詞の不一致による大切な思い出の聞き逃しを完全に防衛します。
     """
+    start_time = time.time()
     if not query_text or not query_text.strip():
         return []
 
