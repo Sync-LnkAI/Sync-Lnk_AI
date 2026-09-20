@@ -377,7 +377,7 @@ def search_past_logs_hybrid(query_text: str):
         if not query_embedding:
             return []
 
-        ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
+        # ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
         response = supabase.rpc(
             "match_messages_all",
             {
@@ -427,7 +427,6 @@ def search_past_logs_hybrid(query_text: str):
             
             # elif days_old <= 7:
             #     bonus += 0.05
-
             # item["final_score"] = score + bonus
 
         results.sort(
