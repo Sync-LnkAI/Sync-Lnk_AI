@@ -295,20 +295,11 @@ def get_messages(target_id: str) -> list[dict]:
         messages.reverse()
 
         elapsed = time.time() - start_time
-        save_debug_log(
-            event_type="DEBUG_GET_MESSAGES_SUCCESS",
-            processing_time=elapsed,
-            details=f"count={len(messages)}"
-        )
+
         return messages
   
     except Exception as e:
         elapsed = time.time() - start_time
-        save_debug_log(
-            event_type="DEBUG_GET_MESSAGES_ERROR",
-            processing_time=elapsed,
-            details=(f"{type(e).__name__}: {str(e)[:500]}")
-        )
         return None
 
 def save_message(role: str, content: str,message_id: str = "") -> bool:
@@ -435,16 +426,7 @@ def search_past_logs_hybrid(query_text: str):
         )
 
         elapsed = time.time() - start_time
-
-        save_debug_log(
-            event_type="DEBUG_PAST_SEARCH_SUCCESS",
-            processing_time=elapsed,
-            details=(
-                f"vector_results={len(response.data or [])}"
-                f" | final_results={len(results[:3])}"
-            ),
             # message_id=str(current_msg_id)
-        )
 
         return results[:3]
 
@@ -469,13 +451,6 @@ def search_past_logs_hybrid(query_text: str):
 
     except Exception as e:
         elapsed = time.time() - start_time
-
-        save_debug_log(
-            event_type="DEBUG_PAST_SEARCH_ERROR",
-            processing_time=elapsed,
-            details=(f"{type(e).__name__}: {str(e)[:500]}"),
-            # message_id=str(current_msg_id)
-        )
 
         return []
 
