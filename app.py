@@ -299,7 +299,10 @@ def get_messages(target_id: str) -> list[dict]:
         return messages
   
     except Exception as e:
-        elapsed = time.time() - start_time
+        st.error(
+            f"get_messagesエラー: "
+            f"{type(e).__name__}: {e}"
+        )
         return None
 
 def save_message(role: str, content: str,message_id: str = "") -> bool:
