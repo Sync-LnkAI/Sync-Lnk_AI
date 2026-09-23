@@ -5879,7 +5879,7 @@ with all_tabs[1]:
             new_response_length = st.selectbox(
                 "返事の長さ",
                 RESPONSE_LENGTH_PRESETS,
-                index=default_length_idx
+                index=default_length_idx,
                 disabled=is_free_plan
             )
             if is_free_plan:
@@ -5897,7 +5897,7 @@ with all_tabs[1]:
             new_dialect = st.selectbox(
                 "方言",
                 DIALECT_PRESETS,
-                index=default_dialect_idx
+                index=default_dialect_idx,
                 disabled=is_free_plan
             )
             if is_free_plan:
