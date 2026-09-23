@@ -387,6 +387,18 @@ PERSONALITY_SAMPLES = {
 
 FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
+RESPONSE_LENGTH_PRESETS = [
+    "短め",
+    "普通",
+    "長め"
+]
+DIALECT_PRESETS = [
+    "標準語",
+    "関西弁",
+    "博多弁",
+    "名古屋弁"
+]
+
 
 # AIのアバター
 AVATAR_PRESETS_AI = {
@@ -4319,6 +4331,8 @@ current_user_name = "ユーザー"
 current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
+current_response_length = "普通"
+current_dialect = "標準語"
 current_user_instruction = ""
 current_ai_avatar = "🧠"
 current_user_avatar = "💫"
@@ -4358,6 +4372,21 @@ for m in manual_memories:
         current_style_preset = fact.replace("人格:", "").strip()
     if fact.startswith("応答方針:"):
         current_user_instruction = fact.replace("応答方針:", "").strip()
+    if fact.startswith("会話長さ:"):
+        current_response_length = (
+            fact.replace(
+                "会話長さ:",
+                ""
+            ).strip()
+        )
+
+    if fact.startswith("方言:"):
+        current_dialect = (
+            fact.replace(
+                "方言:",
+                ""
+            ).strip()
+        )
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
@@ -5780,26 +5809,52 @@ with all_tabs[1]:
         st.divider()
 
         st.markdown("##### 🎨 アプリの外観＆カラー")
-        with st.form("color_form_tab_admin"):
+        with st.form("unified_settings_form"):
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
-            if st.form_submit_button("カラー設定を保存"):
-                save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更しました")
-                st.rerun()
+            # 上部設定保存ボタン
+            top_save = st.form_submit_button(
+                "設定を保存",
+                use_container_width=True
+            )
+            st.divider()
 
-        st.divider()
-        st.markdown("##### 👤 基本設定")
-        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-        preset_keys = list(STYLE_PRESETS.keys())
-        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+            st.markdown("##### 👤 基本設定")
+            honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
+            default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
+            preset_keys = list(STYLE_PRESETS.keys())
+            default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
+            default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
 
-        with st.form("profile_form_tab_admin"):
             new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
             new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
             new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
             new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            default_length_idx = (
+                RESPONSE_LENGTH_PRESETS.index(
+                    current_response_length
+                )
+                if current_response_length
+                in RESPONSE_LENGTH_PRESETS
+                else 1
+            )
+            new_response_length = st.selectbox(
+                "返事の長さ",
+                RESPONSE_LENGTH_PRESETS,
+                index=default_length_idx
+            )
+            default_dialect_idx = (
+                DIALECT_PRESETS.index(
+                    current_dialect
+                )
+                if current_dialect
+                in DIALECT_PRESETS
+                else 0
+            )
+            new_dialect = st.selectbox(
+                "方言",
+                DIALECT_PRESETS,
+                index=default_dialect_idx
+            )
             # 絵文字3段階パーソナライズドロップダウン
             emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
             default_emoji_idx = (
@@ -5827,56 +5882,66 @@ with all_tabs[1]:
 
             st.markdown("---")
 
-            st.markdown("##### 📝 AIの話し方")
-            st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
-            st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
-            st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
-
-            instruction_rules = [
-                r.strip()
-                for r in str(current_user_instruction).split("\n")
-                if r.strip()
-            ]
-
-            edited_rules = []
-
-            for idx, rule in enumerate(instruction_rules):
-
-                col_rule, col_del = st.columns([9,1])
-
-                with col_rule:
-                    rule_text = st.text_input(
-                        f"rule_{idx}",
-                        value=rule,
-                        label_visibility="collapsed"
-                    )
-
-                with col_del:
-                    delete_flag = st.checkbox(
-                        "削除",
-                        key=f"delete_rule_{idx}"
-                    )
-
-                if not delete_flag and rule_text.strip():
-                    edited_rules.append(
-                        rule_text.strip()
-                    )
-            #st.markdown("---")
-            st.caption("")
-            st.markdown("➕ AIの話し方を追加")
-            new_rule = st.text_input(
-                "下記に入力して、基本設定を保存すると追加されます。ただし、追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。",
-                key="new_rule_input"
+            st.markdown("##### 💬 会話設定")
+            st.caption(
+                "返事の長さや方言を設定できます。"
             )
-            if new_rule.strip():
-                edited_rules.append(
-                    new_rule.strip()
-                )
+
+            # ==========================================
+            # 応答方針（旧仕様）
+            # 現在はUI非表示
+            # DB互換性維持のため内部保持
+            # ==========================================
+            # st.markdown("##### 📝 AIの話し方")
+            # st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
+            # st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
+            # st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
+
+            # instruction_rules = [
+            #     r.strip()
+            #     for r in str(current_user_instruction).split("\n")
+            #     if r.strip()
+            # ]
+
+            # edited_rules = []
+
+            # for idx, rule in enumerate(instruction_rules):
+
+            #     col_rule, col_del = st.columns([9,1])
+
+            #     with col_rule:
+            #         rule_text = st.text_input(
+            #             f"rule_{idx}",
+            #             value=rule,
+            #             label_visibility="collapsed"
+            #         )
+
+            #     with col_del:
+            #         delete_flag = st.checkbox(
+            #             "削除",
+            #             key=f"delete_rule_{idx}"
+            #         )
+
+            #     if not delete_flag and rule_text.strip():
+            #         edited_rules.append(
+            #             rule_text.strip()
+            #         )
+            # #st.markdown("---")
+            # st.caption("")
+            # st.markdown("➕ AIの話し方を追加")
+            # new_rule = st.text_input(
+            #     "下記に入力して、基本設定を保存すると追加されます。ただし、追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。",
+            #     key="new_rule_input"
+            # )
+            # if new_rule.strip():
+            #     edited_rules.append(
+            #         new_rule.strip()
+            #     )
             
-            # 重複削除
-            edited_rules = list(dict.fromkeys(edited_rules))
-            # 最新5件のみ保持
-            edited_rules = edited_rules[-5:]
+            # # 重複削除
+            # edited_rules = list(dict.fromkeys(edited_rules))
+            # # 最新5件のみ保持
+            # edited_rules = edited_rules[-5:]
 
             # st.markdown("🖼️ アバター（アイコン）設定")
             # col_a, col_u = st.columns(2)
@@ -5896,21 +5961,23 @@ with all_tabs[1]:
             # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             st.markdown("---")
-            if st.form_submit_button("基本設定を保存"):
+            if st.form_submit_button("設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
                     r2 = save_or_update_user_setting("ユーザー名", new_user_name)
                     r3 = save_or_update_user_setting("ユーザー敬称", new_user_honorific)
                     r4 = save_or_update_user_setting("AI一人称", new_first_person)
                     r5 = save_or_update_user_setting("人格", selected_preset)
-                    final_instruction = "\n".join(edited_rules)
-                    r6 = save_or_update_user_setting("応答方針", final_instruction)
+                    # final_instruction = "\n".join(edited_rules)
+                    r6 = save_or_update_user_setting("会話長さ",new_response_length)
+                    r7 = save_or_update_user_setting("方言",new_dialect)
+                    # r8 = save_or_update_user_setting("応答方針", final_instruction)
                     # r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
                     # r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
                     r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
                     #r10 = save_or_update_user_setting("会員プラン", new_plan)
                     success = (
-                        r1 and r2 and r3 and r4 and r5 and r6 and r9
+                        r1 and r2 and r3 and r4 and r5 and r6 and r7 and r9
                     )
 
                     if success:
