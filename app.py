@@ -4639,19 +4639,17 @@ with all_tabs[0]:
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
         all_messages = get_messages(CURRENT_USER_ID)
+        db_available = (all_messages is not None)
 
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
         #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
         #     ・電波瞬断エラー（None）の時 ➔ エラーメッセージを表示して停止
         
-        if all_messages is None:
+        if not db_available:
             st.error("データベースへの接続に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
-            db_available = False
             all_messages = []
-        else:
-            db_available = True
 
-        elif len(all_messages) == 0:
+        elif (db_available and len(all_messages) == 0):
             welcome_text = (
                 f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
                 f"💬 **【はじめに】**\n"
