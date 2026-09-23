@@ -4,7 +4,7 @@ from supabase import create_client, Client
 import re
 import time
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
 
@@ -14,7 +14,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 # ⚙️ 設定・初期化
 # ==========================================
-st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🧠", layout="wide")
 
 MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
 SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
@@ -157,17 +157,170 @@ if "debug_logs" not in st.session_state:
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
-# プリセット定義
+# ==========================================
+# 不動産売却計算の継続状態
+# ==========================================
+
+if (
+    "real_estate_calculation_pending"
+    not in st.session_state
+):
+    st.session_state[
+        "real_estate_calculation_pending"
+    ] = False
+
+if (
+    "real_estate_calculation_arguments"
+    not in st.session_state
+):
+    st.session_state[
+        "real_estate_calculation_arguments"
+    ] = {}
+
 STYLE_PRESETS = {
-    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】": "親しい友人のように接する。ユーザーの成功は一緒に喜び、失敗した時は励ます。雑談や軽いツッコミも自然に交え、長く付き合っている相棒のような距離感で対話する。",
-    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】": "礼儀正しく丁寧な敬語（です・ます調）で、知的かつ献身的にサポートするキャラクター",
-    "👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】": "上品で優雅な言葉遣いをする。自信家で少しプライドが高いが、根は面倒見が良い。ユーザーには少し上から目線で接することもあるが、困っている時は放っておけない。",
-    "🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】": "落ち着いていて包容力がある。ユーザーを自分の弟や妹のように大切に思い、年上の兄が話しかけるような距離感で接する。ユーザーの話を否定せず受け止め、まず気持ちや頑張りを認めてから話を進める。「お疲れ」「無理するなよ」「大丈夫だ」「よく頑張ったな」など、安心感のある言葉を自然に使う。説教や正論を押し付けず、相手のペースを尊重しながら背中を押す。ユーザーを安心させることを優先し、困った時は優しく背中を押す。",
-    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】": "とにかくポジティブ。ユーザーの挑戦を全力で応援する。落ち込んでいる時も前向きな見方を探して励ます。",
-    "☀️ 爽やかな先輩 ➔ 【明るく前向きな応援タイプ】": "明るく爽やかで親しみやすい性格。ユーザーを後輩のように感じ、頼れる先輩が話しかけるような距離感で接する。相手の挑戦や努力を積極的に認め、前向きな言葉で背中を押す。「いいじゃん」「それ面白そうだな」「やってみよう」「大丈夫だって」など自然に励ます言葉を使う。落ち込んでいる相手には寄り添うが、長く慰めるよりも次の一歩を考える。会話のあとに少し元気になれる存在を目指す。",
-    "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】": "冷静沈着で知的な口調を崩さない。ユーザーの発言を鵜呑みにせず、矛盾や見落としを見つけると探偵のように推理して指摘する。少し辛口だが悪意はなく、相棒のような距離感で接する。同じ失敗や言動の矛盾には軽いツッコミを入れる。",
-    "🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】": "好奇心旺盛で人懐っこい。ユーザーを放っておけず、褒めたり甘えたりしながら会話する。語尾に自然に『〜にゃ』『〜だにゃ』が混ざる。",
-    "🤖 設定なし ➔ 【特定のキャラクターを設定しない（標準）】": "特定の偏ったキャラクター付けをせず、ユーザーの言葉に自然に寄り添う親切な標準のコンシェルジュ"
+
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】":
+    """
+    親しい友人のように自然な口調で話す。
+    堅苦しい敬語は使わない。
+    気軽で話しやすい雰囲気を大切にする。
+    軽いツッコミや冗談を自然に交えて構わない。
+    話を大げさに盛り上げすぎない。
+
+    よく使う表現:
+    ・それいいね
+    ・たしかに
+    ・なるほどな
+    ・それ分かるわ
+    ・面白そうだね
+    """,
+
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】":
+    """
+    丁寧で落ち着いた執事として振る舞う。
+    敬語を崩さない。
+    上品で礼儀正しい話し方を維持する。
+    過度なお世辞は避ける。
+    ロールプレイ表現は使用して構わない。
+
+    よく使う表現:
+    ・承知いたしました
+    ・かしこまりました
+    ・念のため確認いたしますと
+    ・その点につきましては
+    ・お力になれれば幸いです
+    ・ご安心くださいませ
+    """,
+
+    "👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】":
+    """
+    上品で優雅な口調を用いる。
+    「ですわ」「ますわ」などのお嬢様らしい表現を自然に使用する。
+    自信に満ちた語り口を維持する。
+    少し気品のある距離感で接する。
+    ただし意地悪になってはいけない。
+
+    よく使う表現:
+    ・〜ですわ
+    ・〜ますわね
+    ・あら
+    ・そうですの
+    ・興味深いですわね
+    ・ふふ
+    """,
+
+    "🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】":
+    """
+    落ち着いた兄のような話し方をする。
+    安心感のある自然な口調を維持する。
+    無理にテンションを上げない。
+    穏やかで頼りになる雰囲気を大切にする。
+    相手のペースを尊重する。
+
+    よく使う表現:
+    ・焦らなくていいよ
+    ・なるほどな
+    ・それは気になるな
+    ・一緒に考えてみようか
+    ・それもアリだと思うよ
+    ・大丈夫だよ
+    """,
+
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】":
+    """
+    明るくテンポよく話す。
+    ポジティブなリアクションを大切にする。
+    フランクな言葉遣いを使用して構わない。
+    過剰に騒がしくなりすぎない。
+    ノリの良さを重視する。
+
+    よく使う表現:
+    ・それめっちゃいいじゃん
+    ・最高じゃん
+    ・やば、それ気になる
+    ・いいねいいね
+    ・それアツい
+    ・ウケる
+    """,
+
+    "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】":
+    """
+    冷静で知的な探偵のように話す。
+    落ち着いた観察者の視点を持つ。
+    少しだけ皮肉やツッコミを交えて構わない。
+    芝居がかり過ぎない自然な探偵口調を維持する。
+
+    よく使う表現:
+    ・「ふっ」を自然に使用して構いません。
+    ・興味深いですね
+    ・整理してみましょう
+    ・仮説としては
+    ・結論から言うと
+    ・もう少し詳しく見てみましょう
+    ・手掛かりになりそうですね
+    """,
+
+    "🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】":
+    """
+    愛嬌があり親しみやすい話し方をする。
+    可愛らしさは加えてよいが会話の邪魔にならない程度にする。
+    毎回「にゃ」を付ける必要はない。
+    自然さを優先する。
+
+    よく使う表現:
+    ・ふふ
+    ・いいですね
+    ・楽しそうです
+    ・気になります
+    ・素敵ですにゃ
+    ・嬉しいにゃ
+    """,
+
+    "🎤 お笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】":
+    """
+    明るく親しみやすいお笑い芸人として話してください。
+    会話のテンポを大切にしてください。
+    軽いボケやツッコミを自然に交えて構いません。
+    ユーザーを傷つけるいじりや失礼な表現は避けてください。
+    無理に毎回笑いを取りにいく必要はありません。
+    真面目な相談では空気を読み、必要な場面では真剣に対応してください。
+
+    よく使う表現:
+    ・なんでやねん
+    ・それはおもろいな
+    ・ちょっと待って
+    ・それアリやな
+    ・一本取られたわ
+    ・いやいやいや
+    """,
+
+    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】":
+    """
+    特定のキャラクター付けを行わない。
+    親切で自然な話し方をする。
+    ユーザーに寄り添いながらも過剰な演出は行わない。
+    会話内容を優先する。
+    """
 }
 
 PERSONALITY_SAMPLES = {
@@ -203,13 +356,6 @@ PERSONALITY_SAMPLES = {
 
     【ＡＩ】： えー！ めっちゃ頑張ったじゃーん！！✨ 今日は自分にご褒美あげちゃお！！ おいしいもの食べて早めに寝よー💖
     """,
-
-        "☀️ 爽やかな先輩 ➔ 【明るく前向きな応援タイプ】： 明るく前向きな先輩タイプ。自然に励ましながら背中を押してくれる。":
-    """
-    【あなた】： 今日は仕事で疲れた…
-
-    【ＡＩ】： お疲れ！ でも今日もちゃんとやり切ったんだろ？ それだけでも十分立派だと思うぞ。 まずは休んで、また明日から少しずつ行こう！
-    """,
         "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】： 冷静な分析が得意。物事を整理しながら鋭く考察してくれる。": 
     """
     【あなた】： 今日は仕事で疲れた…
@@ -223,7 +369,15 @@ PERSONALITY_SAMPLES = {
 
     【ＡＩ】： お疲れさまだにゃ〜🐾 今日はたくさん頑張ったみたいだにゃ。 無理せずゆっくり休んで、元気を充電するにゃ♪
     """,
-        "🤖 設定なし ➔ 【特定のキャラクターを設定しない（標準）】： 特定のキャラ付けをしない標準モード。自然でバランスの良い会話を行う。":
+
+        "🎤 お笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】： ボケやツッコミを交えながら、芸人のようなテンポの良い会話を楽しめます。ふざけすぎず、会話内容に合わせて真面目な対応も行います。":
+    """
+    【あなた】： 今日は仕事で疲れた…
+
+    【ＡＩ】： いやいやいや、お疲れさまやん🤣 それだけ疲れてるってことは、今日は相当頑張ったんちゃう？ 何が一番大変やったん？
+    """,
+
+        "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】： 特定のキャラ付けをしない標準モード。自然でバランスの良い会話を行う。":
     """
     【あなた】： 今日は仕事で疲れた…
 
@@ -236,7 +390,7 @@ THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼
 
 # AIのアバター
 AVATAR_PRESETS_AI = {
-    "🤖 ロボット": "🤖", 
+    "🧠 記憶・思考": "🧠", 
     "💼 専属コンシェルジュ": "💼",
     "🕵️‍♂️ 敏腕探偵": "🕵️‍♂️",
     "👑 ロイヤルゴールド": "👑",
@@ -270,7 +424,7 @@ def clean_bold_markdown(text: str) -> str:
 # ==========================================
 
 # ==================================================================
-# 🧠 【一本道統合仕様】 過去メッセージ履歴の一括取得関数
+# 🧠 【統合仕様】 過去メッセージ履歴の一括取得関数
 # ==================================================================
 # 💡 引数を追加することで、URLから届いた本物のIDの鍵を関数内部へストレートに通電させます！
 def get_messages(target_id: str) -> list[dict]:
@@ -673,26 +827,32 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        #st.session_state.summary_in_tokens = 0
-        #st.session_state.summary_out_tokens = 0
-        #st.session_state.summary_processing_time = 0.0
-
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
-        # 🏎️ 【時間計測の開始】 要約処理の正確な実行時間を計測するため、ストップウォッチを起動します
+        # 要約処理時間の計測開始
         start_summary_time = datetime.now(JST)
 
-        # 🚀【大開通：判定ラインのインフラ防衛】
-        # 引数の不安定な件数に依存せず、Supabaseの金庫（messagesテーブル）から本物の全履歴をダイレクトに再取得します
+        # messagesの総件数を取得
         try:
-            db_res = supabase.table("messages").select("*").eq("user_id", target_user_id).order("created_at", desc=True).execute()
-            real_messages = db_res.data if db_res.data else []
+            count_res = (
+                supabase
+                .table("messages")
+                .select("id", count="exact")
+                .eq("user_id", target_user_id)
+                .limit(1)
+                .execute()
+            )
+
+            total_message_count = int(count_res.count or 0)
+
         except Exception as db_err:
-            print(f"⚠️ 要約関数内の履歴取得エラー: {db_err}")
-            real_messages = messages_list # 万が一のフォールバック
-        
-        total_message_count = len(real_messages)
+            print(
+                f"⚠️ 要約用件数取得エラー: "
+                f"{type(db_err).__name__}: {db_err}"
+            )
+
+            return False
 
         # 最新10件以内なら押し出された履歴がない
         if total_message_count <= MAX_CONTEXT_MESSAGES:
@@ -738,9 +898,6 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         ):
             return True
 
-        # DB取得時は新しい順なので、古い順へ変更
-        chronological_messages = list(reversed(real_messages))
-
         # 最新10件より前だけが要約対象
         summarizable_end_index = max(
             0,
@@ -753,11 +910,35 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             last_summarized_message_count - MAX_CONTEXT_MESSAGES
         )
 
-        # 今回新しく直近10件から押し出されたメッセージ
-        new_messages_for_summary = chronological_messages[
-            previous_summarizable_end_index:
-            summarizable_end_index
-        ]
+        # 今回新しく要約対象になった範囲
+        range_start = previous_summarizable_end_index
+        range_end = summarizable_end_index - 1
+
+        if range_end < range_start:
+            return True
+
+        try:
+            summary_messages_res = (
+                supabase
+                .table("messages")
+                .select("role, content, created_at")
+                .eq("user_id", target_user_id)
+                .order("created_at", desc=False)
+                .range(range_start, range_end)
+                .execute()
+            )
+
+            new_messages_for_summary = (
+                summary_messages_res.data or []
+            )
+
+        except Exception as db_err:
+            print(
+                f"⚠️ 要約対象メッセージ取得エラー: "
+                f"{type(db_err).__name__}: {db_err}"
+            )
+
+            return False
 
         if not new_messages_for_summary:
             return True
@@ -866,7 +1047,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             }
         ]
         
-        # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
+        # 🧠 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
         response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
 
         # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
@@ -1449,6 +1630,12 @@ RESPONSE_MODES = {
     "factual",
     "default"
 }
+
+CALCULATION_TOOLS = {
+    "none",
+    "real_estate_sale"
+}
+
 # short_chat: 挨拶、相づち、短い呼びかけ
 # conversation: 日常会話、趣味、出来事の共有
 # support: 悩み、愚痴、体調、感情的な相談
@@ -1459,6 +1646,7 @@ RESPONSE_MODES = {
 def classify_search_and_response_mode(
     user_input: str,
     recent_history_str: str = ""
+    calculation_pending: bool = False
 ):
     """
     検索要否と回答モードを1回のGemini呼び出しで判定する。
@@ -1479,6 +1667,42 @@ def classify_search_and_response_mode(
 
         judge_prompt = f"""
         あなたはAIチャットの振り分けシステムです。
+
+        【現在の状態】
+        不動産売却計算継続中:
+        {calculation_pending}
+
+        【重要】
+        不動産売却計算継続中がTrueの場合、
+        取得日
+        売却日
+        取得費
+        土地取得費
+        建物取得費
+        減価償却累計額
+        ローン残債
+        仲介手数料
+        特別控除
+        実効税率
+        などの追加条件入力は、
+        calculation_tool = real_estate_sale
+        にしてください。
+
+        例
+        AI:
+        取得日を教えてください
+        ユーザー:
+        2018年4月1日です
+        ↓
+        real_estate_sale
+
+        AI:
+        取得費を教えてください
+        ユーザー:
+        1000万円です
+        ↓
+        real_estate_sale
+
         直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
 
         【検索要否】
@@ -1522,7 +1746,9 @@ def classify_search_and_response_mode(
         ・話題名ではなく、今回どのような回答方法が必要かで分類してください。
         ・短文でも、直近の会話の続きなら文脈を考慮してください。
         ・不明確な場合は無理に分類せず default にしてください。
-        ・検索が必要な場合は、原則として response_mode を factual にしてください。
+        ・検索要否と回答モードは別々に判定してください。
+        ・検索が必要でも、比較、壁打ち、意思決定、事業相談などが目的なら response_mode は analysis にしてください。
+        ・最新情報や事実確認そのものが目的なら response_mode は factual にしてください。
         ・JSON以外の説明文は出力しないでください。
 
         【直近の会話】
@@ -1591,10 +1817,6 @@ def classify_search_and_response_mode(
         if confidence < 0.65:
             response_mode = "default"
 
-        # 検索を実行する場合は事実回答を優先
-        if need_search:
-            response_mode = "factual"
-
         judge_in_t = 0
         judge_out_t = 0
 
@@ -1641,6 +1863,300 @@ def classify_search_and_response_mode(
         return (
             False,
             "default",
+            0.0,
+            0,
+            0,
+            0.0
+        )
+
+def classify_calculation_tool(
+    user_input: str,
+    recent_history_str: str = "",
+    pending_tool: str = "none"
+) -> tuple[
+    str,
+    float,
+    int,
+    int,
+    float
+]:
+    """
+    ユーザー発言に対して、
+    Python計算ツールが必要かを判定する。
+
+    戻り値:
+        calculation_tool
+        confidence
+        in_tokens
+        out_tokens
+        api_cost
+
+    現在対応するツール:
+        none
+        real_estate_sale
+    """
+    try:
+        normalized_pending_tool = str(
+            pending_tool or "none"
+        ).strip().lower()
+
+        if (
+            normalized_pending_tool
+            not in CALCULATION_TOOLS
+        ):
+            normalized_pending_tool = "none"
+
+        tool_model = genai.GenerativeModel(
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        tool_prompt = f"""
+        あなたは、Python計算ツールの利用要否を判定するシステムです。
+
+        直近の会話、最新ユーザー発言、現在継続中の計算ツールを読み、
+        今回使用する計算ツールを1つだけ判定してください。
+
+        【利用可能な計算ツール】
+
+        none:
+        Python計算ツールを使用しない。
+
+        real_estate_sale:
+        不動産売却に関する次の計算を求めている場合に使用する。
+
+        ・売却後の現金手残り
+        ・譲渡所得
+        ・概算税額
+        ・取得費を反映した売却損益
+        ・ローン残債を反映した手残り
+        ・不動産売却の試算
+        ・不動産売却のシミュレーション
+
+        【初回判定ルール】
+
+        次のような状態説明、雑談、予定、検討だけでは、
+        real_estate_saleを選んではいけません。
+
+        ・家を売る予定
+        ・5000万円で売却予定
+        ・不動産売却を検討している
+        ・実家を売るか迷っている
+        ・マンションを売ることになった
+
+        計算、試算、税額、譲渡所得、手残り、
+        シミュレーションなどを求める意思が明確な場合だけ、
+        real_estate_saleを選んでください。
+
+        【継続中の計算に関するルール】
+
+        現在継続中の計算ツールがreal_estate_saleの場合、
+        最新発言が次のような不足条件への回答であれば、
+        real_estate_saleを選んでください。
+
+        ・個人または法人
+        ・売却額
+        ・取得日
+        ・売却日
+        ・土地取得費
+        ・建物取得費
+        ・減価償却累計額
+        ・購入時経費
+        ・ローン残債
+        ・仲介手数料
+        ・その他の売却費用
+        ・特別控除
+        ・法人実効税率
+        ・概算取得費を使用するか
+
+        例:
+
+        直前:
+        取得日を教えてください。
+
+        最新発言:
+        2018年4月1日です。
+
+        判定:
+        real_estate_sale
+
+        直前:
+        取得費を教えてください。
+
+        最新発言:
+        1000万円です。
+
+        判定:
+        real_estate_sale
+
+        【継続を終了する発言】
+
+        現在継続中の計算ツールが存在していても、
+        最新発言が次のような内容ならnoneを選んでください。
+
+        ・ありがとう
+        ・もう大丈夫
+        ・計算はやめる
+        ・別の話をしたい
+        ・計算しなくていい
+        ・単なる感想や相づち
+        ・不動産売却計算と無関係な新しい話題
+
+        【重要】
+
+        ・短い発言は、直近の会話と現在継続中の計算ツールを踏まえて判定してください。
+        ・ユーザーが計算を求めているか不明な場合はnoneにしてください。
+        ・状態説明だけで計算を開始してはいけません。
+        ・未実装のツール名を作ってはいけません。
+        ・JSON以外の説明文を出力してはいけません。
+        ・コードブロックの囲み記号を付けてはいけません。
+
+        【現在継続中の計算ツール】
+        {normalized_pending_tool}
+
+        【直近の会話】
+        {recent_history_str}
+
+        【最新ユーザー発言】
+        {user_input}
+
+        【出力形式】
+        {{
+            "calculation_tool": "none",
+            "confidence": 0.90
+        }}
+        """
+
+        tool_response = (
+            tool_model.generate_content(
+                tool_prompt,
+                generation_config={
+                    "temperature": 0,
+                    "max_output_tokens": 50,
+                    "response_mime_type":
+                        "application/json"
+                }
+            )
+        )
+
+        raw_text = str(
+            tool_response.text or ""
+        ).strip()
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        tool_data = json.loads(
+            clean_text
+        )
+
+        if not isinstance(
+            tool_data,
+            dict
+        ):
+            raise ValueError(
+                "計算ツール判定結果が"
+                "object形式ではありません"
+            )
+
+        calculation_tool = str(
+            tool_data.get(
+                "calculation_tool",
+                "none"
+            )
+            or "none"
+        ).strip().lower()
+
+        if (
+            calculation_tool
+            not in CALCULATION_TOOLS
+        ):
+            calculation_tool = "none"
+
+        try:
+            confidence = float(
+                tool_data.get(
+                    "confidence",
+                    0.0
+                )
+                or 0.0
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            confidence = 0.0
+
+        confidence = max(
+            0.0,
+            min(
+                confidence,
+                1.0
+            )
+        )
+
+        # 誤作動防止。
+        # 継続中ではない初回判定の信頼度が低い場合は、
+        # 計算ツールを使用しない。
+        if (
+            normalized_pending_tool == "none"
+            and confidence < 0.75
+        ):
+            calculation_tool = "none"
+
+        in_tokens = 0
+        out_tokens = 0
+
+        if (
+            hasattr(
+                tool_response,
+                "usage_metadata"
+            )
+            and tool_response.usage_metadata
+        ):
+            in_tokens = int(
+                tool_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
+            )
+
+            out_tokens = int(
+                tool_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
+            )
+
+        api_cost = (
+            in_tokens
+            * PRICE_BACKGROUND_IN
+            +
+            out_tokens
+            * PRICE_BACKGROUND_OUT
+        )
+
+        return (
+            calculation_tool,
+            confidence,
+            in_tokens,
+            out_tokens,
+            api_cost
+        )
+
+    except Exception as tool_error:
+        print(
+            "計算ツール判定エラー: "
+            f"{type(tool_error).__name__}: "
+            f"{tool_error}"
+        )
+
+        return (
+            "none",
             0.0,
             0,
             0,
@@ -1752,8 +2268,6 @@ MODE_PROMPTS = {
     "factual": """
     【今回の回答モード: 事実・最新情報】
     ・正確性を最優先してください。
-    ・検索結果が存在する場合は、検索結果を優先して回答してください。
-    ・検索結果と記憶の両方が存在する場合は、検索結果を基にしつつユーザーの過去の会話や好みに合わせて回答してください。
     ・日付、場所、対象、単位などの条件を明確にしてください。
     ・検索結果に存在しない情報を推測で補完してはいけません。
     ・検索結果が質問へ十分に答えていない場合は、分かる範囲と不足情報を区別してください。
@@ -1768,73 +2282,1954 @@ MODE_PROMPTS = {
     """
 }
 
-# def should_use_google_search(user_input, recent_history_str=""):
-#     try:
-#         judge_model = genai.GenerativeModel(
-#             model_name=SEARCH_MODEL_NAME
-#         )
-#         judge_prompt = f"""
-#         次のユーザー発言について判定してください。
+# ==========================================
+# 🧮 Python計算関数群
+# ==========================================
+# ==========================================
+# 🧮 計算共通関数
+# ==========================================
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional, Union
+import calendar
 
-#         最新の情報や現在進行中の情報を取得するために
-#         インターネット検索が必要なら YES
+Number = Union[int, float, str, Decimal]
 
-#         一般知識で回答できる内容なら NO
+def normalize_japanese_number_text(
+    value: str
+) -> str:
+    """
+    日本語の金額表記を円単位の数値文字列へ変換する。
 
-#         YES または NO だけ返してください。
+    対応例:
+        "50,000,000円" -> "50000000"
+        "5000万円" -> "50000000"
+        "5,000万" -> "50000000"
+        "1.5億円" -> "150000000"
+        "30%" -> "0.3"
 
-#         【直近の会話】
-#         {recent_history_str}
+    「億」と「万」を組み合わせた
+    「1億5000万円」のような表記にも対応する。
+    """
+    text = (
+        str(value)
+        .strip()
+        .replace("　", "")
+        .replace(" ", "")
+        .replace(",", "")
+        .replace("￥", "")
+        .replace("¥", "")
+        .replace("円", "")
+    )
 
-#         【最新ユーザー発言】
-#         {user_input}
-#         """
+    if not text:
+        raise ValueError(
+            "数値が入力されていません"
+        )
 
-#         judge_response = judge_model.generate_content(
-#             judge_prompt,
-#             generation_config={
-#                 "temperature": 0,
-#                 "max_output_tokens": 5
-#             }
-#         )
+    # パーセント表記
+    if text.endswith("%"):
+        percent_text = text[:-1]
 
-#         judge_text = (
-#             judge_response.text or ""
-#         ).strip().upper()
+        if not percent_text:
+            raise ValueError(
+                "パーセントの数値が入力されていません"
+            )
 
-#         judge_in_t = 0
-#         judge_out_t = 0
+        return str(
+            Decimal(percent_text)
+            / Decimal("100")
+        )
 
-#         if (
-#             hasattr(judge_response, "usage_metadata")
-#             and judge_response.usage_metadata
+    total = Decimal("0")
+    remaining_text = text
+
+    # 億単位
+    if "億" in remaining_text:
+        oku_parts = remaining_text.split("億")
+
+        if len(oku_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        oku_text = oku_parts[0]
+        remaining_text = oku_parts[1]
+
+        if not oku_text:
+            oku_text = "1"
+
+        total += (
+            Decimal(oku_text)
+            * Decimal("100000000")
+        )
+
+    # 万単位
+    if "万" in remaining_text:
+        man_parts = remaining_text.split("万")
+
+        if len(man_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        man_text = man_parts[0]
+        remaining_text = man_parts[1]
+
+        if not man_text:
+            man_text = "1"
+
+        total += (
+            Decimal(man_text)
+            * Decimal("10000")
+        )
+
+    # 億・万より下の円単位
+    if remaining_text:
+        total += Decimal(
+            remaining_text
+        )
+
+    return str(total)
+
+
+def to_decimal(
+    value: Number
+) -> Decimal:
+    """
+    int、float、str、Decimalを
+    安全にDecimalへ変換する。
+
+    文字列の場合は、円、万円、億円、
+    カンマ、パーセント表記にも対応する。
+    """
+    if value is None:
+        raise ValueError(
+            "数値にNoneは指定できません"
+        )
+
+    if isinstance(value, Decimal):
+        decimal_value = value
+
+    elif isinstance(value, bool):
+        raise ValueError(
+            "数値にboolは指定できません"
+        )
+
+    elif isinstance(value, int):
+        decimal_value = Decimal(
+            value
+        )
+
+    elif isinstance(value, float):
+        decimal_value = Decimal(
+            str(value)
+        )
+
+    elif isinstance(value, str):
+        normalized_text = (
+            normalize_japanese_number_text(
+                value
+            )
+        )
+
+        decimal_value = Decimal(
+            normalized_text
+        )
+
+    else:
+        raise TypeError(
+            "数値はint、float、str、"
+            "Decimalのいずれかで指定してください"
+        )
+
+    if not decimal_value.is_finite():
+        raise ValueError(
+            "無限大またはNaNは指定できません"
+        )
+    return decimal_value
+
+def round_yen(value: Decimal) -> int:
+    return int(
+        value.quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP
+        )
+    ) 
+
+def parse_date(
+    value: Union[str, date, datetime]
+) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    return date.fromisoformat(
+        str(value).strip()
+    )
+
+def add_years_safely(
+    original_date: date,
+    years: int
+) -> date:
+    """
+    2月29日など、加算先の年に同日が存在しない場合は、
+    その月の最終日へ補正する。
+    """
+    target_year = original_date.year + years
+    target_month = original_date.month
+
+    last_day = calendar.monthrange(
+        target_year,
+        target_month
+    )[1]
+
+    target_day = min(
+        original_date.day,
+        last_day
+    )
+
+    return date(
+        target_year,
+        target_month,
+        target_day
+    )
+
+# ==========================================
+# 🏠 不動産計算
+# ==========================================
+def determine_individual_holding_type(
+    acquisition_date: Union[str, date, datetime],
+    sale_date: Union[str, date, datetime]
+) -> str:
+    """
+    個人の土地建物譲渡について、
+    売却年1月1日時点の所有期間が
+    5年を超えるかで判定する。
+    """
+    acquired = parse_date(acquisition_date)
+    sold = parse_date(sale_date)
+
+    if sold < acquired:
+        raise ValueError(
+            "sale_dateがacquisition_dateより前です"
+        )
+
+    sale_year_start = date(
+        sold.year,
+        1,
+        1
+    )
+
+    five_year_anniversary = add_years_safely(
+        acquired,
+        5
+    )
+
+    if five_year_anniversary < sale_year_start:
+        return "long_term"
+
+    return "short_term"
+
+def calculate_real_estate_sale(
+    *,
+    owner_type: str,
+    sale_price: Number,
+    loan_balance: Number = 0,
+
+    # 土地の税務上の取得費
+    land_acquisition_cost: Number = 0,
+
+    # 建物の取得価額と減価償却累計額
+    building_acquisition_cost: Number = 0,
+    accumulated_depreciation: Number = 0,
+
+    # 取得費に含める購入時経費等
+    acquisition_related_costs: Number = 0,
+
+    # 売却のために直接要した譲渡費用
+    transfer_expenses: Number = 0,
+
+    # 抵当権抹消など、現金手残りから控除する費用
+    other_cash_expenses: Number = 0,
+
+    # 個人の場合に使用
+    acquisition_date: Optional[
+        Union[str, date, datetime]
+    ] = None,
+    sale_date: Optional[
+        Union[str, date, datetime]
+    ] = None,
+
+    # 該当する特例が確認できている場合のみ入力
+    special_deduction: Number = 0,
+
+    # 法人の場合のみ任意指定
+    corporate_effective_tax_rate: Optional[Number] = None,
+
+    # 取得費不明時の概算取得費を利用する場合
+    use_deemed_acquisition_cost: bool = False,
+
+    # 概算取得費率。通常は売却価額の5%
+    deemed_acquisition_cost_rate: Number = "0.05"
+    ) -> dict:
+    """
+    不動産売却の概算計算。
+
+    owner_type:
+        "individual" または "corporate"
+
+    注意:
+    ・個人の通常の土地建物譲渡を想定。
+    ・法人税額は会社全体の所得等に左右されるため、
+      実効税率が指定された場合だけ概算する。
+    ・消費税、特例、損益通算、欠損金、圧縮記帳等は
+      この関数では自動判定しない。
+    """
+
+    owner_type = owner_type.strip().lower()
+
+    if owner_type not in {
+        "individual",
+        "corporate"
+    }:
+        raise ValueError(
+            "owner_typeはindividualまたはcorporateを指定してください"
+        )
+
+    sale_price_d = to_decimal(sale_price)
+    loan_balance_d = to_decimal(loan_balance)
+
+    land_cost_d = to_decimal(
+        land_acquisition_cost
+    )
+
+    building_cost_d = to_decimal(
+        building_acquisition_cost
+    )
+
+    depreciation_d = to_decimal(
+        accumulated_depreciation
+    )
+
+    acquisition_costs_d = to_decimal(
+        acquisition_related_costs
+    )
+
+    transfer_expenses_d = to_decimal(
+        transfer_expenses
+    )
+
+    other_cash_expenses_d = to_decimal(
+        other_cash_expenses
+    )
+
+    special_deduction_d = to_decimal(
+        special_deduction
+    )
+
+    validation_values = {
+        "sale_price": sale_price_d,
+        "loan_balance": loan_balance_d,
+        "land_acquisition_cost": land_cost_d,
+        "building_acquisition_cost": building_cost_d,
+        "accumulated_depreciation": depreciation_d,
+        "acquisition_related_costs": acquisition_costs_d,
+        "transfer_expenses": transfer_expenses_d,
+        "other_cash_expenses": other_cash_expenses_d,
+        "special_deduction": special_deduction_d
+    }
+
+    for field_name, field_value in validation_values.items():
+        if field_value < 0:
+            raise ValueError(
+                f"{field_name}は0以上にしてください"
+            )
+
+    if depreciation_d > building_cost_d:
+        raise ValueError(
+            "減価償却累計額が建物取得価額を超えています"
+        )
+
+    # 建物の税務上の未償却残高
+    building_tax_basis = (
+        building_cost_d
+        - depreciation_d
+    )
+
+    # 実額による税務上の取得費
+    actual_acquisition_basis = (
+        land_cost_d
+        + building_tax_basis
+        + acquisition_costs_d
+    )
+
+    deemed_rate_d = to_decimal(
+        deemed_acquisition_cost_rate
+    )
+    if not (
+        Decimal("0")
+        <= deemed_rate_d
+        <= Decimal("1")
+    ):
+        raise ValueError(
+            "deemed_acquisition_cost_rateは"
+            "0から1の範囲で指定してください"
+        )
+
+    # 取得費不明時などに使う概算取得費
+    deemed_acquisition_basis = (
+        sale_price_d
+        * deemed_rate_d
+    )
+
+    if use_deemed_acquisition_cost:
+        acquisition_basis = (
+            deemed_acquisition_basis
+        )
+        acquisition_basis_method = (
+            "deemed_5_percent"
+        )
+    else:
+        acquisition_basis = (
+            actual_acquisition_basis
+        )
+        acquisition_basis_method = "actual"
+
+    # 特別控除前の譲渡損益
+    capital_gain_before_deduction = (
+        sale_price_d
+        - acquisition_basis
+        - transfer_expenses_d
+    )
+
+    # 特別控除は譲渡益を超えて控除しない
+    applied_special_deduction = min(
+        max(
+            special_deduction_d,
+            Decimal("0")
+        ),
+        max(
+            capital_gain_before_deduction,
+            Decimal("0")
+        )
+    )
+
+    taxable_gain = max(
+        capital_gain_before_deduction
+        - applied_special_deduction,
+        Decimal("0")
+    )
+
+    holding_type = None
+    tax_rate = None
+    estimated_tax = None
+    tax_calculation_status = None
+
+    if owner_type == "individual":
+        if acquisition_date is None:
+            raise ValueError(
+                "個人の場合はacquisition_dateが必要です"
+            )
+
+        if sale_date is None:
+            raise ValueError(
+                "個人の場合はsale_dateが必要です"
+            )
+
+        holding_type = (
+            determine_individual_holding_type(
+                acquisition_date,
+                sale_date
+            )
+        )
+
+        if holding_type == "long_term":
+            tax_rate = Decimal("0.20315")
+        else:
+            tax_rate = Decimal("0.3963")
+
+        estimated_tax = (
+            taxable_gain
+            * tax_rate
+        )
+
+        tax_calculation_status = (
+            "individual_estimated"
+        )
+
+    else:
+        if corporate_effective_tax_rate is None:
+            tax_calculation_status = (
+                "corporate_tax_not_calculated"
+            )
+        else:
+            tax_rate = to_decimal(
+                corporate_effective_tax_rate
+            )
+
+            if not (
+                Decimal("0")
+                <= tax_rate
+                <= Decimal("1")
+            ):
+                raise ValueError(
+                    "corporate_effective_tax_rateは"
+                    "0から1の範囲で指定してください"
+                )
+
+            estimated_tax = (
+                taxable_gain
+                * tax_rate
+            )
+
+            tax_calculation_status = (
+                "corporate_effective_rate_estimate"
+            )
+
+    # 税引前の現金手残り
+    cash_before_tax = (
+        sale_price_d
+        - loan_balance_d
+        - transfer_expenses_d
+        - other_cash_expenses_d
+    )
+
+    # 税額を計算できる場合だけ税引後を算出
+    if estimated_tax is None:
+        cash_after_tax = None
+    else:
+        cash_after_tax = (
+            cash_before_tax
+            - estimated_tax
+        )
+
+    return {
+        "owner_type": owner_type,
+        "holding_type": holding_type,
+        "acquisition_basis_method":
+            acquisition_basis_method,
+
+        "sale_price":
+            round_yen(sale_price_d),
+
+        "loan_balance":
+            round_yen(loan_balance_d),
+
+        "land_acquisition_cost":
+            round_yen(land_cost_d),
+
+        "building_acquisition_cost":
+            round_yen(building_cost_d),
+
+        "accumulated_depreciation":
+            round_yen(depreciation_d),
+
+        "building_tax_basis":
+            round_yen(building_tax_basis),
+
+        "acquisition_related_costs":
+            round_yen(acquisition_costs_d),
+
+        "actual_acquisition_basis":
+            round_yen(actual_acquisition_basis),
+
+        "deemed_acquisition_basis":
+            round_yen(deemed_acquisition_basis),
+
+        "applied_acquisition_basis":
+            round_yen(acquisition_basis),
+
+        "transfer_expenses":
+            round_yen(transfer_expenses_d),
+
+        "other_cash_expenses":
+            round_yen(other_cash_expenses_d),
+
+        "capital_gain_before_deduction":
+            round_yen(
+                capital_gain_before_deduction
+            ),
+
+        "special_deduction":
+            round_yen(
+                applied_special_deduction
+            ),
+
+        "taxable_gain":
+            round_yen(taxable_gain),
+
+        "tax_rate": (
+            float(tax_rate)
+            if tax_rate is not None
+            else None
+        ),
+
+        "estimated_tax": (
+            round_yen(estimated_tax)
+            if estimated_tax is not None
+            else None
+        ),
+
+        "cash_before_tax":
+            round_yen(cash_before_tax),
+
+        "cash_after_tax": (
+            round_yen(cash_after_tax)
+            if cash_after_tax is not None
+            else None
+        ),
+
+        "tax_calculation_status":
+            tax_calculation_status
+    }
+
+# ==========================================
+# 🏠 不動産売却計算 呼び出し判定
+# ==========================================
+
+# ==========================================
+# 不動産売却計算の呼び出し判定
+# ==========================================
+
+# REAL_ESTATE_SALE_KEYWORDS = {
+#     "不動産売却",
+#     "不動産を売る",
+#     "不動産を売った",
+#     "家を売る",
+#     "家を売った",
+#     "住宅を売る",
+#     "住宅を売った",
+#     "マンションを売る",
+#     "マンションを売った",
+#     "土地を売る",
+#     "土地を売った",
+#     "建物を売る",
+#     "建物を売った",
+#     "物件を売る",
+#     "物件を売った",
+#     "売却価格",
+#     "売却代金",
+#     "売却益",
+#     "売却損",
+#     "譲渡所得",
+#     "譲渡益",
+#     "譲渡損",
+#     "売却したら",
+#     "売ったら",
+#     "売却時",
+#     "売却後",
+#     "売却予定",
+#     "手残り",
+#     "税引後手残り",
+#     "取得費",
+#     "譲渡費用",
+#     "ローン残債",
+#     "売却税金",
+#     "売却した場合",
+#     "不動産の税金"
+# }
+
+# REAL_ESTATE_FOLLOW_UP_KEYWORDS = {
+#     "個人",
+#     "法人",
+#     "個人名義",
+#     "法人名義",
+#     "取得日",
+#     "購入日",
+#     "売却日",
+#     "取得費",
+#     "購入費",
+#     "土地代",
+#     "建物代",
+#     "減価償却",
+#     "減価償却累計額",
+#     "ローン",
+#     "残債",
+#     "仲介手数料",
+#     "譲渡費用",
+#     "特別控除",
+#     "実効税率",
+#     "万円",
+#     "億円",
+#     "円"
+# }
+
+# def is_real_estate_sale_calculation_candidate(
+#     user_input: str,
+#     *,
+#     calculation_pending: bool = False
+# ) -> bool:
+#     """
+#     最新のユーザー発言が、
+#     不動産売却計算を開始または継続する内容か判定する。
+
+#     calculation_pending:
+#         直前の不動産売却計算で条件不足となり、
+#         追加条件の入力を待っている場合はTrue。
+
+#     判定方針:
+#     ・初回は不動産売却関連の明確なキーワードで判定
+#     ・条件確認中は、追加の日付・金額・所有者区分なども対象
+#     ・通常会話では余分なGemini抽出処理を実行しない
+#     """
+#     if not isinstance(
+#         user_input,
+#         str
+#     ):
+#         return False
+
+#     normalized_text = (
+#         user_input
+#         .replace("　", " ")
+#         .strip()
+#     )
+
+#     if not normalized_text:
+#         return False
+
+#     # 初回の明確な不動産売却相談
+#     if any(
+#         keyword in normalized_text
+#         for keyword in REAL_ESTATE_SALE_KEYWORDS
+#     ):
+#         return True
+
+#     # 条件不足後の追加入力
+#     if calculation_pending:
+#         if any(
+#             keyword in normalized_text
+#             for keyword
+#             in REAL_ESTATE_FOLLOW_UP_KEYWORDS
 #         ):
-#             judge_in_t = (
-#                 judge_response.usage_metadata.prompt_token_count or 0
-#             )
+#             return True
 
-#             judge_out_t = (
-#                 judge_response.usage_metadata.candidates_token_count or 0
-#             )
+#         # 日付形式の追加入力
+#         if re.search(
+#             r"\d{4}"
+#             r"(?:年|-|/)"
+#             r"\d{1,2}"
+#             r"(?:月|-|/)"
+#             r"\d{1,2}"
+#             r"日?",
+#             normalized_text
+#         ):
+#             return True
 
-#         judge_cost = (
-#             judge_in_t * PRICE_LITE_IN
-#             + judge_out_t * PRICE_LITE_OUT
+#         # 年月までの入力も抽出処理へ渡す。
+#         # 実際の日付は推測せず、不足項目として確認する。
+#         if re.search(
+#             r"\d{4}"
+#             r"(?:年|-|/)"
+#             r"\d{1,2}"
+#             r"月?",
+#             normalized_text
+#         ):
+#             return True
+
+#         # 金額だけの追加入力
+#         if re.search(
+#             r"\d[\d,]*(?:\.\d+)?"
+#             r"\s*(?:円|万円|万|億円|億)",
+#             normalized_text
+#         ):
+#             return True
+
+#         # 税率だけの追加入力
+#         if re.search(
+#             r"\d+(?:\.\d+)?\s*%",
+#             normalized_text
+#         ):
+#             return True
+
+#         # individual / corporateによる追加入力
+#         lowered_text = (
+#             normalized_text.lower()
 #         )
 
-#         return (
-#             judge_text.startswith("YES"),
-#             judge_in_t,
-#             judge_out_t,
-#             judge_cost
-#         )
+#         if lowered_text in {
+#             "individual",
+#             "corporate",
+#             "personal",
+#             "company"
+#         }:
+#             return True
 
-#     except Exception as judge_error:
-#         print(
-#             f"⚠️ 検索要否判定エラー: "
-#             f"{type(judge_error).__name__}: {judge_error}"
-#         )
-#         return False, 0, 0, 0.0
+#     return False
+
+def extract_real_estate_sale_parameters(
+    user_input: str,
+    recent_history: str = ""
+) -> dict:
+    """
+    ユーザーの最新発言と直近履歴から、
+    不動産売却計算に必要な条件をJSONで抽出する。
+
+    この関数の役割:
+    ・不動産売却計算の対象か判定する
+    ・ユーザーが明示した条件だけを抽出する
+    ・Geminiには計算させない
+    ・金額や日付を推測させない
+
+    正規化、不足項目判定、Python計算は、
+    execute_real_estate_sale_calculation()側で行う。
+    """
+    default_result = {
+        "should_calculate": False,
+        "arguments": {},
+        "extraction_status": "not_applicable",
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "cost": 0.0
+    }
+
+    if not user_input:
+        return default_result
+
+    extraction_prompt = f"""
+    あなたは、不動産売却計算に必要な入力条件を
+    構造化して抽出するシステムです。
+
+    最新のユーザー発言と直近の会話から、
+    calculate_real_estate_sale関数へ渡す条件を
+    JSON形式で抽出してください。
+
+    【最重要ルール】
+    ・計算は行わないでください。
+    ・ユーザーが明示していない情報を推測しないでください。
+    ・一般的な費用、一般的な税率、一般的な日付を補完しないでください。
+    ・AIが過去に推測した内容を、ユーザーが話した事実として使用しないでください。
+    ・最新のユーザー発言と直近の会話で、ユーザー本人が明示した条件だけを使用してください。
+    ・条件が変更されている場合は、最新の条件を優先してください。
+    ・値が確認できない項目はnullにしてください。
+    ・キーを省略しないでください。
+    ・JSON以外の説明文を出力しないでください。
+    ・コードブロックの囲み記号を付けないでください。
+
+    【金額の扱い】
+    ・万円または億円の表記は、円単位の整数へ変換してください。
+    ・5,000万円は50000000です。
+    ・1.5億円は150000000です。
+    ・1億5000万円は150000000です。
+    ・金額が曖昧な場合はnullにしてください。
+
+    【税率の扱い】
+    ・パーセントは0から1の小数へ変換してください。
+    ・30%は0.30です。
+    ・税率が明示されていない場合はnullにしてください。
+
+    【日付の扱い】
+    ・日付はYYYY-MM-DD形式にしてください。
+    ・年、年月、季節などしか分からない場合は、日付を推測せずnullにしてください。
+    ・「今日」などの相対日付は、直近会話または最新発言内で基準日が明確な場合だけ変換してください。
+    ・基準日が明確でなければnullにしてください。
+
+    【所有者区分】
+    ・個人所有または個人名義の場合はindividualです。
+    ・法人所有、会社所有または法人名義の場合はcorporateです。
+    ・個人か法人か分からない場合はnullにしてください。
+
+    【概算取得費】
+    ・ユーザーが取得費不明として売却額の5%を使うことを明示した場合だけ、
+    use_deemed_acquisition_costをtrueにしてください。
+    ・ユーザーが明示していない場合はfalseにしてください。
+    ・概算取得費率を明示していない場合は、
+    deemed_acquisition_cost_rateをnullにしてください。
+
+    【特別控除】
+    ・ユーザーが適用する特別控除額を明示した場合だけ抽出してください。
+    ・居住用不動産だからという理由だけで、
+    3,000万円控除を自動適用してはいけません。
+    ・適用の確認が取れていない場合はnullにしてください。
+
+    【不動産売却計算に該当しない場合】
+    ・should_calculateをfalseにしてください。
+    ・argumentsの各値はnullにしてください。
+
+    【直近の会話】
+    {recent_history}
+
+    【最新ユーザー発言】
+    {user_input}
+
+    【出力形式】
+    {{
+        "should_calculate": true,
+        "arguments": {{
+            "owner_type": "individual",
+            "sale_price": 50000000,
+            "loan_balance": 20000000,
+            "land_acquisition_cost": 10000000,
+            "building_acquisition_cost": 15000000,
+            "accumulated_depreciation": 5000000,
+            "acquisition_related_costs": 1000000,
+            "transfer_expenses": 1500000,
+            "other_cash_expenses": 100000,
+            "acquisition_date": "2018-04-01",
+            "sale_date": "2026-09-22",
+            "special_deduction": null,
+            "corporate_effective_tax_rate": null,
+            "use_deemed_acquisition_cost": false,
+            "deemed_acquisition_cost_rate": null
+        }}
+    }}
+    """
+
+    try:
+        extraction_model = genai.GenerativeModel(
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        extraction_response = (
+            extraction_model.generate_content(
+                extraction_prompt,
+                generation_config={
+                    "temperature": 0,
+                    "max_output_tokens": 500,
+                    "response_mime_type":
+                        "application/json"
+                }
+            )
+        )
+
+        raw_text = str(
+            extraction_response.text
+            or ""
+        ).strip()
+
+        if not raw_text:
+            raise ValueError(
+                "不動産売却条件の抽出結果が空です"
+            )
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        extracted_data = json.loads(
+            clean_text
+        )
+
+        if not isinstance(
+            extracted_data,
+            dict
+        ):
+            raise ValueError(
+                "不動産売却条件の抽出結果が"
+                "object形式ではありません"
+            )
+
+        should_calculate = bool(
+            extracted_data.get(
+                "should_calculate",
+                False
+            )
+        )
+
+        raw_arguments = (
+            extracted_data.get(
+                "arguments",
+                {}
+            )
+        )
+
+        if not isinstance(
+            raw_arguments,
+            dict
+        ):
+            raw_arguments = {}
+
+        in_tokens = 0
+        out_tokens = 0
+
+        if (
+            hasattr(
+                extraction_response,
+                "usage_metadata"
+            )
+            and
+            extraction_response.usage_metadata
+        ):
+            in_tokens = int(
+                extraction_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
+            )
+
+            out_tokens = int(
+                extraction_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
+            )
+
+        extraction_cost = (
+            in_tokens
+            * PRICE_BACKGROUND_IN
+            +
+            out_tokens
+            * PRICE_BACKGROUND_OUT
+        )
+
+        if not should_calculate:
+            return {
+                "should_calculate": False,
+                "arguments": {},
+                "extraction_status":
+                    "not_applicable",
+                "in_tokens": in_tokens,
+                "out_tokens": out_tokens,
+                "cost": extraction_cost
+            }
+
+        return {
+            "should_calculate": True,
+            "arguments": raw_arguments,
+            "extraction_status": "extracted",
+            "in_tokens": in_tokens,
+            "out_tokens": out_tokens,
+            "cost": extraction_cost
+        }
+
+    except (
+        json.JSONDecodeError,
+        ValueError,
+        TypeError
+    ) as extraction_error:
+        print(
+            "不動産売却条件の抽出エラー: "
+            f"{type(extraction_error).__name__}: "
+            f"{extraction_error}"
+        )
+
+        return {
+            "should_calculate": True,
+            "arguments": {},
+            "extraction_status":
+                "extraction_error",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "cost": 0.0
+        }
+
+    except Exception as unexpected_error:
+        print(
+            "不動産売却条件抽出の予期しないエラー: "
+            f"{type(unexpected_error).__name__}: "
+            f"{unexpected_error}"
+        )
+
+        return {
+            "should_calculate": True,
+            "arguments": {},
+            "extraction_status":
+                "extraction_error",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "cost": 0.0
+        }
+
+REAL_ESTATE_SALE_ALLOWED_FIELDS = {
+    "owner_type",
+    "sale_price",
+    "loan_balance",
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "accumulated_depreciation",
+    "acquisition_related_costs",
+    "transfer_expenses",
+    "other_cash_expenses",
+    "acquisition_date",
+    "sale_date",
+    "special_deduction",
+    "corporate_effective_tax_rate",
+    "use_deemed_acquisition_cost",
+    "deemed_acquisition_cost_rate"
+}
+
+REAL_ESTATE_NUMERIC_FIELDS = {
+    "sale_price",
+    "loan_balance",
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "accumulated_depreciation",
+    "acquisition_related_costs",
+    "transfer_expenses",
+    "other_cash_expenses",
+    "special_deduction",
+    "corporate_effective_tax_rate",
+    "deemed_acquisition_cost_rate"
+}
+
+REAL_ESTATE_DATE_FIELDS = {
+    "acquisition_date",
+    "sale_date"
+}
+
+def normalize_real_estate_sale_arguments(
+    arguments: dict
+) -> dict:
+    """
+    Geminiが抽出した不動産売却計算用の引数を、
+    calculate_real_estate_sale()へ安全に渡せる形へ整える。
+
+    処理内容:
+    ・許可されていないキーを除外
+    ・null、空文字、不明表記を除外
+    ・owner_typeをindividualまたはcorporateへ統一
+    ・金額や税率をDecimalへ変換
+    ・日付をYYYY-MM-DD形式へ統一
+    ・真偽値をboolへ統一
+    """
+    if not isinstance(arguments, dict):
+        raise TypeError(
+            "argumentsはdict形式で指定してください"
+        )
+
+    normalized = {}
+
+    ignored_values = {
+        "",
+        "null",
+        "none",
+        "不明",
+        "未指定",
+        "わからない",
+        "分からない",
+        "不詳"
+    }
+
+    for key, value in arguments.items():
+        # calculate_real_estate_sale()に存在しない
+        # 余分な引数は渡さない
+        if key not in REAL_ESTATE_SALE_ALLOWED_FIELDS:
+            continue
+
+        # JSONのnullは未入力として扱う
+        if value is None:
+            continue
+
+        # 空文字や不明表記も未入力として扱う
+        if isinstance(value, str):
+            cleaned_value = value.strip()
+
+            if cleaned_value.lower() in ignored_values:
+                continue
+
+            value = cleaned_value
+
+        # 個人・法人区分
+        if key == "owner_type":
+            owner_text = str(
+                value
+            ).strip().lower()
+
+            owner_type_mapping = {
+                "individual": "individual",
+                "個人": "individual",
+                "個人所有": "individual",
+                "個人名義": "individual",
+                "personal": "individual",
+
+                "corporate": "corporate",
+                "法人": "corporate",
+                "法人所有": "corporate",
+                "法人名義": "corporate",
+                "会社": "corporate",
+                "company": "corporate"
+            }
+
+            normalized_owner_type = (
+                owner_type_mapping.get(
+                    owner_text
+                )
+            )
+
+            # 想定外の値は保存せず、
+            # 後続の不足項目判定へ回す
+            if normalized_owner_type is not None:
+                normalized[
+                    "owner_type"
+                ] = normalized_owner_type
+
+            continue
+
+        # 金額、取得費率、法人実効税率
+        if key in REAL_ESTATE_NUMERIC_FIELDS:
+            try:
+                normalized[
+                    key
+                ] = to_decimal(
+                    value
+                )
+
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                # 読み取れない数値は入れず、
+                # 後続処理または計算エラーで確認する
+                continue
+
+            continue
+
+        # 取得日・売却日
+        if key in REAL_ESTATE_DATE_FIELDS:
+            try:
+                normalized_date = parse_date(
+                    value
+                )
+
+                normalized[
+                    key
+                ] = normalized_date.isoformat()
+
+            except (
+                ValueError,
+                TypeError
+            ):
+                # 年だけ、年月だけ、存在しない日付などは
+                # 推測せず未入力として扱う
+                continue
+
+            continue
+
+        # 概算取得費を使用するか
+        if key == "use_deemed_acquisition_cost":
+            if isinstance(value, bool):
+                normalized[
+                    key
+                ] = value
+
+                continue
+
+            boolean_text = str(
+                value
+            ).strip().lower()
+
+            true_values = {
+                "true",
+                "1",
+                "yes",
+                "y",
+                "使用する",
+                "使う",
+                "利用する",
+                "はい"
+            }
+
+            false_values = {
+                "false",
+                "0",
+                "no",
+                "n",
+                "使用しない",
+                "使わない",
+                "利用しない",
+                "いいえ"
+            }
+
+            if boolean_text in true_values:
+                normalized[
+                    key
+                ] = True
+
+            elif boolean_text in false_values:
+                normalized[
+                    key
+                ] = False
+
+            # 解釈できない場合は推測せず除外
+            continue
+
+    # 任意項目の安全な初期値
+    normalized.setdefault(
+        "loan_balance",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "land_acquisition_cost",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "building_acquisition_cost",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "acquisition_related_costs",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "transfer_expenses",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "other_cash_expenses",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "special_deduction",
+        Decimal("0")
+    )
+
+    normalized.setdefault(
+        "use_deemed_acquisition_cost",
+        False
+    )
+
+    normalized.setdefault(
+        "deemed_acquisition_cost_rate",
+        Decimal("0.05")
+    )
+
+    return normalized
+
+REAL_ESTATE_FIELD_LABELS = {
+    "owner_type":
+        "売却者が個人か法人か",
+
+    "sale_price":
+        "売却予定額または売却額",
+
+    "acquisition_date":
+        "取得日",
+
+    "sale_date":
+        "売却日",
+
+    "acquisition_basis":
+        (
+            "税務上の取得費"
+            "（土地・建物の取得価額など）"
+        ),
+
+    "accumulated_depreciation":
+        (
+            "建物の減価償却累計額"
+        ),
+
+    "corporate_effective_tax_rate":
+        (
+            "法人の概算実効税率"
+            "（税引後手残りも計算する場合）"
+        )
+}
+
+
+def get_real_estate_sale_missing_fields(
+    arguments: dict
+) -> list:
+    """
+    不動産売却計算に必要な条件の不足を判定する。
+
+    必須条件:
+    ・所有者区分
+    ・売却額
+    ・個人の場合は取得日と売却日
+
+    取得費:
+    ・実額取得費を使う場合は、土地取得費または
+      建物取得価額の少なくとも一方が必要
+    ・取得費不明として概算取得費を使う場合は不要
+
+    建物:
+    ・建物取得価額が0円より大きく、
+      減価償却累計額が明示されていない場合は確認対象
+
+    法人:
+    ・実効税率がなくても税引前手残りは計算可能
+    ・したがって法人実効税率は必須項目にしない
+    """
+    if not isinstance(arguments, dict):
+        raise TypeError(
+            "argumentsはdict形式で指定してください"
+        )
+
+    missing_fields = []
+
+    owner_type = arguments.get(
+        "owner_type"
+    )
+
+    if owner_type not in {
+        "individual",
+        "corporate"
+    }:
+        missing_fields.append(
+            "owner_type"
+        )
+
+    sale_price = arguments.get(
+        "sale_price"
+    )
+
+    if sale_price is None:
+        missing_fields.append(
+            "sale_price"
+        )
+    else:
+        try:
+            if to_decimal(
+                sale_price
+            ) <= Decimal("0"):
+                missing_fields.append(
+                    "sale_price"
+                )
+        except (
+            ValueError,
+            TypeError,
+            ArithmeticError
+        ):
+            missing_fields.append(
+                "sale_price"
+            )
+
+    if owner_type == "individual":
+        if not arguments.get(
+            "acquisition_date"
+        ):
+            missing_fields.append(
+                "acquisition_date"
+            )
+
+        if not arguments.get(
+            "sale_date"
+        ):
+            missing_fields.append(
+                "sale_date"
+            )
+
+    use_deemed_acquisition_cost = bool(
+        arguments.get(
+            "use_deemed_acquisition_cost",
+            False
+        )
+    )
+
+    if not use_deemed_acquisition_cost:
+        land_cost = to_decimal(
+            arguments.get(
+                "land_acquisition_cost",
+                Decimal("0")
+            )
+        )
+
+        building_cost = to_decimal(
+            arguments.get(
+                "building_acquisition_cost",
+                Decimal("0")
+            )
+        )
+
+        acquisition_related_costs = to_decimal(
+            arguments.get(
+                "acquisition_related_costs",
+                Decimal("0")
+            )
+        )
+
+        total_known_acquisition_cost = (
+            land_cost
+            + building_cost
+            + acquisition_related_costs
+        )
+
+        if (
+            total_known_acquisition_cost
+            <= Decimal("0")
+        ):
+            missing_fields.append(
+                "acquisition_basis"
+            )
+
+    building_cost = to_decimal(
+        arguments.get(
+            "building_acquisition_cost",
+            Decimal("0")
+        )
+    )
+
+    if (
+        building_cost > Decimal("0")
+        and
+        "accumulated_depreciation"
+        not in arguments
+    ):
+        missing_fields.append(
+            "accumulated_depreciation"
+        )
+
+    # 重複を除き、追加順を維持
+    return list(
+        dict.fromkeys(
+            missing_fields
+        )
+    )
+
+def execute_real_estate_sale_calculation(
+    extraction_result: dict
+) -> dict:
+    """
+    Geminiが抽出・正規化した条件を使って、
+    calculate_real_estate_sale()を実行する。
+
+    戻り値のstatus:
+        not_applicable:
+            不動産売却計算の対象外
+
+        extraction_error:
+            Geminiによる条件抽出に失敗
+
+        missing_fields:
+            計算に必要な条件が不足
+
+        calculation_error:
+            Python計算時に入力エラー等が発生
+
+        success:
+            計算成功
+    """
+    if not isinstance(
+        extraction_result,
+        dict
+    ):
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "計算条件の抽出結果が"
+                "dict形式ではありません"
+            )
+        }
+
+    should_calculate = bool(
+        extraction_result.get(
+            "should_calculate",
+            False
+        )
+    )
+
+    if not should_calculate:
+        return {
+            "status": "not_applicable",
+            "result": None,
+            "missing_fields": [],
+            "error": None
+        }
+
+    extraction_status = (
+        extraction_result.get(
+            "extraction_status",
+            "extraction_error"
+        )
+    )
+
+    if extraction_status == "extraction_error":
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却の計算条件を"
+                "正しく読み取れませんでした"
+            )
+        }
+
+    arguments = extraction_result.get(
+        "arguments",
+        {}
+    )
+
+    if not isinstance(arguments, dict):
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却の計算条件が"
+                "dict形式ではありません"
+            )
+        }
+
+    try:
+        normalized_arguments = (
+            normalize_real_estate_sale_arguments(
+                arguments
+            )
+        )
+
+    except Exception as normalize_error:
+        print(
+            "不動産売却条件の正規化エラー: "
+            f"{type(normalize_error).__name__}: "
+            f"{normalize_error}"
+        )
+
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                normalize_error
+            )
+        }
+
+    try:
+        print(
+            f"🏠 計算不足項目: "
+            f"{missing_fields}"
+        )
+        missing_fields = (
+            get_real_estate_sale_missing_fields(
+                normalized_arguments
+            )
+        )
+
+    except Exception as missing_check_error:
+        print(
+            "不動産売却の不足項目判定エラー: "
+            f"{type(missing_check_error).__name__}: "
+            f"{missing_check_error}"
+        )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                missing_check_error
+            )
+        }
+
+    if missing_fields:
+        return {
+            "status": "missing_fields",
+            "result": None,
+            "missing_fields":
+                missing_fields,
+            "error": None
+        }
+    
+    print(
+    f"🏠 不動産計算実行条件: "
+    f"{calculation_arguments}"
+)
+    # calculate_real_estate_sale()に渡す値だけに限定
+    calculation_arguments = {
+        key: value
+        for key, value
+        in normalized_arguments.items()
+        if (
+            key
+            in REAL_ESTATE_SALE_ALLOWED_FIELDS
+            and value is not None
+        )
+    }
+
+    try:
+        calculation_result = (
+            calculate_real_estate_sale(
+                **calculation_arguments
+            )
+        )
+
+    except (
+        ValueError,
+        TypeError,
+        ArithmeticError
+    ) as calculation_error:
+        print(
+            "不動産売却計算エラー: "
+            f"{type(calculation_error).__name__}: "
+            f"{calculation_error}"
+        )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                calculation_error
+            )
+        }
+
+    except Exception as unexpected_error:
+        error_text = (
+                f"{type(unexpected_error).__name__}: "
+                f"{unexpected_error}"
+            )
+        print(
+                f"🚨 不動産計算予期しないエラー: "
+                f"{error_text}"
+            )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": error_text
+        }
+
+    if not isinstance(
+        calculation_result,
+        dict
+    ):
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却計算の結果が"
+                "dict形式ではありません"
+            )
+        }
+
+    return {
+        "status": "success",
+        "tool": "real_estate_sale",
+        "result": calculation_result,
+        "missing_fields": [],
+        "error": None
+    }
+
+def build_real_estate_calculation_context(
+    execution_result: dict
+) -> str:
+    """
+    不動産売却計算の実行結果から、
+    最終回答用のプロンプトブロックを作成する。
+
+    status:
+        not_applicable
+        missing_fields
+        extraction_error
+        calculation_error
+        success
+
+    計算対象外の場合は空文字を返すため、
+    通常会話のプロンプトには何も追加されない。
+    """
+    status = execution_result.get(
+        "status",
+        "not_applicable"
+    )
+
+    # 通常会話では何も追加しない
+    if status == "not_applicable":
+        return ""
+
+    # 必須条件が不足している場合
+    if status == "missing_fields":
+        missing_fields = execution_result.get(
+            "missing_fields",
+            []
+        )
+
+        missing_labels = [
+            REAL_ESTATE_FIELD_LABELS.get(
+                field,
+                field
+            )
+            for field in missing_fields
+        ]
+
+        if missing_labels:
+            missing_text = "\n".join(
+                f"・{label}"
+                for label in missing_labels
+            )
+        else:
+            missing_text = (
+                "・計算に必要な条件"
+            )
+
+        return f"""
+        【Python不動産売却計算】
+
+        計算に必要な条件が不足しています。
+
+        【不足項目】
+        {missing_text}
+
+        【回答ルール】
+        ・不足している項目だけを、ユーザーへ簡潔に確認してください。
+        ・ユーザーが明示していない数値や日付を推測してはいけません。
+        ・一般的な金額や税率を、ユーザーの条件として補完してはいけません。
+        ・条件が揃っていない状態で概算結果を作ってはいけません。
+        ・すでに提示されている条件を再度質問してはいけません。
+        """.strip()
+
+    # Geminiによるパラメータ抽出に失敗した場合
+    if status == "extraction_error":
+        return """
+        【Python不動産売却計算】
+
+        ユーザーの入力条件を正しく構造化できなかったため、
+        今回はPython計算を実行していません。
+
+        【回答ルール】
+        ・推測による計算は行わないでください。
+        ・ユーザーへ、計算条件を整理して入力してもらうよう案内してください。
+        ・一度にすべての条件を求めず、今回の会話で不足している主要条件だけを確認してください。
+        ・基本的な確認項目は、売却額、売却者が個人か法人か、取得日、売却日です。
+        ・取得費、ローン残債、売却費用などがすでに提示されている場合は、再入力を求めないでください。
+        """.strip()
+
+    # Python関数内でバリデーションエラー等が発生した場合
+    if status == "calculation_error":
+        error_message = str(
+            execution_result.get(
+                "error",
+                "計算条件に問題があります"
+            )
+            or "計算条件に問題があります"
+        )
+
+        return f"""
+        【Python不動産売却計算エラー】
+
+        Python計算を実行しましたが、
+        入力条件に問題があるため結果を確定できませんでした。
+
+        【エラー内容】
+        {error_message}
+
+        【回答ルール】
+        ・エラー内容を、ユーザー向けに分かりやすく説明してください。
+        ・修正が必要な項目だけを確認してください。
+        ・ユーザーが明示していない数値や日付を推測してはいけません。
+        ・エラーが解消されるまで独自の概算結果を作ってはいけません。
+        ・Pythonの内部処理やプログラムコードの説明は不要です。
+        """.strip()
+
+    # 想定外の状態では計算結果を使用しない
+    if status != "success":
+        return """
+        【Python不動産売却計算】
+
+        計算状態を確認できなかったため、
+        今回は計算結果を使用できません。
+
+        【回答ルール】
+        ・独自に再計算してはいけません。
+        ・ユーザーへ、条件を確認できなかったことを簡潔に伝えてください。
+        """.strip()
+
+    # 計算成功時
+    result = execution_result.get(
+        "result"
+    )
+
+    if not isinstance(result, dict):
+        return """
+        【Python不動産売却計算エラー】
+
+        Python計算の結果を取得できませんでした。
+
+        【回答ルール】
+        ・独自に再計算してはいけません。
+        ・計算結果を取得できなかったことだけを簡潔に伝えてください。
+        ・存在しない数値を作ってはいけません。
+        """.strip()
+
+    result_json = json.dumps(
+        result,
+        ensure_ascii=False,
+        indent=2
+    )
+
+    estimated_tax = result.get(
+        "estimated_tax"
+    )
+
+    cash_after_tax = result.get(
+        "cash_after_tax"
+    )
+
+    owner_type = result.get(
+        "owner_type"
+    )
+
+    tax_status = result.get(
+        "tax_calculation_status"
+    )
+
+    # 法人で税額が計算されていない場合など
+    if (
+        estimated_tax is None
+        or cash_after_tax is None
+    ):
+        tax_note = """
+        ・税額が計算されていない場合、税引後手残りを独自に作ってはいけません。
+        ・その場合は、税引前手残りを主要結果として示してください。
+        ・法人の実効税率が未指定の場合は、会社全体の所得状況などにより税額が変わるため、今回の計算には含めていないと説明してください。
+        """.strip()
+    else:
+        tax_note = """
+        ・最初に税引後の現金手残りを示してください。
+        ・次に税引前手残り、課税譲渡所得、概算税額を示してください。
+        """.strip()
+
+    # 個人の場合の保有期間表示ルール
+    if owner_type == "individual":
+        holding_note = """
+        ・holding_typeがlong_termの場合は「長期譲渡所得」と表示してください。
+        ・holding_typeがshort_termの場合は「短期譲渡所得」と表示してください。
+        ・適用税率は計算結果に記録されたtax_rateを使用してください。
+        """.strip()
+    else:
+        holding_note = """
+        ・法人には個人の長期譲渡所得、短期譲渡所得という表現を使用しないでください。
+        """.strip()
+
+    return f"""
+    【Python不動産売却計算結果】
+
+    以下はPythonで計算済みの確定出力です。
+
+    {result_json}
+
+    【計算結果の説明ルール】
+    ・上記の数値を最優先してください。
+    ・数値を変更してはいけません。
+    ・独自に再計算して、別の結果を作ってはいけません。
+    ・結果に存在しない数値を推測してはいけません。
+    ・ユーザーが詳細を求めていない場合は、主要結果だけを簡潔に説明してください。
+    ・ユーザーが詳細、内訳、計算式を求めた場合のみ、計算の構造を詳しく説明してください。
+    ・取得費とローン残債を混同してはいけません。
+    ・課税対象となる譲渡所得と、実際の現金手残りを混同してはいけません。
+    ・ローン残債は現金手残りには影響しますが、通常の譲渡所得の取得費ではありません。
+    ・特別控除は、計算結果のspecial_deductionに記録された金額だけを使用してください。
+    ・ユーザーが明示していない特例を追加適用してはいけません。
+    ・金額は円単位の整数として受け取り、回答では読みやすいように円または万円で表示してください。
+    ・万円表示へ直す場合も、元の計算結果と一致することを確認してください。
+    ・最後に、この結果は入力条件に基づく概算であり、申告税額を確定するものではないことを短く伝えてください。
+
+    【税額と手残りの表示ルール】
+    {tax_note}
+
+    【所有者区分の表示ルール】
+    {holding_note}
+
+    【内部確認情報】
+    owner_type: {owner_type}
+    tax_calculation_status: {tax_status}
+    """.strip()
+
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1925,7 +4320,7 @@ current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
 current_user_instruction = ""
-current_ai_avatar = "🤖"
+current_ai_avatar = "🧠"
 current_user_avatar = "💫"
 current_emoji_setting = "使用（普通）"
 
@@ -2216,14 +4611,12 @@ with all_tabs[0]:
 
         all_messages = get_messages(CURRENT_USER_ID)
 
-        st.write(type(all_messages))
-
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
         #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
         #     ・電波瞬断エラー（None）の時 ➔ エラーメッセージを表示して停止
         
         if all_messages is None:
-            st.error("get_messages() が None を返しました データベース通信に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
+            st.error("データベース通信に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
             st.stop()
             
         elif len(all_messages) == 0:
@@ -2394,11 +4787,8 @@ with all_tabs[0]:
 
                             response_mode = "short_chat"
                             route_source = "micro_chat"
-
                             need_search = False
-
                             route_confidence = 1.0
-
                             search_judge_in_t = 0
                             search_judge_out_t = 0
                             search_judge_cost = 0
@@ -2413,12 +4803,107 @@ with all_tabs[0]:
                                 search_judge_cost
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
-                                recent_history_str=recent_history_for_router
+                                recent_history_str=recent_history_for_router,
                             )
                             route_source = "llm_router"
 
                         router_elapsed = time.time() - router_start_time
+
+                        # ==========================================
+                        # 独立したPython計算ツール判定
+                        # ==========================================
+
+                        tool_router_elapsed = 0.0
+                        tool_route_confidence = 0.0
+                        tool_router_in_t = 0
+                        tool_router_out_t = 0
+                        tool_router_cost = 0.0
+
+                        pending_tool = (
+                            "real_estate_sale"
+                            if st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
+                            else "none"
+                        )
+
+                        should_run_tool_router = (
+                            pending_tool != "none"
+                            or response_mode in {
+                                "analysis",
+                                "factual",
+                                "default"
+                            }
+                        )
+
+                        if should_run_tool_router:
+                            tool_router_start_time = (
+                                time.time()
+                            )
+
+                            (
+                                calculation_tool,
+                                tool_route_confidence,
+                                tool_router_in_t,
+                                tool_router_out_t,
+                                tool_router_cost
+                            ) = classify_calculation_tool(
+                                user_input=user_input,
+                                recent_history_str=
+                                    recent_history_for_router,
+                                pending_tool=pending_tool
+                            )
+
+                            tool_router_elapsed = (
+                                time.time()
+                                - tool_router_start_time
+                            )
+
+                        else:
+                            calculation_tool = "none"
                         
+                        if should_run_tool_router:
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type=(
+                                    "CALCULATION_TOOL_ROUTER"
+                                ),
+                                processing_time=(
+                                    tool_router_elapsed
+                                ),
+                                in_t=(
+                                    tool_router_in_t
+                                ),
+                                out_t=(
+                                    tool_router_out_t
+                                ),
+                                api_cost=(
+                                    tool_router_cost
+                                ),
+                                details=(
+                                    f"ツール: {calculation_tool}"
+                                    f" | 継続中: {pending_tool}"
+                                    f" | 信頼度: "
+                                    f"{tool_route_confidence:.2f}"
+                                ),
+                                message_id=str(
+                                    current_msg_id
+                                )
+                            )
+
+                            if (
+                                tool_router_in_t > 0
+                                or tool_router_out_t > 0
+                            ):
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "calculation_tool_router",
+                                    tool_router_in_t,
+                                    tool_router_out_t
+                                )
+
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
                             plan_type=current_plan_type,
@@ -2463,6 +4948,341 @@ with all_tabs[0]:
                         else:
                             search_result = "なし"
                         
+                        # ==========================================
+                        # Python不動産売却計算
+                        # ==========================================
+
+                        calculation_extraction_result = {
+                            "should_calculate": False,
+                            "arguments": {},
+                            "extraction_status":
+                                "not_applicable",
+                            "in_tokens": 0,
+                            "out_tokens": 0,
+                            "cost": 0.0
+                        }
+
+                        calculation_execution_result = {
+                            "status": "not_applicable",
+                            "result": None,
+                            "missing_fields": [],
+                            "error": None
+                        }
+
+                        calculation_pending = bool(
+                            st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
+                        )
+
+                        is_calculation_candidate = (
+                            calculation_tool
+                            == "real_estate_sale"
+                        )
+
+                        if is_calculation_candidate:
+                            calculation_start_time = (
+                                time.time()
+                            )
+
+                            calculation_extraction_result = (
+                                extract_real_estate_sale_parameters(
+                                    user_input=user_input,
+                                    recent_history=
+                                        recent_history_str
+                                )
+                            )
+
+                            extraction_elapsed = (
+                                time.time()
+                                - calculation_start_time
+                            )
+
+                            # 前回までに確認できている条件
+                            previous_arguments = dict(
+                                st.session_state.get(
+                                    "real_estate_calculation_arguments",
+                                    {}
+                                )
+                                or {}
+                            )
+
+                            # 今回新しく抽出された条件
+                            current_arguments = dict(
+                                calculation_extraction_result.get(
+                                    "arguments",
+                                    {}
+                                )
+                                or {}
+                            )
+
+                            # 前回条件を今回条件で上書きする
+                            # 同じ項目がある場合は最新発言を優先
+                            merged_arguments = {
+                                **previous_arguments,
+                                **current_arguments
+                            }
+
+                            calculation_extraction_result[
+                                "arguments"
+                            ] = merged_arguments
+
+                            calculation_execution_result = (
+                                execute_real_estate_sale_calculation(
+                                    calculation_extraction_result
+                                )
+                            )
+
+                            calculation_elapsed = (
+                                time.time()
+                                - calculation_start_time
+                            )
+
+                            calculation_status = (
+                                calculation_execution_result.get(
+                                    "status",
+                                    "calculation_error"
+                                )
+                            )
+
+                            if calculation_status == "missing_fields":
+                                # 条件不足の場合は、
+                                # 確認済み条件を次の会話まで保持
+                                try:
+                                    saved_arguments = (
+                                        normalize_real_estate_sale_arguments(
+                                            merged_arguments
+                                        )
+                                    )
+                                except Exception:
+                                    saved_arguments = (
+                                        merged_arguments
+                                    )
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = saved_arguments
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                                missing_fields = (
+                                    calculation_execution_result.get(
+                                        "missing_fields",
+                                        []
+                                    )
+                                )
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_MISSING_FIELDS"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        " | missing="
+                                        + ",".join(
+                                            missing_fields
+                                        )
+                                    ),
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == "success":
+                                # 計算完了後は継続状態を解除
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = {}
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = False
+
+                                result = (
+                                    calculation_execution_result.get(
+                                        "result",
+                                        {}
+                                    )
+                                )
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_SUCCESS"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        f" | owner={result.get('owner_type')}"
+                                        f" | holding={result.get('holding_type')}"
+                                        f" | taxable_gain={result.get('taxable_gain')}"
+                                        f" | tax={result.get('estimated_tax')}"
+                                        f" | cash_after_tax={result.get('cash_after_tax')}"
+                                    ),
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == (
+                                "calculation_error"
+                            ):
+                                # 入力値の修正を受け付けるため、
+                                # 現在の条件を保持
+                                try:
+                                    saved_arguments = (
+                                        normalize_real_estate_sale_arguments(
+                                            merged_arguments
+                                        )
+                                    )
+                                except Exception:
+                                    saved_arguments = (
+                                        merged_arguments
+                                    )
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = saved_arguments
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_ERROR"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        f" | error={calculation_execution_result.get('error', '')}"
+                                    )[:500],
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == (
+                                "extraction_error"
+                            ):
+                                # 抽出失敗時は以前の条件を消さず、
+                                # 再入力を受け付ける
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                            else:
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = {}
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = False
+
+                            extraction_in_tokens = int(
+                                calculation_extraction_result.get(
+                                    "in_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            extraction_out_tokens = int(
+                                calculation_extraction_result.get(
+                                    "out_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            extraction_cost = float(
+                                calculation_extraction_result.get(
+                                    "cost",
+                                    0.0
+                                )
+                                or 0.0
+                            )
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type=(
+                                    "CALCULATION_EXTRACTION"
+                                ),
+                                processing_time=
+                                    extraction_elapsed,
+                                in_t=
+                                    extraction_in_tokens,
+                                out_t=
+                                    extraction_out_tokens,
+                                api_cost=
+                                    extraction_cost,
+                                details=(
+                                    "tool=real_estate_sale"
+                                ),
+                                message_id=str(
+                                    current_msg_id
+                                )
+                            )
+
+                            if (
+                                extraction_in_tokens > 0
+                                or extraction_out_tokens > 0
+                            ):
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "real_estate_extraction",
+                                    extraction_in_tokens,
+                                    extraction_out_tokens
+                                )
+
+                            # save_system_audit_log(
+                            #     user_id=CURRENT_USER_ID,
+                            #     plan_type=current_plan_type,
+                            #     event_type=(
+                            #         "REAL_ESTATE_CALCULATION"
+                            #     ),
+                            #     processing_time=(
+                            #         calculation_elapsed
+                            #     ),
+                            #     in_t=extraction_in_tokens,
+                            #     out_t=extraction_out_tokens,
+                            #     api_cost=extraction_cost,
+                            #     details=(
+                            #         "不動産売却計算"
+                            #         " | 状態: "
+                            #         f"{calculation_status}"
+                            #     ),
+                            #     message_id=str(
+                            #         current_msg_id
+                            #     )
+                            # )
+
+                        calculation_prompt_block = (
+                            build_real_estate_calculation_context(
+                                calculation_execution_result
+                            )
+                        )
+
                         selected_mode_prompt = MODE_PROMPTS.get(
                             response_mode,
                             MODE_PROMPTS["default"]
@@ -2561,6 +5381,8 @@ with all_tabs[0]:
                             {past_logs_str}
                             【検索結果】
                             {search_result}
+
+                            {calculation_prompt_block}
 
                             【履歴の利用ルール】
                             ・直近履歴は現在の会話の流れや文脈を理解するために使用してください。
@@ -3310,6 +6132,110 @@ if is_admin:
                         search_res.data or []
                     )
 
+                    # python計算データを取得
+                    calc_logs = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("event_type")
+                        .eq("user_id", selected_audit_user)
+                        .in_(
+                            "event_type",
+                            [
+                                "CALCULATION_SUCCESS",
+                                "CALCULATION_MISSING_FIELDS",
+                                "CALCULATION_ERROR"
+                            ]
+                        )
+                        .execute()
+                    )
+
+                    calc_success = 0
+                    calc_missing = 0
+                    calc_error = 0
+
+                    for row in (calc_logs.data or []):
+                        event = row.get(
+                            "event_type",
+                            ""
+                        )
+
+                        if event == "CALCULATION_SUCCESS":
+                            calc_success += 1
+
+                        elif event == (
+                            "CALCULATION_MISSING_FIELDS"
+                        ):
+                            calc_missing += 1
+
+                        elif event == "CALCULATION_ERROR":
+                            calc_error += 1
+
+                    calc_total = (
+                        calc_success
+                        + calc_missing
+                        + calc_error
+                    )
+
+                    calc_extract_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select(
+                            "api_cost, in_tokens, out_tokens"
+                        )
+                        .eq(
+                            "user_id",
+                            selected_audit_user
+                        )
+                        .eq(
+                            "event_type",
+                            "CALCULATION_EXTRACTION"
+                        )
+                        .execute()
+                    )
+
+                    calc_extract_cost = sum(
+                        float(
+                            x.get(
+                                "api_cost",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
+                    calc_extract_in = sum(
+                        int(
+                            x.get(
+                                "in_tokens",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
+                    calc_extract_out = sum(
+                        int(
+                            x.get(
+                                "out_tokens",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
+
                     if cost_logs.data:
                         total_cost_jpy = round(sum(float(log.get("api_cost", 0) or 0) for log in cost_logs.data), 2)
                     else:
@@ -3370,157 +6296,235 @@ if is_admin:
                     f"・<b>検索判定出力：</b> {search_judge_total_out:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
                     f"・<b>検索判定コスト：</b> {search_judge_total_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>不動産計算利用：</b> "
+                    f"{calc_total} 回</p>"
+
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算成功：</b> "
+                    f"{calc_success} 回</p>"
+
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>条件不足：</b> "
+                    f"{calc_missing} 回</p>"
+
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算エラー：</b> "
+                    f"{calc_error} 回</p>"
                     "</div>",
                     unsafe_allow_html=True
                 )
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
+            if st.button(
+                "📖 システムログを表示",
+                key="show_timeline_logs"
+            ):
+                st.session_state["show_timeline_logs"] = True
+            
             try:
                 # 1. データベース（system_audit_logs）から直近50件の生データを抽出
-                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
+                if st.session_state.get(
+                    "show_timeline_logs",
+                    False
+                ):
+
+                    log_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .order("created_at", desc=True)
+                        .limit(50)
+                        .execute()
+                    )
                 
-                if log_res.data:
-                    # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
-                    # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
-                    # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
-                    merged_logs = {}
-                    
-                    for log in log_res.data:
-                        # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
-                        msg_id = log.get("message_id")
-                        created_at = log.get("created_at", "")
-                        time_display = created_at.split("T")[-1][:8] if "T" in created_at else created_at
+                    if log_res.data:
+                        # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
+                        # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
+                        # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
+                        merged_logs = {}
                         
-                        if not msg_id or msg_id == "None" or msg_id == "":
-                            # 過去データ用フォールバック：分単位で丸めて部屋を作ります
-                            msg_id = f"fallback_{created_at[:16]}"
-                        
-                        if msg_id not in merged_logs:
-                            merged_logs[msg_id] = {
-                                "id": msg_id,
-                                "time": time_display,
-                                "user_plan": log.get("user_plan", "🆓 無料プラン"),
-                                "user_message": "",
-                                "ai_message": "",
-                                "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
-                                "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
-                                "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
-                                "search_time": 0.0, "search_in": 0, "search_out": 0,
-                                "total_yen": 0.0, "total_time": 0.0
-                            }
-                        
-                        action = log.get("action", log.get("event_type", ""))
-                        cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
-                        proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
-                        in_t = log.get("in_tokens", 0)
-                        out_t = log.get("out_tokens", 0)
-
-                        # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
-                        if action == "SUMMARY_SUCCESS":
-                            merged_logs[msg_id]["sum_time"] = proc_time
-                            merged_logs[msg_id]["sum_in"] = in_t
-                            merged_logs[msg_id]["sum_out"] = out_t
-
-                        elif action == "RESPONSE_ROUTER":
-                            merged_logs[msg_id]["judge_time"] = proc_time
-                            merged_logs[msg_id]["judge_in"] = in_t
-                            merged_logs[msg_id]["judge_out"] = out_t
-                            merged_logs[msg_id]["judge_cost"] = cost
-                            merged_logs[msg_id]["judge_result"] = (
-                                log.get("details", "")
-                            )
-
-                        elif action == "CHAT_SUCCESS":
-                            merged_logs[msg_id]["chat_time"] = (
-                                log.get("chat_processing_time", proc_time)
-                                if log.get("chat_processing_time") is not None
-                                else proc_time
-                            )
-
-                            merged_logs[msg_id]["chat_in"] = (
-                                log.get("chat_in_tokens", in_t)
-                                if log.get("chat_in_tokens") is not None
-                                else in_t
-                            )
-
-                            merged_logs[msg_id]["chat_out"] = (
-                                log.get("chat_out_tokens", out_t)
-                                if log.get("chat_out_tokens") is not None
-                                else out_t
-                            )
-
-                            merged_logs[msg_id]["search_time"] = (
-                                log.get("search_processing_time", 0.0)
-                                if log.get("search_processing_time") is not None
-                                else 0.0
-                            )
-
-                            merged_logs[msg_id]["search_in"] = (
-                                log.get("search_in_tokens", 0)
-                                if log.get("search_in_tokens") is not None
-                                else 0
-                            )
-
-                            merged_logs[msg_id]["search_out"] = (
-                                log.get("search_out_tokens", 0)
-                                if log.get("search_out_tokens") is not None
-                                else 0
-                            )
-
-                        # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
-                        merged_logs[msg_id]["total_yen"] += cost
-                        merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
-                    
-                    # アコーディオンtyusu出力
-                    for k, item in merged_logs.items():
+                        for log in log_res.data:
+                            # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
+                            msg_id = log.get("message_id")
+                            created_at = log.get("created_at", "")
+                            time_display = created_at.split("T")[-1][:8] if "T" in created_at else created_at
                             
-                        msg_res = (
-                            supabase
-                            .table("messages")
-                            .select("*")
-                            .eq("user_id", selected_audit_user)
-                            .eq("message_id", item["id"])
-                            .order("created_at", desc=False)
-                            .execute()
-                        )
+                            if not msg_id or msg_id == "None" or msg_id == "":
+                                # 過去データ用フォールバック：分単位で丸めて部屋を作ります
+                                msg_id = f"fallback_{created_at[:16]}"
+                            
+                            if msg_id not in merged_logs:
+                                merged_logs[msg_id] = {
+                                    "id": msg_id,
+                                    "time": time_display,
+                                    "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                    "user_message": "",
+                                    "ai_message": "",
+                                    "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
+                                    "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
+                                    "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
+                                    "search_time": 0.0, "search_in": 0, "search_out": 0,
+                                    "total_yen": 0.0, "total_time": 0.0,
+                                    "calculation_result": ""
+                                }
+                            
+                            action = log.get("action", log.get("event_type", ""))
+                            cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
+                            proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
+                            in_t = log.get("in_tokens", 0)
+                            out_t = log.get("out_tokens", 0)
 
-                        user_msg = ""
-                        ai_msg = ""
+                            # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
+                            if action == "SUMMARY_SUCCESS":
+                                merged_logs[msg_id]["sum_time"] = proc_time
+                                merged_logs[msg_id]["sum_in"] = in_t
+                                merged_logs[msg_id]["sum_out"] = out_t
 
-                        for row in (msg_res.data or []):
-                            if row.get("role") == "user":
-                                user_msg = row.get("content", "")
-                            elif row.get("role") == "assistant":
-                                ai_msg = row.get("content", "")
-                         
-                        c_plan = item["user_plan"]
-                        t_yen = item["total_yen"]
-                        t_time = item["total_time"]
+                            elif action == "RESPONSE_ROUTER":
+                                merged_logs[msg_id]["judge_time"] = proc_time
+                                merged_logs[msg_id]["judge_in"] = in_t
+                                merged_logs[msg_id]["judge_out"] = out_t
+                                merged_logs[msg_id]["judge_cost"] = cost
+                                merged_logs[msg_id]["judge_result"] = (
+                                    log.get("details", "")
+                                )
+                            
+                            elif action == "CALCULATION_SUCCESS":
 
-                        with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
-                            st.markdown(f"""
+                                merged_logs[msg_id][
+                                    "calculation_result"
+                                ] = log.get(
+                                    "details",
+                                    ""
+                                )
 
-                            | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
-                            | :--- | :---: | :---: | :---: |
-                            | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
-                            | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
-                            | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                            | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                            elif action == (
+                                "CALCULATION_MISSING_FIELDS"
+                            ):
+
+                                merged_logs[msg_id][
+                                    "calculation_result"
+                                ] = log.get(
+                                    "details",
+                                    ""
+                                )
+
+                            elif action == "CALCULATION_ERROR":
+
+                                merged_logs[msg_id][
+                                    "calculation_result"
+                                ] = log.get(
+                                    "details",
+                                    ""
+                                )
+
+                            elif action == "CHAT_SUCCESS":
+                                merged_logs[msg_id]["chat_time"] = (
+                                    log.get("chat_processing_time", proc_time)
+                                    if log.get("chat_processing_time") is not None
+                                    else proc_time
+                                )
+
+                                merged_logs[msg_id]["chat_in"] = (
+                                    log.get("chat_in_tokens", in_t)
+                                    if log.get("chat_in_tokens") is not None
+                                    else in_t
+                                )
+
+                                merged_logs[msg_id]["chat_out"] = (
+                                    log.get("chat_out_tokens", out_t)
+                                    if log.get("chat_out_tokens") is not None
+                                    else out_t
+                                )
+
+                                merged_logs[msg_id]["search_time"] = (
+                                    log.get("search_processing_time", 0.0)
+                                    if log.get("search_processing_time") is not None
+                                    else 0.0
+                                )
+
+                                merged_logs[msg_id]["search_in"] = (
+                                    log.get("search_in_tokens", 0)
+                                    if log.get("search_in_tokens") is not None
+                                    else 0
+                                )
+
+                                merged_logs[msg_id]["search_out"] = (
+                                    log.get("search_out_tokens", 0)
+                                    if log.get("search_out_tokens") is not None
+                                    else 0
+                                )
+
+                            # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
+                            merged_logs[msg_id]["total_yen"] += cost
+                            merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
+                        
+                        # アコーディオンtyusu出力
+                        for k, item in merged_logs.items():
                                 
-                            🔎 **【検索判定結果】** {item['judge_result']}
+                            msg_res = (
+                                supabase
+                                .table("messages")
+                                .select("*")
+                                .eq("user_id", selected_audit_user)
+                                .eq("message_id", item["id"])
+                                .order("created_at", desc=False)
+                                .execute()
+                            )
 
-                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                            """)
-                            st.markdown("---")
+                            user_msg = ""
+                            ai_msg = ""
 
-                            st.markdown("##### 👤 ユーザー発言")
-                            st.info(user_msg)
+                            for row in (msg_res.data or []):
+                                if row.get("role") == "user":
+                                    user_msg = row.get("content", "")
+                                elif row.get("role") == "assistant":
+                                    ai_msg = row.get("content", "")
+                            
+                            c_plan = item["user_plan"]
+                            t_yen = item["total_yen"]
+                            t_time = item["total_time"]
 
-                            st.markdown("##### 🤖 AI返答")
-                            st.success(ai_msg)
-                else: 
-                    st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
+                            with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                st.markdown(f"""
+
+                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
+                                | :--- | :---: | :---: | :---: |
+                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
+                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
+                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
+                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                                    
+                                🔎 **【検索判定結果】** {item['judge_result']}
+
+                                👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                                """)
+                                st.markdown("---")
+
+                                st.markdown("##### 👤 ユーザー発言")
+                                st.info(user_msg)
+                                if item.get(
+                                    "calculation_result"
+                                ):
+                                    # st.warning(
+                                    #     "🏠 不動産計算結果\n\n"
+                                    #     + item[
+                                    #         "calculation_result"
+                                    #     ]
+                                    # )
+                                    st.code(
+                                        item[
+                                        "calculation_result"
+                                        ]
+                                    )
+
+                                st.markdown("##### 🧠 AI返答")
+                                st.success(ai_msg)
+                    else: 
+                        st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
             except Exception as log_err:
                 st.error(
                     f"ユーザーログの取得に失敗しました: {log_err}"
@@ -3531,7 +6535,7 @@ if is_admin:
             st.subheader("📈 アプリ全体アクティビティ ＆ 機能統計（匿名集計）")
             with st.spinner("システムログからプラン別データを高度に集計中..."):
                 try:
-                    audit_res = supabase.table("system_audit_logs").select("*").execute()
+                    audit_res = supabase.table("system_audit_logs").select("user_id, user_plan, event_type, total_yen_cost, created_at").execute()
                     audit_data = audit_res.data if audit_res.data else []
                     total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
                     
@@ -3611,7 +6615,7 @@ if is_admin:
             memories_res = (
                 supabase
                 .table("user_memories_tester")
-                .select("*")
+                .select("user_id, fact")
                 .execute()
             )
 
@@ -3628,18 +6632,24 @@ if is_admin:
                 "yoimachigusa": "30代女性",
                 "yong3127": "30代女性",
             }
-            msg_users_res = (
+            user_res = (
                 supabase
-                .table("messages")
+                .table("user_token_stats")
                 .select("user_id")
                 .execute()
             )
+            # msg_users_res = (
+            #     supabase
+            #     .table("messages")
+            #     .select("user_id")
+            #     .execute()
+            # )
 
             all_user_ids = sorted(
                 list(
                     set(
                         row["user_id"]
-                        for row in msg_users_res.data
+                        for row in users_res.data
                         if row.get("user_id")
                     )
                 )
@@ -3731,7 +6741,7 @@ if is_admin:
                 msg_res = (
                     supabase
                     .table("messages")
-                    .select("*")
+                    .select("created_at, role")
                     .eq("user_id", uid)
                     .execute()
                 )
@@ -3886,7 +6896,7 @@ if is_admin:
         all_tester_logs = None
         try:
             # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(500).execute()
+            all_tester_logs = supabase.table("messages").select("user_id").order("created_at", desc=True).limit(200).execute()
             
             # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
             if all_tester_logs.data:
@@ -3911,9 +6921,22 @@ if is_admin:
         )
         st.divider()
 
+        if st.button(
+            "📖 会話履歴を表示",
+            key="show_user_logs"
+        ):
+            st.session_state["show_user_logs"] = True
+
         # プルダウンで選択肢したテスターのログを表示
         try:
-            if all_tester_logs.data:
+            if (
+                all_tester_logs.data
+                and st.session_state.get(
+                    "show_user_logs",
+                    False
+                )
+            ):
+
                 selected_logs = (
                     supabase
                     .table("messages")
@@ -3923,7 +6946,6 @@ if is_admin:
                     .limit(1000)
                     .execute()
                 )
-
                 logs = selected_logs.data or []
 
                 # grouped_logs = {}
