@@ -5870,11 +5870,22 @@ with all_tabs[1]:
             # st.caption("AIの発言内の絵文字の量")
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
+            st.markdown("##### 🔒 プレミアム会話設定")
+
+            is_free_plan = (
+                current_plan_type
+                == "🆓 無料プラン"
+            )
             new_response_length = st.selectbox(
                 "返事の長さ",
                 RESPONSE_LENGTH_PRESETS,
                 index=default_length_idx
+                disabled=is_free_plan
             )
+            if is_free_plan:
+                st.caption(
+                    "💎 ライトプラン以上で利用可能"
+                )
             default_dialect_idx = (
                 DIALECT_PRESETS.index(
                     current_dialect
@@ -5887,7 +5898,12 @@ with all_tabs[1]:
                 "方言",
                 DIALECT_PRESETS,
                 index=default_dialect_idx
+                disabled=is_free_plan
             )
+            if is_free_plan:
+                st.caption(
+                    "💎 ライトプラン以上で利用可能"
+                )
 
             # ==========================================
             # 応答方針（旧仕様）
