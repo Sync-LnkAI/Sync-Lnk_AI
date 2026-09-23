@@ -5870,6 +5870,7 @@ with all_tabs[1]:
             # st.caption("AIの発言内の絵文字の量")
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
+            st.markdown("---")
             st.markdown("##### 🔒 プレミアム会話設定")
 
             is_free_plan = (
