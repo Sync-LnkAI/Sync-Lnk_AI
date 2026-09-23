@@ -5809,12 +5809,13 @@ with all_tabs[1]:
         st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
         st.divider()
 
-        st.markdown("##### 🎨 アプリの外観＆カラー")
         with st.form("unified_settings_form"):
+            st.markdown("##### 🎨 アプリの外観＆カラー")
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             # 上部設定保存ボタン
             top_save = st.form_submit_button(
                 "設定を保存",
+                key="save_settings_top",
                 use_container_width=True
             )
             st.divider()
@@ -5962,6 +5963,10 @@ with all_tabs[1]:
             # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             st.markdown("---")
+            bottom_save = st.form_submit_button(
+                "設定を保存",
+                key="save_settings_bottom"
+            )
             if st.form_submit_button("設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
