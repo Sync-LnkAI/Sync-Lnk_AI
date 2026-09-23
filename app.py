@@ -5816,7 +5816,7 @@ with all_tabs[1]:
             top_save = st.form_submit_button(
                 "設定を保存",
                 key="save_settings_top",
-                use_container_width=True
+                # use_container_width=True
             )
             st.divider()
 
@@ -5839,6 +5839,37 @@ with all_tabs[1]:
                 in RESPONSE_LENGTH_PRESETS
                 else 1
             )
+
+            st.markdown("---")
+            st.markdown("##### 💬 会話設定")
+            st.caption(
+                "返事の長さや方言を設定できます。"
+            )
+
+            # AIの人格を選択
+            selected_preset = st.selectbox(
+                "AIの人格・スタイル", 
+                list(STYLE_PRESETS.keys()),
+                index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
+            )
+
+            with st.expander("💬 人格ごとの会話サンプルを見る"):
+                for personality, sample in PERSONALITY_SAMPLES.items():
+                    st.markdown(f" {personality}")
+                    st.markdown(sample)
+                    st.divider()
+            
+            # 絵文字3段階パーソナライズドロップダウン
+            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
+            default_emoji_idx = (
+                emoji_options.index(current_emoji_setting)
+                if current_emoji_setting in emoji_options
+                else 1
+            )
+            new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
+            # st.caption("AIの発言内の絵文字の量")
+            # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+
             new_response_length = st.selectbox(
                 "返事の長さ",
                 RESPONSE_LENGTH_PRESETS,
@@ -5857,37 +5888,8 @@ with all_tabs[1]:
                 DIALECT_PRESETS,
                 index=default_dialect_idx
             )
-            # 絵文字3段階パーソナライズドロップダウン
-            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
-            default_emoji_idx = (
-                emoji_options.index(current_emoji_setting)
-                if current_emoji_setting in emoji_options
-                else 1
-            )
-            new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
-            # st.caption("AIの発言内の絵文字の量")
-            # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
-
-
-            # AIの人格を選択
-            selected_preset = st.selectbox(
-                "AIの人格・スタイル", 
-                list(STYLE_PRESETS.keys()),
-                index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
-            )
-
-            with st.expander("💬 人格ごとの会話サンプルを見る"):
-                for personality, sample in PERSONALITY_SAMPLES.items():
-                    st.markdown(f" {personality}")
-                    st.markdown(sample)
-                    st.divider()
 
             st.markdown("---")
-
-            st.markdown("##### 💬 会話設定")
-            st.caption(
-                "返事の長さや方言を設定できます。"
-            )
 
             # ==========================================
             # 応答方針（旧仕様）
@@ -5967,7 +5969,7 @@ with all_tabs[1]:
                 "設定を保存",
                 key="save_settings_bottom"
             )
-            if st.form_submit_button("設定を保存"):
+            # if st.form_submit_button("設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
                     r2 = save_or_update_user_setting("ユーザー名", new_user_name)
