@@ -5969,7 +5969,7 @@ with all_tabs[1]:
                 "設定を保存",
                 key="save_settings_bottom"
             )
-            # if st.form_submit_button("設定を保存"):
+            if st.form_submit_button("設定を保存"):
                 with st.spinner("設定を登録しています...しばらくお待ちください"):
                     r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
                     r2 = save_or_update_user_setting("ユーザー名", new_user_name)
