@@ -1657,7 +1657,7 @@ CALCULATION_TOOLS = {
 
 def classify_search_and_response_mode(
     user_input: str,
-    recent_history_str: str = ""
+    recent_history_str: str = "",
     calculation_pending: bool = False
 ):
     """
