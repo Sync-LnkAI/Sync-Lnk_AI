@@ -5889,8 +5889,6 @@ with all_tabs[1]:
                 index=default_dialect_idx
             )
 
-            st.markdown("---")
-
             # ==========================================
             # 応答方針（旧仕様）
             # 現在はUI非表示
