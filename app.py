@@ -4645,9 +4645,12 @@ with all_tabs[0]:
         #     ・電波瞬断エラー（None）の時 ➔ エラーメッセージを表示して停止
         
         if all_messages is None:
-            st.error("データベース通信に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
-            st.stop()
-            
+            st.error("データベースへの接続に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
+            db_available = False
+            all_messages = []
+        else:
+            db_available = True
+
         elif len(all_messages) == 0:
             welcome_text = (
                 f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
