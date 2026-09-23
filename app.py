@@ -398,7 +398,57 @@ DIALECT_PRESETS = [
     "博多弁",
     "名古屋弁"
 ]
+RESPONSE_LENGTH_PROMPTS = {
+    "短め": """
+    回答は簡潔にまとめてください。
+    通常は1〜3文程度を目安にしてください。
+    必要以上の前置き、繰り返し、長い説明は避けてください。
+    ただし、重要な注意事項や必要な確認事項は省略しないでください。
+    """,
 
+    "普通": """
+    回答は内容に応じた自然な長さにしてください。
+    通常は2〜6文程度を目安にしてください。
+    複雑な内容では、必要に応じて箇条書きや見出しを使用してください。
+    ユーザーが詳細を求めた場合は、必要な範囲で詳しく説明してください。
+    """,
+
+    "長め": """
+    回答は通常より詳しくしてください。
+    結論だけで終わらず、理由、背景、具体例、選択肢なども必要に応じて説明してください。
+    情報量が多い場合は、見出しや箇条書きを使って読みやすく整理してください。
+    ただし、同じ内容の言い換えや不要な繰り返しは避けてください。
+    """
+}
+
+
+DIALECT_PROMPTS = {
+    "標準語": """
+    自然な標準語で回答してください。
+    現在設定されている人格の特徴は維持してください。
+    """,
+
+    "関西弁": """
+    自然な関西弁で回答してください。
+    方言を過剰に強調せず、内容の読みやすさを優先してください。
+    真面目な相談や専門的な説明でも、自然な範囲で関西弁を維持してください。
+    現在設定されている人格の特徴も維持してください。
+    """,
+
+    "博多弁": """
+    自然な博多弁で回答してください。
+    方言を過剰に強調せず、内容の読みやすさを優先してください。
+    真面目な相談や専門的な説明でも、自然な範囲で博多弁を維持してください。
+    現在設定されている人格の特徴も維持してください。
+    """,
+
+    "名古屋弁": """
+    自然な名古屋弁で回答してください。
+    方言を過剰に強調せず、内容の読みやすさを優先してください。
+    真面目な相談や専門的な説明でも、自然な範囲で名古屋弁を維持してください。
+    現在設定されている人格の特徴も維持してください。
+    """
+}
 
 # AIのアバター
 AVATAR_PRESETS_AI = {
@@ -729,30 +779,117 @@ def delete_memory(memory_id: int) -> bool:
         print(f"❌ [DBメモリ削除エラー] {e}")
         return False
 
+# ==========================================
+# 旧設定保存関数
+# save_all_user_settings()移行後のため
+# 現在は未使用
+# 動作確認完了後に削除予定
+# ==========================================
+# def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
+#     """
+#     「AIの名前: タクミ」のような設定値の重複を防ぎ、
+#     古い設定を削除してから最新の設定を1件だけ保存する。
+#     """
+#     new_fact = f"{setting_key}: {new_value}"
 
-def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
+#     try:
+#         # 1. 既存の手動設定（source='manual'）をすべて取得
+#         res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
+        
+#         # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
+#         if res.data:
+#             for item in res.data:
+#                 if item.get("fact", "").startswith(f"{setting_key}:"):
+#                     delete_memory(item["id"])
+#                     print(f"古い設定を上書き削除しました: {item['fact']}")
+                
+#         # 3. 古いゴミを掃除した上で、最新の設定値を保存
+#         return save_memory(fact=new_fact, source="manual")
+        
+#     except Exception as e:
+#         print(f"設定更新エラー: {e}")
+#         return False
+
+def save_all_user_settings(
+    settings_dict: dict
+) -> bool:
     """
-    「AIの名前: タクミ」のような設定値の重複を防ぎ、
-    古い設定を削除してから最新の設定を1件だけ保存する。
+    設定をまとめて保存する。
+    settings_dict例:
+    {
+        "AIの名前": "ハヤト",
+        "ユーザー名": "リュウ",
+        "人格": "🤝 フランクな相棒",
+        "会話長さ": "長め",
+        "方言": "関西弁"
+    }
     """
-    new_fact = f"{setting_key}: {new_value}"
 
     try:
-        # 1. 既存の手動設定（source='manual'）をすべて取得
-        res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
-        
-        # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
-        if res.data:
-            for item in res.data:
-                if item.get("fact", "").startswith(f"{setting_key}:"):
-                    delete_memory(item["id"])
-                    print(f"古い設定を上書き削除しました: {item['fact']}")
-                
-        # 3. 古いゴミを掃除した上で、最新の設定値を保存
-        return save_memory(fact=new_fact, source="manual")
-        
+
+        res = (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .select("*")
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
+            .eq(
+                "source",
+                "manual"
+            )
+            .execute()
+        )
+
+        existing_rows = (
+            res.data
+            if res.data
+            else []
+        )
+
+        target_keys = set(
+            settings_dict.keys()
+        )
+
+        # 古い設定削除
+        for row in existing_rows:
+
+            fact_text = str(
+                row.get(
+                    "fact",
+                    ""
+                )
+            )
+
+            for key in target_keys:
+
+                if fact_text.startswith(
+                    f"{key}:"
+                ):
+                    delete_memory(
+                        row["id"]
+                    )
+                    break
+
+        # 新しい設定保存
+        for key, value in (
+            settings_dict.items()
+        ):
+
+            save_memory(
+                fact=f"{key}: {value}",
+                source="manual"
+            )
+
+        return True
+
     except Exception as e:
-        print(f"設定更新エラー: {e}")
+
+        print(
+            f"一括設定保存エラー: {e}"
+        )
+
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
@@ -4629,6 +4766,25 @@ all_tabs = st.tabs(tab_titles)
 with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+        # ==========================================
+        # プラン別制御
+        # ==========================================
+        response_length_prompt = ""
+        dialect_prompt = ""
+
+        if current_plan_type != "🆓 無料プラン":
+            response_length_prompt = (
+                RESPONSE_LENGTH_PROMPTS.get(
+                    current_response_length,
+                    ""
+                )
+            )
+            dialect_prompt = (
+                DIALECT_PROMPTS.get(
+                    current_dialect,
+                    ""
+                )
+            )
 
         #st.code(build_manual_memory_context())
         #if st.button("記憶確認"):
@@ -5342,8 +5498,10 @@ with all_tabs[0]:
 
                             【現在の人格】
                             {STYLE_PRESETS.get(current_style_preset, "")}
-                            【現在の応答方針】
-                            {current_user_instruction}
+
+                            {response_length_prompt}
+
+                            {dialect_prompt}
 
                             【直近の会話履歴】
                             {use_recent_history}
@@ -5985,31 +6143,27 @@ with all_tabs[1]:
                 key="save_settings_bottom"
             )
             if top_save or bottom_save:
-            # if st.form_submit_button("設定を保存"):
-                with st.spinner("設定を登録しています...しばらくお待ちください"):
-                    r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
-                    r2 = save_or_update_user_setting("ユーザー名", new_user_name)
-                    r3 = save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                    r4 = save_or_update_user_setting("AI一人称", new_first_person)
-                    r5 = save_or_update_user_setting("人格", selected_preset)
-                    # final_instruction = "\n".join(edited_rules)
-                    r6 = save_or_update_user_setting("会話長さ",new_response_length)
-                    r7 = save_or_update_user_setting("方言",new_dialect)
-                    # r8 = save_or_update_user_setting("応答方針", final_instruction)
-                    # r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
-                    # r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                    r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
-                    #r10 = save_or_update_user_setting("会員プラン", new_plan)
-                    success = (
-                        r1 and r2 and r3 and r4 and r5 and r6 and r7 and r9
-                    )
+                settings_dict = {
+                    "カラーテーマ": selected_color,
+                    "AIの名前": new_concierge_name,
+                    "ユーザー名": new_user_name,
+                    "ユーザー敬称": new_user_honorific,
+                    "AI一人称": new_first_person,
+                    "人格": selected_preset,
+                    "会話長さ": new_response_length,
+                    "方言": new_dialect,
+                    "絵文字の量": new_emoji_setting
+                }
 
-                    if success:
-                        st.success("設定を更新しました")
-                        st.rerun()
-                    else:
-                        st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
-                        st.stop()
+                success =  save_all_user_settings(
+                    settings_dict
+                )
+
+                if success:
+                    st.success("設定を更新しました")
+                    st.rerun()
+                else:
+                    st.error("設定の保存に失敗しました")
         
         st.divider()
         #st.markdown("---")
