@@ -5960,7 +5960,7 @@ with all_tabs[0]:
 
 with all_tabs[1]:
 
-    st"### 🧠 記憶ルーム")
+    st.markdown("### 🧠 記憶ルーム")
 
     st.info(
         "AIが覚えている内容や保存メモを確認できる場所です。"
