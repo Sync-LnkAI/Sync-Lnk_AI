@@ -4752,9 +4752,9 @@ st.markdown(f"""
 is_admin = CURRENT_USER_ID == ADMIN_USER_ID
 
 if is_admin:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
+    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
 else:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
+    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
 
 # 🎪 【タブの一括展開】
 # Streamlitのタブを動的に生成
@@ -5958,10 +5958,114 @@ with all_tabs[0]:
             # with st.chat_message(msg["role"], avatar=avatar_img):
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
+with all_tabs[1]:
+
+    st"### 🧠 記憶ルーム")
+
+    st.info(
+        "AIが覚えている内容や保存メモを確認できる場所です。"
+    )
+
+    st.divider()
+    #st.markdown("---")
+
+    #　要約を取得・作成
+    summary_memories_setting = get_memories(
+        source="summary"
+    )
+    summary_memory_context_setting = (
+        "\n".join(
+            [m["fact"] for m in summary_memories_setting]
+        )
+        if summary_memories_setting
+        else "なし"
+    )
+    display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
+
+    #　要約を表示
+    st.markdown("##### 🧠 現在AIが覚えていること")
+    if display_summary != "なし":
+        #st.info(display_summary)
+        st.caption("　AIが長期記憶として覚えている内容です。")
+        st.markdown(display_summary.replace("\n"," \n"))
+    else:
+        st.caption("まだ覚えている情報はありません。")
+    
+    st.markdown("===")
+
+    st.markdown("##### 💬 保存されている会話")
+    if current_plan_type == "🆓 無料プラン":
+
+        st.info("ライトプラン以上で利用できます。")
+
+        st.caption("後で見返したい会話を保存できます。")
+
+    else:
+        st.caption("保存した会話を表示します。")
+        mock_saved_chats = [
+            {
+                "title":
+                    "2026/09/24 21:15 の会話",
+                "content":
+                    "Sync-Lnkスタンダードの料金設計について相談しました。"
+            },
+            {
+                "title":
+                    "2026/09/20 18:42 の会話",
+                "content":
+                    "ポイント構想について検討しました。"
+            }
+            ]
+        # saved_chats = (
+        #     supabase
+        #     .table("saved_chats")
+        #     .select("*")
+        #     .eq(
+        #         "user_id",
+        #         CURRENT_USER_ID
+        #     )
+        #     .order(
+        #         "created_at",
+        #         desc=True
+        #     )
+        #     .execute()
+        # )
+
+            if not mock_saved_chats:
+                st.caption("保存されたメモはありません。")
+            else:
+                for item in mock_saved_chats:
+                    with st.expander(
+                        f"📝 {item['title']}"
+                    ):
+                        st.write(item["content"])
+                        st.button(
+                            "削除",
+                            key=(
+                                f"delete_saved_"
+                                f"{item['title']}"
+                            ),
+                            disabled=True
+                        )
+
+
+    st.divider()
+
+
+with all_tabs[2]:
+
+    st.markdown("### 📁 計画ルーム.info(
+        "AIと一緒に長期的な計画を管理する場所です。"
+    )
+
+    st.markdown(
+        "🚧 準備中"
+    )
+
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
-with all_tabs[1]:
+with all_tabs[3]:
         #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.markdown("")
         st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
@@ -6164,37 +6268,11 @@ with all_tabs[1]:
                     st.rerun()
                 else:
                     st.error("設定の保存に失敗しました")
-        
-        st.divider()
-        #st.markdown("---")
-
-        #　要約を取得・作成
-        summary_memories_setting = get_memories(
-            source="summary"
-        )
-        summary_memory_context_setting = (
-            "\n".join(
-                [m["fact"] for m in summary_memories_setting]
-            )
-            if summary_memories_setting
-            else "なし"
-        )
-        display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
-
-        #　要約を表示
-        st.markdown("##### 🧠 現在AIが覚えていること")
-        if display_summary != "なし":
-            #st.info(display_summary)
-            st.caption("　AIが長期記憶として覚えている内容です。")
-            st.markdown(display_summary.replace("\n"," \n"))
-        else:
-            st.caption("まだ覚えている情報はありません。")
-        st.divider()
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
 # ------------------------------------------------------------------
-with all_tabs[2]:
+with all_tabs[4]:
     st.markdown("##### 📜 利用規約・プライバシーポリシー")
     st.caption("※本規約は、現在実施中のクローズドテスト、および将来の正式リリース運用を想定した共通のサービス利用基本規約です。")
     
@@ -6212,7 +6290,7 @@ if is_admin:
     # ──────────────────────────────────────────
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
-    with all_tabs[3]:
+    with all_tabs[5]:
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -6851,7 +6929,7 @@ if is_admin:
     # ==========================================
     # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
     # ==========================================
-    with all_tabs[4]:
+    with all_tabs[6]:
         # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
                     
