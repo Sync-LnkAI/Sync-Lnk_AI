@@ -6052,12 +6052,8 @@ with all_tabs[1]:
 
 
 with all_tabs[2]:
-
-    st.markdown("#### 📁 計画ルーム")
-    st.info("AIと一緒に長期的な計画を管理する場所です。")
-
-    st.markdown(("### 📁 計画ルーム")
-
+    st.markdown("##### 📁 計画ルーム")
+    if (
        "スタンダード"
         not in current_plan_type
     ):
