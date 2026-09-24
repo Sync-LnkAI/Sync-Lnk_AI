@@ -5991,10 +5991,8 @@ with all_tabs[1]:
 
     st.markdown("##### 💬 保存されている会話")
     if current_plan_type == "🆓 無料プラン":
-
+        st.caption("保存された会話を確認できます。")
         st.caption("ライトプラン以上で利用できます。")
-
-        st.caption("後で見返したい会話を保存できます。")
 
     else:
         st.caption("保存した会話を表示します。")
