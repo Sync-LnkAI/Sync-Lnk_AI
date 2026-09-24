@@ -5965,28 +5965,15 @@ with all_tabs[1]:
     # st.info(
     #     "AIが覚えている内容や保存メモを確認できる場所です。"
     # )
-    st.markdown(
-        """
-        <div style="
-            display:flex;
-            align-items:center;
-            gap:12px;
-            margin-bottom:10px;
-        ">
-            <h3 style="margin:0;">
-                🧠 記憶ルーム
-            </h3>
+    col_title, col_desc = st.columns([1, 3])
 
-            <span style="
-                color:#888;
-                font-size:0.9rem;
-            ">
-                AIが覚えている内容や保存メモを確認できる場所です。
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    with col_title:
+        st.markdown("##### 🧠 記憶ルーム")
+
+    with col_desc:
+        st.caption(
+            "AIが覚えている内容や保存メモを確認できる場所です。"
+        )
 
     st.divider()
     #st.markdown("---")
