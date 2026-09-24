@@ -5960,10 +5960,34 @@ with all_tabs[0]:
 
 with all_tabs[1]:
 
-    st.markdown("#### 🧠 記憶ルーム")
+    # st.markdown("#### 🧠 記憶ルーム")
 
-    st.info(
-        "AIが覚えている内容や保存メモを確認できる場所です。"
+    # st.info(
+    #     "AIが覚えている内容や保存メモを確認できる場所です。"
+    # )
+    st.markdown(
+        """
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:12px;
+            margin-bottom:10px;
+        ">
+            <h3 style="
+                margin:0;
+            ">
+                🧠 記憶ルーム
+            </h3>
+
+            <span style="
+                color:#888;
+                font-size:0.9rem;
+            ">
+                AIが覚えている内容や保存メモを確認できる場所です。
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     st.divider()
@@ -5991,7 +6015,7 @@ with all_tabs[1]:
     else:
         st.caption("まだ覚えている情報はありません。")
     
-    st.markdown("===")
+    st.markdown("---")
 
     st.markdown("##### 💬 保存されている会話")
     if current_plan_type == "🆓 無料プラン":
