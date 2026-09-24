@@ -6056,9 +6056,154 @@ with all_tabs[2]:
     st.markdown("#### 📁 計画ルーム")
     st.info("AIと一緒に長期的な計画を管理する場所です。")
 
-    st.markdown(
-        "🚧 準備中"
-    )
+    st.markdown(("### 📁 計画ルーム")
+
+       "スタンダード"
+        not in current_plan_type
+    ):
+
+        st.info(
+            "💎 スタンダードプラン専用機能です。"
+        )
+
+        st.markdown(
+            """
+            AIと一緒に継続的なテーマを管理できます。
+
+            ・決定事項
+            ・検討中
+            ・保留事項
+            ・次にやること
+
+            を整理しながら進められます。
+            """
+        )
+
+    else:
+
+        st.caption(
+            "AIと一緒に計画を作り上げる専用ルームです。"
+        )
+
+        st.markdown("---")
+
+        active_project = st.selectbox(
+            "進行中の計画",
+            [
+                "選択してください",
+                "🚀 Sync-Lnk開発",
+                "🏠 マイホーム計画"
+            ]
+        )
+
+        completed_project = st.selectbox(
+            "完了済みの計画",
+            [
+                "選択してください",
+                "🎓 資格取得"
+            ]
+        )
+
+        col1, col2 = st.columns([1,1])
+
+        with col1:
+            st.button(
+                "表示",
+                use_container_width=True
+            )
+
+        with col2:
+            st.button(
+                "計画削除",
+                disabled=True,
+                use_container_width=True
+            )
+
+        st.markdown("---")
+
+        with st.expander(
+            "📌 計画内容",
+            expanded=True
+        ):
+
+            st.markdown(
+                """
+                #### 🎯 目的
+
+                MVP2完成
+
+                ---
+
+                #### ✅ 決定事項
+
+                ・ライト480円
+
+                ・スタンダード980円
+
+                ---
+
+                #### 🤔 検討中
+
+                ・ポイント設計
+
+                ---
+
+                #### ⏸ 保留事項
+
+                ・法人向けプラン
+
+                ---
+
+                #### 🚀 次にやること
+
+                ・会員基盤作成
+                """
+            )
+
+        st.markdown("---")
+
+        col_top, col_bottom = st.columns(2)
+
+        with col_top:
+            st.button(
+                "⬆ 一番上へ",
+                disabled=True,
+                use_container_width=True
+            )
+
+        with col_bottom:
+            st.button(
+                "⬇ 一番下へ",
+                disabled=True,
+                use_container_width=True
+            )
+
+        st.markdown("#### 💬 会話履歴")
+
+        st.info(
+            "会話履歴（モック表示）"
+        )
+
+        st.markdown(
+            """
+            👤 スタンダードの料金どうしようかな？
+
+            🤖 980円でも十分成立しそうです。
+            """
+        )
+
+        st.markdown(
+            """
+            👤 記憶ルームと計画ルームは分けたい。
+
+            🤖 その方が役割が明確になります。
+            """
+        )
+
+        st.chat_input(
+            "計画ルームで会話..."
+        )
+
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
