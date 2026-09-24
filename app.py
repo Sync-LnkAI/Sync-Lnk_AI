@@ -6031,23 +6031,22 @@ with all_tabs[1]:
         #     .execute()
         # )
 
-            if not mock_saved_chats:
-                st.caption("保存されたメモはありません。")
-            else:
-                for item in mock_saved_chats:
-                    with st.expander(
-                        f"📝 {item['title']}"
-                    ):
-                        st.write(item["content"])
-                        st.button(
-                            "削除",
-                            key=(
-                                f"delete_saved_"
-                                f"{item['title']}"
-                            ),
-                            disabled=True
-                        )
-
+        if not mock_saved_chats:
+            st.caption("保存されたメモはありません。")
+        else:
+            for item in mock_saved_chats:
+                with st.expander(
+                    f"📝 {item['title']}"
+                ):
+                    st.write(item["content"])
+                    st.button(
+                        "削除",
+                        key=(
+                            f"delete_saved_"
+                            f"{item['title']}"
+                        ),
+                        disabled=True
+                    )
 
     st.divider()
 
