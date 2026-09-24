@@ -6052,6 +6052,7 @@ with all_tabs[1]:
 
 
 with all_tabs[2]:
+    current_plan_type = "スタンダード"
     st.markdown("##### 📁 計画ルーム")
     if (
        "スタンダード"
