@@ -5959,24 +5959,26 @@ with all_tabs[0]:
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 with all_tabs[1]:
+    st.markdown("##### 🧠 記憶ルーム")
+    st.caption("AIが覚えている内容や保存メモを確認できます。")
 
     # st.markdown("#### 🧠 記憶ルーム")
 
     # st.info(
     #     "AIが覚えている内容や保存メモを確認できる場所です。"
     # )
-    col_title, col_desc = st.columns(
-        [1.8, 5],
-        vertical_alignment="bottom"
-    )
+    # col_title, col_desc = st.columns(
+    #     [1.8, 5],
+    #     vertical_alignment="bottom"
+    # )
 
-    with col_title:
-        st.markdown("### 🧠 記憶ルーム")
+    # with col_title:
+    #     st.markdown("### 🧠 記憶ルーム")
 
-    with col_desc:
-        st.caption(
-            "AIが覚えている内容や保存メモを確認できる場所です。"
-        )
+    # with col_desc:
+    #     st.caption(
+    #         "AIが覚えている内容や保存メモを確認できる場所です。"
+    #     )
 
     # col_title, col_desc = st.columns([2, 3])
 
