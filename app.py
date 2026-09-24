@@ -5960,50 +5960,10 @@ with all_tabs[0]:
 
 with all_tabs[1]:
     st.markdown("##### 🧠 記憶ルーム")
-    st.caption("AIが覚えている内容や保存メモを確認できます。")
+    st.caption("  AIが覚えている内容や保存メモを確認できます。")
 
-    # st.markdown("#### 🧠 記憶ルーム")
-
-    # st.info(
-    #     "AIが覚えている内容や保存メモを確認できる場所です。"
-    # )
-    # col_title, col_desc = st.columns(
-    #     [1.8, 5],
-    #     vertical_alignment="bottom"
-    # )
-
-    # with col_title:
-    #     st.markdown("### 🧠 記憶ルーム")
-
-    # with col_desc:
-    #     st.caption(
-    #         "AIが覚えている内容や保存メモを確認できる場所です。"
-    #     )
-
-    # col_title, col_desc = st.columns([2, 3])
-
-    # with col_title:
-    #     st.markdown("##### 🧠 記憶ルーム")
-
-    # with col_desc:
-    #     # st.caption(
-    #     #     "AIが覚えている内容や保存メモを確認できる場所です。"
-    #     # )
-    #     st.markdown(
-    #         """
-    #         <div style="
-    #         color:#888;
-    #         font-size:0.9rem;
-    #         margin-top:18px;
-    #         ">
-    #         AIが覚えている内容や保存メモを確認できる場所です。
-    #         </div>
-    #         """,
-    #         unsafe_allow_html=True
-    #     )
-
-    st.divider()
-    #st.markdown("---")
+    # st.divider()
+    st.markdown("---")
 
     #　要約を取得・作成
     summary_memories_setting = get_memories(
@@ -6022,17 +5982,17 @@ with all_tabs[1]:
     st.markdown("##### 🧠 現在AIが覚えていること")
     if display_summary != "なし":
         #st.info(display_summary)
-        st.caption("　AIが長期記憶として覚えている内容です。")
+        st.caption("  AIが長期記憶として覚えている内容です。")
         st.markdown(display_summary.replace("\n"," \n"))
     else:
-        st.caption("まだ覚えている情報はありません。")
+        st.caption("  まだ覚えている情報はありません。")
     
     st.markdown("---")
 
     st.markdown("##### 💬 保存されている会話")
     if current_plan_type == "🆓 無料プラン":
 
-        st.info("ライトプラン以上で利用できます。")
+        st.caption("ライトプラン以上で利用できます。")
 
         st.caption("後で見返したい会話を保存できます。")
 
