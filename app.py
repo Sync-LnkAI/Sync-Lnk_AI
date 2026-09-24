@@ -5973,9 +5973,7 @@ with all_tabs[1]:
             gap:12px;
             margin-bottom:10px;
         ">
-            <h3 style="
-                margin:0;
-            ">
+            <h3 style="margin:0;">
                 🧠 記憶ルーム
             </h3>
 
