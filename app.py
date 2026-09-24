@@ -5960,7 +5960,7 @@ with all_tabs[0]:
 
 with all_tabs[1]:
 
-    st.markdown("### 🧠 記憶ルーム")
+    st.markdown("#### 🧠 記憶ルーム")
 
     st.info(
         "AIが覚えている内容や保存メモを確認できる場所です。"
@@ -6053,9 +6053,8 @@ with all_tabs[1]:
 
 with all_tabs[2]:
 
-    st.markdown("### 📁 計画ルーム.info(
-        "AIと一緒に長期的な計画を管理する場所です。"
-    )
+    st.markdown("#### 📁 計画ルーム")
+    st.info("AIと一緒に長期的な計画を管理する場所です。")
 
     st.markdown(
         "🚧 準備中"
