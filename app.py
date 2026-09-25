@@ -22,6 +22,23 @@ SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY_PRO"]
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+# ==========================================
+# AIプロバイダー設定
+# ==========================================
+
+AI_PROVIDER = "gemini"
+# AI_PROVIDER = "gpt"
+
+if AI_PROVIDER == "gpt":
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 @st.cache_resource
 def init_supabase() -> Client:
@@ -32,17 +49,26 @@ supabase = init_supabase()
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# Geminiモデル設定（★3.5/3.6 Flash-Liteへ完全一本化）
+# AIモデル設定
 # ==========================================
-# 💡 表側の雑談も、裏方の要約・エラー翻訳も、すべて最安・最速の「Flash-Lite」に固定してインフラコストを完全防衛します
-CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
-MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
-SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
-SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
+if AI_PROVIDER == "gemini":
+    CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+    MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
+    SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
+    SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
 
-chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
-memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
-summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+    chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
+    memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
+    summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+else:
+    CHAT_MODEL_NAME = "gpt-4o-mini"
+    MEMORY_MODEL_NAME = "gpt-4o-mini"
+    SUMMARY_MODEL_NAME = "gpt-4o-mini"
+    SEARCH_MODEL_NAME = "gpt-4o-mini"
+
+    chat_model = None
+    memory_model = None
+    summary_model = None
 
 # Gemini 3.5 Flash-Lite 従量課金単価定義（1ドル150円換算）
 USD_TO_JPY = 160
@@ -1746,6 +1772,195 @@ def is_micro_chat(user_input: str) -> bool:
             for keyword in MICRO_CHAT_PATTERNS
         )
     )
+
+# ChatGPT呼び出し関数
+def generate_gpt_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False
+):
+    """
+    GPT-4o mini 呼び出し共通関数
+    """
+
+    if openai_client is None:
+        raise RuntimeError(
+            "OpenAIクライアントが初期化されていません"
+        )
+
+    response = (
+        openai_client.chat.completions.create(
+            model=CHAT_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_instruction
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            response_format=(
+                {"type": "json_object"}
+                if response_format_json
+                else None
+            )
+        )
+    )
+
+    content = (
+        response.choices[0]
+        .message
+        .content
+        if response.choices
+        else ""
+    )
+
+    usage = response.usage
+
+    in_tokens = (
+        usage.prompt_tokens
+        if usage
+        else 0
+    )
+
+    out_tokens = (
+        usage.completion_tokens
+        if usage
+        else 0
+    )
+
+    return {
+        "text": content,
+        "in_tokens": in_tokens,
+        "out_tokens": out_tokens
+    }
+
+def generate_ai_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False,
+    model_name: str = None
+):
+    """
+    Gemini / GPT 共通呼び出し関数
+
+    戻り値
+
+    {
+        "text": "...",
+        "in_tokens": 123,
+        "out_tokens": 456
+    }
+    """
+
+    if AI_PROVIDER == "gpt":
+
+        return generate_gpt_response(
+            system_instruction=
+                system_instruction,
+            user_prompt=
+                user_prompt,
+            response_format_json=
+                response_format_json
+        )
+
+    # Gemini
+    generation_config = {}
+
+    if response_format_json:
+        generation_config[
+            "response_mime_type"
+        ] = "application/json"
+
+    model = genai.GenerativeModel(
+        model_name=(
+            model_name
+            or CHAT_MODEL_NAME
+        ),
+        system_instruction=
+            system_instruction
+    )
+
+    response = model.generate_content(
+        [
+            {
+                "role": "user",
+                "parts": [user_prompt]
+            }
+        ],
+        generation_config=
+            generation_config
+    )
+
+    in_tokens = 0
+    out_tokens = 0
+
+    if (
+        hasattr(
+            response,
+            "usage_metadata"
+        )
+        and response.usage_metadata
+    ):
+
+        in_tokens = (
+            response
+            .usage_metadata
+            .prompt_token_count
+            or 0
+        )
+
+        out_tokens = (
+            response
+            .usage_metadata
+            .candidates_token_count
+            or 0
+        )
+
+    return {
+        "text":
+            response.text or "",
+        "in_tokens":
+            in_tokens,
+        "out_tokens":
+            out_tokens
+    }
+
+def get_ai_text_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False
+):
+    """
+    Gemini / GPT 共通レスポンス取得
+
+    戻り値
+
+    text
+    in_tokens
+    out_tokens
+    """
+
+    result = generate_ai_response(
+        system_instruction=
+            system_instruction,
+        user_prompt=
+            user_prompt,
+        response_format_json=
+            response_format_json
+    )
+
+    return (
+        result["text"],
+        result["in_tokens"],
+        result["out_tokens"]
+    )
+
 
 # 検索関数
 from google import genai as search_genai
