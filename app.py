@@ -6206,8 +6206,8 @@ with all_tabs[1]:
 
     st.markdown("##### 💬 保存されている会話")
     if current_plan_type == "🆓 無料プラン":
-        st.caption("保存された会話を確認できます。")
-        st.caption("ライトプラン以上で利用できます。")
+        st.caption("ここで保存した会話を確認できます。")
+        st.caption(" 💎 ライトプラン以上で利用できます。")
 
     else:
         st.caption("保存した会話を表示します。")
@@ -6328,40 +6328,29 @@ with all_tabs[2]:
         st.markdown("---")
 
         with st.expander(
-            "📌 計画内容",
+            "📌 計画タイトル（例）",
             expanded=True
         ):
-
             st.markdown(
                 """
-                #### 🎯 目的
-
-                MVP2完成
+                【計画概要】
+                ※実際にはAIが内容に応じて整理します
 
                 ---
-
-                #### ✅ 決定事項
-
+                【✅ 決定事項】
                 ・ライト480円
-
                 ・スタンダード980円
 
                 ---
-
-                #### 🤔 検討中
-
+                【🤔 検討中】
                 ・ポイント設計
 
                 ---
-
-                #### ⏸ 保留事項
-
+                【⏸ 保留事項】
                 ・法人向けプラン
 
                 ---
-
-                #### 🚀 次にやること
-
+                【🚀 次にやること】
                 ・会員基盤作成
                 """
             )
@@ -6723,7 +6712,16 @@ if is_admin:
             search_judge_total_cost = 0.0
             search_judge_total_in = 0
             search_judge_total_out = 0
+            search_count = 0
+            calc_total = 0
+            calc_success = 0
+            calc_missing = 0
+            calc_error = 0
+            calc_extract_cost = 0.0
+            calc_extract_in = 0
+            calc_extract_out = 0
             user_logs = []
+
             try:
                 user_logs = (
                     supabase
