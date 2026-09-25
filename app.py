@@ -6329,7 +6329,7 @@ with all_tabs[2]:
 
         col1, col2, col3 = st.columns([1,1,6])
         with col1:
-            st.button("表示",)
+            st.button("計画表示",)
         with col2:
             st.button("計画削除", disabled=True,)
 
