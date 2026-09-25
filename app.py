@@ -547,8 +547,7 @@ def get_messages(target_id: str) -> list[dict]:
         )
         return None
 
-def save_message(role: str, content: str,message_id: str = "") -> bool:
-    """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
+def save_message(role: str, content: str,message_id: str = "", response_mode: str = "") -> bool:
     
     embedding_data = None
     
@@ -572,7 +571,8 @@ def save_message(role: str, content: str,message_id: str = "") -> bool:
             "role": role,
             "content": content,
             "embedding": embedding_data,
-            "message_id": message_id
+            "message_id": message_id,
+            "response_mode": (response_mode if response_mode else None)
         }
 
         supabase.table("messages").insert(data).execute()
@@ -590,6 +590,98 @@ def save_message(role: str, content: str,message_id: str = "") -> bool:
         st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
         
         return False
+
+def update_conversation_response_mode(
+    message_id: str,
+    response_mode: str
+) -> bool:
+    """
+    同じmessage_idを持つユーザー発言と
+    AI返答の両方へ会話モードを設定する。
+    """
+    if not message_id:
+        return False
+
+    if not response_mode:
+        return False
+
+    try:
+        (
+            supabase
+            .table("messages")
+            .update({
+                "response_mode":
+                    response_mode
+            })
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
+            .eq(
+                "message_id",
+                str(message_id)
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception as update_error:
+        print(
+            "会話モード更新エラー: "
+            f"{type(update_error).__name__}: "
+            f"{update_error}"
+        )
+
+        return False
+
+def cleanup_old_short_chats(
+    keep_conversations: int = 100
+) -> int:
+    """
+    最新keep_conversations会話より古い
+    short_chatを会話単位で削除する。
+
+    判定と削除はSupabase内で行うため、
+    メッセージ本文をアプリへ取得しない。
+    """
+    try:
+        cleanup_response = (
+            supabase
+            .rpc(
+                "cleanup_old_short_chats",
+                {
+                    "p_user_id":
+                        CURRENT_USER_ID,
+
+                    "p_keep_conversations":
+                        keep_conversations
+                }
+            )
+            .execute()
+        )
+
+        deleted_count = int(
+            cleanup_response.data
+            or 0
+        )
+
+        if deleted_count > 0:
+            print(
+                "古いshort_chatを削除: "
+                f"{deleted_count}行"
+            )
+
+        return deleted_count
+
+    except Exception as cleanup_error:
+        print(
+            "short_chat整理エラー: "
+            f"{type(cleanup_error).__name__}: "
+            f"{cleanup_error}"
+        )
+
+        return 0
 
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
@@ -6084,8 +6176,13 @@ with all_tabs[0]:
                             save_message("assistant", ai_reply, current_msg_id)
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                            if (
+                                st.session_state.conversation_count
+                                % 20
+                                == 0
+                            ):
+                                cleanup_old_micro_chats()
 
                             # ==================================================================
                             # 🧠 記憶の自動要約マルチスレッド
