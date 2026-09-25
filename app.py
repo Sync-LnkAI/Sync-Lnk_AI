@@ -6327,20 +6327,11 @@ with all_tabs[2]:
             ]
         )
 
-        col1, col2 = st.columns([1,1])
-
+        col1, col2, col3 = st.columns([1,1,6])
         with col1:
-            st.button(
-                "表示",
-                use_container_width=True
-            )
-
+            st.button("表示",)
         with col2:
-            st.button(
-                "計画削除",
-                disabled=True,
-                use_container_width=True
-            )
+            st.button("計画削除", disabled=True,)
 
         st.markdown("---")
 
@@ -6374,21 +6365,7 @@ with all_tabs[2]:
 
         st.markdown("---")
 
-        col_top, col_bottom = st.columns(2)
-
-        with col_top:
-            st.button(
-                "⬆ 一番上へ",
-                disabled=True,
-                use_container_width=True
-            )
-
-        with col_bottom:
-            st.button(
-                "⬇ 一番下へ",
-                disabled=True,
-                use_container_width=True
-            )
+        st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
         st.markdown("#### 💬 会話履歴")
 
