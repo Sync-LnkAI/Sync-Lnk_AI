@@ -7281,6 +7281,7 @@ if is_admin:
         # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
                     
         tester_rows = []
+        users = {}
         try:
             memories_res = (
                 supabase
@@ -7289,7 +7290,6 @@ if is_admin:
                 .execute()
             )
 
-            users = {}
             USER_PROFILE = {
                 "m.kawamura00": "40代女性",
                 "yasusan_cw": "40代男性",
