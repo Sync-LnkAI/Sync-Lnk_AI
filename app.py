@@ -6316,31 +6316,29 @@ with all_tabs[2]:
                 "選択してください",
                 "🚀 Sync-Lnk開発",
                 "🏠 マイホーム計画"
-            ]
+            ],
+            key="active_project"
         )
-
+        col1, col2, col3 = st.columns([1,1,6])
+        with col1:
+            active_show = st.button("計画表示", key="active_show")
+        with col2:
+            active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+        st.markdown("---")
         with st.expander("✅ 完了済み計画"):
             completed_project = st.selectbox(
                 "完了済みの計画",
                 [
                     "選択してください",
                     "🎓 資格取得"
-                ]
+                ],
+                key="completed_project"
             )
-        target_project = None
-
-        if active_project != "選択してください":
-            target_project = active_project
-
-        elif (completed_project != "選択してください"):
-
-            target_project = completed_project
-
-        col1, col2, col3 = st.columns([1,1,6])
-        with col1:
-            st.button("計画表示",)
-        with col2:
-            st.button("計画削除", disabled=True,)
+        col4, col5, col6 = st.columns([1,1,6])
+        with col4:
+            completed_show = st.button("計画表示", key="completed_show")
+        with col5:
+            completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
 
         st.markdown("---")
 
