@@ -6308,8 +6308,6 @@ with all_tabs[2]:
             "AIと一緒に計画を作り上げる専用ルームです。"
         )
 
-        st.markdown("---")
-
         plan_view_mode = st.radio(
             "",
             [
