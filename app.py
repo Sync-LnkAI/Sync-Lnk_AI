@@ -6310,95 +6310,106 @@ with all_tabs[2]:
 
         st.markdown("---")
 
-        active_project = st.selectbox(
-            "進行中の計画",
+        plan_view_mode = st.radio(
+            "",
             [
+            "🚀 進行中の計画",
+            "✅ 完了済み計画"
+            ],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        st.markdown("---")
+
+        if plan_view_mode == "🚀 進行中の計画":
+            active_project = st.selectbox(
+                "進行中",
+                [
                 "選択してください",
                 "🚀 Sync-Lnk開発",
                 "🏠 マイホーム計画"
-            ],
-            key="active_project"
-        )
-        col1, col2, col3 = st.columns([1,1,6])
-        with col1:
-            active_show = st.button("計画表示", key="active_show")
-        with col2:
-            active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
-        st.markdown("---")
-        with st.expander("✅ 完了済み計画"):
+                ]
+            )
+
+            col1, col2, col3 = st.columns([1,1,6])
+            with col1:
+                active_show = st.button("計画表示", key="active_show")
+            with col2:
+                active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+            st.markdown("---")
+        else:
             completed_project = st.selectbox(
                 "完了済みの計画",
                 [
                     "選択してください",
                     "🎓 資格取得"
                 ],
-                key="completed_project"
             )
-        col4, col5, col6 = st.columns([1,1,6])
-        with col4:
-            completed_show = st.button("計画表示", key="completed_show")
-        with col5:
-            completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
+            col1, col2, col3 = st.columns([1,1,6])
+            with col1:
+                completed_show = st.button("計画表示", key="completed_show")
+            with col2:
+                completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
 
-        st.markdown("---")
+            st.markdown("---")
 
-        with st.expander(
-            "📌 計画タイトル（例）",
-            expanded=True
-        ):
+            with st.expander(
+                "📌 計画タイトル（例）",
+                expanded=True
+            ):
+                st.markdown(
+                    """
+                    【計画概要】
+                    ※実際にはAIが内容に応じて整理します
+
+                    ---
+                    【✅ 決定事項】
+                    ・ライト480円
+                    ・スタンダード980円
+
+                    ---
+                    【🤔 検討中】
+                    ・ポイント設計
+
+                    ---
+                    【⏸ 保留事項】
+                    ・法人向けプラン
+
+                    ---
+                    【🚀 次にやること】
+                    ・会員基盤作成
+                    """
+                )
+
+            st.markdown("---")
+
+            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+
+            st.markdown("#### 💬 会話履歴")
+
+            st.info(
+                "会話履歴（モック表示）"
+            )
+
             st.markdown(
                 """
-                【計画概要】
-                ※実際にはAIが内容に応じて整理します
+                👤 スタンダードの料金どうしようかな？
 
-                ---
-                【✅ 決定事項】
-                ・ライト480円
-                ・スタンダード980円
-
-                ---
-                【🤔 検討中】
-                ・ポイント設計
-
-                ---
-                【⏸ 保留事項】
-                ・法人向けプラン
-
-                ---
-                【🚀 次にやること】
-                ・会員基盤作成
+                🤖 980円でも十分成立しそうです。
                 """
             )
 
-        st.markdown("---")
+            st.markdown(
+                """
+                👤 記憶ルームと計画ルームは分けたい。
 
-        st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+                🤖 その方が役割が明確になります。
+                """
+            )
 
-        st.markdown("#### 💬 会話履歴")
-
-        st.info(
-            "会話履歴（モック表示）"
-        )
-
-        st.markdown(
-            """
-            👤 スタンダードの料金どうしようかな？
-
-            🤖 980円でも十分成立しそうです。
-            """
-        )
-
-        st.markdown(
-            """
-            👤 記憶ルームと計画ルームは分けたい。
-
-            🤖 その方が役割が明確になります。
-            """
-        )
-
-        st.chat_input(
-            "計画ルームで会話..."
-        )
+            st.chat_input(
+                "計画ルームで会話..."
+            )
 
 
 # ------------------------------------------------------------------
