@@ -6319,13 +6319,22 @@ with all_tabs[2]:
             ]
         )
 
-        completed_project = st.selectbox(
-            "完了済みの計画",
-            [
-                "選択してください",
-                "🎓 資格取得"
-            ]
-        )
+        with st.expander("✅ 完了済み計画"):
+            completed_project = st.selectbox(
+                "完了済みの計画",
+                [
+                    "選択してください",
+                    "🎓 資格取得"
+                ]
+            )
+        target_project = None
+
+        if active_project != "選択してください":
+            target_project = active_project
+
+        elif (completed_project != "選択してください"):
+
+            target_project = completed_project
 
         col1, col2, col3 = st.columns([1,1,6])
         with col1:
