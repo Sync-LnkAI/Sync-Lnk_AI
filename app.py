@@ -6162,6 +6162,23 @@ with all_tabs[0]:
                     """,
                     unsafe_allow_html=True
                 )
+                MODE_LABELS = {
+                    "analysis": "分析",
+                    "conversation": "会話",
+                    "support": "相談",
+                    "factual": "検索",
+                    "short_chat": "雑談"
+                }
+                col_save, col_mode = st.columns([2, 1])
+                with col_save:
+                    if current_plan_type == "🆓 無料プラン":
+                        st.caption("💎 ライトプラン以上で会話を保存できます")
+                    else:
+
+                        st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
+                with col_mode:
+
+                    st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
                 #st.divider()
 
             # st.write(
