@@ -6400,7 +6400,7 @@ with all_tabs[0]:
                     "factual": "検索",
                     "short_chat": "雑談"
                 }
-                col_save, col_mode = st.columns([2, 1])
+                col_spacer, col_save, col_mode = st.columns([6, 2, 1])
                 with col_save:
                     if current_plan_type == "🆓 無料プラン":
                         if st.button(
