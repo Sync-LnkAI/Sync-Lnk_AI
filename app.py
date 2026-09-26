@@ -3275,8 +3275,8 @@ def calculate_real_estate_sale(
     tax_calculation_status = None
 
     if owner_type == "individual":
-        if acquisition_date is None:
-            raise ValueError("個人の場合はacquisition_dateが必要です")
+        # if acquisition_date is None:
+        #     raise ValueError("個人の場合はacquisition_dateが必要です")
 
         if sale_date is not None:
             holding_type = (
