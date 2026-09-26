@@ -6740,7 +6740,7 @@ with all_tabs[3]:
 
                 if success:
                     st.success("設定を更新しました")
-                    st.rerun()
+                    # st.rerun()
                 else:
                     st.error("設定の保存に失敗しました")
 
