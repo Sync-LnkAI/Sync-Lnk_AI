@@ -5359,29 +5359,6 @@ with all_tabs[0]:
                         # with st.chat_message("user"):
                         # st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
                         st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
-                        
-                        search_start_time = time.time()
-                        # past_logs_context = search_past_logs_hybrid(user_input)
-                        if need_history_search:
-                            past_logs_context = (
-                                search_past_logs_hybrid(
-                                    user_input
-                                )
-                            )
-                        else:
-                            past_logs_context = []
-                        search_elapsed = time.time() - search_start_time
-                        
-                        if past_logs_context:
-                            logs_text = []
-                            for log in past_logs_context:
-                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                                raw_date = log.get("created_at", "")
-                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
-                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
-                            past_logs_str = "\n".join(logs_text)
-                        else:
-                            past_logs_str = "該当する過去ログなし"
 
                         # メッセージIDの自動生成
                         import uuid
@@ -5475,6 +5452,29 @@ with all_tabs[0]:
                             route_source = "llm_router"
 
                         router_elapsed = time.time() - router_start_time
+
+                        search_start_time = time.time()
+                        # past_logs_context = search_past_logs_hybrid(user_input)
+                        if need_history_search:
+                            past_logs_context = (
+                                search_past_logs_hybrid(
+                                    user_input
+                                )
+                            )
+                        else:
+                            past_logs_context = []
+                        search_elapsed = time.time() - search_start_time
+                        
+                        if past_logs_context:
+                            logs_text = []
+                            for log in past_logs_context:
+                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
+                                raw_date = log.get("created_at", "")
+                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
+                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
+                            past_logs_str = "\n".join(logs_text)
+                        else:
+                            past_logs_str = "該当する過去ログなし"
 
                         # ==========================================
                         # 独立したPython計算ツール判定
