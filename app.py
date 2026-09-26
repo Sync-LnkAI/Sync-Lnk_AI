@@ -6414,7 +6414,7 @@ with all_tabs[0]:
                             key=f"save_chat_{msg.get('message_id', '')}"
                         )
                 with col_mode:
-                    st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                    # st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
                     st.caption("🧠 会話モード")
                 st.write("")
 
