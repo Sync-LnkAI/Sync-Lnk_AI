@@ -7254,19 +7254,14 @@ if is_admin:
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
-            if st.button(
+            show_timeline_logs = st.button(
                 "📖 システムログを表示",
                 key="show_timeline_logs"
-            ):
-                st.session_state["show_timeline_logs"] = True
+            )
             
             try:
                 # 1. データベース（system_audit_logs）から直近50件の生データを抽出
-                if st.session_state.get(
-                    "show_timeline_logs",
-                    False
-                ):
-
+                if show_timeline_logs:
                     log_res = (
                         supabase
                         .table("system_audit_logs")
