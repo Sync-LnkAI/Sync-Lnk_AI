@@ -1182,7 +1182,8 @@ def add_permanent_tokens(
         )
         return False
 
-def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
+# def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
+def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【記憶の要約】
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
@@ -1880,46 +1881,48 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         print(f"⚠️ 口調自動翻訳エラー: {e}")
         return f"【{concierge_name}】: {raw_system_text}"
 
+#　どこからも呼ばれてない関数
 #デバッグ用データ作成
-def build_manual_memory_context():
-    manual_memories = get_memories(source="manual")
-    return "\n".join(
-        [f"・{m['fact']}" for m in manual_memories]
-    ) if manual_memories else "なし"
+# def build_manual_memory_context():
+#     manual_memories = get_memories(source="manual")
+#     return "\n".join(
+#         [f"・{m['fact']}" for m in manual_memories]
+#     ) if manual_memories else "なし"
 
+#　どこからも呼ばれてない関数
 #デバッグ用データ作成
-def build_recent_history_str():
-    all_messages = get_messages(CURRENT_USER_ID)
+# def build_recent_history_str():
+#     all_messages = get_messages(CURRENT_USER_ID)
 
-    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+#     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-    recent_history_lines = []
+#     recent_history_lines = []
 
-    for m in recent_messages:
-        role_name = (
-            display_user_name
-            if m.get("role") == "user"
-            else current_concierge_name
-        )
+#     for m in recent_messages:
+#         role_name = (
+#             display_user_name
+#             if m.get("role") == "user"
+#             else current_concierge_name
+#         )
 
-        created_at = m.get("created_at", "")
+#         created_at = m.get("created_at", "")
 
-        time_label = (
-            created_at.replace("T", " ")[:16]
-            if created_at
-            else "時刻不明"
-        )
+#         time_label = (
+#             created_at.replace("T", " ")[:16]
+#             if created_at
+#             else "時刻不明"
+#         )
 
-        recent_history_lines.append(
-            f"[{time_label}] {role_name}: "
-            f"{m.get('content', '')}"
-        )
+#         recent_history_lines.append(
+#             f"[{time_label}] {role_name}: "
+#             f"{m.get('content', '')}"
+#         )
 
-    return (
-        "\n".join(recent_history_lines)
-        if recent_history_lines
-        else "直近の会話履歴なし"
-    )
+#     return (
+#         "\n".join(recent_history_lines)
+#         if recent_history_lines
+#         else "直近の会話履歴なし"
+#     )
 
 # 短文処理判定
 def is_micro_chat(user_input: str) -> bool:
@@ -6302,11 +6305,7 @@ with all_tabs[0]:
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                            if (
-                                st.session_state.conversation_count
-                                % 20
-                                == 0
-                            ):
+                            if (st.session_state.conversation_count % 20 == 0):
                                 cleanup_old_micro_chats()
 
                             # ==================================================================
@@ -6320,12 +6319,19 @@ with all_tabs[0]:
                             #st.session_state.summary_processing_time = 0.0
         
                             # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
-                            all_messages_updated = get_messages(CURRENT_USER_ID)
-                            async_thread = threading.Thread(
-                                target=check_and_summarize_history, 
-                                args=(all_messages_updated, current_msg_id, current_plan_type) 
-                            )
-                            async_thread.start()
+                            # all_messages_updated = get_messages(CURRENT_USER_ID)
+                            # async_thread = threading.Thread(
+                            #     target=check_and_summarize_history, 
+                            #     args=(current_msg_id,current_plan_type)
+                            #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
+                            # )
+                            # async_thread.start()
+                            if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                                async_thread = threading.Thread(
+                                    target=check_and_summarize_history,
+                                    args=(current_msg_id, current_plan_type)
+                                )
+                                async_thread.start()
 
                             # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                             save_system_audit_log(
