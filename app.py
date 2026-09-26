@@ -6735,7 +6735,7 @@ with all_tabs[3]:
                     settings_dict
                 )
 
-                save_elapsed = (time.time() - save_start)
+                save_elapsed = (time.time() - start_time)
                 st.warning(f"設定保存時間: {save_elapsed:.2f}秒")
 
                 if success:
