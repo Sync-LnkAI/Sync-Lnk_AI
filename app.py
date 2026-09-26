@@ -958,6 +958,7 @@ def save_all_user_settings(
     """
 
     try:
+        save_start = time.time()
 
         res = (
             supabase
@@ -983,6 +984,9 @@ def save_all_user_settings(
         target_keys = set(
             settings_dict.keys()
         )
+        st.info(f"SELECT: {time.time() - save_start:.2f}秒")
+
+        delete_start = time.time()
 
         # 古い設定削除
         for row in existing_rows:
@@ -1003,6 +1007,9 @@ def save_all_user_settings(
                         row["id"]
                     )
                     break
+        st.info(f"DELETE: {time.time() - delete_start:.2f}秒")
+
+        insert_start = time.time()
 
         # 新しい設定保存
         for key, value in (
@@ -1023,6 +1030,11 @@ def save_all_user_settings(
                 .insert(data)
                 .execute()
             )
+        st.info(f"INSERT: {time.time() - insert_start:.2f}秒")
+        st.warning(
+            f"save_all_user_settings合計: "
+            f"{time.time() - save_start:.2f}秒"
+        )
 
         return True
 
