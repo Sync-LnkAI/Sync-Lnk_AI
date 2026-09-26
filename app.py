@@ -6283,7 +6283,8 @@ with all_tabs[0]:
                         st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
                 with col_mode:
 
-                    st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
+                    # st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
+                    st.caption("🧠 会話モード")
                 #st.divider()
 
             # st.write(
