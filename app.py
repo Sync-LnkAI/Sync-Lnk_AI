@@ -3275,9 +3275,6 @@ def calculate_real_estate_sale(
     tax_calculation_status = None
 
     if owner_type == "individual":
-        # if acquisition_date is None:
-        #     raise ValueError("個人の場合はacquisition_dateが必要です")
-
         if sale_date is not None:
             holding_type = (
                 determine_individual_holding_type(
@@ -3660,6 +3657,8 @@ def extract_real_estate_sale_parameters(
 
     ・取得日または売却日が完全に不明な場合のみ null にしてください。
     ・「売却日は未定」「これから売る予定」のような表現で年月も分からない場合は null にしてください。
+    ・ローン残債の基準日、返済日、借入残高の時点日、残高確認日などの日時は売却日として扱ってはいけません。
+    ・sale_date に設定してよいのは、売却日であることが明示されている場合だけです。単に日付が出てきただけではsale_date に設定してはいけません。
 
     【保有期間区分】
     ・ユーザーが長期譲渡または5年超と明示した場合は、holding_period_typeをlong_termにしてください。
