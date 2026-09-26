@@ -4508,10 +4508,10 @@ def execute_real_estate_sale_calculation(
             "error": None
         }
     
-    print(
-        f"🏠 不動産計算実行条件: "
-        f"{calculation_arguments}"
-    )
+    # print(
+    #     f"🏠 不動産計算実行条件: "
+    #     f"{calculation_arguments}"
+    # )
     # calculate_real_estate_sale()に渡す値だけに限定
     calculation_arguments = {
         key: value
@@ -4523,6 +4523,8 @@ def execute_real_estate_sale_calculation(
             and value is not None
         )
     }
+    st.warning(f"{calculation_arguments}")
+    print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
 
     try:
         calculation_result = (
