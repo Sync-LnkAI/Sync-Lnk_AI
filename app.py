@@ -6403,14 +6403,32 @@ with all_tabs[0]:
                 col_save, col_mode = st.columns([2, 1])
                 with col_save:
                     if current_plan_type == "🆓 無料プラン":
-                        st.caption("💎 ライトプラン以上で会話を保存できます")
+                        if st.button(
+                            "☆ 会話を保存",
+                            key=f"save_chat_{msg.get('message_id', '')}"
+                        ):
+                            st.toast("💎 ライトプラン以上で利用できます")
                     else:
-
-                        st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
+                        st.button(
+                            "☆ 会話を保存",
+                            key=f"save_chat_{msg.get('message_id', '')}"
+                        )
                 with col_mode:
-
-                    # st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
+                    st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
                     st.caption("🧠 会話モード")
+                st.write("")
+
+                # col_save, col_mode = st.columns([2, 1])
+                # with col_save:
+                #     if current_plan_type == "🆓 無料プラン":
+                #         st.caption("💎 ライトプラン以上で会話を保存できます")
+                #     else:
+
+                #         st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
+                # with col_mode:
+
+                #     # st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
+                #     st.caption("🧠 会話モード")
                 #st.divider()
 
             # st.write(
