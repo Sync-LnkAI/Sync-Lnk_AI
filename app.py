@@ -5685,6 +5685,15 @@ with all_tabs[0]:
                             calculation_extraction_result[
                                 "arguments"
                             ] = merged_arguments
+                            st.code(
+                                json.dumps(
+                                    merged_arguments,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             calculation_execution_result = (
                                 execute_real_estate_sale_calculation(
