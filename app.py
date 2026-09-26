@@ -3112,12 +3112,10 @@ def calculate_real_estate_sale(
     other_cash_expenses: Number = 0,
 
     # 個人の場合に使用
-    acquisition_date: Optional[
-        Union[str, date, datetime]
-    ] = None,
-    sale_date: Optional[
-        Union[str, date, datetime]
-    ] = None,
+    acquisition_date: Optional[Union[str, date, datetime]] = None,
+    sale_date: Optional[Union[str, date, datetime]] = None,
+
+    holding_period_type: Optional[str] = None,
 
     # 該当する特例が確認できている場合のみ入力
     special_deduction: Number = 0,
@@ -3286,21 +3284,21 @@ def calculate_real_estate_sale(
 
     if owner_type == "individual":
         if acquisition_date is None:
-            raise ValueError(
-                "個人の場合はacquisition_dateが必要です"
+            raise ValueError("個人の場合はacquisition_dateが必要です")
+
+        if sale_date is not None:
+            holding_type = (
+                determine_individual_holding_type(
+                    acquisition_date,
+                    sale_date
+                )
             )
 
-        if sale_date is None:
-            raise ValueError(
-                "個人の場合はsale_dateが必要です"
-            )
+        elif holding_period_type in {"long_term", "short_term"}:
+            holding_type = holding_period_type
 
-        holding_type = (
-            determine_individual_holding_type(
-                acquisition_date,
-                sale_date
-            )
-        )
+        else:
+            holding_type = None
 
         if holding_type == "long_term":
             tax_rate = Decimal("0.20315")
@@ -3679,9 +3677,35 @@ def extract_real_estate_sale_parameters(
 
     【日付の扱い】
     ・日付はYYYY-MM-DD形式にしてください。
-    ・年、年月、季節などしか分からない場合は、日付を推測せずnullにしてください。
-    ・「今日」などの相対日付は、直近会話または最新発言内で基準日が明確な場合だけ変換してください。
-    ・基準日が明確でなければnullにしてください。
+    ・取得日、売却日については、年月まで分かる場合は月初日を補完してください。
+    例
+    2015年8月
+    ↓
+    2015-08-01
+
+    2020年3月
+    ↓
+    2020-03-01
+
+    ・取得年、売却年しか分からない場合はその年の1月1日を補完してください。
+    例
+    2015年
+    ↓
+    2015-01-01
+
+    2027年
+    ↓
+    2027-01-01
+
+    ・取得日または売却日が完全に不明な場合のみ null にしてください。
+    ・「売却日は未定」「これから売る予定」のような表現で年月も分からない場合は null にしてください。
+
+    【保有期間区分】
+    ・ユーザーが長期譲渡または5年超と明示した場合は、holding_period_typeをlong_termにしてください。
+    ・ユーザーが短期譲渡または5年以下と明示した場合は、holding_period_typeをshort_termにしてください。
+    ・取得日と売却日の両方が確認できる場合は、譲渡した年の1月1日時点の所有期間に基づいて判定してください。
+    ・取得日または売却日が不明で、長期譲渡か短期譲渡かも明示されていない場合は、holding_period_typeをnullにしてください。
+    ・日付が不明な場合に、長期または短期を推測してはいけません。
 
     【所有者区分】
     ・個人所有または個人名義の場合はindividualです。
@@ -3705,6 +3729,10 @@ def extract_real_estate_sale_parameters(
     ・should_calculateをfalseにしてください。
     ・argumentsの各値はnullにしてください。
 
+    【会話の継続ルール】
+    直近の会話で不動産売却計算を行っており、「長期譲渡で計算して」「短期譲渡で計算して」のような回答があった場合は、should_calculate を true にしてください。
+    その場合、holding_period_type を設定し、他の条件は直近の会話から引き継ぐ前提でarguments に null を入れて構いません。
+
     【直近の会話】
     {recent_history}
 
@@ -3726,6 +3754,7 @@ def extract_real_estate_sale_parameters(
             "other_cash_expenses": 100000,
             "acquisition_date": "2018-04-01",
             "sale_date": "2026-09-22",
+            "holding_period_type": "long_term",
             "special_deduction": null,
             "corporate_effective_tax_rate": null,
             "use_deemed_acquisition_cost": false,
@@ -3905,6 +3934,7 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "other_cash_expenses",
     "acquisition_date",
     "sale_date",
+    "holding_period_type",
     "special_deduction",
     "corporate_effective_tax_rate",
     "use_deemed_acquisition_cost",
@@ -4012,10 +4042,28 @@ def normalize_real_estate_sale_arguments(
             # 想定外の値は保存せず、
             # 後続の不足項目判定へ回す
             if normalized_owner_type is not None:
-                normalized[
-                    "owner_type"
-                ] = normalized_owner_type
+                normalized["owner_type"] = normalized_owner_type
 
+            continue
+                if key == "holding_period_type":
+
+            holding_text = str(value).strip().lower()
+
+            if holding_text in {
+                "long_term",
+                "長期",
+                "長期譲渡",
+                "5年超"
+            }:
+                normalized[key] = "long_term"
+
+            elif holding_text in {
+                "short_term",
+                "短期",
+                "短期譲渡",
+                "5年以下"
+            }:
+                normalized[key] = "short_term"
             continue
 
         # 金額、取得費率、法人実効税率
@@ -4156,34 +4204,14 @@ def normalize_real_estate_sale_arguments(
     return normalized
 
 REAL_ESTATE_FIELD_LABELS = {
-    "owner_type":
-        "売却者が個人か法人か",
-
-    "sale_price":
-        "売却予定額または売却額",
-
-    "acquisition_date":
-        "取得日",
-
-    "sale_date":
-        "売却日",
-
-    "acquisition_basis":
-        (
-            "税務上の取得費"
-            "（土地・建物の取得価額など）"
-        ),
-
-    "accumulated_depreciation":
-        (
-            "建物の減価償却累計額"
-        ),
-
-    "corporate_effective_tax_rate":
-        (
-            "法人の概算実効税率"
-            "（税引後手残りも計算する場合）"
-        )
+    "owner_type": "売却者が個人か法人か",
+    "sale_price": "売却予定額または売却額",
+    "acquisition_date": "取得日",
+    "sale_date": "売却日",
+    "holding_period_type": "長期譲渡か短期譲渡か",
+    "acquisition_basis":("税務上の取得費" "（土地・建物の取得価額など）"),
+    "accumulated_depreciation":("建物の減価償却累計額"),
+    "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）")
 }
 
 
@@ -4256,19 +4284,13 @@ def get_real_estate_sale_missing_fields(
             )
 
     if owner_type == "individual":
-        if not arguments.get(
-            "acquisition_date"
-        ):
-            missing_fields.append(
-                "acquisition_date"
-            )
-
-        if not arguments.get(
-            "sale_date"
-        ):
-            missing_fields.append(
-                "sale_date"
-            )
+        acquisition_date = arguments.get("acquisition_date")
+        sale_date = arguments.get("sale_date")
+        holding_period_type = arguments.get("holding_period_type")
+        dates_are_complete = bool(acquisition_date and sale_date)
+        holding_type_is_valid = (holding_period_type in {"long_term", "short_term"})
+        if (not dates_are_complete and not holding_type_is_valid):
+            missing_fields.append("holding_period_type")
 
     use_deemed_acquisition_cost = bool(
         arguments.get(
@@ -4362,7 +4384,7 @@ def execute_real_estate_sale_calculation(
     """
     missing_fields = []
 
-    
+
     if not isinstance(
         extraction_result,
         dict
@@ -4486,9 +4508,9 @@ def execute_real_estate_sale_calculation(
         }
     
     print(
-    f"🏠 不動産計算実行条件: "
-    f"{calculation_arguments}"
-)
+        f"🏠 不動産計算実行条件: "
+        f"{calculation_arguments}"
+    )
     # calculate_real_estate_sale()に渡す値だけに限定
     calculation_arguments = {
         key: value
@@ -4607,6 +4629,27 @@ def build_real_estate_calculation_context(
             )
             for field in missing_fields
         ]
+        
+        if (missing_fields == ["holding_period_type"]):
+            return """
+            【Python不動産売却計算】
+
+            売却日が未定のため、
+            長期譲渡か短期譲渡かを確認したいです。
+
+            【回答例】
+
+            ・長期譲渡で計算して
+
+            または
+
+            ・短期譲渡で計算して
+
+            【補足】
+
+            一般的に取得から5年を超えている場合は
+            長期譲渡です。
+            """.strip()
 
         if missing_labels:
             missing_text = "\n".join(
