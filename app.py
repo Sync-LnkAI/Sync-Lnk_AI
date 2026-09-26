@@ -2435,8 +2435,8 @@ def classify_search_and_response_mode(
 
         return (
             need_search,
-            need_history_search,
             response_mode,
+            need_history_search,
             confidence,
             judge_in_t,
             judge_out_t,
