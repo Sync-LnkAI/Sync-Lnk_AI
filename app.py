@@ -2260,7 +2260,7 @@ def classify_search_and_response_mode(
         ↓
         real_estate_sale
 
-        直近の会話と最新ユーザー発言を読み、次の3項目を判定してください。
+        直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
 
         【検索要否】
         最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、
@@ -2273,30 +2273,6 @@ def classify_search_and_response_mode(
         直前の会話で検索を必要とする質問があり、
         最新発言が地域、条件、対象などを追加または訂正している場合は、
         前の質問を具体化する発言として判断してください。
-
-        【過去会話検索要否】
-        過去の会話を参照した方が、今回の回答の継続性や自然さが向上する場合は
-        need_history_search を true にしてください。
-
-        true にする例
-        ・過去の会話と関連する可能性が高い
-        ・ユーザー固有の話題である
-        ・過去の相談や検討内容と関係している
-        ・主語や背景が省略されている
-        ・以前の会話を踏まえた方が自然な回答になる
-
-        false にする例
-        ・挨拶
-        ・お礼
-        ・相づち
-        ・単発の日常報告
-        ・最新発言だけで十分に回答できる
-        ・過去会話を参照しても回答内容がほぼ変わらない
-
-        【重要】
-        ・キーワードではなく意味的な関連性で判断してください。
-        ・conversation でも継続性が高い場合は true にしてください。
-        ・判断に迷う場合は false にしてください。
 
         【回答モード】
         次のうち、今回の回答に最も適したものを1つ選んでください。
@@ -2341,7 +2317,6 @@ def classify_search_and_response_mode(
         【出力形式】
         {{
             "need_search": false,
-            "need_history_search": true,
             "response_mode": "conversation",
             "confidence": 0.90
         }}
@@ -2372,13 +2347,6 @@ def classify_search_and_response_mode(
 
         need_search = bool(
             judge_data.get("need_search", False)
-        )
-
-        need_history_search = bool(
-            judge_data.get(
-                "need_history_search",
-                True
-            )
         )
 
         response_mode = str(
@@ -2435,7 +2403,6 @@ def classify_search_and_response_mode(
         return (
             need_search,
             response_mode,
-            need_history_search,
             confidence,
             judge_in_t,
             judge_out_t,
@@ -2452,7 +2419,6 @@ def classify_search_and_response_mode(
         # 判定失敗時は検索せず、従来のフルプロンプトへ着地
         return (
             False,
-            True,
             "default",
             0.0,
             0,
@@ -5429,7 +5395,6 @@ with all_tabs[0]:
                             response_mode = "short_chat"
                             route_source = "micro_chat"
                             need_search = False
-                            need_history_search = False
                             route_confidence = 1.0
                             search_judge_in_t = 0
                             search_judge_out_t = 0
@@ -5439,7 +5404,6 @@ with all_tabs[0]:
                             (
                                 need_search,
                                 response_mode,
-                                need_history_search,
                                 route_confidence,
                                 search_judge_in_t,
                                 search_judge_out_t,
@@ -5453,15 +5417,10 @@ with all_tabs[0]:
                         router_elapsed = time.time() - router_start_time
 
                         search_start_time = time.time()
+                        
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        if need_history_search:
-                            past_logs_context = (
-                                search_past_logs_hybrid(
-                                    user_input
-                                )
-                            )
-                        else:
-                            past_logs_context = []
+                        past_logs_context = search_past_logs_hybrid(user_input)
+
                         search_elapsed = time.time() - search_start_time
                         
                         if past_logs_context:
@@ -5581,7 +5540,6 @@ with all_tabs[0]:
                             details=(
                                 f"検索要否: "
                                 f"{'YES' if need_search else 'NO'}"
-                                f" | 履歴検索: {'YES' if need_history_search else 'NO'}"
                                 f" | 回答モード: {response_mode}"
                                 f" | ルート: {route_source}"
                                 f" | 信頼度: {route_confidence:.2f}"
