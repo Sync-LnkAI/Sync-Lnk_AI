@@ -859,37 +859,43 @@ def get_memories(source="manual"):
         print(f"設定データ取得エラー: {e}")
         return []
 
-def save_memory(fact: str, source="manual") -> bool:
-    """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
-    try:
-        embedding_data = get_embedding(
-            fact,
-            task_type="RETRIEVAL_DOCUMENT"
-        )
+# ==========================================
+# 旧設定保存関数
+# save_all_user_settings()移行後のため
+# 現在は未使用
+# 動作確認完了後に削除予定
+# ==========================================
+# def save_memory(fact: str, source="manual") -> bool:
+#     """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
+#     try:
+#         embedding_data = get_embedding(
+#             fact,
+#             task_type="RETRIEVAL_DOCUMENT"
+#         )
 
-        data = {
-            "user_id": CURRENT_USER_ID,
-            "category": "基本情報",
-            "fact": fact,
-            "source": source,
-            "embedding": embedding_data
-        }
+#         data = {
+#             "user_id": CURRENT_USER_ID,
+#             "category": "基本情報",
+#             "fact": fact,
+#             "source": source,
+#             "embedding": embedding_data
+#         }
         
-        result = (
-            supabase.table(DB_MEMORIES_TABLE)
-            .insert(data)
-            .execute()
-        )
+#         result = (
+#             supabase.table(DB_MEMORIES_TABLE)
+#             .insert(data)
+#             .execute()
+#         )
 
-        return True
+#         return True
 
-    except Exception as e:
-        st.error(
-            f"save_memoryエラー: "
-            f"{type(e).__name__}: {e}"
-        )
+#     except Exception as e:
+#         st.error(
+#             f"save_memoryエラー: "
+#             f"{type(e).__name__}: {e}"
+#         )
 
-        return False
+#         return False
 
 def delete_memory(memory_id: int) -> bool:
     try:
@@ -1003,9 +1009,19 @@ def save_all_user_settings(
             settings_dict.items()
         ):
 
-            save_memory(
-                fact=f"{key}: {value}",
-                source="manual"
+            data = {
+                "user_id": CURRENT_USER_ID,
+                "category": "基本情報",
+                "fact": f"{key}: {value}",
+                "source": "manual",
+                "embedding": None
+            }
+
+            (
+                supabase
+                .table(DB_MEMORIES_TABLE)
+                .insert(data)
+                .execute()
             )
 
         return True
@@ -6621,7 +6637,6 @@ with all_tabs[3]:
                 st.caption(
                     "💎 ライトプラン以上で利用可能"
                 )
-            st.write(f"DEBUG current_plan_type = [{current_plan_type}]")
 
             # ==========================================
             # 応答方針（旧仕様）
