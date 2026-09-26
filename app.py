@@ -6729,9 +6729,14 @@ with all_tabs[3]:
                     "絵文字の量": new_emoji_setting
                 }
 
+                start_time = time.time()
+
                 success =  save_all_user_settings(
                     settings_dict
                 )
+
+                save_elapsed = (time.time() - save_start)
+                st.warning(f"設定保存時間: {save_elapsed:.2f}秒")
 
                 if success:
                     st.success("設定を更新しました")
