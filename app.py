@@ -4812,6 +4812,8 @@ def build_real_estate_calculation_context(
     ・結果を持っている前提で回答してください。
     ・追加条件が必要な場合以外は条件を再度確認してはいけません。
     ・結果が存在する場合は必ず結果を提示してください。
+    ・取得費（applied_acquisition_basis）も主要な内訳として表示してください。
+    ・売却価格、取得費、ローン残債、仲介手数料、譲渡費用の順で説明してください。
 
     【税額と手残りの表示ルール】
     {tax_note}
@@ -7773,6 +7775,16 @@ if is_admin:
 
                 search_count = len(
                     search_res.data or []
+                )
+
+                st.code(
+                    json.dumps(
+                        cost_res.data,
+                        ensure_ascii=False,
+                        indent=2,
+                        default=str
+                    ),
+                    language="json"
                 )
 
                 total_cost = sum(
