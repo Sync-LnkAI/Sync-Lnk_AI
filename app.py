@@ -7468,8 +7468,15 @@ if is_admin:
                             t_yen = item["total_yen"]
                             t_time = item["total_time"]
 
-                            st.warning(f"DEBUG total_cost = {t_yen}")
-
+                            st.code(
+                                json.dumps(
+                                    t_yen,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                                 st.markdown(f"""
