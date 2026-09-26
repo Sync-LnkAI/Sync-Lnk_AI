@@ -6621,6 +6621,7 @@ with all_tabs[3]:
                 st.caption(
                     "💎 ライトプラン以上で利用可能"
                 )
+            st.write(f"DEBUG current_plan_type = [{current_plan_type}]")
 
             # ==========================================
             # 応答方針（旧仕様）
