@@ -3105,6 +3105,9 @@ def calculate_real_estate_sale(
     # 取得費に含める購入時経費等
     acquisition_related_costs: Number = 0,
 
+    # 仲介手数料
+    brokerage_fee: Optional[Number] = None,
+
     # 売却のために直接要した譲渡費用
     transfer_expenses: Number = 0,
 
@@ -3149,40 +3152,27 @@ def calculate_real_estate_sale(
         "individual",
         "corporate"
     }:
-        raise ValueError(
-            "owner_typeはindividualまたはcorporateを指定してください"
-        )
+        raise ValueError("owner_typeはindividualまたはcorporateを指定してください")
 
     sale_price_d = to_decimal(sale_price)
     loan_balance_d = to_decimal(loan_balance)
 
-    land_cost_d = to_decimal(
-        land_acquisition_cost
-    )
+    land_cost_d = to_decimal(land_acquisition_cost)
+    building_cost_d = to_decimal(building_acquisition_cost)
+    depreciation_d = to_decimal(accumulated_depreciation)
+    acquisition_costs_d = to_decimal(acquisition_related_costs)
+    transfer_expenses_d = to_decimal(transfer_expenses)
 
-    building_cost_d = to_decimal(
-        building_acquisition_cost
-    )
+    # 仲介手数料が未入力なら法定上限額で試算
+    if brokerage_fee is None:
+        brokerage_fee_d = (sale_price_d * Decimal("0.03") + Decimal("60000")) * Decimal("1.10")
+        brokerage_fee_method = ("statutory_max_estimate")
+    else:
+        brokerage_fee_d = to_decimal(brokerage_fee)
+        brokerage_fee_method = ("specified")
 
-    depreciation_d = to_decimal(
-        accumulated_depreciation
-    )
-
-    acquisition_costs_d = to_decimal(
-        acquisition_related_costs
-    )
-
-    transfer_expenses_d = to_decimal(
-        transfer_expenses
-    )
-
-    other_cash_expenses_d = to_decimal(
-        other_cash_expenses
-    )
-
-    special_deduction_d = to_decimal(
-        special_deduction
-    )
+    other_cash_expenses_d = to_decimal(other_cash_expenses)
+    special_deduction_d = to_decimal(special_deduction)
 
     validation_values = {
         "sale_price": sale_price_d,
@@ -3191,11 +3181,12 @@ def calculate_real_estate_sale(
         "building_acquisition_cost": building_cost_d,
         "accumulated_depreciation": depreciation_d,
         "acquisition_related_costs": acquisition_costs_d,
+        "brokerage_fee": brokerage_fee_d,
         "transfer_expenses": transfer_expenses_d,
         "other_cash_expenses": other_cash_expenses_d,
         "special_deduction": special_deduction_d
     }
-
+    
     for field_name, field_value in validation_values.items():
         if field_value < 0:
             raise ValueError(
@@ -3256,6 +3247,7 @@ def calculate_real_estate_sale(
     capital_gain_before_deduction = (
         sale_price_d
         - acquisition_basis
+        - brokerage_fee_d
         - transfer_expenses_d
     )
 
@@ -3347,6 +3339,7 @@ def calculate_real_estate_sale(
     cash_before_tax = (
         sale_price_d
         - loan_balance_d
+        - brokerage_fee_d
         - transfer_expenses_d
         - other_cash_expenses_d
     )
@@ -3366,78 +3359,40 @@ def calculate_real_estate_sale(
         "acquisition_basis_method":
             acquisition_basis_method,
 
-        "sale_price":
-            round_yen(sale_price_d),
-
-        "loan_balance":
-            round_yen(loan_balance_d),
-
-        "land_acquisition_cost":
-            round_yen(land_cost_d),
-
-        "building_acquisition_cost":
-            round_yen(building_cost_d),
-
-        "accumulated_depreciation":
-            round_yen(depreciation_d),
-
-        "building_tax_basis":
-            round_yen(building_tax_basis),
-
-        "acquisition_related_costs":
-            round_yen(acquisition_costs_d),
-
-        "actual_acquisition_basis":
-            round_yen(actual_acquisition_basis),
-
-        "deemed_acquisition_basis":
-            round_yen(deemed_acquisition_basis),
-
-        "applied_acquisition_basis":
-            round_yen(acquisition_basis),
-
-        "transfer_expenses":
-            round_yen(transfer_expenses_d),
-
-        "other_cash_expenses":
-            round_yen(other_cash_expenses_d),
-
-        "capital_gain_before_deduction":
-            round_yen(
-                capital_gain_before_deduction
-            ),
-
-        "special_deduction":
-            round_yen(
-                applied_special_deduction
-            ),
-
-        "taxable_gain":
-            round_yen(taxable_gain),
-
+        "sale_price": round_yen(sale_price_d),
+        "loan_balance": round_yen(loan_balance_d),
+        "land_acquisition_cost": round_yen(land_cost_d),
+        "building_acquisition_cost": round_yen(building_cost_d),
+        "accumulated_depreciation": round_yen(depreciation_d),
+        "building_tax_basis": round_yen(building_tax_basis),
+        "acquisition_related_costs": round_yen(acquisition_costs_d),
+        "brokerage_fee": round_yen(brokerage_fee_d),
+        "brokerage_fee_method": brokerage_fee_method,
+        "actual_acquisition_basis": round_yen(actual_acquisition_basis),
+        "deemed_acquisition_basis": round_yen(deemed_acquisition_basis),
+        "applied_acquisition_basis": round_yen(acquisition_basis),
+        "transfer_expenses": round_yen(transfer_expenses_d),
+        "other_cash_expenses": round_yen(other_cash_expenses_d),
+        "capital_gain_before_deduction": round_yen(capital_gain_before_deduction),
+        "special_deduction": round_yen(applied_special_deduction),
+        "taxable_gain": round_yen(taxable_gain),
         "tax_rate": (
             float(tax_rate)
             if tax_rate is not None
             else None
         ),
-
         "estimated_tax": (
             round_yen(estimated_tax)
             if estimated_tax is not None
             else None
         ),
-
-        "cash_before_tax":
-            round_yen(cash_before_tax),
-
+        "cash_before_tax": round_yen(cash_before_tax),
         "cash_after_tax": (
             round_yen(cash_after_tax)
             if cash_after_tax is not None
             else None
         ),
-
-        "tax_calculation_status":
-            tax_calculation_status
+        "tax_calculation_status": tax_calculation_status
     }
 
 # ==========================================
@@ -3670,6 +3625,12 @@ def extract_real_estate_sale_parameters(
     ・1億5000万円は150000000です。
     ・金額が曖昧な場合はnullにしてください。
 
+    【仲介手数料】
+    ・ユーザーが仲介手数料の金額を明示した場合は、brokerage_feeへ円単位の整数で設定してください。
+    ・ユーザーが仲介手数料の金額を明示していない場合は、brokerage_feeをnullにしてください。
+    ・仲介手数料を自動計算する場合でも、AI側で計算してはいけません。nullのまま出力し、Python側の計算に任せてください。
+    ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
+
     【税率の扱い】
     ・パーセントは0から1の小数へ変換してください。
     ・30%は0.30です。
@@ -3750,6 +3711,7 @@ def extract_real_estate_sale_parameters(
             "building_acquisition_cost": 15000000,
             "accumulated_depreciation": 5000000,
             "acquisition_related_costs": 1000000,
+            "brokerage_fee": null,
             "transfer_expenses": 1500000,
             "other_cash_expenses": 100000,
             "acquisition_date": "2018-04-01",
@@ -3930,6 +3892,7 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "building_acquisition_cost",
     "accumulated_depreciation",
     "acquisition_related_costs",
+    "brokerage_fee",
     "transfer_expenses",
     "other_cash_expenses",
     "acquisition_date",
@@ -3948,6 +3911,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
     "building_acquisition_cost",
     "accumulated_depreciation",
     "acquisition_related_costs",
+    "brokerage_fee",
     "transfer_expenses",
     "other_cash_expenses",
     "special_deduction",
@@ -4771,6 +4735,18 @@ def build_real_estate_calculation_context(
         "owner_type"
     )
 
+    brokerage_fee = result.get(
+        "brokerage_fee"
+    )
+
+    transfer_expenses = result.get(
+        "transfer_expenses"
+    )
+
+    cash_before_tax = result.get(
+        "cash_before_tax"
+    )
+
     tax_status = result.get(
         "tax_calculation_status"
     )
@@ -4788,7 +4764,9 @@ def build_real_estate_calculation_context(
     else:
         tax_note = """
         ・最初に税引後の現金手残りを示してください。
-        ・次に税引前手残り、課税譲渡所得、概算税額を示してください。
+        ・次に税引前手残りを示してください。
+        ・その後、売却価格、ローン残債、仲介手数料、譲渡費用を示してください。
+        ・最後に課税譲渡所得と概算税額を示してください。
         """.strip()
 
     # 個人の場合の保有期間表示ルール
@@ -4825,6 +4803,11 @@ def build_real_estate_calculation_context(
     ・金額は円単位の整数として受け取り、回答では読みやすいように円または万円で表示してください。
     ・万円表示へ直す場合も、元の計算結果と一致することを確認してください。
     ・最後に、この結果は入力条件に基づく概算であり、申告税額を確定するものではないことを短く伝えてください。
+    ・brokerage_feeは仲介手数料です。
+    ・仲介手数料が自動計算されている場合は、その金額も説明してください。
+    ・税引前手残りには仲介手数料や譲渡費用が反映されていることを説明してください。
+    ・brokerage_fee_method が statutory_max_estimate の場合は、「仲介手数料は未入力だったため法定上限額で試算しました」と説明してください。
+    ・brokerage_fee_method が specified の場合は、「仲介手数料は入力値を使用しました」と説明してください。
 
     【税額と手残りの表示ルール】
     {tax_note}
