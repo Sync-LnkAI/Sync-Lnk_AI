@@ -942,107 +942,160 @@ def delete_memory(memory_id: int) -> bool:
 #         print(f"設定更新エラー: {e}")
 #         return False
 
-def save_all_user_settings(
-    settings_dict: dict
-) -> bool:
-    """
-    設定をまとめて保存する。
-    settings_dict例:
-    {
-        "AIの名前": "ハヤト",
-        "ユーザー名": "リュウ",
-        "人格": "🤝 フランクな相棒",
-        "会話長さ": "長め",
-        "方言": "関西弁"
-    }
-    """
+# def save_all_user_settings(
+#     settings_dict: dict
+# ) -> bool:
+#     """
+#     設定をまとめて保存する。
+#     settings_dict例:
+#     {
+#         "AIの名前": "ハヤト",
+#         "ユーザー名": "リュウ",
+#         "人格": "🤝 フランクな相棒",
+#         "会話長さ": "長め",
+#         "方言": "関西弁"
+#     }
+#     """
+
+#     try:
+#         save_start = time.time()
+
+#         res = (
+#             supabase
+#             .table(DB_MEMORIES_TABLE)
+#             .select("*")
+#             .eq(
+#                 "user_id",
+#                 CURRENT_USER_ID
+#             )
+#             .eq(
+#                 "source",
+#                 "manual"
+#             )
+#             .execute()
+#         )
+
+#         existing_rows = (
+#             res.data
+#             if res.data
+#             else []
+#         )
+
+#         target_keys = set(
+#             settings_dict.keys()
+#         )
+#         st.info(f"SELECT: {time.time() - save_start:.2f}秒")
+
+#         delete_start = time.time()
+
+#         # 古い設定削除
+#         for row in existing_rows:
+
+#             fact_text = str(
+#                 row.get(
+#                     "fact",
+#                     ""
+#                 )
+#             )
+
+#             for key in target_keys:
+
+#                 if fact_text.startswith(
+#                     f"{key}:"
+#                 ):
+#                     delete_memory(
+#                         row["id"]
+#                     )
+#                     break
+#         st.info(f"DELETE: {time.time() - delete_start:.2f}秒")
+
+#         insert_start = time.time()
+
+#         # 新しい設定保存
+#         for key, value in (
+#             settings_dict.items()
+#         ):
+
+#             data = {
+#                 "user_id": CURRENT_USER_ID,
+#                 "category": "基本情報",
+#                 "fact": f"{key}: {value}",
+#                 "source": "manual",
+#                 "embedding": None
+#             }
+
+#             (
+#                 supabase
+#                 .table(DB_MEMORIES_TABLE)
+#                 .insert(data)
+#                 .execute()
+#             )
+#         st.info(f"INSERT: {time.time() - insert_start:.2f}秒")
+#         st.warning(
+#             f"save_all_user_settings合計: "
+#             f"{time.time() - save_start:.2f}秒"
+#         )
+
+#         return True
+
+#     except Exception as e:
+
+#         print(
+#             f"一括設定保存エラー: {e}"
+#         )
+
+#         return False
+
+def save_all_user_settings(settings_dict: dict) -> bool:
 
     try:
-        save_start = time.time()
-
-        res = (
+        """
+        設定をまとめて保存する。
+        settings_dict例:
+        {
+            "AIの名前": "ハヤト",
+            "ユーザー名": "リュウ",
+            "人格": "🤝 フランクな相棒",
+            "会話長さ": "長め",
+            "方言": "関西弁"
+        }
+        """
+        # 現在の手動設定を一括削除
+        (
             supabase
             .table(DB_MEMORIES_TABLE)
-            .select("*")
-            .eq(
-                "user_id",
-                CURRENT_USER_ID
-            )
-            .eq(
-                "source",
-                "manual"
-            )
+            .delete()
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("source", "manual")
             .execute()
         )
 
-        existing_rows = (
-            res.data
-            if res.data
-            else []
-        )
+        # 一括INSERT用データ作成
+        rows = []
 
-        target_keys = set(
-            settings_dict.keys()
-        )
-        st.info(f"SELECT: {time.time() - save_start:.2f}秒")
-
-        delete_start = time.time()
-
-        # 古い設定削除
-        for row in existing_rows:
-
-            fact_text = str(
-                row.get(
-                    "fact",
-                    ""
-                )
+        for key, value in (settings_dict.items()):
+            rows.append(
+                {
+                    "user_id": CURRENT_USER_ID,
+                    "category": "基本情報",
+                    "fact": f"{key}: {value}",
+                    "source": "manual",
+                    "embedding": None
+                }
             )
 
-            for key in target_keys:
-
-                if fact_text.startswith(
-                    f"{key}:"
-                ):
-                    delete_memory(
-                        row["id"]
-                    )
-                    break
-        st.info(f"DELETE: {time.time() - delete_start:.2f}秒")
-
-        insert_start = time.time()
-
-        # 新しい設定保存
-        for key, value in (
-            settings_dict.items()
-        ):
-
-            data = {
-                "user_id": CURRENT_USER_ID,
-                "category": "基本情報",
-                "fact": f"{key}: {value}",
-                "source": "manual",
-                "embedding": None
-            }
-
-            (
-                supabase
-                .table(DB_MEMORIES_TABLE)
-                .insert(data)
-                .execute()
-            )
-        st.info(f"INSERT: {time.time() - insert_start:.2f}秒")
-        st.warning(
-            f"save_all_user_settings合計: "
-            f"{time.time() - save_start:.2f}秒"
+        # 一括INSERT
+        (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .insert(rows)
+            .execute()
         )
 
         return True
 
     except Exception as e:
-
-        print(
-            f"一括設定保存エラー: {e}"
-        )
+        st.error(f"一括設定保存エラー: {e}")
 
         return False
 
