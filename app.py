@@ -191,6 +191,12 @@ if "debug_logs" not in st.session_state:
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
+# 設定保存時のmsssages読み込みスキップ判定フラグ
+if "cached_messages" not in st.session_state:
+    st.session_state.cached_messages = None
+if "force_message_reload" not in st.session_state:
+    st.session_state.force_message_reload = False
+
 # ==========================================
 # 不動産売却計算の継続状態
 # ==========================================
@@ -5190,8 +5196,37 @@ with all_tabs[0]:
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages(CURRENT_USER_ID)
-        db_available = (all_messages is not None)
+        should_reload_messages = (
+            st.session_state.cached_messages is None
+            or st.session_state.force_message_reload
+        )
+
+        if should_reload_messages:
+            loaded_messages = get_messages(CURRENT_USER_ID)
+
+            if loaded_messages is None:
+                db_available = False
+
+                if st.session_state.cached_messages is None:
+                    st.session_state.cached_messages = []
+
+                st.error(
+                    "データベース通信に失敗しました。"
+                    "保存済みの会話履歴を取得できませんでした。"
+                )
+            else:
+                db_available = True
+                st.session_state.cached_messages = loaded_messages
+
+            st.session_state.force_message_reload = False
+
+        else:
+            db_available = True
+
+        all_messages = list(st.session_state.cached_messages or [])
+        
+        # all_messages = get_messages(CURRENT_USER_ID)
+        # db_available = (all_messages is not None)
 
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
         #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
@@ -6263,6 +6298,7 @@ with all_tabs[0]:
                             st.markdown(f"{current_concierge_name}: {clean_reply}")
                             
                             save_message("assistant", ai_reply, current_msg_id)
+                            st.session_state.force_message_reload = True
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
@@ -6799,6 +6835,7 @@ with all_tabs[3]:
                 )
 
                 if success:
+                    st.session_state.skip_message_reload = True
                     st.success("設定を更新しました")
                     st.rerun()
                 else:
