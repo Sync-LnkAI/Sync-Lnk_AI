@@ -3704,19 +3704,19 @@ def extract_real_estate_sale_parameters(
     {{
         "should_calculate": true,
         "arguments": {{
-            "owner_type": "individual",
-            "sale_price": 50000000,
-            "loan_balance": 20000000,
-            "land_acquisition_cost": 10000000,
-            "building_acquisition_cost": 15000000,
-            "accumulated_depreciation": 5000000,
-            "acquisition_related_costs": 1000000,
+            "owner_type": null,
+            "sale_price": null,
+            "loan_balance": null,
+            "land_acquisition_cost": null,
+            "building_acquisition_cost": null,
+            "accumulated_depreciation": null,
+            "acquisition_related_costs": null,
             "brokerage_fee": null,
-            "transfer_expenses": 1500000,
-            "other_cash_expenses": 100000,
-            "acquisition_date": "2018-04-01",
-            "sale_date": "2026-09-22",
-            "holding_period_type": "long_term",
+            "transfer_expenses": null,
+            "other_cash_expenses": null,
+            "acquisition_date": null,
+            "sale_date": null,
+            "holding_period_type": null,
             "special_deduction": null,
             "corporate_effective_tax_rate": null,
             "use_deemed_acquisition_cost": false,
@@ -5677,14 +5677,12 @@ with all_tabs[0]:
 
                             # 前回条件を今回条件で上書きする
                             # 同じ項目がある場合は最新発言を優先
-                            merged_arguments = {
-                                **previous_arguments,
-                                **current_arguments
-                            }
+                            merged_arguments = dict(previous_arguments)
+                            for key, value in current_arguments.items():
+                                if value is not None:
+                                    merged_arguments[key] = value
 
-                            calculation_extraction_result[
-                                "arguments"
-                            ] = merged_arguments
+                            calculation_extraction_result["arguments"] = merged_arguments
                             st.code(
                                 json.dumps(
                                     merged_arguments,
