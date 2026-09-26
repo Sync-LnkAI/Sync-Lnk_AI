@@ -6403,13 +6403,17 @@ with all_tabs[0]:
                 col_spacer, col_save, col_mode = st.columns([6, 2, 1])
                 with col_save:
                     if current_plan_type == "🆓 無料プラン":
-                        if st.caption("☆ 会話を保存")
+                        st.caption("☆ 会話を保存")
                         # st.button(
                         #     "☆ 会話を保存",
                         #     key=f"save_chat_{msg.get('message_id', '')}"
                         # ):
-                            st.toast("💎 ライトプラン以上で利用できます")
+                        #     st.toast("💎 ライトプラン以上で利用できます")
                     else:
+                        # st.button(
+                        #     "☆",
+                        #     key=f"save_chat_{msg.get('message_id', '')}"
+                        # )
                         st.caption("☆ 会話を保存")
                         # st.button(
                         #     "☆ 会話を保存",
