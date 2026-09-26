@@ -3632,6 +3632,7 @@ def extract_real_estate_sale_parameters(
     正規化、不足項目判定、Python計算は、
     execute_real_estate_sale_calculation()側で行う。
     """
+
     default_result = {
         "should_calculate": False,
         "arguments": {},
@@ -4359,6 +4360,9 @@ def execute_real_estate_sale_calculation(
         success:
             計算成功
     """
+    missing_fields = []
+
+    
     if not isinstance(
         extraction_result,
         dict
