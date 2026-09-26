@@ -2260,7 +2260,7 @@ def classify_search_and_response_mode(
         ↓
         real_estate_sale
 
-        直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
+        直近の会話と最新ユーザー発言を読み、次の3項目を判定してください。
 
         【検索要否】
         最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、
@@ -2273,6 +2273,31 @@ def classify_search_and_response_mode(
         直前の会話で検索を必要とする質問があり、
         最新発言が地域、条件、対象などを追加または訂正している場合は、
         前の質問を具体化する発言として判断してください。
+
+        【過去会話検索要否】
+        過去の会話を参照することで、今回の回答がより自然になったり、
+        ユーザーとの継続性が高まる場合は、need_history_search を true にしてください。
+
+        true にする例
+        ・過去の会話内容と関連する可能性がある
+        ・過去の趣味、作品、人物、出来事と意味的につながる可能性がある
+        ・以前の相談や検討内容と関係する可能性がある
+        ・主語や対象が省略されている
+        ・ユーザー固有の話題である
+        ・過去会話を参照した方が自然な回答になる
+        ・ユーザーとの継続的な会話として扱った方が良い
+
+        false にする例
+        ・挨拶、お礼、相づち
+        ・最新発言だけで十分に回答できる
+        ・過去会話を参照しても回答品質がほとんど向上しない
+        ・単発の一般知識質問
+
+        【重要】
+        ・キーワードではなく意味的な関連性で判断してください。
+        ・response_mode が conversation でも、継続性がありそうなら true にしてください。
+        ・判断に迷った場合は true にしてください。
+        ・多少不要な履歴検索が発生しても、継続会話を取りこぼさないことを優先してください。
 
         【回答モード】
         次のうち、今回の回答に最も適したものを1つ選んでください。
@@ -2317,6 +2342,7 @@ def classify_search_and_response_mode(
         【出力形式】
         {{
             "need_search": false,
+            "need_history_search": true,
             "response_mode": "conversation",
             "confidence": 0.90
         }}
@@ -2347,6 +2373,13 @@ def classify_search_and_response_mode(
 
         need_search = bool(
             judge_data.get("need_search", False)
+        )
+
+        need_history_search = bool(
+            judge_data.get(
+                "need_history_search",
+                True
+            )
         )
 
         response_mode = str(
@@ -2402,6 +2435,7 @@ def classify_search_and_response_mode(
 
         return (
             need_search,
+            need_history_search,
             response_mode,
             confidence,
             judge_in_t,
@@ -2419,6 +2453,7 @@ def classify_search_and_response_mode(
         # 判定失敗時は検索せず、従来のフルプロンプトへ着地
         return (
             False,
+            True,
             "default",
             0.0,
             0,
@@ -5325,9 +5360,16 @@ with all_tabs[0]:
                         # st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
                         st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
                         
-
                         search_start_time = time.time()
-                        past_logs_context = search_past_logs_hybrid(user_input)
+                        # past_logs_context = search_past_logs_hybrid(user_input)
+                        if need_history_search:
+                            past_logs_context = (
+                                search_past_logs_hybrid(
+                                    user_input
+                                )
+                            )
+                        else:
+                            past_logs_context = []
                         search_elapsed = time.time() - search_start_time
                         
                         if past_logs_context:
@@ -5411,6 +5453,7 @@ with all_tabs[0]:
                             response_mode = "short_chat"
                             route_source = "micro_chat"
                             need_search = False
+                            need_history_search = False
                             route_confidence = 1.0
                             search_judge_in_t = 0
                             search_judge_out_t = 0
@@ -5420,6 +5463,7 @@ with all_tabs[0]:
                             (
                                 need_search,
                                 response_mode,
+                                need_history_search,
                                 route_confidence,
                                 search_judge_in_t,
                                 search_judge_out_t,
@@ -5538,6 +5582,7 @@ with all_tabs[0]:
                             details=(
                                 f"検索要否: "
                                 f"{'YES' if need_search else 'NO'}"
+                                f" | 履歴検索: {'YES' if need_history_search else 'NO'}"
                                 f" | 回答モード: {response_mode}"
                                 f" | ルート: {route_source}"
                                 f" | 信頼度: {route_confidence:.2f}"
