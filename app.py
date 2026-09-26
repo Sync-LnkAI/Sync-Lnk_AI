@@ -4045,7 +4045,8 @@ def normalize_real_estate_sale_arguments(
                 normalized["owner_type"] = normalized_owner_type
 
             continue
-                if key == "holding_period_type":
+            
+        if key == "holding_period_type":
 
             holding_text = str(value).strip().lower()
 
