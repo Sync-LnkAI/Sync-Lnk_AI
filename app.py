@@ -1047,9 +1047,7 @@ def delete_memory(memory_id: int) -> bool:
 #         return False
 
 def save_all_user_settings(settings_dict: dict) -> bool:
-
-    try:
-        """
+    """
         設定をまとめて保存する。
         settings_dict例:
         {
@@ -1059,7 +1057,9 @@ def save_all_user_settings(settings_dict: dict) -> bool:
             "会話長さ": "長め",
             "方言": "関西弁"
         }
-        """
+    """
+
+    try:
         # 現在の手動設定を一括削除
         (
             supabase
@@ -6794,18 +6794,13 @@ with all_tabs[3]:
                     "絵文字の量": new_emoji_setting
                 }
 
-                start_time = time.time()
-
                 success =  save_all_user_settings(
                     settings_dict
                 )
 
-                save_elapsed = (time.time() - start_time)
-                st.warning(f"設定保存時間: {save_elapsed:.2f}秒")
-
                 if success:
                     st.success("設定を更新しました")
-                    # st.rerun()
+                    st.rerun()
                 else:
                     st.error("設定の保存に失敗しました")
 
