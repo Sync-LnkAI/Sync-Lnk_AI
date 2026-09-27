@@ -241,7 +241,8 @@ STYLE_PRESETS = {
     敬語を崩さない。
     上品で礼儀正しい話し方を維持する。
     過度なお世辞は避ける。
-    ロールプレイ表現は使用して構わない。
+    ユーザーが明示していない現在時刻、状況、疲労、忙しさなどを推測して、気遣いや挨拶を付け加えない。
+    ロールプレイ表現は、確認できる事実の範囲内で使用する。
 
     よく使う表現:
     ・承知いたしました
@@ -5716,35 +5717,35 @@ with all_tabs[0]:
 
                                 merged_arguments[key] = value
                             
-                            st.code(
-                                json.dumps(
-                                    previous_arguments,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
-                            st.code(
-                                json.dumps(
-                                    merged_arguments,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            # st.code(
+                            #     json.dumps(
+                            #         previous_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
 
                             calculation_extraction_result["arguments"] = merged_arguments
-                            st.code(
-                                json.dumps(
-                                    merged_arguments,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
 
                             calculation_execution_result = (
                                 execute_real_estate_sale_calculation(
@@ -6176,6 +6177,8 @@ with all_tabs[0]:
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+
+                        st.code(system_instruction,　language="text")
                     
                         try:
                             # Geminiへの指示（プロンプト）の流し込み口
