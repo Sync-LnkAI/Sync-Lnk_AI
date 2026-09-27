@@ -7472,6 +7472,11 @@ if is_admin:
                             elif action == "CALCULATION_ERROR":
                                 merged_logs[msg_id]["calculation_result"] = log.get("details", "")
 
+                            st.write(
+                                f"DEBUG CHAT_SUCCESS cost={cost} "
+                                f"in={in_t} out={out_t}"
+                            )
+
                             elif action == "CHAT_SUCCESS":
                                 merged_logs[msg_id]["chat_time"] = (
                                     log.get("chat_processing_time", proc_time)
