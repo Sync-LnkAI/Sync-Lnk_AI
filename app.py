@@ -5822,9 +5822,9 @@ with all_tabs[0]:
 
                             elif calculation_status == "success":
                                 # 計算完了後は継続状態を解除
-                                st.session_state[
-                                    "real_estate_calculation_arguments"
-                                ] = {}
+                                # st.session_state[
+                                #     "real_estate_calculation_arguments"
+                                # ] = {}
 
                                 st.session_state[
                                     "real_estate_calculation_pending"
