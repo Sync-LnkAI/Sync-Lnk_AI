@@ -6203,7 +6203,8 @@ with all_tabs[0]:
                                 )
 
                                 res_json = json.loads(
-                                    clean_json_text
+                                    clean_json_text,
+                                    strict=False
                                 )
 
                                 if not isinstance(res_json, dict):
@@ -6248,17 +6249,17 @@ with all_tabs[0]:
                                     f"{type(json_err).__name__}: "
                                     f"{json_err}"
                                 )
-                                st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
+                                # st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
 
                                 print(
                                     f"⚠️ JSON解析エラー: "
                                     f"{json_error_detail}"
                                 )
 
-                                st.code(
-                                    response.text or "(空の応答)",
-                                    language="json"
-                                )
+                                # st.code(
+                                #     response.text or "(空の応答)",
+                                #     language="json"
+                                # )
 
                                 # JSON解析に失敗しても、空返答にはしない
                                 ai_reply = (
