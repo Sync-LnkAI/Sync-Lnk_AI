@@ -4036,7 +4036,8 @@ REAL_ESTATE_DATE_FIELDS = {
 }
 
 def normalize_real_estate_sale_arguments(
-    arguments: dict
+    arguments: dict,
+    apply_defaults: bool = True
 ) -> dict:
     """
     Geminiが抽出した不動産売却計算用の引数を、
@@ -4231,51 +4232,52 @@ def normalize_real_estate_sale_arguments(
             # 解釈できない場合は推測せず除外
             continue
 
-    # 任意項目の安全な初期値
-    normalized.setdefault(
-        "loan_balance",
-        Decimal("0")
-    )
+    # 計算実行時だけ任意項目へ安全な初期値を設定
+    if apply_defaults:
+        normalized.setdefault(
+            "loan_balance",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "land_acquisition_cost",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "land_acquisition_cost",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "building_acquisition_cost",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "building_acquisition_cost",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "acquisition_related_costs",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "acquisition_related_costs",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "transfer_expenses",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "transfer_expenses",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "other_cash_expenses",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "other_cash_expenses",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "special_deduction",
-        Decimal("0")
-    )
+        normalized.setdefault(
+            "special_deduction",
+            Decimal("0")
+        )
 
-    normalized.setdefault(
-        "use_deemed_acquisition_cost",
-        False
-    )
+        normalized.setdefault(
+            "use_deemed_acquisition_cost",
+            False
+        )
 
-    normalized.setdefault(
-        "deemed_acquisition_cost_rate",
-        Decimal("0.05")
-    )
+        normalized.setdefault(
+            "deemed_acquisition_cost_rate",
+            Decimal("0.05")
+        )
 
     return normalized
 
@@ -5878,7 +5880,8 @@ with all_tabs[0]:
                                 try:
                                     saved_arguments = (
                                         normalize_real_estate_sale_arguments(
-                                            merged_arguments
+                                            merged_arguments,
+                                            apply_defaults=False
                                         )
                                     )
                                     st.write("saved_arguments")
@@ -5938,7 +5941,7 @@ with all_tabs[0]:
                             elif calculation_status == "success":
                                 # 計算に使用した最新条件を、次回の再計算用に保持
                                 try:
-                                    saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments))
+                                    saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
                                 except Exception:
                                     saved_arguments = dict(merged_arguments)
 
