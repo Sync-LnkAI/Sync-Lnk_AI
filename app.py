@@ -7346,6 +7346,8 @@ if is_admin:
                                     "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
                                     "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
+                                    "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
+                                    "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "total_yen": 0.0, "total_time": 0.0,
                                     "calculation_result": ""
@@ -7372,34 +7374,26 @@ if is_admin:
                                     log.get("details", "")
                                 )
                             
+                            elif action == "CALCULATION_TOOL_ROUTER":
+                                merged_logs[msg_id]["tool_time"] = proc_time
+                                merged_logs[msg_id]["tool_in"] = in_t
+                                merged_logs[msg_id]["tool_out"] = out_t
+                                merged_logs[msg_id]["tool_cost"] = cost
+
+                            elif action == "CALCULATION_EXTRACTION":
+                                merged_logs[msg_id]["calc_time"] = proc_time
+                                merged_logs[msg_id]["calc_in"] = in_t
+                                merged_logs[msg_id]["calc_out"] = out_t
+                                merged_logs[msg_id]["calc_cost"] = cost
+                            
                             elif action == "CALCULATION_SUCCESS":
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
 
-                                merged_logs[msg_id][
-                                    "calculation_result"
-                                ] = log.get(
-                                    "details",
-                                    ""
-                                )
-
-                            elif action == (
-                                "CALCULATION_MISSING_FIELDS"
-                            ):
-
-                                merged_logs[msg_id][
-                                    "calculation_result"
-                                ] = log.get(
-                                    "details",
-                                    ""
-                                )
+                            elif action == ("CALCULATION_MISSING_FIELDS"):
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
 
                             elif action == "CALCULATION_ERROR":
-
-                                merged_logs[msg_id][
-                                    "calculation_result"
-                                ] = log.get(
-                                    "details",
-                                    ""
-                                )
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
 
                             elif action == "CHAT_SUCCESS":
                                 merged_logs[msg_id]["chat_time"] = (
@@ -7468,16 +7462,6 @@ if is_admin:
                             t_yen = item["total_yen"]
                             t_time = item["total_time"]
 
-                            st.code(
-                                json.dumps(
-                                    t_yen,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
-
                             with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                                 st.markdown(f"""
 
@@ -7487,7 +7471,8 @@ if is_admin:
                                 | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
-                                    
+                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t |
+                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t |    
                                 🔎 **【検索判定結果】** {item['judge_result']}
 
                                 👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
