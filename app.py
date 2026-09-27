@@ -5236,6 +5236,8 @@ with all_tabs[0]:
         response_length_prompt = ""
         dialect_prompt = ""
 
+        current_plan_type = "スタンダード"
+
         if current_plan_type != "🆓 無料プラン":
             response_length_prompt = (
                 RESPONSE_LENGTH_PROMPTS.get(
@@ -6198,7 +6200,7 @@ with all_tabs[0]:
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-                        st.code(system_instruction, language="text")
+                        # st.code(system_instruction, language="text")
                     
                         try:
                             # Geminiへの指示（プロンプト）の流し込み口
