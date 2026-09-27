@@ -3875,6 +3875,18 @@ def extract_real_estate_sale_parameters(
             )
         )
 
+        st.write("raw_arguments")
+        st.code(
+            json.dumps(
+                raw_arguments,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
+
+
         if not isinstance(
             raw_arguments,
             dict
