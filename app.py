@@ -7343,7 +7343,7 @@ if is_admin:
                                     "user_plan": log.get("user_plan", "🆓 無料プラン"),
                                     "user_message": "",
                                     "ai_message": "",
-                                    "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
+                                    "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
                                     "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
@@ -7465,14 +7465,15 @@ if is_admin:
                             with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                                 st.markdown(f"""
 
-                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
-                                | :--- | :---: | :---: | :---: |
-                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
-                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
+                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |
+                                | :--- | :---: | :---: | :---: |:---: |
+                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} |
+                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
-                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t |
-                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t |    
+                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | {item['tool_out']} t |
+                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | {item['calc_out']} t |    
+
                                 🔎 **【検索判定結果】** {item['judge_result']}
 
                                 👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
