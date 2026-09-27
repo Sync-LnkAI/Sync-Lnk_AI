@@ -5853,6 +5853,18 @@ with all_tabs[0]:
                                             merged_arguments
                                         )
                                     )
+                                    st.write("saved_arguments")
+
+                                    st.code(
+                                        json.dumps(
+                                            saved_arguments,
+                                            ensure_ascii=False,
+                                            indent=2,
+                                            default=str
+                                        ),
+                                        language="json"
+                                    )
+                                    
                                 except Exception:
                                     saved_arguments = (
                                         merged_arguments
