@@ -3628,6 +3628,23 @@ def extract_real_estate_sale_parameters(
     ・仲介手数料を自動計算する場合でも、AI側で計算してはいけません。nullのまま出力し、Python側の計算に任せてください。
     ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
 
+    【取得費】
+    ・次の表現は acquisition_related_costs として扱ってください。
+        - 取得費
+        - 総取得費
+        - 合算簿価
+        - 簿価
+        - 購入経費込の取得費
+
+    例
+    取得費: ○○円、総取得費: ○○円、合算簿価: ○○円、簿価: ○○円
+    ↓
+    acquisition_related_costsに設定してください。
+
+    【重要】
+    ・取得費が明示されている場合は、acquisition_related_costs を 0 や null にしてはいけません。
+    ・土地取得費や建物取得費が不明であっても、総取得費や合算簿価が提示されている場合はacquisition_related_costs に設定してください。
+
     【税率の扱い】
     ・パーセントは0から1の小数へ変換してください。
     ・30%は0.30です。
