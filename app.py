@@ -5698,6 +5698,25 @@ with all_tabs[0]:
                                     continue
 
                                 merged_arguments[key] = value
+                            
+                            st.code(
+                                json.dumps(
+                                    previous_arguments,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
+                            st.code(
+                                json.dumps(
+                                    merged_arguments,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             calculation_extraction_result["arguments"] = merged_arguments
                             st.code(
