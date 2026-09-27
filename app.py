@@ -5965,6 +5965,9 @@ with all_tabs[0]:
                             )
                         )
 
+                        if calculation_prompt_block:
+                            st.code(calculation_prompt_block, language="text")
+
                         selected_mode_prompt = MODE_PROMPTS.get(
                             response_mode,
                             MODE_PROMPTS["default"]
