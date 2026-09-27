@@ -6460,6 +6460,14 @@ with all_tabs[0]:
                                     args=(current_msg_id, current_plan_type)
                                 )
                                 async_thread.start()
+                            
+                            st.warning(
+                                f"CHAT_SUCCESS SAVE: "
+                                f"msg_id={current_msg_id} "
+                                f"in={in_t} "
+                                f"out={out_t} "
+                                f"cost={current_通_cost}"
+                            )
 
                             # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                             save_system_audit_log(
@@ -7473,10 +7481,10 @@ if is_admin:
                                 merged_logs[msg_id]["calculation_result"] = log.get("details", "")
 
                             elif action == "CHAT_SUCCESS":
-                                st.write(
-                                    f"DEBUG CHAT_SUCCESS cost={cost} "
-                                    f"in={in_t} out={out_t}"
-                                )
+                                # st.write(
+                                #     f"DEBUG CHAT_SUCCESS cost={cost} "
+                                #     f"in={in_t} out={out_t}"
+                                # )
                                 merged_logs[msg_id]["chat_time"] = (
                                     log.get("chat_processing_time", proc_time)
                                     if log.get("chat_processing_time") is not None
