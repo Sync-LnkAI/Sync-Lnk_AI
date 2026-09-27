@@ -7471,8 +7471,8 @@ if is_admin:
                                 | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
-                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | {item['tool_out']} t |
-                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | {item['calc_out']} t |    
+                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} |
+                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} |    
 
                                 🔎 **【検索判定結果】** {item['judge_result']}
 
