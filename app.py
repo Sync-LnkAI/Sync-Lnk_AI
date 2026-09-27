@@ -6001,6 +6001,12 @@ with all_tabs[0]:
                                 calculation_execution_result
                             )
                         )
+                        
+                        st.write(
+                            f"DEBUG status = "
+                            f"{calculation_execution_result.get('status')}"
+                        )
+                        st.code(real_estate_context, language="text")
 
                         if calculation_prompt_block:
                             st.code(calculation_prompt_block, language="text")
@@ -6054,6 +6060,8 @@ with all_tabs[0]:
 
                             【現在の人格】
                             {STYLE_PRESETS.get(current_style_preset, "")}
+
+                            {dialect_prompt}
 
                             【現在の応答方針】
                             {current_user_instruction}
