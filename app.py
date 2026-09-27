@@ -6248,6 +6248,7 @@ with all_tabs[0]:
                                     f"{type(json_err).__name__}: "
                                     f"{json_err}"
                                 )
+                                st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
 
                                 print(
                                     f"⚠️ JSON解析エラー: "
@@ -7477,6 +7478,7 @@ if is_admin:
                                 | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} |
 
                                 🔎 **【検索判定結果】** {item['judge_result']}
+
                                 👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                                 """)
                                 st.markdown("---")
