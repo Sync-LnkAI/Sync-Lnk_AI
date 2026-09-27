@@ -3937,6 +3937,17 @@ def extract_real_estate_sale_parameters(
                 "cost": extraction_cost
             }
 
+        st.write("raw_arguments before return")
+        st.code(
+            json.dumps(
+                raw_arguments,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
+
         return {
             "should_calculate": True,
             "arguments": raw_arguments,
