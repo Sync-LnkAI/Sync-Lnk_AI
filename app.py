@@ -7414,6 +7414,8 @@ if is_admin:
                                     else out_t
                                 )
 
+                                merged_logs[msg_id]["chat_cost"] = (cost)
+
                                 merged_logs[msg_id]["search_time"] = (
                                     log.get("search_processing_time", 0.0)
                                     if log.get("search_processing_time") is not None
@@ -7469,13 +7471,11 @@ if is_admin:
                                 | :--- | :---: | :---: | :---: |:---: |
                                 | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} |
                                 | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
-                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥0.0000 |
+                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 |
                                 | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} |
                                 | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} |    
-
                                 🔎 **【検索判定結果】** {item['judge_result']}
-
                                 👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
                                 """)
                                 st.markdown("---")
