@@ -3423,9 +3423,7 @@ def calculate_real_estate_sale(
     return {
         "owner_type": owner_type,
         "holding_type": holding_type,
-        "acquisition_basis_method":
-            acquisition_basis_method,
-
+        "acquisition_basis_method": acquisition_basis_method,
         "sale_price": round_yen(sale_price_d),
         "loan_balance": round_yen(loan_balance_d),
         "land_acquisition_cost": round_yen(land_cost_d),
@@ -4573,7 +4571,7 @@ def execute_real_estate_sale_calculation(
             and value is not None
         )
     }
-    st.warning(f"{calculation_arguments}")
+    # st.warning(f"{calculation_arguments}")
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
 
     try:
@@ -6540,13 +6538,13 @@ with all_tabs[0]:
                                 )
                                 async_thread.start()
                             
-                            st.warning(
-                                f"CHAT_SUCCESS SAVE: "
-                                f"msg_id={current_msg_id} "
-                                f"in={in_t} "
-                                f"out={out_t} "
-                                f"cost={current_通_cost}"
-                            )
+                            # st.warning(
+                            #     f"CHAT_SUCCESS SAVE: "
+                            #     f"msg_id={current_msg_id} "
+                            #     f"in={in_t} "
+                            #     f"out={out_t} "
+                            #     f"cost={current_通_cost}"
+                            # )
 
                             # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                             save_system_audit_log(
