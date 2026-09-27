@@ -5864,7 +5864,7 @@ with all_tabs[0]:
                                         ),
                                         language="json"
                                     )
-                                    
+
                                 except Exception:
                                     saved_arguments = (
                                         merged_arguments
@@ -5908,10 +5908,11 @@ with all_tabs[0]:
                                 )
 
                             elif calculation_status == "success":
-                                # 計算完了後は継続状態を解除
-                                # st.session_state[
-                                #     "real_estate_calculation_arguments"
-                                # ] = {}
+                                # 計算に使用した最新条件を、次回の再計算用に保持
+                                try:
+                                    saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments))
+                                except Exception:
+                                    saved_arguments = dict(merged_arguments)
 
                                 st.session_state[
                                     "real_estate_calculation_pending"
