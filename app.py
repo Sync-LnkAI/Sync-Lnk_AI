@@ -6001,12 +6001,17 @@ with all_tabs[0]:
                                 calculation_execution_result
                             )
                         )
-                        
+
                         st.write(
                             f"DEBUG status = "
                             f"{calculation_execution_result.get('status')}"
                         )
-                        st.code(real_estate_context, language="text")
+                        st.code(
+                            build_real_estate_calculation_context(
+                                calculation_execution_result
+                            ),
+                            language="text"
+                        )
 
                         if calculation_prompt_block:
                             st.code(calculation_prompt_block, language="text")
