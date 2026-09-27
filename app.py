@@ -5685,8 +5685,19 @@ with all_tabs[0]:
                             # 同じ項目がある場合は最新発言を優先
                             merged_arguments = dict(previous_arguments)
                             for key, value in current_arguments.items():
-                                if value is not None:
-                                    merged_arguments[key] = value
+                                if value is None:
+                                    continue
+                                if value == "":
+                                    continue
+                                # 数値項目で0なら前回値を維持
+                                if (
+                                    key in REAL_ESTATE_NUMERIC_FIELDS
+                                    and str(value) == "0"
+                                    and key in previous_arguments
+                                ):
+                                    continue
+
+                                merged_arguments[key] = value
 
                             calculation_extraction_result["arguments"] = merged_arguments
                             st.code(
