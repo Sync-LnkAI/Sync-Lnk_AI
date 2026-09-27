@@ -5389,7 +5389,11 @@ with all_tabs[0]:
                         if not save_message("user", user_input, current_msg_id):
                             st.stop()
                         
-                        all_messages.append({"role": "user", "content": user_input})
+                        all_messages.append({
+                            "role": "user",
+                            "content": user_input,
+                            "created_at": datetime.now(JST).isoformat()
+                        })
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
                         manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
