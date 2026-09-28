@@ -507,12 +507,12 @@ RESPONSE_LENGTH_PRESETS = [
     "普通",
     "長め"
 ]
-DIALECT_PRESETS = [
-    "標準語",
-    "関西弁",
-    "博多弁",
-    "名古屋弁"
-]
+# DIALECT_PRESETS = [
+#     "標準語",
+#     "関西弁",
+#     "博多弁",
+#     "名古屋弁"
+# ]
 RESPONSE_LENGTH_PROMPTS = {
     "短め": """
     回答は簡潔にまとめてください。
@@ -1138,7 +1138,6 @@ def save_all_user_settings(settings_dict: dict) -> bool:
             "ユーザー名": "リュウ",
             "人格": "🤝 フランクな相棒",
             "会話長さ": "長め",
-            "方言": "関西弁"
         }
     """
 
@@ -5033,7 +5032,7 @@ current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
 current_response_length = "普通"
-current_dialect = "標準語"
+# current_dialect = "標準語"
 current_user_instruction = ""
 current_ai_avatar = "🧠"
 current_user_avatar = "💫"
@@ -5081,13 +5080,13 @@ for m in manual_memories:
             ).strip()
         )
 
-    if fact.startswith("方言:"):
-        current_dialect = (
-            fact.replace(
-                "方言:",
-                ""
-            ).strip()
-        )
+    # if fact.startswith("方言:"):
+    #     current_dialect = (
+    #         fact.replace(
+    #             "方言:",
+    #             ""
+    #         ).strip()
+    #     )
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
@@ -5334,7 +5333,7 @@ with all_tabs[0]:
         # プラン別制御
         # ==========================================
         response_length_prompt = ""
-        dialect_prompt = ""
+        # dialect_prompt = ""
 
         current_plan_type = "スタンダード"
 
@@ -5345,12 +5344,12 @@ with all_tabs[0]:
                     ""
                 )
             )
-            dialect_prompt = (
-                DIALECT_PROMPTS.get(
-                    current_dialect,
-                    ""
-                )
-            )
+            # dialect_prompt = (
+            #     DIALECT_PROMPTS.get(
+            #         current_dialect,
+            #         ""
+            #     )
+            # )
 
         #st.code(build_manual_memory_context())
         #if st.button("記憶確認"):
@@ -6171,8 +6170,6 @@ with all_tabs[0]:
 
                             {response_length_prompt}
 
-                            {dialect_prompt}
-
                             【直近の会話履歴】
                             {use_recent_history}
 
@@ -6189,21 +6186,19 @@ with all_tabs[0]:
                             【現在の人格】
                             {STYLE_PRESETS.get(current_style_preset, "")}
 
-                            {dialect_prompt}
-
                             【現在の応答方針】
                             {current_user_instruction}
 
                             【話し方の決定ルール】
-                            ・話し方、口調、語尾、一人称、キャラクター性は、現在の人格、方言設定、応答方針から決定してください。
-                            ・方言設定がある場合は、人格の特徴を維持しながら、回答全体と文末表現でその方言を自然に使用してください。
-                            ・回答の途中で標準語へ戻らないでください。回答全体を通して、設定された方言を維持してください。
+                            ・話し方、口調、語尾、一人称、キャラクター性は、現在の人格から決定してください。
+                            ・人格の特徴は、回答全体と文末表現で自然に使用してください。
+                            ・回答の途中で違う話し方や口調になったりせず、回答全体を通して維持してください。
                             ・直近履歴内のAIの口調、語尾、方言、一人称、キャラクター性は模倣せず、会話の文脈だけを参照してください。
 
                             【ルールの優先順位】
                             1. 最新のユーザー発言へ正確かつ自然に反応する
                             2. 現在の回答モード（analysis / support / conversation / factual / short_chat）の目的を優先する
-                            3. 現在の人格、方言設定、応答方針を守る
+                            3. 現在の人格を守る
                             4. 記憶されている事実を正確に使用する
                             5. 時間帯に応じた気遣い
                             6. 直近履歴と関連過去ログを補助的に使用する
@@ -6297,7 +6292,7 @@ with all_tabs[0]:
                             プログラムのコード記述、画像生成、長文の執筆や翻訳を依頼された場合は実行せず、現在の人格を保ちながら丁寧に断ってください。
 
                             【出力ルール】
-                            ・現在の人格と応答方針を回答全体で統一する
+                            ・現在の人格を回答全体で統一する
                             ・最新のユーザー発言への反応から回答する
                             ・同じ導入文や気遣いを繰り返さない
                             ・記憶にない事実を作らない
@@ -7009,24 +7004,24 @@ with all_tabs[3]:
                 st.caption(
                     "💎 ライトプラン以上で利用可能"
                 )
-            default_dialect_idx = (
-                DIALECT_PRESETS.index(
-                    current_dialect
-                )
-                if current_dialect
-                in DIALECT_PRESETS
-                else 0
-            )
-            new_dialect = st.selectbox(
-                "方言",
-                DIALECT_PRESETS,
-                index=default_dialect_idx,
-                disabled=is_free_plan
-            )
-            if is_free_plan:
-                st.caption(
-                    "💎 ライトプラン以上で利用可能"
-                )
+            # default_dialect_idx = (
+            #     DIALECT_PRESETS.index(
+            #         current_dialect
+            #     )
+            #     if current_dialect
+            #     in DIALECT_PRESETS
+            #     else 0
+            # )
+            # new_dialect = st.selectbox(
+            #     "方言",
+            #     DIALECT_PRESETS,
+            #     index=default_dialect_idx,
+            #     disabled=is_free_plan
+            # )
+            # if is_free_plan:
+            #     st.caption(
+            #         "💎 ライトプラン以上で利用可能"
+            #     )
 
             # ==========================================
             # 応答方針（旧仕様）
@@ -7124,7 +7119,7 @@ with all_tabs[3]:
                     "AI一人称": new_first_person,
                     "人格": selected_preset,
                     "会話長さ": new_response_length,
-                    "方言": new_dialect,
+                    # "方言": new_dialect,
                     "絵文字の量": new_emoji_setting
                 }
                 target_placeholder = (
