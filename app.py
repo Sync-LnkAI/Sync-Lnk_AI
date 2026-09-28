@@ -7107,9 +7107,9 @@ with all_tabs[3]:
                 }
                 with st.spinner("設定登録中..."):
 
-                success =  save_all_user_settings(
-                    settings_dict
-                )
+                    success =  save_all_user_settings(
+                        settings_dict
+                    )
 
                 if success:
                     st.session_state.skip_message_reload = True
