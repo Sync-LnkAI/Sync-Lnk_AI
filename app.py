@@ -6919,14 +6919,27 @@ with all_tabs[3]:
         st.divider()
 
         with st.form("unified_settings_form"):
+            if "settings_saved" not in st.session_state:
+                st.session_state["settings_saved"] = False
+            if "settings_saved_position" not in st.session_state:
+                st.session_state["settings_saved_position"] = ""
+
             st.markdown("##### 🎨 アプリの外観＆カラー")
             selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
             # 上部設定保存ボタン
             top_save = st.form_submit_button(
                 "💾 設定を保存",
                 key="save_settings_top",
-                # use_container_width=True
             )
+            top_placeholder = st.empty()
+            if (
+                st.session_state.get("settings_saved")
+                and
+                st.session_state.get("settings_saved_position") == "top"
+            ):
+                top_placeholder.success("✅ 設定を登録しました")
+                st.session_state["settings_saved"] = False
+
             st.divider()
 
             st.markdown("##### 👤 基本設定")
@@ -7093,6 +7106,15 @@ with all_tabs[3]:
                 "💾 設定を保存",
                 key="save_settings_bottom"
             )
+            bottom_placeholder = st.empty()
+            if (
+                st.session_state.get("settings_saved")
+                and
+                st.session_state.get("settings_saved_position") == "bottom"
+            ):
+                bottom_placeholder.success("✅ 設定を登録しました")
+                st.session_state["settings_saved"] = False
+
             if top_save or bottom_save:
                 settings_dict = {
                     "カラーテーマ": selected_color,
@@ -7105,19 +7127,29 @@ with all_tabs[3]:
                     "方言": new_dialect,
                     "絵文字の量": new_emoji_setting
                 }
-                placeholder = st.empty()
-                placeholder.info("設定登録中...")
+                target_placeholder = (
+                    top_placeholder
+                    if top_save
+                    else bottom_placeholder
+                )
+
+                target_placeholder.info("設定登録中...")
 
                 success =  save_all_user_settings(settings_dict)
 
                 if success:
                     st.session_state.skip_message_reload = True
-                    placeholder.success("設定を登録しました")
+                    st.session_state["settings_saved"] = True
+                    st.session_state["settings_saved_position"] = (
+                        "top"
+                        if top_save
+                        else "bottom"
+                    )
 
-                    # st.success("設定を更新しました")
+                    # target_placeholder.success("設定を登録しました")
                     st.rerun()
                 else:
-                    st.error("設定の保存に失敗しました")
+                    target_placeholder.error("設定の保存に失敗しました")
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
