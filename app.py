@@ -7105,6 +7105,7 @@ with all_tabs[3]:
                     "方言": new_dialect,
                     "絵文字の量": new_emoji_setting
                 }
+                with st.spinner("設定登録中..."):
 
                 success =  save_all_user_settings(
                     settings_dict
