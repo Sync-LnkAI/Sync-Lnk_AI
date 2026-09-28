@@ -6937,7 +6937,7 @@ with all_tabs[3]:
                 and
                 st.session_state.get("settings_saved_position") == "top"
             ):
-                top_placeholder.success("✅ 設定を登録しました")
+                top_placeholder.success("設定を登録しました")
                 st.session_state["settings_saved"] = False
 
             st.divider()
@@ -7112,7 +7112,7 @@ with all_tabs[3]:
                 and
                 st.session_state.get("settings_saved_position") == "bottom"
             ):
-                bottom_placeholder.success("✅ 設定を登録しました")
+                bottom_placeholder.success("設定を登録しました")
                 st.session_state["settings_saved"] = False
 
             if top_save or bottom_save:
