@@ -5033,7 +5033,7 @@ current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
 current_response_length = "普通"
 # current_dialect = "標準語"
-current_user_instruction = ""
+# current_user_instruction = ""
 current_ai_avatar = "🧠"
 current_user_avatar = "💫"
 current_emoji_setting = "使用（普通）"
@@ -5070,8 +5070,8 @@ for m in manual_memories:
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
     if fact.startswith("人格:"):
         current_style_preset = fact.replace("人格:", "").strip()
-    if fact.startswith("応答方針:"):
-        current_user_instruction = fact.replace("応答方針:", "").strip()
+    # if fact.startswith("応答方針:"):
+    #     current_user_instruction = fact.replace("応答方針:", "").strip()
     if fact.startswith("会話長さ:"):
         current_response_length = (
             fact.replace(
@@ -6186,9 +6186,6 @@ with all_tabs[0]:
                             【現在の人格】
                             {STYLE_PRESETS.get(current_style_preset, "")}
 
-                            【現在の応答方針】
-                            {current_user_instruction}
-
                             【話し方の決定ルール】
                             ・話し方、口調、語尾、一人称、キャラクター性は、現在の人格から決定してください。
                             ・人格の特徴は、回答全体と文末表現で自然に使用してください。
@@ -6231,6 +6228,7 @@ with all_tabs[0]:
 
                             【現在の発言に関連する過去の会話】
                             {past_logs_str}
+
                             【検索結果】
                             {search_result}
 
@@ -6308,224 +6306,297 @@ with all_tabs[0]:
                         # st.code(system_instruction, language="text")
                     
                         try:
-                            # Geminiへの指示（プロンプト）の流し込み口
-                            json_instruction = f"""
-                            以下のユーザー発言に回答してください。
-
-                            同時に、ユーザーが今回の発言で新しく指定した
-                            口調、話し方、回答の長さ、回答形式、禁止事項などの
-                            継続的な要望があれば抽出してください。
-
-                            必ず次のJSONオブジェクトだけを返してください。
-
-                            {{
-                                "reply": "ユーザーへの回答",
-                                "new_instruction": "新しく指定された継続的な要望。なければ、なし"
-                            }}
-
-                            ルール:
-                            ・replyには、ユーザーへの自然な回答を入れてください。
-                            ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
-                            ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
-                            ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
-                            ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
-                            ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
-                            ・JSONの外に説明文を出さないでください。
-                            ・```jsonなどの囲み記号を付けないでください。
-
-                            ユーザー発言:
-                            {user_input}
-                            """
-
+                            # ==========================================
+                            # 通常のテキスト応答生成
+                            # ==========================================
                             api_start_time = time.time()
-                            # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
-                            json_model = genai.GenerativeModel(
+
+                            response_model = genai.GenerativeModel(
                                 model_name=CHAT_MODEL_NAME,
                                 system_instruction=system_instruction
                             )
 
-                            response = json_model.generate_content(
-                                [
-                                    {
-                                        "role": "user",
-                                        "parts": [json_instruction]
-                                    }
-                                ],
-                                generation_config={
-                                    "response_mime_type": "application/json"
-                                }
-                            )
+                            response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
 
-                            api_elapsed = time.time() - api_start_time
+                            api_elapsed = (time.time() - api_start_time)
 
-                            in_t, out_t = 0, 0
-                            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                                in_t = response.usage_metadata.prompt_token_count
-                                out_t = response.usage_metadata.candidates_token_count
-                                add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                                st.session_state.last_in_tokens = in_t
-                                st.session_state.last_out_tokens = out_t
-                                st.session_state.total_in_tokens += in_t
-                                st.session_state.total_out_tokens += out_t
+                            # AIサーバーとの通信結果を確認
+                            if (
+                                not response
+                                or not hasattr(response, "text")
+                                or not response.text
+                            ):
+                                st.error(
+                                    "【システム通信エラー】"
+                                    "AIサーバーとの接続が一時的に遮断されました。"
+                                    "電波環境の良い場所で、"
+                                    "もう一度メッセージを送信してください。"
+                                )
+                                st.stop()
+
+                            # 通常のテキストをそのまま回答として使用
+                            ai_reply = str(
+                                response.text
+                                or ""
+                            ).strip()
+
+                            if not ai_reply:
+                                raise ValueError("AIの回答が空です")
+
+                            # トークン数を取得して保存
+                            in_t = 0
+                            out_t = 0
+
+                            if (
+                                hasattr(response, "usage_metadata")
+                                and response.usage_metadata
+                            ):
+                                in_t = int(
+                                    response
+                                    .usage_metadata
+                                    .prompt_token_count
+                                    or 0
+                                )
+
+                                out_t = int(
+                                    response
+                                    .usage_metadata
+                                    .candidates_token_count
+                                    or 0
+                                )
+
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "chat",
+                                    in_t,
+                                    out_t
+                                )
+
+                                st.session_state.last_in_tokens = (in_t)
+                                st.session_state.last_out_tokens = (out_t)
+                                st.session_state.total_in_tokens += (in_t)
+                                st.session_state.total_out_tokens += (out_t)
+
+                            print("📡 AIテキスト応答確認: "f"{ai_reply[:15]}...")
+
+                            # # Geminiへの指示（プロンプト）の流し込み口
+                            # json_instruction = f"""
+                            # 以下のユーザー発言に回答してください。
+
+                            # 同時に、ユーザーが今回の発言で新しく指定した
+                            # 口調、話し方、回答の長さ、回答形式、禁止事項などの
+                            # 継続的な要望があれば抽出してください。
+
+                            # 必ず次のJSONオブジェクトだけを返してください。
+
+                            # {{
+                            #     "reply": "ユーザーへの回答",
+                            #     "new_instruction": "新しく指定された継続的な要望。なければ、なし"
+                            # }}
+
+                            # ルール:
+                            # ・replyには、ユーザーへの自然な回答を入れてください。
+                            # ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
+                            # ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
+                            # ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
+                            # ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
+                            # ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
+                            # ・JSONの外に説明文を出さないでください。
+                            # ・```jsonなどの囲み記号を付けないでください。
+
+                            # ユーザー発言:
+                            # {user_input}
+                            # """
+
+                            # api_start_time = time.time()
+                            # # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
+                            # json_model = genai.GenerativeModel(
+                            #     model_name=CHAT_MODEL_NAME,
+                            #     system_instruction=system_instruction
+                            # )
+
+                            # response = json_model.generate_content(
+                            #     [
+                            #         {
+                            #             "role": "user",
+                            #             "parts": [json_instruction]
+                            #         }
+                            #     ],
+                            #     generation_config={
+                            #         "response_mime_type": "application/json"
+                            #     }
+                            # )
+
+                            # api_elapsed = time.time() - api_start_time
+
+                            # in_t, out_t = 0, 0
+                            # if hasattr(response, "usage_metadata") and response.usage_metadata:
+                            #     in_t = response.usage_metadata.prompt_token_count
+                            #     out_t = response.usage_metadata.candidates_token_count
+                            #     add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            #     st.session_state.last_in_tokens = in_t
+                            #     st.session_state.last_out_tokens = out_t
+                            #     st.session_state.total_in_tokens += in_t
+                            #     st.session_state.total_out_tokens += out_t
                             
-                            # 届いたJSONデータをを解体して引き出しを取り出します
-                            try:
+                            # # 届いたJSONデータをを解体して引き出しを取り出します
+                            # try:
     
-                                raw_json_text = response.text or ""
+                            #     raw_json_text = response.text or ""
 
-                                clean_json_text = (
-                                    raw_json_text
-                                    .strip()
-                                    .replace("```json", "")
-                                    .replace("```JSON", "")
-                                    .replace("```", "")
-                                    .strip()
-                                )
+                            #     clean_json_text = (
+                            #         raw_json_text
+                            #         .strip()
+                            #         .replace("```json", "")
+                            #         .replace("```JSON", "")
+                            #         .replace("```", "")
+                            #         .strip()
+                            #     )
 
-                                res_json = json.loads(
-                                    clean_json_text,
-                                    strict=False
-                                )
+                            #     res_json = json.loads(
+                            #         clean_json_text,
+                            #         strict=False
+                            #     )
 
-                                if not isinstance(res_json, dict):
-                                    raise ValueError(
-                                        "GeminiのJSON応答がobject形式ではありません"
-                                    )
+                            #     if not isinstance(res_json, dict):
+                            #         raise ValueError(
+                            #             "GeminiのJSON応答がobject形式ではありません"
+                            #         )
 
-                                ai_reply = str(
-                                    res_json.get(
-                                        "reply",
-                                        "申し訳ありません。応答を正しく処理できませんでした。"
-                                    )
-                                    or ""
-                                ).strip()
+                            #     ai_reply = str(
+                            #         res_json.get(
+                            #             "reply",
+                            #             "申し訳ありません。応答を正しく処理できませんでした。"
+                            #         )
+                            #         or ""
+                            #     ).strip()
 
-                                raw_new_manner = res_json.get(
-                                    "new_instruction",
-                                    "なし"
-                                )
+                            #     raw_new_manner = res_json.get(
+                            #         "new_instruction",
+                            #         "なし"
+                            #     )
 
-                                if isinstance(
-                                    raw_new_manner,
-                                    list
-                                ):
-                                    new_manner = "\n".join(
-                                        str(item).strip()
-                                        for item in raw_new_manner
-                                        if str(item).strip()
-                                    )
-                                else:
-                                    new_manner = str(
-                                        raw_new_manner or "なし"
-                                    ).strip()
+                            #     if isinstance(
+                            #         raw_new_manner,
+                            #         list
+                            #     ):
+                            #         new_manner = "\n".join(
+                            #             str(item).strip()
+                            #             for item in raw_new_manner
+                            #             if str(item).strip()
+                            #         )
+                            #     else:
+                            #         new_manner = str(
+                            #             raw_new_manner or "なし"
+                            #         ).strip()
 
-                                if not ai_reply:
-                                    raise ValueError(
-                                        "JSON内のreplyが空です"
-                                    )
+                            #     if not ai_reply:
+                            #         raise ValueError(
+                            #             "JSON内のreplyが空です"
+                            #         )
 
-                            except Exception as json_err:
-                                json_error_detail = (
-                                    f"{type(json_err).__name__}: "
-                                    f"{json_err}"
-                                )
-                                # st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
+                            # except Exception as json_err:
+                            #     json_error_detail = (
+                            #         f"{type(json_err).__name__}: "
+                            #         f"{json_err}"
+                            #     )
+                            #     # st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
 
-                                print(
-                                    f"⚠️ JSON解析エラー: "
-                                    f"{json_error_detail}"
-                                )
+                            #     print(
+                            #         f"⚠️ JSON解析エラー: "
+                            #         f"{json_error_detail}"
+                            #     )
 
-                                # st.code(
-                                #     response.text or "(空の応答)",
-                                #     language="json"
-                                # )
+                            #     # st.code(
+                            #     #     response.text or "(空の応答)",
+                            #     #     language="json"
+                            #     # )
 
-                                # JSON解析に失敗しても、空返答にはしない
-                                ai_reply = (
-                                    response.text
-                                    if response.text
-                                    else "申し訳ありません。応答を正しく処理できませんでした。"
-                                )
+                            #     # JSON解析に失敗しても、空返答にはしない
+                            #     ai_reply = (
+                            #         response.text
+                            #         if response.text
+                            #         else "申し訳ありません。応答を正しく処理できませんでした。"
+                            #     )
 
-                                new_manner = "なし"
+                            #     new_manner = "なし"
                             
-                            # 🟢 【電波瞬断（Geminiエラー）のガードレール】
-                            #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
-                            #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
-                            if not response or not hasattr(response, "text") or not response.text:
-                                st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
-                                st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
+                            # # 🟢 【電波瞬断（Geminiエラー）のガードレール】
+                            # #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
+                            # #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
+                            # if not response or not hasattr(response, "text") or not response.text:
+                            #     st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
+                            #     st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
 
-                            # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
-                            print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
-                            print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
+                            # # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
+                            # print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
+                            # print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
 
-                            # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
-                            if new_manner and new_manner != "なし" and "なし" not in new_manner:
-                                current_instruction_text = str(current_user_instruction)
-                                lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
+                            # # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
+                            # if new_manner and new_manner != "なし" and "なし" not in new_manner:
+                            #     current_instruction_text = str(current_user_instruction)
+                            #     lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
-                                if new_manner not in lines:
+                            #     if new_manner not in lines:
 
-                                    lines.append(new_manner)
+                            #         lines.append(new_manner)
 
-                                    if len(lines) > 5:
-                                        lines = lines[-5:]
+                            #         if len(lines) > 5:
+                            #             lines = lines[-5:]
 
-                                    updated_instruction_text = "\n".join(lines)
+                            #         updated_instruction_text = "\n".join(lines)
 
-                                    # 応答方針のレコードを探す
-                                    instruction_res = (
-                                        supabase
-                                        .table(DB_MEMORIES_TABLE)
-                                        .select("*")
-                                        .eq(
-                                            "user_id",
-                                            str(CURRENT_USER_ID)
-                                        )
-                                        .eq(
-                                            "source",
-                                            "manual"
-                                        )
-                                        .execute()
-                                    )
-                                    instruction_row = None
+                                #     # 応答方針のレコードを探す
+                                #     instruction_res = (
+                                #         supabase
+                                #         .table(DB_MEMORIES_TABLE)
+                                #         .select("*")
+                                #         .eq(
+                                #             "user_id",
+                                #             str(CURRENT_USER_ID)
+                                #         )
+                                #         .eq(
+                                #             "source",
+                                #             "manual"
+                                #         )
+                                #         .execute()
+                                #     )
+                                #     instruction_row = None
 
-                                    for row in instruction_res.data:
+                                #     for row in instruction_res.data:
 
-                                        fact = row.get("fact", "")
+                                #         fact = row.get("fact", "")
 
-                                        if fact.startswith("応答方針:"):
-                                            instruction_row = row
-                                            break
+                                #         if fact.startswith("応答方針:"):
+                                #             instruction_row = row
+                                #             break
 
-                                    if instruction_row:
+                                #     if instruction_row:
 
-                                        update_result = (
-                                            supabase
-                                            .table(DB_MEMORIES_TABLE)
-                                            .update({
-                                            "fact":
-                                            "応答方針: "
-                                            + updated_instruction_text
-                                            })
-                                            .eq(
-                                                "id",
-                                                instruction_row["id"]
-                                            )
-                                            .execute()
-                                        )
+                                #         update_result = (
+                                #             supabase
+                                #             .table(DB_MEMORIES_TABLE)
+                                #             .update({
+                                #             "fact":
+                                #             "応答方針: "
+                                #             + updated_instruction_text
+                                #             })
+                                #             .eq(
+                                #                 "id",
+                                #                 instruction_row["id"]
+                                #             )
+                                #             .execute()
+                                #         )
 
-                                    print(
-                                        "✅ 応答方針更新結果:",
-                                        update_result.data
-                                    )
-                                else:
+                                #     print(
+                                #         "✅ 応答方針更新結果:",
+                                #         update_result.data
+                                #     )
+                                # else:
 
-                                    print(
-                                        "⚠️ 応答方針レコードが見つかりませんでした"
-                                    )    
+                                #     print(
+                                #         "⚠️ 応答方針レコードが見つかりませんでした"
+                                #     )    
 
                             clean_reply = clean_bold_markdown(ai_reply)
                             # with st.chat_message("assistant", avatar=current_ai_avatar):
@@ -7229,15 +7300,15 @@ if is_admin:
                 pass
 
             audit_real_instruction = "設定データなし"
-            try:
-                # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
-                if u_memories and u_memories.data:
-                    for m in u_memories.data:
-                        fact_text = m.get("fact", "")
-                        if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
-                            audit_real_instruction = fact_text
-            except Exception:
-                pass
+            # try:
+            #     # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
+            #     if u_memories and u_memories.data:
+            #         for m in u_memories.data:
+            #             fact_text = m.get("fact", "")
+            #             if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
+            #                 audit_real_instruction = fact_text
+            # except Exception:
+            #     pass
 
             # リアルタイムKPI自動計算            
             total_chats = 0
