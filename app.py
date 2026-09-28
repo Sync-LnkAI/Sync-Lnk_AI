@@ -7105,15 +7105,16 @@ with all_tabs[3]:
                     "方言": new_dialect,
                     "絵文字の量": new_emoji_setting
                 }
-                with st.spinner("設定登録中..."):
+                placeholder = st.empty()
+                placeholder.info("設定登録中...")
 
-                    success =  save_all_user_settings(
-                        settings_dict
-                    )
+                success =  save_all_user_settings(settings_dict)
 
                 if success:
                     st.session_state.skip_message_reload = True
-                    st.success("設定を更新しました")
+                    placeholder.success("設定を登録しました")
+
+                    # st.success("設定を更新しました")
                     st.rerun()
                 else:
                     st.error("設定の保存に失敗しました")
