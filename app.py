@@ -7152,6 +7152,7 @@ with all_tabs[3]:
                     st.markdown(sample)
                     st.divider()
             
+            st.caption("")
             # 絵文字3段階パーソナライズドロップダウン
             emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
             default_emoji_idx = (
@@ -7178,7 +7179,7 @@ with all_tabs[3]:
                 current_plan_type
                 == "🆓 無料プラン"
             )
-            st.markdown("**📏 返事の長さ**")
+            st.markdown("**返事の長さ**")
             new_response_length = st.selectbox(
                 "",
                 RESPONSE_LENGTH_PRESETS,
