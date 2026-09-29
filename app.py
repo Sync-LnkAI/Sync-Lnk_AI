@@ -1362,6 +1362,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             )
 
             total_message_count = int(count_res.count or 0)
+            save_debug_log(
+                event_type="SUMMARY_START",
+                details=f"messages={total_message_count}"
+            )
 
         except Exception as db_err:
             print(
@@ -1652,6 +1656,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             #st.session_state.summary_out_tokens = int(out_t)
             #st.session_state.summary_processing_time = float(summary_processing_seconds)
 
+        save_debug_log(
+            event_type="SUMMARY_END",
+            details=f"messages={total_message_count}"
+        )
         return True
 
     except Exception as bg_err:
@@ -6769,13 +6777,17 @@ with all_tabs[0]:
                             #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
                             # )
                             # async_thread.start()
+
+                            # 9/30要約スレッド処理
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
                                 async_thread = threading.Thread(
                                     target=check_and_summarize_history,
                                     args=(current_msg_id, current_plan_type)
                                 )
                                 async_thread.start()
-                            
+                            # if st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0:
+                            #     check_and_summarize_history(current_msg_id, current_plan_type)
+
                             # st.warning(
                             #     f"CHAT_SUCCESS SAVE: "
                             #     f"msg_id={current_msg_id} "
