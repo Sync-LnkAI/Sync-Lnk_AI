@@ -5675,6 +5675,9 @@ with all_tabs[0]:
                                 clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
                                 logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
                             past_logs_str = "\n".join(logs_text)
+
+                            st.code(past_logs_str,　language="text")
+
                         else:
                             past_logs_str = "該当する過去ログなし"
 
