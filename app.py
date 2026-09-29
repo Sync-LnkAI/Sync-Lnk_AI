@@ -758,12 +758,12 @@ def update_conversation_response_mode(
 
         return False
 
-def cleanup_old_short_chats(
+def cleanup_old_micro_chats(
     keep_conversations: int = 100
 ) -> int:
     """
     最新keep_conversations会話より古い
-    short_chatを会話単位で削除する。
+    micro_chatsを会話単位で削除する。
 
     判定と削除はSupabase内で行うため、
     メッセージ本文をアプリへ取得しない。
@@ -772,7 +772,7 @@ def cleanup_old_short_chats(
         cleanup_response = (
             supabase
             .rpc(
-                "cleanup_old_short_chats",
+                "cleanup_old_micro_chats",
                 {
                     "p_user_id":
                         CURRENT_USER_ID,
@@ -791,7 +791,7 @@ def cleanup_old_short_chats(
 
         if deleted_count > 0:
             print(
-                "古いshort_chatを削除: "
+                "古いmicro_chatsを削除: "
                 f"{deleted_count}行"
             )
 
@@ -799,7 +799,7 @@ def cleanup_old_short_chats(
 
     except Exception as cleanup_error:
         print(
-            "short_chat整理エラー: "
+            "micro_chats整理エラー: "
             f"{type(cleanup_error).__name__}: "
             f"{cleanup_error}"
         )
@@ -6740,8 +6740,12 @@ with all_tabs[0]:
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                            if (st.session_state.conversation_count % 20 == 0):
-                                cleanup_old_micro_chats()
+                            if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                                deleted_count = cleanup_old_micro_chats()
+                                print(
+                                    f"micro_chat整理実行: "
+                                    f"{deleted_count}件削除"
+                                )
 
                             # ==================================================================
                             # 🧠 記憶の自動要約マルチスレッド
