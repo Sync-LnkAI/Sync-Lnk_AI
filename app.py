@@ -2327,9 +2327,22 @@ def google_search(query):
             tools=[grounding_tool]
         )
     )
-    st.write(response)
 
-    return response.text
+    search_in_tokens = 0
+    search_out_tokens = 0
+
+    if (
+        hasattr(response, "usage_metadata")
+        and response.usage_metadata
+    ):
+        search_in_tokens = int(response.usage_metadata.prompt_token_count or 0)
+        search_out_tokens = int(response.usage_metadata.candidates_token_count or 0)
+
+    return {
+        "text": response.text,
+        "in_tokens": search_in_tokens,
+        "out_tokens": search_out_tokens
+    }
 
 RESPONSE_MODES = {
     "micro_chat",
@@ -5805,10 +5818,31 @@ with all_tabs[0]:
                             【最新ユーザー発言】
                             {user_input}
                             """
-                            search_result = google_search(
-                                search_query
+
+                            search_response = google_search(search_query)
+                            search_result = (search_response.get("text", "なし"))
+                            search_in_tokens = int(search_response.get("in_tokens", 0))
+                            search_out_tokens = int(search_response.get("out_tokens", 0))
+                            search_cost = (search_in_tokens * PRICE_BACKGROUND_IN + search_out_tokens * PRICE_BACKGROUND_OUT)
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type="SEARCH_EXECUTION",
+                                processing_time=0.0,
+                                in_t=search_in_tokens,
+                                out_t=search_out_tokens,
+                                api_cost=search_cost,
+                                details="Google Search Grounding",
+                                message_id=str(current_msg_id)
                             )
-                            # st.code(search_result[:500])
+
+                            add_permanent_tokens(
+                                CURRENT_USER_ID,
+                                "search_execution",
+                                search_in_tokens,
+                                search_out_tokens
+                            )
 
                             try:
                                 supabase.table("search_logs").insert({
@@ -7627,6 +7661,21 @@ if is_admin:
                         search_res.data or []
                     )
 
+                    # google検索データ
+                    search_exec_count = len(search_exec_rows)
+                    search_exec_total_cost = sum(
+                        float(row.get("api_cost", 0) or 0)
+                        for row in search_exec_rows
+                    )
+                    search_exec_total_in = sum(
+                        int(row.get("in_tokens", 0) or 0)
+                        for row in search_exec_rows
+                    )
+                    search_exec_total_out = sum(
+                        int(row.get("out_tokens", 0) or 0)
+                        for row in search_exec_rows
+                    )
+
                     # python計算データを取得
                     calc_logs = (
                         supabase
@@ -7859,6 +7908,7 @@ if is_admin:
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
+                                    "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
                                     "total_yen": 0.0, "total_time": 0.0,
                                     "calculation_result": ""
                                 }
@@ -7904,6 +7954,12 @@ if is_admin:
 
                             elif action == "CALCULATION_ERROR":
                                 merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                            elif action == "SEARCH_EXECUTION":
+                                merged_logs[msg_id]["search_exec_in"] = in_t
+                                merged_logs[msg_id]["search_exec_out"] = out_t
+                                merged_logs[msg_id]["search_exec_cost"] = cost
+                                merged_logs[msg_id]["search_exec_time"] = proc_time
 
                             elif action == "CHAT_SUCCESS":
                                 # st.write(
@@ -7984,6 +8040,7 @@ if is_admin:
                                 | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |
                                 | :--- | :---: | :---: | :---: |:---: |
                                 | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} |
+                                | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} |
                                 | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥0.0000 |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 |
