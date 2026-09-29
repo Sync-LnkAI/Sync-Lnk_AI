@@ -7843,20 +7843,21 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>"
                     f"・<b>検索判定コスト：</b> {search_judge_total_cost:.4f} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
-                    f"・<b>不動産計算利用：</b> "
-                    f"{calc_total} 回</p>"
-
+                    f"・<b>Google検索実行回数：</b> {search_exec_count} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
-                    f"・<b>計算成功：</b> "
-                    f"{calc_success} 回</p>"
-
+                    f"・<b>Google検索入力：</b> {search_exec_total_in:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
-                    f"・<b>条件不足：</b> "
-                    f"{calc_missing} 回</p>"
-
+                    f"・<b>Google検索出力：</b> {search_exec_total_out:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
-                    f"・<b>計算エラー：</b> "
-                    f"{calc_error} 回</p>"
+                    f"・<b>Google検索コスト：</b> {search_exec_total_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>不動産計算利用：</b> {calc_total} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算成功：</b> {calc_success} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>条件不足：</b> {calc_missing} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算エラー：</b> {calc_error} 回</p>"
                     "</div>",
                     unsafe_allow_html=True
                 )
