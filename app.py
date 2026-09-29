@@ -17,7 +17,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🧠", layout="wide")
 
 MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
-SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
+SUMMARY_INTERVAL_MESSAGES = 1 # 要約発動件数の定義
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -6777,17 +6777,13 @@ with all_tabs[0]:
                             #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
                             # )
                             # async_thread.start()
-
-                            # 9/30要約スレッド処理
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
                                 async_thread = threading.Thread(
                                     target=check_and_summarize_history,
                                     args=(current_msg_id, current_plan_type)
                                 )
                                 async_thread.start()
-                            # if st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0:
-                            #     check_and_summarize_history(current_msg_id, current_plan_type)
-
+                            
                             # st.warning(
                             #     f"CHAT_SUCCESS SAVE: "
                             #     f"msg_id={current_msg_id} "
