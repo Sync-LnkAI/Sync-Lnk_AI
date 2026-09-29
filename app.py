@@ -673,19 +673,20 @@ def save_message(role: str, content: str,message_id: str = "", response_mode: st
     
     embedding_data = None
     
-    try:
-        embedding_data = get_embedding(
-            content,
-            task_type="RETRIEVAL_DOCUMENT"
-        )
-    except Exception as emb_err:
-        print(
-            f"⚠️ Embedding生成失敗: "
-            f"{type(emb_err).__name__}: {emb_err}"
-            f"{emb_err}"
-        )
-    
-        embedding_data = None
+    if role == "user":
+        try:
+            embedding_data = get_embedding(
+                content,
+                task_type="RETRIEVAL_DOCUMENT"
+            )
+        except Exception as emb_err:
+            print(
+                f"⚠️ Embedding生成失敗: "
+                f"{type(emb_err).__name__}: {emb_err}"
+                f"{emb_err}"
+            )
+        
+            embedding_data = None
 
     try:
         data = {
