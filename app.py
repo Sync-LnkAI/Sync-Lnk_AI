@@ -880,34 +880,76 @@ def search_past_logs_hybrid(query_text: str):
             #     bonus += 0.05
             # item["final_score"] = score + bonus
 
-        results.sort(
-            key=lambda x: x["final_score"],
-            reverse=True
+        results.sort(key=lambda x: x["final_score"], reverse=True)
+
+        # 関連度上位3件のユーザー発言
+        user_results = results[:3]
+
+        # message_idがある検索結果だけを抽出
+        message_ids = list(
+            dict.fromkeys(
+                str(item.get("message_id"))
+                for item in user_results
+                if item.get("message_id")
+            )
         )
 
-        elapsed = time.time() - start_time
-            # message_id=str(current_msg_id)
+        assistant_by_message_id = {}
 
-        return results[:3]
-
-        results = results[:3]
-
-        if keywords and len(results) < 3:
+        # 同じmessage_idのAI返答を1回の通信でまとめて取得
+        if message_ids:
             try:
-                # 直近の自分のユーザー発言を最大20件引っ張ってきてキーワードが含まれるか突合
-                like_res = supabase.table("messages").select("*").eq("user_id", CURRENT_USER_ID).eq("role", "user").order("created_at", desc=True).limit(20).execute()
-                if like_res.data:
-                    for msg in like_res.data:
-                        if any(kw in msg["content"] for kw in keywords):
-                            # すでにベクトル検索で拾った重複データでなければ救済合流
-                            if not any(r["id"] == msg["id"] for r in results):
-                                results.append(msg)
-                                if len(results) >= 3:
-                                    break
-            except Exception:
-                pass
+                assistant_response = (
+                    supabase
+                    .table("messages")
+                    .select(
+                        "id,"
+                        "role,"
+                        "content,"
+                        "message_id,"
+                        "created_at"
+                    )
+                    .eq("user_id", CURRENT_USER_ID)
+                    .eq("role", "assistant")
+                    .in_("message_id", message_ids)
+                    .order("created_at", desc=False)
+                    .execute()
+                )
 
-        return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
+                for assistant_message in (assistant_response.data or []):
+                    assistant_message_id = str(
+                        assistant_message.get("message_id", "") or ""
+                    )
+
+                    if not assistant_message_id:
+                        continue
+
+                    assistant_by_message_id.setdefault(assistant_message_id, []).append(assistant_message)
+
+            except Exception as assistant_fetch_error:
+                print(
+                    "過去AI返答取得エラー: "
+                    f"{type(assistant_fetch_error).__name__}: "
+                    f"{assistant_fetch_error}"
+                )
+
+        # ユーザー発言の直後へ対応するAI返答を追加
+        combined_results = []
+
+        for user_message in user_results: combined_results.append(user_message)
+
+            user_message_id = str(
+                user_message.get("message_id", "") or "")
+
+            if not user_message_id:
+                continue
+
+            for assistant_message in (assistant_by_message_id.get(user_message_id, [])):
+                combined_results.append(assistant_message)
+
+        elapsed = time.time() - start_time
+
+        return combined_results
 
     except Exception as e:
         elapsed = time.time() - start_time
@@ -6766,9 +6808,13 @@ with all_tabs[0]:
                         #     "☆ 会話を保存",
                         #     key=f"save_chat_{msg.get('message_id', '')}"
                         # )
+
+                saved_response_mode = msg.get("response_mode", "")
                 with col_mode:
-                    # st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
-                    st.caption("🧠 会話モード")
+                    st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                    # st.caption("🧠 会話モード")
+                else:
+                    st.caption("🧠 不明")
                 st.write("")
 
                 # col_save, col_mode = st.columns([2, 1])
