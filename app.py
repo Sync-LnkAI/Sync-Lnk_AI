@@ -7059,15 +7059,26 @@ with all_tabs[3]:
             )
 
             # AIの人格を選択
+            st.markdown("**🎭 AIの人格・スタイル**")
             selected_preset = st.selectbox(
-                "AIの人格・スタイル",
+                "",
                 DISPLAY_PRESETS,
                 index=(
                     DISPLAY_PRESETS.index(current_style_preset)
                     if current_style_preset in DISPLAY_PRESETS
                     else 0
-                )
+                ),
+                label_visibility="collapsed"
             )
+            # selected_preset = st.selectbox(
+            #     "AIの人格・スタイル",
+            #     DISPLAY_PRESETS,
+            #     index=(
+            #         DISPLAY_PRESETS.index(current_style_preset)
+            #         if current_style_preset in DISPLAY_PRESETS
+            #         else 0
+            #     )
+            # )
             # st.caption("🆓 無料: 設定なし / フランクな相棒 / 有能な執事・秘書")
             st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
 
@@ -7093,6 +7104,7 @@ with all_tabs[3]:
                 and selected_preset in PREMIUM_PRESETS
             ):
                 st.caption("💎 ライトプラン以上で利用できます")
+                st.caption("")
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
                 for personality, sample in PERSONALITY_SAMPLES.items():
