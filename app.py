@@ -6809,10 +6809,12 @@ with all_tabs[0]:
 
                 saved_response_mode = msg.get("response_mode", "")
                 with col_mode:
-                    st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
-                    # st.caption("🧠 会話モード")
-                else:
-                    st.caption("🧠 不明")
+                    if saved_response_mode:
+                        st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                        # st.caption("🧠 会話モード")
+                    else:
+                        st.caption("🧠 不明")
+
                 st.write("")
 
                 # col_save, col_mode = st.columns([2, 1])
