@@ -7931,7 +7931,7 @@ if is_admin:
                                     "user_message": "",
                                     "ai_message": "",
                                     "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
-                                    "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
+                                    "sum_time": 0.0, "sum_in": 0, "sum_out": 0, "sum_cost": 0.0,
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
@@ -7952,6 +7952,7 @@ if is_admin:
                                 merged_logs[msg_id]["sum_time"] = proc_time
                                 merged_logs[msg_id]["sum_in"] = in_t
                                 merged_logs[msg_id]["sum_out"] = out_t
+                                merged_logs[msg_id]["sum_cost"] = cost
 
                             elif action == "RESPONSE_ROUTER":
                                 merged_logs[msg_id]["judge_time"] = proc_time
