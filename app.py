@@ -5563,9 +5563,6 @@ with all_tabs[0]:
                         # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
-
-                        if not save_message("user", user_input, current_msg_id,response_mode):
-                            st.stop()
                         
                         all_messages.append({
                             "role": "user",
@@ -5661,6 +5658,11 @@ with all_tabs[0]:
                         past_logs_context = search_past_logs_hybrid(user_input)
 
                         search_elapsed = time.time() - search_start_time
+
+                        # 判定済みのresponse_modeと一緒に
+                        # ユーザー発言をDBへ保存
+                        if not save_message("user", user_input, current_msg_id, response_mode):
+                            st.stop()
                         
                         if past_logs_context:
                             logs_text = []
