@@ -963,7 +963,13 @@ def get_memories(source="manual"):
         res = (
             supabase
             .table(DB_MEMORIES_TABLE)
-            .select("*")
+            .select(
+            "id,"
+            "fact,"
+            "source,"
+            "category,"
+            "updated_at"
+            )
             .eq("user_id", CURRENT_USER_ID)
             .eq("source", source)
             .order("id", desc=False)
@@ -5518,7 +5524,7 @@ with all_tabs[0]:
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
-                        if not save_message("user", user_input, current_msg_id):
+                        if not save_message("user", user_input, current_msg_id,response_mode):
                             st.stop()
                         
                         all_messages.append({
@@ -6636,7 +6642,7 @@ with all_tabs[0]:
                             # st.write(f"【{current_concierge_name}】: {clean_reply}")
                             st.markdown(f"{current_concierge_name}: {clean_reply}")
                             
-                            save_message("assistant", ai_reply, current_msg_id)
+                            save_message("assistant", ai_reply, current_msg_id,response_mode)
                             st.session_state.force_message_reload = True
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
