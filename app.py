@@ -1631,7 +1631,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             
             # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
             sum_in_cost = in_t * PRICE_BACKGROUND_IN
-            sum_out_cost = int * PRICE_BACKGROUND_OUT
+            sum_out_cost = out_t * PRICE_BACKGROUND_OUT
             sum_yen = sum_in_cost + sum_out_cost
 
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
