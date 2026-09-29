@@ -7309,42 +7309,50 @@ with all_tabs[3]:
                     current_plan_type == "🆓 無料プラン"
                     and selected_preset in PREMIUM_PRESETS
                 ):
-                    st.warning("選択された人格は、💎 ライトプラン以上で利用できます。")
-
-                settings_dict = {
-                    "カラーテーマ": selected_color,
-                    "AIの名前": new_concierge_name,
-                    "ユーザー名": new_user_name,
-                    "ユーザー敬称": new_user_honorific,
-                    "AI一人称": new_first_person,
-                    "人格": selected_preset,
-                    "会話長さ": new_response_length,
-                    # "方言": new_dialect,
-                    "絵文字の量": new_emoji_setting
-                }
-                target_placeholder = (
-                    top_placeholder
-                    if top_save
-                    else bottom_placeholder
-                )
-
-                target_placeholder.info("設定登録中...")
-
-                success =  save_all_user_settings(settings_dict)
-
-                if success:
-                    st.session_state.skip_message_reload = True
-                    st.session_state["settings_saved"] = True
-                    st.session_state["settings_saved_position"] = (
-                        "top"
+                    target_placeholder = (
+                        top_placeholder
                         if top_save
-                        else "bottom"
+                        else bottom_placeholder
                     )
 
-                    # target_placeholder.success("設定を登録しました")
-                    st.rerun()
+                    target_placeholder.warning("選択された人格は、💎 ライトプラン以上で利用できます。")
+
                 else:
-                    target_placeholder.error("設定の保存に失敗しました")
+
+                    settings_dict = {
+                        "カラーテーマ": selected_color,
+                        "AIの名前": new_concierge_name,
+                        "ユーザー名": new_user_name,
+                        "ユーザー敬称": new_user_honorific,
+                        "AI一人称": new_first_person,
+                        "人格": selected_preset,
+                        "会話長さ": new_response_length,
+                        # "方言": new_dialect,
+                        "絵文字の量": new_emoji_setting
+                    }
+                    target_placeholder = (
+                        top_placeholder
+                        if top_save
+                        else bottom_placeholder
+                    )
+
+                    target_placeholder.info("設定登録中...")
+
+                    success =  save_all_user_settings(settings_dict)
+
+                    if success:
+                        st.session_state.skip_message_reload = True
+                        st.session_state["settings_saved"] = True
+                        st.session_state["settings_saved_position"] = (
+                            "top"
+                            if top_save
+                            else "bottom"
+                        )
+
+                        # target_placeholder.success("設定を登録しました")
+                        st.rerun()
+                    else:
+                        target_placeholder.error("設定の保存に失敗しました")
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
