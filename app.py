@@ -7664,6 +7664,15 @@ if is_admin:
                     )
 
                     # google検索データ
+                    search_exec_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "SEARCH_EXECUTION")
+                        .execute()
+                    )
+                    search_exec_rows = search_exec_res.data or []
                     search_exec_count = len(search_exec_rows)
                     search_exec_total_cost = sum(
                         float(row.get("api_cost", 0) or 0)
