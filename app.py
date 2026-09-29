@@ -17,7 +17,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🧠", layout="wide")
 
 MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
-SUMMARY_INTERVAL_MESSAGES = 1 # 要約発動件数の定義
+SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
