@@ -7058,7 +7058,7 @@ with all_tabs[3]:
                 "返事の長さや方言を設定できます。"
             )
 
-            AIの人格を選択
+            # AIの人格を選択
             selected_preset = st.selectbox(
                 "AIの人格・スタイル",
                 DISPLAY_PRESETS,
