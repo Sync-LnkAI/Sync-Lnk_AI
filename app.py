@@ -504,6 +504,26 @@ PERSONALITY_SAMPLES = {
     """
 }
 
+FREE_PRESETS = [
+    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】"
+]
+
+PREMIUM_PRESETS = [
+    "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
+    "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
+    "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
+    "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
+    "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
+    "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
+]
+
+DISPLAY_PRESETS = (
+    FREE_PRESETS
+    + PREMIUM_PRESETS
+)
+
 FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
 RESPONSE_LENGTH_PRESETS = [
@@ -7039,11 +7059,37 @@ with all_tabs[3]:
             )
 
             # AIの人格を選択
+            # selected_preset = st.selectbox(
+            #     "AIの人格・スタイル",
+            #     DISPLAY_PRESETS,
+            #     index=(
+            #         DISPLAY_PRESETS.index(current_style_preset)
+            #         if current_style_preset in DISPLAY_PRESETS
+            #         else 0
+            #     )
+            # )
             selected_preset = st.selectbox(
-                "AIの人格・スタイル", 
-                list(STYLE_PRESETS.keys()),
-                index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
+                "AIの人格・スタイル",
+                [
+                    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
+                    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
+                    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】",
+
+                    "──────────── 💎 ライト以上 ────────────",
+
+                    "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
+                    "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
+                    "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
+                    "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
+                    "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
+                    "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
+                ]
             )
+            if (
+                current_plan_type == "🆓 無料プラン"
+                and selected_preset in PREMIUM_PRESETS
+            ):
+                st.caption("💎 ライトプラン以上で利用できます")
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
                 for personality, sample in PERSONALITY_SAMPLES.items():
@@ -7186,6 +7232,12 @@ with all_tabs[3]:
                 st.session_state["settings_saved"] = False
 
             if top_save or bottom_save:
+                if (
+                    current_plan_type == "🆓 無料プラン"
+                    and selected_preset in PREMIUM_PRESETS
+                ):
+                    st.warning("選択された人格は、💎 ライトプラン以上で利用できます。")
+
                 settings_dict = {
                     "カラーテーマ": selected_color,
                     "AIの名前": new_concierge_name,
