@@ -2331,6 +2331,7 @@ def google_search(query):
     return response.text
 
 RESPONSE_MODES = {
+    "micro_chat",
     "short_chat",
     "conversation",
     "support",
@@ -5623,7 +5624,7 @@ with all_tabs[0]:
 
                         if is_micro_chat(user_input):
 
-                            response_mode = "short_chat"
+                            response_mode = "micro_chat"
                             route_source = "micro_chat"
                             need_search = False
                             route_confidence = 1.0
@@ -6793,6 +6794,7 @@ with all_tabs[0]:
                     unsafe_allow_html=True
                 )
                 MODE_LABELS = {
+                    "micro_chat": "挨拶",
                     "analysis": "分析",
                     "conversation": "会話",
                     "support": "相談",
