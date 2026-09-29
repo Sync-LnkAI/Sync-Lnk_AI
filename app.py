@@ -7119,8 +7119,8 @@ with all_tabs[3]:
             #     )
             # )
             # st.caption("🆓 無料: 設定なし / フランクな相棒 / 有能な執事・秘書")
-            st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
-            st.caption("")
+            # st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
+            # st.caption("")
 
             # selected_preset = st.selectbox(
             #     "AIの人格・スタイル",
@@ -7143,7 +7143,7 @@ with all_tabs[3]:
                 current_plan_type == "🆓 無料プラン"
                 and selected_preset in PREMIUM_PRESETS
             ):
-                st.caption("💎 ライトプラン以上で利用できます")
+                st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
                 st.caption("")
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
