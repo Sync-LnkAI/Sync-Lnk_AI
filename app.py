@@ -7143,7 +7143,7 @@ with all_tabs[3]:
                 current_plan_type == "🆓 無料プラン"
                 and selected_preset in PREMIUM_PRESETS
             ):
-                st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
+                st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。人格を選び直してください。")
                 st.caption("")
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
@@ -7315,7 +7315,7 @@ with all_tabs[3]:
                         else bottom_placeholder
                     )
 
-                    target_placeholder.warning("選択された人格は、💎 ライトプラン以上で利用できます。")
+                    target_placeholder.warning("選択された人格は、💎 ライトプラン以上で利用できます。人格を選び直してください。")
 
                 else:
 
