@@ -7059,7 +7059,7 @@ with all_tabs[3]:
             )
 
             # AIの人格を選択
-            st.markdown("**🎭 AIの人格・スタイル**")
+            st.markdown("**AIの人格・スタイル**", help="")
             selected_preset = st.selectbox(
                 "",
                 DISPLAY_PRESETS,
@@ -7081,6 +7081,7 @@ with all_tabs[3]:
             # )
             # st.caption("🆓 無料: 設定なし / フランクな相棒 / 有能な執事・秘書")
             st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
+            st.caption("")
 
             # selected_preset = st.selectbox(
             #     "AIの人格・スタイル",
@@ -7119,7 +7120,14 @@ with all_tabs[3]:
                 if current_emoji_setting in emoji_options
                 else 1
             )
-            new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
+            st.markdown("**😀 AIの発言内の絵文字の量**")
+            new_emoji_setting = st.selectbox(
+                "",
+                emoji_options,
+                index=default_emoji_idx,
+                label_visibility="collapsed"
+            )
+            # new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
             # st.caption("AIの発言内の絵文字の量")
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
