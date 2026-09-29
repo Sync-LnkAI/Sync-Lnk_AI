@@ -5564,11 +5564,6 @@ with all_tabs[0]:
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
                         
-                        all_messages.append({
-                            "role": "user",
-                            "content": user_input,
-                            "created_at": datetime.now(JST).isoformat()
-                        })
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
                         manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
@@ -5663,6 +5658,13 @@ with all_tabs[0]:
                         # ユーザー発言をDBへ保存
                         if not save_message("user", user_input, current_msg_id, response_mode):
                             st.stop()
+                        
+                        all_messages.append({
+                            "role": "user",
+                            "content": user_input,
+                            "response_mode": response_mode,
+                            "created_at": datetime.now(JST).isoformat()
+                        })
                         
                         if past_logs_context:
                             logs_text = []
@@ -6683,8 +6685,16 @@ with all_tabs[0]:
                             # with st.chat_message("assistant"):
                             # st.write(f"【{current_concierge_name}】: {clean_reply}")
                             st.markdown(f"{current_concierge_name}: {clean_reply}")
+
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": ai_reply,
+                                "message_id": current_msg_id,
+                                "response_mode": response_mode,
+                                "created_at": datetime.now(JST).isoformat()
+                            })
                             
-                            save_message("assistant", ai_reply, current_msg_id,response_mode)
+                            save_message("assistant", ai_reply, current_msg_id, response_mode)
                             st.session_state.force_message_reload = True
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
