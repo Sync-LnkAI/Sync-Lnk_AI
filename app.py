@@ -2327,6 +2327,7 @@ def google_search(query):
             tools=[grounding_tool]
         )
     )
+    st.write(response)
 
     return response.text
 
