@@ -642,7 +642,14 @@ def get_messages(target_id: str) -> list[dict]:
         res = (
             supabase
             .table("messages")
-            .select("*")
+            .select(
+            "id,"
+            "role,"
+            "content,"
+            "message_id,"
+            "response_mode,"
+            "created_at"
+            )
             .eq("user_id", str(target_id))
             .order("created_at", desc=True)
             .limit(100)
