@@ -7015,7 +7015,17 @@ with all_tabs[3]:
                 st.session_state["settings_saved_position"] = ""
 
             st.markdown("##### 🎨 アプリの外観＆カラー")
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
+            st.markdown("**カラーテーマ（背景＆メッセージ枠）**")
+            selected_color = st.selectbox(
+                "",
+                list(THEMES.keys()),
+                index=(
+                    list(THEMES.keys()).index(current_theme_color)
+                    if current_theme_color in THEMES
+                    else 0
+                ),
+                label_visibility="collapsed"
+            )
             # 上部設定保存ボタン
             top_save = st.form_submit_button(
                 "💾 設定を保存",
@@ -7039,10 +7049,40 @@ with all_tabs[3]:
             default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
             default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
 
-            new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
-            new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            # new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
+            # new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
+            # new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
+            # new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            st.markdown("**AIの名前**")
+            new_concierge_name = st.text_input(
+                "",
+                value=current_concierge_name,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**あなたのお名前 / ニックネーム**")
+            new_user_name = st.text_input(
+                "",
+                value=current_user_name,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**AIからの呼び方（敬称）**")
+            new_user_honorific = st.selectbox(
+                "",
+                honorific_options,
+                index=default_honorific_idx,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**AIの一人称**")
+            new_first_person = st.selectbox(
+                "",
+                FIRST_PERSON_PRESETS,
+                index=default_fp_idx,
+                label_visibility="collapsed"
+            )
+
             default_length_idx = (
                 RESPONSE_LENGTH_PRESETS.index(
                     current_response_length
@@ -7051,7 +7091,6 @@ with all_tabs[3]:
                 in RESPONSE_LENGTH_PRESETS
                 else 1
             )
-
             st.markdown("---")
             st.markdown("##### 💬 会話設定")
             st.caption(
@@ -7132,18 +7171,28 @@ with all_tabs[3]:
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
             st.markdown("---")
-            st.markdown("##### 🔒 プレミアム会話設定")
+            st.markdown("**🔒 プレミアム会話設定**")
+            # st.markdown("##### 🔒 プレミアム会話設定")
 
             is_free_plan = (
                 current_plan_type
                 == "🆓 無料プラン"
             )
+            st.markdown("**📏 返事の長さ**")
             new_response_length = st.selectbox(
-                "返事の長さ",
+                "",
                 RESPONSE_LENGTH_PRESETS,
                 index=default_length_idx,
-                disabled=is_free_plan
+                disabled=is_free_plan,
+                label_visibility="collapsed"
             )
+
+            # new_response_length = st.selectbox(
+            #     "返事の長さ",
+            #     RESPONSE_LENGTH_PRESETS,
+            #     index=default_length_idx,
+            #     disabled=is_free_plan
+            # )
             if is_free_plan:
                 st.caption(
                     "💎 ライトプラン以上で利用可能"
