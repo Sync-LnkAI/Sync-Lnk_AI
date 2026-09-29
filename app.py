@@ -7059,7 +7059,7 @@ with all_tabs[3]:
             )
 
             # AIの人格を選択
-            st.markdown("**AIの人格・スタイル**", help="")
+            st.markdown("**AIの人格・スタイル**")
             selected_preset = st.selectbox(
                 "",
                 DISPLAY_PRESETS,
@@ -7120,7 +7120,7 @@ with all_tabs[3]:
                 if current_emoji_setting in emoji_options
                 else 1
             )
-            st.markdown("**😀 AIの発言内の絵文字の量**")
+            st.markdown("**AIの発言内の絵文字の量**")
             new_emoji_setting = st.selectbox(
                 "",
                 emoji_options,
