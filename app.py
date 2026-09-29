@@ -6838,7 +6838,7 @@ with all_tabs[0]:
                     "analysis": "分析",
                     "conversation": "会話",
                     "support": "相談",
-                    "factual": "検索",
+                    "factual": "質問",
                     "short_chat": "雑談"
                 }
                 col_spacer, col_save, col_mode = st.columns([6, 2, 1])
