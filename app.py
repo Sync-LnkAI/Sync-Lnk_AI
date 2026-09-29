@@ -6740,6 +6740,10 @@ with all_tabs[0]:
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                            st.write(
+                                f"conversation_count="
+                                f"{st.session_state.conversation_count}"
+                            )
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
                                 deleted_count = cleanup_old_micro_chats()
                                 print(
