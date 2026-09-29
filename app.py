@@ -936,7 +936,8 @@ def search_past_logs_hybrid(query_text: str):
         # ユーザー発言の直後へ対応するAI返答を追加
         combined_results = []
 
-        for user_message in user_results: combined_results.append(user_message)
+        for user_message in user_results:
+            combined_results.append(user_message)
             user_message_id = str(user_message.get("message_id", "") or "")
 
             if not user_message_id:
