@@ -937,16 +937,13 @@ def search_past_logs_hybrid(query_text: str):
         combined_results = []
 
         for user_message in user_results: combined_results.append(user_message)
-
-            user_message_id = str(
-                user_message.get("message_id", "") or "")
+            user_message_id = str(user_message.get("message_id", "") or "")
 
             if not user_message_id:
                 continue
 
             for assistant_message in (assistant_by_message_id.get(user_message_id, [])):
                 combined_results.append(assistant_message)
-
         elapsed = time.time() - start_time
 
         return combined_results
