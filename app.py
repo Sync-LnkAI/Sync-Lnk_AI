@@ -5819,7 +5819,9 @@ with all_tabs[0]:
                             {user_input}
                             """
 
+                            search_execution_start = time.time()
                             search_response = google_search(search_query)
+                            search_execution_elapsed = (time.time() - search_execution_start)
                             search_result = (search_response.get("text", "なし"))
                             search_in_tokens = int(search_response.get("in_tokens", 0))
                             search_out_tokens = int(search_response.get("out_tokens", 0))
@@ -5829,7 +5831,7 @@ with all_tabs[0]:
                                 user_id=CURRENT_USER_ID,
                                 plan_type=current_plan_type,
                                 event_type="SEARCH_EXECUTION",
-                                processing_time=0.0,
+                                processing_time=search_execution_elapsed,
                                 in_t=search_in_tokens,
                                 out_t=search_out_tokens,
                                 api_cost=search_cost,
