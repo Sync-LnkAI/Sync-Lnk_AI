@@ -6203,16 +6203,16 @@ with all_tabs[0]:
                                 or {}
                             )
 
-                            st.write("calculation_extraction_result")
-                            st.code(
-                                json.dumps(
-                                    calculation_extraction_result,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            # st.write("calculation_extraction_result")
+                            # st.code(
+                            #     json.dumps(
+                            #         calculation_extraction_result,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
 
                             # 今回新しく抽出された条件
                             current_arguments = dict(
@@ -6241,26 +6241,26 @@ with all_tabs[0]:
 
                                 merged_arguments[key] = value
                             
-                            st.write("previous_arguments")
-                            st.code(
-                                json.dumps(
-                                    previous_arguments,
-                                    ensure_ascii=False,
-                                     indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
-                            st.write("current_arguments")
-                            st.code(
-                                json.dumps(
-                                    merged_arguments,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            # st.write("previous_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         previous_arguments,
+                            #         ensure_ascii=False,
+                            #          indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+                            # st.write("current_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
 
                             calculation_extraction_result["arguments"] = merged_arguments
 
@@ -6315,7 +6315,28 @@ with all_tabs[0]:
                                                 "case_id"
                                             )
                                         )
-                            
+                            elif (
+                                calculation_tool == "real_estate_sale"
+                                and merged_arguments
+                                and st.session_state.get(
+                                    "active_calculation_case_id"
+                                )
+                            ):
+
+                                update_result = (
+                                    update_calculation_case(
+                                        case_id=st.session_state[
+                                            "active_calculation_case_id"
+                                        ],
+                                        new_case_data=merged_arguments
+                                    )
+                                )
+
+                                st.write(
+                                    "update_result",
+                                    update_result
+                                )
+
                             # st.write("merged_arguments")
                             # st.code(
                             #     json.dumps(
