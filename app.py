@@ -5919,7 +5919,17 @@ with all_tabs[0]:
                         # 計算案件の選択待ち処理
                         if st.session_state.get("pending_case_selection", False):
                             candidates = st.session_state.get("pending_case_candidates", [])
-                            normalized_input = str(user_input or "").strip().lower()
+                            normalized_input = (
+                                user_input
+                                .strip()
+                                .lower()
+                                .translate(
+                                    str.maketrans(
+                                        "１２３４５６７８９０",
+                                        "1234567890"
+                                    )
+                                )
+                            )
                             st.write("pending_case_selection", st.session_state.get("pending_case_selection"))
                             st.write("user_input", user_input)
                             st.write("normalized_input", normalized_input)
