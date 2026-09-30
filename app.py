@@ -3309,6 +3309,11 @@ def create_calculation_case(
 
     except Exception as e:
 
+        st.error(
+            f"計算案件作成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
         print(
             f"計算案件作成エラー: "
             f"{type(e).__name__}: {e}"
@@ -6268,6 +6273,7 @@ with all_tabs[0]:
                                             current_plan_type=current_plan_type
                                         )
                                     )
+                                    st.write(create_result)
 
                                     if create_result.get("success"):
 
