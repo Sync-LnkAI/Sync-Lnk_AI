@@ -3700,6 +3700,18 @@ def calculate_real_estate_sale(
         - depreciation_d
     )
 
+    total_acquisition_cost_d = to_decimal(
+        arguments.get("total_acquisition_cost", Decimal("0"))
+    )
+    if total_acquisition_cost_d > Decimal("0"):
+        actual_acquisition_basis = (total_acquisition_cost_d)
+    else:
+        actual_acquisition_basis = (
+            land_cost_d
+            + building_tax_basis
+            + acquisition_costs_d
+        )
+
     # 実額による税務上の取得費
     actual_acquisition_basis = (
         land_cost_d
@@ -4123,7 +4135,7 @@ def extract_real_estate_sale_parameters(
     ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
 
     【取得費】
-    ・次の表現は acquisition_related_costs として扱ってください。
+    ・次の表現は total_acquisition_cost として扱ってください。
         - 取得費
         - 総取得費
         - 合算簿価
@@ -4133,7 +4145,7 @@ def extract_real_estate_sale_parameters(
     例
     取得費: ○○円、総取得費: ○○円、合算簿価: ○○円、簿価: ○○円
     ↓
-    acquisition_related_costsに設定してください。
+    total_acquisition_costに設定してください。
 
     【重要】
     ・取得費が明示されている場合は、acquisition_related_costs を 0 や null にしてはいけません。
@@ -4221,6 +4233,7 @@ def extract_real_estate_sale_parameters(
             "building_acquisition_cost": null,
             "accumulated_depreciation": null,
             "acquisition_related_costs": null,
+            "total_acquisition_cost": null,
             "brokerage_fee": null,
             "transfer_expenses": null,
             "other_cash_expenses": null,
@@ -4402,6 +4415,7 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "building_acquisition_cost",
     "accumulated_depreciation",
     "acquisition_related_costs",
+    "total_acquisition_cost",
     "brokerage_fee",
     "transfer_expenses",
     "other_cash_expenses",
@@ -4798,19 +4812,24 @@ def get_real_estate_sale_missing_fields(
             )
         )
 
-        total_known_acquisition_cost = (
-            land_cost
-            + building_cost
-            + acquisition_related_costs
+        total_acquisition_cost = to_decimal(
+            arguments.get("total_acquisition_cost", Decimal("0"))
         )
 
-        if (
-            total_known_acquisition_cost
-            <= Decimal("0")
-        ):
-            missing_fields.append(
-                "acquisition_basis"
+        if (total_acquisition_cost > Decimal("0")):
+            pass
+        else:
+            total_known_acquisition_cost = (
+                land_cost
+                + building_cost
+                + acquisition_related_costs
             )
+
+            if (total_known_acquisition_cost <= Decimal("0")):
+                missing_fields.append("acquisition_basis")
+
+        if (total_known_acquisition_cost <= Decimal("0")):
+            missing_fields.append("acquisition_basis")
 
     building_cost = to_decimal(
         arguments.get(
