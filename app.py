@@ -5020,6 +5020,15 @@ def execute_real_estate_sale_calculation(
     }
     # st.warning(f"{calculation_arguments}")
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
+    st.code(
+        json.dumps(
+            calculation_arguments,
+            ensure_ascii=False,
+            indent=2,
+            default=str
+        ),
+        language="json"
+    )
 
     try:
         calculation_result = (
