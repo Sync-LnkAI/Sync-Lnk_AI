@@ -673,7 +673,7 @@ def save_message(role: str, content: str,message_id: str = "", response_mode: st
     
     embedding_data = None
     
-    if role == "user":
+    if (role == "user" and response_mode != "micro_chat"):
         try:
             embedding_data = get_embedding(
                 content,
@@ -3022,6 +3022,7 @@ MODE_PROMPTS = {
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Union
 import calendar
+import uuid
 
 Number = Union[int, float, str, Decimal]
 
@@ -3226,6 +3227,266 @@ def add_years_safely(
         target_month,
         target_day
     )
+
+# 計算メモの保存期間の計算
+def get_case_expiration_date(
+    current_plan_type: str
+) -> str:
+
+    now = datetime.now(JST)
+
+    if current_plan_type == "🆓 無料プラン":
+        expires_at = now + timedelta(days=90)
+
+    else:
+        expires_at = now + timedelta(days=365)
+
+    return expires_at.isoformat()
+
+# 計算カテゴリー別のデフォルト名称決定
+def get_default_case_name(
+    case_type: str,
+    property_usage: str = None
+) -> str:
+
+    if case_type == "real_estate_sale":
+
+        if property_usage == "owner_occupied":
+            return "自宅売却"
+
+        return "その他売却"
+
+    if case_type == "loan_simulation":
+        return "住宅ローン"
+
+    if case_type == "nisa_simulation":
+        return "NISA"
+
+    return "計算案件"
+
+# 計算メモの新規作成
+def create_calculation_case(
+    case_type: str,
+    property_usage: str,
+    case_data: dict,
+    current_plan_type: str
+) -> dict:
+
+    try:
+        case_id = (f"case_{uuid.uuid4().hex[:8]}")
+        case_name = get_default_case_name(
+            case_type=case_type,
+            property_usage=property_usage
+        )
+        now_str = (datetime.now(JST).isoformat())
+        case_record = {
+            "user_id": CURRENT_USER_ID,
+            "case_id": case_id,
+            "case_name": case_name,
+            "case_type": case_type,
+            "case_status": "draft",
+            "property_usage": property_usage,
+            "case_data": case_data,
+            "created_at": now_str,
+            "updated_at": now_str,
+            "expires_at": (
+                get_case_expiration_date(
+                    current_plan_type
+                )
+            )
+        }
+
+        (
+            supabase
+            .table("calculation_cases")
+            .insert(case_record)
+            .execute()
+        )
+
+        st.session_state["active_calculation_case_id"] = case_id
+
+        return {"success": True, "case_id": case_id}
+
+    except Exception as e:
+
+        print(
+            f"計算案件作成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {"success": False, "case_id": None}
+
+# 計算メモの既存案件の更新処理
+def update_calculation_case(
+    case_id: str,
+    new_case_data: dict,
+    case_name: str = None,
+    case_status: str = None,
+    property_usage: str = None
+) -> bool:
+
+    try:
+
+        existing_res = (
+            supabase
+            .table("calculation_cases")
+            .select("case_data")
+            .eq("case_id", case_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not existing_res.data:
+            return False
+
+        existing_case_data = (
+            existing_res.data[0].get("case_data")
+            or {}
+        )
+
+        merged_case_data = dict(existing_case_data)
+        merged_case_data.update(new_case_data)
+
+        update_data = {
+            "case_data": merged_case_data,
+            "updated_at": datetime.now(JST).isoformat()
+        }
+
+        if case_name:
+            update_data["case_name"] = case_name
+
+        if case_status:
+            update_data["case_status"] = case_status
+
+        if property_usage:
+            update_data["property_usage"] = property_usage
+
+        (
+            supabase
+            .table("calculation_cases")
+            .update(update_data)
+            .eq("case_id", case_id)
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+
+        print(
+            f"計算案件更新エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return False
+
+# 計算メモの既存候補案件の検索
+def get_calculation_case_candidates(
+    case_type: str,
+    user_input: str,
+    limit: int = 5
+) -> list:
+
+    try:
+
+        now_str = datetime.now(JST).isoformat()
+
+        response = (
+            supabase
+            .table("calculation_cases")
+            .select(
+                "case_id,"
+                "case_name,"
+                "case_type,"
+                "updated_at"
+            )
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("case_type", case_type)
+            .or_(
+                f"expires_at.is.null,"
+                f"expires_at.gt.{now_str}"
+            )
+            .order("updated_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        candidates = response.data or []
+
+        if not candidates:
+            return []
+
+        normalized_input = (
+            str(user_input or "")
+            .replace(" ", "")
+            .replace("　", "")
+            .lower()
+        )
+
+        name_matches = [
+            case
+            for case in candidates
+            if (
+                str(
+                    case.get(
+                        "case_name",
+                        ""
+                    )
+                )
+                .replace(" ", "")
+                .replace("　", "")
+                .lower()
+                in normalized_input
+            )
+        ]
+
+        return (
+            name_matches
+            if name_matches
+            else candidates
+        )
+
+    except Exception as e:
+
+        print(
+            f"計算案件候補取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return []
+
+# 計算メモの期限切れ案件の削除
+def cleanup_expired_calculation_cases() -> int:
+
+    try:
+
+        now_str = datetime.now(JST).isoformat()
+
+        delete_response = (
+            supabase
+            .table("calculation_cases")
+            .delete()
+            .lt("expires_at", now_str)
+            .execute()
+        )
+
+        deleted_count = (
+            len(delete_response.data)
+            if delete_response.data
+            else 0
+        )
+
+        return deleted_count
+
+    except Exception as e:
+
+        print(
+            f"計算案件整理エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return 0
+
 
 # ==========================================
 # 🏠 不動産計算
@@ -5974,17 +6235,60 @@ with all_tabs[0]:
                             )
 
                             calculation_extraction_result["arguments"] = merged_arguments
+
+                            if (
+                                calculation_tool == "real_estate_sale"
+                                and merged_arguments
+                                and not st.session_state.get(
+                                    "active_calculation_case_id"
+                                )
+                            ):
+
+                                candidates = (
+                                    get_calculation_case_candidates(
+                                        case_type="real_estate_sale",
+                                        user_input=user_input
+                                    )
+                                )
+
+                                if not candidates:
+
+                                    property_usage = (
+                                        merged_arguments.get(
+                                            "property_usage",
+                                            "owner_occupied"
+                                        )
+                                    )
+
+                                    create_result = (
+                                        create_calculation_case(
+                                            case_type="real_estate_sale",
+                                            property_usage=property_usage,
+                                            case_data=merged_arguments,
+                                            current_plan_type=current_plan_type
+                                        )
+                                    )
+
+                                    if create_result.get("success"):
+
+                                        st.session_state[
+                                            "active_calculation_case_id"
+                                        ] = (
+                                            create_result.get(
+                                                "case_id"
+                                            )
+                                        )
                             
-                            st.write("merged_arguments")
-                            st.code(
-                                json.dumps(
-                                    merged_arguments,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            # st.write("merged_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
 
                             calculation_execution_result = (
                                 execute_real_estate_sale_calculation(
@@ -6014,22 +6318,20 @@ with all_tabs[0]:
                                             apply_defaults=False
                                         )
                                     )
-                                    st.write("saved_arguments")
+                                    # st.write("saved_arguments")
 
-                                    st.code(
-                                       json.dumps(
-                                            saved_arguments,
-                                            ensure_ascii=False,
-                                            indent=2,
-                                            default=str
-                                        ),
-                                        language="json"
-                                    )
+                                    # st.code(
+                                    #    json.dumps(
+                                    #         saved_arguments,
+                                    #         ensure_ascii=False,
+                                    #         indent=2,
+                                    #         default=str
+                                    #     ),
+                                    #     language="json"
+                                    # )
 
                                 except Exception:
-                                    saved_arguments = (
-                                        merged_arguments
-                                    )
+                                    saved_arguments = (merged_arguments)
 
                                 st.session_state[
                                     "real_estate_calculation_arguments"
@@ -6255,16 +6557,16 @@ with all_tabs[0]:
                             )
                         )
 
-                        st.write(
-                            f"DEBUG status = "
-                            f"{calculation_execution_result.get('status')}"
-                        )
-                        st.code(
-                            build_real_estate_calculation_context(
-                                calculation_execution_result
-                            ),
-                            language="text"
-                        )
+                        # st.write(
+                        #     f"DEBUG status = "
+                        #     f"{calculation_execution_result.get('status')}"
+                        # )
+                        # st.code(
+                        #     build_real_estate_calculation_context(
+                        #         calculation_execution_result
+                        #     ),
+                        #     language="text"
+                        # )
 
                         # if calculation_prompt_block:
                         #     st.code(calculation_prompt_block, language="text")
@@ -6748,16 +7050,27 @@ with all_tabs[0]:
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
-                            st.write(
-                                f"conversation_count="
-                                f"{st.session_state.conversation_count}"
-                            )
+
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                                
+                                # 最新100件より前のmicro_chatを削除
                                 deleted_count = cleanup_old_micro_chats()
                                 print(
                                     f"micro_chat整理実行: "
                                     f"{deleted_count}件削除"
                                 )
+
+                                # 期限切れ計算メモの削除
+                                expired_case_count = (cleanup_expired_calculation_cases())
+
+                                # 要約処理の実行（スレッド起動）
+                                async_thread = threading.Thread(
+                                    target=check_and_summarize_history,
+                                    args=(current_msg_id, current_plan_type)
+                                )
+                                async_thread.start()
+
+
 
                             # ==================================================================
                             # 🧠 記憶の自動要約マルチスレッド
@@ -6777,12 +7090,12 @@ with all_tabs[0]:
                             #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
                             # )
                             # async_thread.start()
-                            if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
-                                async_thread = threading.Thread(
-                                    target=check_and_summarize_history,
-                                    args=(current_msg_id, current_plan_type)
-                                )
-                                async_thread.start()
+                            # if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                            #     async_thread = threading.Thread(
+                            #         target=check_and_summarize_history,
+                            #         args=(current_msg_id, current_plan_type)
+                            #     )
+                            #     async_thread.start()
                             
                             # st.warning(
                             #     f"CHAT_SUCCESS SAVE: "
