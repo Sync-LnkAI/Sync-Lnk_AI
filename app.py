@@ -3600,6 +3600,7 @@ def calculate_real_estate_sale(
 
     # 取得費に含める購入時経費等
     acquisition_related_costs: Number = 0,
+    total_acquisition_cost: Number = 0,
 
     # 仲介手数料
     brokerage_fee: Optional[Number] = None,
@@ -3700,9 +3701,7 @@ def calculate_real_estate_sale(
         - depreciation_d
     )
 
-    total_acquisition_cost_d = to_decimal(
-        arguments.get("total_acquisition_cost", Decimal("0"))
-    )
+    total_acquisition_cost_d = to_decimal(total_acquisition_cost)
     if total_acquisition_cost_d > Decimal("0"):
         actual_acquisition_basis = (total_acquisition_cost_d)
     else:
@@ -3729,13 +3728,6 @@ def calculate_real_estate_sale(
     st.write(
         "acquisition_costs_d",
         round_yen(acquisition_costs_d)
-    )
-
-    # 実額による税務上の取得費
-    actual_acquisition_basis = (
-        land_cost_d
-        + building_tax_basis
-        + acquisition_costs_d
     )
 
     deemed_rate_d = to_decimal(
