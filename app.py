@@ -5920,6 +5920,21 @@ with all_tabs[0]:
                         if st.session_state.get("pending_case_selection", False):
                             candidates = st.session_state.get("pending_case_candidates", [])
                             normalized_input = str(user_input or "").strip().lower()
+                            st.write("pending_case_selection", st.session_state.get("pending_case_selection"))
+                            st.write("user_input", user_input)
+                            st.write("normalized_input", normalized_input)
+
+                            st.write("candidates")
+                            st.code(
+                                json.dumps(
+                                    candidates,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
+
                             selected_case = None
 
                             for index, case in enumerate(candidates, start=1):
@@ -5932,6 +5947,8 @@ with all_tabs[0]:
                                 if case_name and case_name.lower() in normalized_input:
                                     selected_case = case
                                     break
+                            
+                            st.write("selected_case", selected_case)
 
                             if selected_case:
                                 selected_case_id = selected_case["case_id"]
