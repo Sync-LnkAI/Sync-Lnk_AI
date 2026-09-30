@@ -4297,18 +4297,6 @@ def extract_real_estate_sale_parameters(
             )
         )
 
-        st.write("raw_arguments")
-        st.code(
-            json.dumps(
-                raw_arguments,
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
-        )
-
-
         if not isinstance(
             raw_arguments,
             dict
@@ -4358,17 +4346,6 @@ def extract_real_estate_sale_parameters(
                 "out_tokens": out_tokens,
                 "cost": extraction_cost
             }
-
-        st.write("raw_arguments before return")
-        st.code(
-            json.dumps(
-                raw_arguments,
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
-        )
 
         return {
             "should_calculate": True,
@@ -5937,7 +5914,7 @@ with all_tabs[0]:
                                     selected_case = case
                                     break
                             
-                            st.write("selected_case", selected_case)
+                            # st.write("selected_case", selected_case)
 
                             selected_case_confirmed = False
                             if selected_case:
@@ -6419,12 +6396,12 @@ with all_tabs[0]:
                             #     )
                             # )
 
-                            st.write(
-                                "active_case",
-                                st.session_state.get(
-                                    "active_calculation_case_id"
-                                )
-                            )
+                            # st.write(
+                            #     "active_case",
+                            #     st.session_state.get(
+                            #         "active_calculation_case_id"
+                            #     )
+                            # )
 
                             if (
                                 calculation_tool == "real_estate_sale"
@@ -6457,7 +6434,7 @@ with all_tabs[0]:
                                             current_plan_type=current_plan_type
                                         )
                                     )
-                                    st.write(create_result)
+                                    # st.write(create_result)
 
                                     if create_result.get("success"):
 
