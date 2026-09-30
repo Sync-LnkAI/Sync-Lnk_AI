@@ -5973,7 +5973,7 @@ with all_tabs[0]:
                                 )
 
                                 st.session_state.force_message_reload = True
-                                st.stop()
+                                st.rerun()
 
                             candidate_names = "、".join(
                                 f"{index}. {case.get('case_name', '案件名なし')}"
