@@ -3264,6 +3264,18 @@ def get_default_case_name(
 
     return "計算案件"
 
+def make_json_safe(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+
+    if isinstance(value, dict):
+        return {key: make_json_safe(item) for key, item in value.items()}
+
+    if isinstance(value, list):
+        return [make_json_safe(item) for item in value]
+
+    return value
+
 # 計算メモの新規作成
 def create_calculation_case(
     case_type: str,
@@ -3286,7 +3298,7 @@ def create_calculation_case(
             "case_type": case_type,
             "case_status": "draft",
             "property_usage": property_usage,
-            "case_data": case_data,
+            "case_data": make_json_safe(case_data),
             "created_at": now_str,
             "updated_at": now_str,
             "expires_at": (
