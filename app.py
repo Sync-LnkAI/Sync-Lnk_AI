@@ -4451,6 +4451,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
     "building_acquisition_cost",
     "accumulated_depreciation",
     "acquisition_related_costs",
+    "total_acquisition_cost",
     "brokerage_fee",
     "transfer_expenses",
     "other_cash_expenses",
@@ -5036,15 +5037,15 @@ def execute_real_estate_sale_calculation(
     }
     # st.warning(f"{calculation_arguments}")
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
-    st.code(
+    raise Exception(
         json.dumps(
             calculation_arguments,
             ensure_ascii=False,
             indent=2,
             default=str
-        ),
-        language="json"
+        )
     )
+
 
     try:
         calculation_result = (
