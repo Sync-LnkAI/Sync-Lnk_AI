@@ -5052,6 +5052,16 @@ def execute_real_estate_sale_calculation(
                 **calculation_arguments
             )
         )
+        st.write("calculation_result")
+        st.code(
+            json.dumps(
+                calculation_result,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
 
     except (
         ValueError,
