@@ -3868,11 +3868,6 @@ def calculate_real_estate_sale(
             cash_before_tax
             - estimated_tax
         )
-    
-    st.write("actual_acquisition_basis", actual_acquisition_basis)
-    st.write("land_cost_d", land_cost_d)
-    st.write("building_tax_basis", building_tax_basis)
-    st.write("acquisition_costs_d", acquisition_costs_d)
 
     return {
         "owner_type": owner_type,
@@ -5991,38 +5986,38 @@ with all_tabs[0]:
                                 merged_case_data = dict(restored_case_data)
                                 merged_case_data.update(pending_arguments)
 
-                                st.write("restored_case_data")
-                                st.code(
-                                    json.dumps(
-                                        restored_case_data,
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                # st.write("restored_case_data")
+                                # st.code(
+                                #     json.dumps(
+                                #         restored_case_data,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
 
-                                st.write("pending_arguments")
-                                st.code(
-                                    json.dumps(
-                                        pending_arguments,
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                # st.write("pending_arguments")
+                                # st.code(
+                                #     json.dumps(
+                                #         pending_arguments,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
 
-                                st.write("merged_case_data")
-                                st.code(
-                                    json.dumps(
-                                        merged_case_data,
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                # st.write("merged_case_data")
+                                # st.code(
+                                #     json.dumps(
+                                #         merged_case_data,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
 
 
                                 if (selected_case_data.get("property_usage") == "owner_occupied"):
@@ -6594,16 +6589,6 @@ with all_tabs[0]:
                                 execute_real_estate_sale_calculation(
                                     calculation_extraction_result
                                 )
-                            )
-                            st.write("calculation_execution_result")
-                            st.code(
-                                json.dumps(
-                                    calculation_execution_result,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
                             )
 
                             calculation_elapsed = (
