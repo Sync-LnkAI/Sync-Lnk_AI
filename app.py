@@ -3365,7 +3365,7 @@ def update_calculation_case(
         merged_case_data.update(new_case_data)
 
         update_data = {
-            "case_data": merged_case_data,
+            "case_data": make_json_safe(merged_case_data),
             "updated_at": datetime.now(JST).isoformat()
         }
 
