@@ -4683,6 +4683,11 @@ def normalize_real_estate_sale_arguments(
             "acquisition_related_costs",
             Decimal("0")
         )
+        
+        normalized.setdefault(
+            "total_acquisition_cost",
+            Decimal("0")
+        )
 
         normalized.setdefault(
             "transfer_expenses",
