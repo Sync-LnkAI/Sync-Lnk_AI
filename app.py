@@ -5930,20 +5930,6 @@ with all_tabs[0]:
                                     )
                                 )
                             )
-                            st.write("pending_case_selection", st.session_state.get("pending_case_selection"))
-                            st.write("user_input", user_input)
-                            st.write("normalized_input", normalized_input)
-
-                            st.write("candidates")
-                            st.code(
-                                json.dumps(
-                                    candidates,
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
 
                             selected_case = None
 
@@ -5971,14 +5957,32 @@ with all_tabs[0]:
                                         selected_case["case_id"]
                                     )
                                 )
-                                st.session_state[
-                                    "real_estate_calculation_arguments"
-                                ] = (
+                                
+                                restored_case_data = (
                                     selected_case_data.get(
                                         "case_data",
                                         {}
                                     )
                                 )
+
+                                pending_arguments = (
+                                    st.session_state.get(
+                                        "pending_case_arguments",
+                                        {}
+                                    )
+                                )
+
+                                merged_case_data = dict(restored_case_data)
+                                merged_case_data.update(pending_arguments)
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = merged_case_data
+
+                                st.session_state[
+                                    "pending_case_arguments"
+                                ] = {}
+
                                 st.session_state["pending_case_selection"] = False
                                 st.session_state["pending_case_candidates"] = []
 
