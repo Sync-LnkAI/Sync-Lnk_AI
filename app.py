@@ -5058,15 +5058,8 @@ def execute_real_estate_sale_calculation(
                 **calculation_arguments
             )
         )
-        st.write("calculation_result")
-        st.code(
-            json.dumps(
-                calculation_result,
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
+        st.session_state["debug_calculation_result"] = (
+            make_json_safe(calculation_result)
         )
 
     except (
@@ -6047,7 +6040,7 @@ with all_tabs[0]:
                                 st.session_state[
                                     "real_estate_calculation_arguments"
                                 ] = merged_case_data
-                                
+
                                 selected_case_resume_arguments = dict(
                                     merged_case_data
                                 )
@@ -6232,9 +6225,7 @@ with all_tabs[0]:
                         )
 
                         if should_run_tool_router:
-                            tool_router_start_time = (
-                                time.time()
-                            )
+                            tool_router_start_time = (time.time())
 
                             (
                                 calculation_tool,
@@ -6244,8 +6235,7 @@ with all_tabs[0]:
                                 tool_router_cost
                             ) = classify_calculation_tool(
                                 user_input=user_input,
-                                recent_history_str=
-                                    recent_history_for_router,
+                                recent_history_str=recent_history_for_router,
                                 pending_tool=pending_tool
                             )
 
@@ -6256,6 +6246,11 @@ with all_tabs[0]:
 
                         else:
                             calculation_tool = "none"
+
+                        # 案件選択が成功した場合は、
+                        # 「1」を再判定せず不動産計算へ強制復帰する
+                        if selected_case_resume_arguments is not None:
+                            calculation_tool = "real_estate_sale"
                         
                         if should_run_tool_router:
                             save_system_audit_log(
