@@ -216,14 +216,6 @@ if (
     st.session_state[
         "real_estate_calculation_arguments"
     ] = {}
-# 一時対応：セッションに残っている誤った総取得費を削除
-st.session_state[
-    "real_estate_calculation_arguments"
-].pop(
-    "total_acquisition_cost",
-    None
-)
-
 
 # 計算メモ関連のセッション初期化
 if "pending_case_candidates" not in st.session_state:
