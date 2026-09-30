@@ -217,6 +217,20 @@ if (
         "real_estate_calculation_arguments"
     ] = {}
 
+# 計算メモ関連のセッション初期化
+if "pending_case_candidates" not in st.session_state:
+    st.session_state["pending_case_candidates"] = []
+
+if "pending_case_selection" not in st.session_state:
+    st.session_state["pending_case_selection"] = False
+
+if "active_calculation_case_id" not in st.session_state:
+    st.session_state["active_calculation_case_id"] = None
+
+if "active_calculation_case_name" not in st.session_state:
+    st.session_state["active_calculation_case_name"] = ""
+
+
 STYLE_PRESETS = {
 
     "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】":
@@ -6315,6 +6329,29 @@ with all_tabs[0]:
                                                 "case_id"
                                             )
                                         )
+                                else:
+                                    st.session_state["pending_case_candidates"] = candidates
+                                    st.session_state["pending_case_selection"] = True
+                                    
+                                    st.write("pending_case_candidates")
+                                    st.code(
+                                        json.dumps(
+                                            st.session_state[
+                                                "pending_case_candidates"
+                                            ],
+                                            ensure_ascii=False,
+                                            indent=2,
+                                            default=str
+                                        ),
+                                        language="json"
+                                    )
+
+                                    st.write(
+                                        "pending_case_selection",
+                                        st.session_state[
+                                            "pending_case_selection"
+                                        ]
+                                    )
                             elif (
                                 calculation_tool == "real_estate_sale"
                                 and merged_arguments
