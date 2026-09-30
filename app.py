@@ -5975,9 +5975,13 @@ with all_tabs[0]:
                                 merged_case_data = dict(restored_case_data)
                                 merged_case_data.update(pending_arguments)
 
+                                if (selected_case_data.get("property_usage") == "owner_occupied"):
+                                    merged_case_data["owner_type"] = "individual"
+
                                 st.session_state[
                                     "real_estate_calculation_arguments"
                                 ] = merged_case_data
+                                
 
                                 st.session_state[
                                     "pending_case_arguments"
@@ -5986,32 +5990,7 @@ with all_tabs[0]:
                                 st.session_state["pending_case_selection"] = False
                                 st.session_state["pending_case_candidates"] = []
 
-                                selection_reply = (
-                                    f"計算案件「{selected_case_name}」を選択しました。"
-                                    "続けて変更したい条件を教えてください。"
-                                )
-
-                                save_message(
-                                    "user",
-                                    user_input,
-                                    current_msg_id,
-                                    "analysis"
-                                )
-
-                                save_message(
-                                    "assistant",
-                                    selection_reply,
-                                    current_msg_id,
-                                    "analysis"
-                                )
-
-                                st.markdown(
-                                    f"{current_concierge_name}: "
-                                    f"{selection_reply}"
-                                )
-
                                 st.session_state.force_message_reload = True
-                                st.rerun()
 
                             candidate_names = "、".join(
                                 f"{index}. {case.get('case_name', '案件名なし')}"
@@ -6024,19 +6003,8 @@ with all_tabs[0]:
                                 f"{candidate_names}"
                             )
 
-                            save_message(
-                                "user",
-                                user_input,
-                                current_msg_id,
-                                "analysis"
-                            )
-
-                            save_message(
-                                "assistant",
-                                retry_reply,
-                                current_msg_id,
-                                "analysis"
-                            )
+                            save_message("user", user_input, current_msg_id, "analysis")
+                            save_message("assistant", retry_reply, current_msg_id, "analysis")
 
                             st.markdown(
                                 f"{current_concierge_name}: "
