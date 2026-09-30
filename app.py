@@ -4683,7 +4683,7 @@ def normalize_real_estate_sale_arguments(
             "acquisition_related_costs",
             Decimal("0")
         )
-        
+
         normalized.setdefault(
             "total_acquisition_cost",
             Decimal("0")
@@ -5947,6 +5947,7 @@ with all_tabs[0]:
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         # 計算案件の選択待ち処理
+                        selected_case_resume_arguments = None
                         if st.session_state.get("pending_case_selection", False):
                             candidates = st.session_state.get("pending_case_candidates", [])
                             normalized_input = (
@@ -6046,6 +6047,10 @@ with all_tabs[0]:
                                 st.session_state[
                                     "real_estate_calculation_arguments"
                                 ] = merged_case_data
+                                
+                                selected_case_resume_arguments = dict(
+                                    merged_case_data
+                                )
                                 
 
                                 st.session_state[
