@@ -6241,6 +6241,15 @@ with all_tabs[0]:
 
                             calculation_extraction_result["arguments"] = merged_arguments
 
+                            st.write("calculation_tool", calculation_tool)
+                            st.write("merged_arguments", merged_arguments)
+                            st.write(
+                                "active_case",
+                                st.session_state.get(
+                                    "active_calculation_case_id"
+                                )
+                            )
+
                             if (
                                 calculation_tool == "real_estate_sale"
                                 and merged_arguments
@@ -6248,7 +6257,6 @@ with all_tabs[0]:
                                     "active_calculation_case_id"
                                 )
                             ):
-
                                 candidates = (
                                     get_calculation_case_candidates(
                                         case_type="real_estate_sale",
