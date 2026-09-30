@@ -5939,6 +5939,7 @@ with all_tabs[0]:
                             
                             st.write("selected_case", selected_case)
 
+                            selected_case_confirmed = False
                             if selected_case:
                                 selected_case_id = selected_case["case_id"]
                                 selected_case_name = selected_case["case_name"]
@@ -5985,8 +5986,9 @@ with all_tabs[0]:
                                 st.session_state["pending_case_arguments"] = {}
 
                                 st.session_state.force_message_reload = True
-                                st.rerun()
-                            else:
+                                selected_case_confirmed = True
+                            
+                            if not selected_case_confirmed:
                                 candidate_names = "、".join(
                                     f"{index}. {case.get('case_name', '案件名なし')}"
                                     for index, case in enumerate(candidates, start=1)
