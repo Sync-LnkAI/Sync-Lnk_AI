@@ -5946,6 +5946,40 @@ with all_tabs[0]:
                                 merged_case_data = dict(restored_case_data)
                                 merged_case_data.update(pending_arguments)
 
+                                st.write("restored_case_data")
+                                st.code(
+                                    json.dumps(
+                                        restored_case_data,
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
+                                st.write("pending_arguments")
+                                st.code(
+                                    json.dumps(
+                                        pending_arguments,
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
+                                st.write("merged_case_data")
+                                st.code(
+                                    json.dumps(
+                                        merged_case_data,
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
+
                                 if (selected_case_data.get("property_usage") == "owner_occupied"):
                                     merged_case_data["owner_type"] = "individual"
 
