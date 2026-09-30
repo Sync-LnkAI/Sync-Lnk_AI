@@ -3865,6 +3865,11 @@ def calculate_real_estate_sale(
             cash_before_tax
             - estimated_tax
         )
+    
+    st.write("actual_acquisition_basis", actual_acquisition_basis)
+    st.write("land_cost_d", land_cost_d)
+    st.write("building_tax_basis", building_tax_basis)
+    st.write("acquisition_costs_d", acquisition_costs_d)
 
     return {
         "owner_type": owner_type,
