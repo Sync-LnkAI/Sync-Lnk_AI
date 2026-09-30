@@ -5989,30 +5989,32 @@ with all_tabs[0]:
 
                                 st.session_state["pending_case_selection"] = False
                                 st.session_state["pending_case_candidates"] = []
+                                st.session_state["pending_case_arguments"] = {}
 
                                 st.session_state.force_message_reload = True
+                                st.rerun()
+                            else:
+                                candidate_names = "、".join(
+                                    f"{index}. {case.get('case_name', '案件名なし')}"
+                                    for index, case in enumerate(candidates, start=1)
+                                )
 
-                            candidate_names = "、".join(
-                                f"{index}. {case.get('case_name', '案件名なし')}"
-                                for index, case in enumerate(candidates, start=1)
-                            )
+                                retry_reply = (
+                                    "案件を特定できませんでした。"
+                                    f"「番号」または「案件名」で選んでください。\n\n"
+                                    f"{candidate_names}"
+                                )
 
-                            retry_reply = (
-                                "案件を特定できませんでした。"
-                                f"「番号」または「案件名」で選んでください。\n\n"
-                                f"{candidate_names}"
-                            )
+                                save_message("user", user_input, current_msg_id, "analysis")
+                                save_message("assistant", retry_reply, current_msg_id, "analysis")
 
-                            save_message("user", user_input, current_msg_id, "analysis")
-                            save_message("assistant", retry_reply, current_msg_id, "analysis")
+                                st.markdown(
+                                    f"{current_concierge_name}: "
+                                    f"{retry_reply}"
+                                )
 
-                            st.markdown(
-                                f"{current_concierge_name}: "
-                                f"{retry_reply}"
-                            )
-
-                            st.session_state.force_message_reload = True
-                            st.stop()
+                                st.session_state.force_message_reload = True
+                                st.stop()
                                                 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
