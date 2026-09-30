@@ -3486,6 +3486,36 @@ def get_calculation_case_candidates(
 
         return []
 
+# 既存案件が選択された場合にデータ読み出し
+def get_calculation_case(
+    case_id: str
+) -> dict:
+
+    try:
+
+        response = (
+            supabase
+            .table("calculation_cases")
+            .select("*")
+            .eq("case_id", case_id)
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+
+        return {}
+
+    except Exception as e:
+
+        print(
+            f"計算案件取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {}
+
 # 計算メモの期限切れ案件の削除
 def cleanup_expired_calculation_cases() -> int:
 
@@ -5878,7 +5908,106 @@ with all_tabs[0]:
                         # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
-                        
+
+                        # 計算案件の選択待ち処理
+                        if st.session_state.get("pending_case_selection", False):
+                            candidates = st.session_state.get("pending_case_candidates", [])
+                            normalized_input = str(user_input or "").strip().lower()
+                            selected_case = None
+
+                            for index, case in enumerate(candidates, start=1):
+                                case_name = str(case.get("case_name", "") or "").strip()
+
+                                if normalized_input in {str(index), f"{index}番", f"{index}番目"}:
+                                    selected_case = case
+                                    break
+
+                                if case_name and case_name.lower() in normalized_input:
+                                    selected_case = case
+                                    break
+
+                            if selected_case:
+                                selected_case_id = selected_case["case_id"]
+                                selected_case_name = selected_case["case_name"]
+
+                                st.session_state["active_calculation_case_id"] = selected_case_id
+                                st.session_state["active_calculation_case_name"] = selected_case_name
+                                selected_case_data = (
+                                    get_calculation_case(
+                                        selected_case["case_id"]
+                                    )
+                                )
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = (
+                                    selected_case_data.get(
+                                        "case_data",
+                                        {}
+                                    )
+                                )
+                                st.session_state["pending_case_selection"] = False
+                                st.session_state["pending_case_candidates"] = []
+
+                                selection_reply = (
+                                    f"計算案件「{selected_case_name}」を選択しました。"
+                                    "続けて変更したい条件を教えてください。"
+                                )
+
+                                save_message(
+                                    "user",
+                                    user_input,
+                                    current_msg_id,
+                                    "analysis"
+                                )
+
+                                save_message(
+                                    "assistant",
+                                    selection_reply,
+                                    current_msg_id,
+                                    "analysis"
+                                )
+
+                                st.markdown(
+                                    f"{current_concierge_name}: "
+                                    f"{selection_reply}"
+                                )
+
+                                st.session_state.force_message_reload = True
+                                st.stop()
+
+                            candidate_names = "、".join(
+                                f"{index}. {case.get('case_name', '案件名なし')}"
+                                for index, case in enumerate(candidates, start=1)
+                            )
+
+                            retry_reply = (
+                                "案件を特定できませんでした。"
+                                f"「番号」または「案件名」で選んでください。\n\n"
+                                f"{candidate_names}"
+                            )
+
+                            save_message(
+                                "user",
+                                user_input,
+                                current_msg_id,
+                                "analysis"
+                            )
+
+                            save_message(
+                                "assistant",
+                                retry_reply,
+                                current_msg_id,
+                                "analysis"
+                            )
+
+                            st.markdown(
+                                f"{current_concierge_name}: "
+                                f"{retry_reply}"
+                            )
+
+                            st.session_state.force_message_reload = True
+                            st.stop()
+                                                
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
                         manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
@@ -6332,26 +6461,39 @@ with all_tabs[0]:
                                 else:
                                     st.session_state["pending_case_candidates"] = candidates
                                     st.session_state["pending_case_selection"] = True
-                                    
-                                    st.write("pending_case_candidates")
-                                    st.code(
-                                        json.dumps(
-                                            st.session_state[
-                                                "pending_case_candidates"
-                                            ],
-                                            ensure_ascii=False,
-                                            indent=2,
-                                            default=str
-                                        ),
-                                        language="json"
+                                    st.session_state["pending_case_arguments"] = make_json_safe(merged_arguments)
+                                    candidate_lines = []
+                                    for i, case in enumerate(candidates, start=1):
+
+                                        updated_at = (
+                                            str(case.get("updated_at", ""))
+                                            .replace("T", " ")[:16]
+                                        )
+
+                                        candidate_lines.append(
+                                            f"{i}. {case.get('case_name', '')}\n"
+                                            f"最終更新: {updated_at}"
+                                        )
+
+                                    ai_reply = (
+                                        "以前の計算案件が見つかりました。\n\n"
+                                        + "\n\n".join(candidate_lines)
+                                        + "\n\nどの案件を利用しますか？"
+                                    )
+                                    st.markdown(
+                                        f"{current_concierge_name}: "
+                                        f"{ai_reply}"
                                     )
 
-                                    st.write(
-                                        "pending_case_selection",
-                                        st.session_state[
-                                            "pending_case_selection"
-                                        ]
+                                    save_message(
+                                        "assistant",
+                                        ai_reply,
+                                        current_msg_id,
+                                        response_mode
                                     )
+
+                                    st.stop()
+                                    
                             elif (
                                 calculation_tool == "real_estate_sale"
                                 and merged_arguments
@@ -6359,14 +6501,10 @@ with all_tabs[0]:
                                     "active_calculation_case_id"
                                 )
                             ):
-
-                                update_result = (
-                                    update_calculation_case(
-                                        case_id=st.session_state[
-                                            "active_calculation_case_id"
-                                        ],
-                                        new_case_data=merged_arguments
-                                    )
+                                update_calculation_case(
+                                    case_id=st.session_state["active_calculation_case_id"],
+                                    case_name=st.session_state.get("active_calculation_case_name"),
+                                    new_case_data=merged_arguments
                                 )
 
                             # st.write("merged_arguments")
