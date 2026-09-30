@@ -6203,6 +6203,17 @@ with all_tabs[0]:
                                 or {}
                             )
 
+                            st.write("calculation_extraction_result")
+                                st.code(
+                                    json.dumps(
+                                        calculation_extraction_result,
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
                             # 今回新しく抽出された条件
                             current_arguments = dict(
                                 calculation_extraction_result.get(
