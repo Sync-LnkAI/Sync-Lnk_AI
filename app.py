@@ -6580,6 +6580,16 @@ with all_tabs[0]:
                                     calculation_extraction_result
                                 )
                             )
+                            st.write("calculation_execution_result")
+                            st.code(
+                                json.dumps(
+                                    calculation_execution_result,
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             calculation_elapsed = (
                                 time.time()
@@ -7404,7 +7414,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            st.rerun()
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
