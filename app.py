@@ -6332,11 +6332,6 @@ with all_tabs[0]:
                                     )
                                 )
 
-                                st.write(
-                                    "update_result",
-                                    update_result
-                                )
-
                             # st.write("merged_arguments")
                             # st.code(
                             #     json.dumps(
@@ -8257,6 +8252,81 @@ if is_admin:
                     "</div>",
                     unsafe_allow_html=True
                 )
+            
+            # 計算メモ内容表示
+            st.markdown("##### 📊 計算案件一覧")
+            try:
+                case_res = (
+                    supabase
+                    .table("calculation_cases")
+                    .select("*")
+                    .eq(
+                        "user_id",
+                        selected_audit_user
+                    )
+                    .order(
+                        "updated_at",
+                        desc=True
+                    )
+                    .execute()
+                )
+
+                case_rows = case_res.data or []
+
+                st.caption(f"計算案件数: {len(case_rows)}件")
+
+                for case in case_rows:
+                    with st.expander(f"{case.get('case_name', '案件名なし')}"):
+                        st.write(
+                            f"Case ID: "
+                            f"{case.get('case_id', '')}"
+                        )
+                        st.write(
+                            f"種別: "
+                            f"{case.get('case_type', '')}"
+                        )
+                        st.write(
+                            f"状態: "
+                            f"{case.get('case_status', '')}"
+                        )
+                        st.write(
+                            f"用途: "
+                            f"{case.get('property_usage', '')}"
+                        )
+                        st.write(
+                            f"作成日: "
+                            f"{case.get('created_at', '')}"
+                        )
+
+                        st.write(
+                            f"更新日: "
+                            f"{case.get('updated_at', '')}"
+                        )
+                        st.write(
+                            f"期限: "
+                            f"{case.get('expires_at', '')}"
+                        )
+
+                        st.code(
+                            json.dumps(
+                                case.get(
+                                    "case_data",
+                                    {}
+                                ),
+                                ensure_ascii=False,
+                                indent=2,
+                                default=str
+                            ),
+                            language="json"
+                        )
+
+            except Exception as e:
+
+                st.error(
+                    f"計算案件取得エラー: "
+                    f"{type(e).__name__}: {e}"
+                )
+
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
