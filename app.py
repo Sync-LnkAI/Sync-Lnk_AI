@@ -4,6 +4,7 @@ from supabase import create_client, Client
 import re
 import time
 import json
+import threading
 from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
@@ -7330,7 +7331,7 @@ with all_tabs[0]:
                             # with st.chat_message("assistant", avatar=current_ai_avatar):
                             # with st.chat_message("assistant"):
                             # st.write(f"【{current_concierge_name}】: {clean_reply}")
-                            st.markdown(f"{current_concierge_name}: {clean_reply}")
+                            # st.markdown(f"{current_concierge_name}: {clean_reply}")
 
                             all_messages.append({
                                 "role": "assistant",
@@ -7371,7 +7372,7 @@ with all_tabs[0]:
                             # 🧠 記憶の自動要約マルチスレッド
                             # ==================================================================
                             # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
-                            import threading
+                            # import threading
         
                             #st.session_state.summary_in_tokens = 0
                             #st.session_state.summary_out_tokens = 0
