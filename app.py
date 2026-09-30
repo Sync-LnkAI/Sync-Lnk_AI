@@ -5837,6 +5837,13 @@ with all_tabs[0]:
 
             CURRENT_USER_ID
         )
+
+        st.write(
+            "active_case",
+            st.session_state.get(
+                "active_calculation_case_id"
+            )
+        )
         
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
