@@ -4735,7 +4735,7 @@ def normalize_real_estate_sale_arguments(
             # 解釈できない場合は推測せず除外
             continue
     
-    normalized[key] = value
+        normalized[key] = value
 
     # 計算実行時だけ任意項目へ安全な初期値を設定
     if apply_defaults:
@@ -5075,7 +5075,7 @@ def execute_real_estate_sale_calculation(
         }
     
     if (to_decimal(normalized_arguments.get("accumulated_depreciation",Decimal("0"))) <= Decimal("0")):
-        building_original_cost = (normalized_arguments.get("building_acquisition_cost"))
+        building_original_cost = (normalized_arguments.get("building_original_cost"))
         building_structure = (normalized_arguments.get("building_structure"))
         building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
         property_usage = (normalized_arguments.get("property_usage"))
