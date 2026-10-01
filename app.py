@@ -4749,16 +4749,6 @@ def normalize_real_estate_sale_arguments(
         )
 
         normalized.setdefault(
-            "land_acquisition_cost",
-            Decimal("0")
-        )
-
-        normalized.setdefault(
-            "building_acquisition_cost",
-            Decimal("0")
-        )
-
-        normalized.setdefault(
             "acquisition_related_costs",
             Decimal("0")
         )
@@ -4798,6 +4788,8 @@ def normalize_real_estate_sale_arguments(
 REAL_ESTATE_FIELD_LABELS = {
     "owner_type": "売却者が個人か法人か",
     "sale_price": "売却予定額または売却額",
+    "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
+    "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
     "building_original_cost": "建物取得額",
     "building_structure": "建物構造",
     "building_acquisition_date": "建物取得年月",
@@ -4894,30 +4886,30 @@ def get_real_estate_sale_missing_fields(
     )
 
     if not use_deemed_acquisition_cost:
-        land_cost = to_decimal(
-            arguments.get(
-                "land_acquisition_cost",
-                Decimal("0")
-            )
-        )
-
-        building_cost = to_decimal(
-            arguments.get(
-                "building_acquisition_cost",
-                Decimal("0")
-            )
-        )
-
-        acquisition_related_costs = to_decimal(
-            arguments.get(
-                "acquisition_related_costs",
-                Decimal("0")
-            )
-        )
-
         total_acquisition_cost = to_decimal(
-            arguments.get("total_acquisition_cost", Decimal("0"))
+            arguments.get(
+                "total_acquisition_cost",
+                Decimal("0")
+            )
         )
+
+        if total_acquisition_cost <= Decimal("0"):
+            land_cost_is_provided = (
+                "land_acquisition_cost" in arguments
+            )
+            building_cost_is_provided = (
+                "building_acquisition_cost" in arguments
+            )
+
+            if not land_cost_is_provided:
+                missing_fields.append(
+                    "land_acquisition_cost"
+                )
+
+            if not building_cost_is_provided:
+                missing_fields.append(
+                    "building_acquisition_cost"
+                )
 
         if (total_acquisition_cost > Decimal("0")):
             pass
@@ -6734,6 +6726,10 @@ with all_tabs[0]:
                                     key in REAL_ESTATE_NUMERIC_FIELDS
                                     and str(value) == "0"
                                     and key in previous_arguments
+                                    and key not in {
+                                        "land_acquisition_cost",
+                                        "building_acquisition_cost"
+                                    }
                                 ):
                                     continue
 
