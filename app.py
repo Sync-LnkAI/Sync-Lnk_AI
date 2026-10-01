@@ -5172,6 +5172,21 @@ def execute_real_estate_sale_calculation(
             ),
             language="json"
         )
+        st.write("real_estate_calculation_arguments")
+        st.code(
+            json.dumps(
+                make_json_safe(
+                    st.session_state.get(
+                        "real_estate_calculation_arguments",
+                        {}
+                    )
+                ),
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
 
         if missing_fields:
             return {
@@ -6213,13 +6228,30 @@ with all_tabs[0]:
                             selected_case_confirmed = False
 
                             if create_new_case_requested:
-                                new_case_data = dict(
+
+                                pending_arguments = dict(
                                     st.session_state.get(
                                         "pending_case_arguments",
                                         {}
                                     )
                                     or {}
                                 )
+
+                                # 前に操作していた案件の条件を破棄
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = {}
+
+                                # 今回ユーザーが案件選択前に入力した条件だけ引き継ぐ
+                                new_case_data = {
+                                    key: value
+                                    for key, value
+                                    in pending_arguments.items()
+                                    if (
+                                        value is not None
+                                        and value != ""
+                                    )
+                                }
 
                                 property_usage = str(
                                     new_case_data.get(
@@ -6228,8 +6260,21 @@ with all_tabs[0]:
                                     or "owner_occupied"
                                 )
 
+                                new_case_data[
+                                    "property_usage"
+                                ] = property_usage
+
                                 if property_usage == "owner_occupied":
-                                    new_case_data["owner_type"] = "individual"
+                                    new_case_data[
+                                        "owner_type"
+                                    ] = "individual"
+
+                                property_usage = str(
+                                    new_case_data.get(
+                                        "property_usage"
+                                    )
+                                    or "owner_occupied"
+                                )
 
                                 create_result = create_calculation_case(
                                     case_type="real_estate_sale",
@@ -6293,25 +6338,68 @@ with all_tabs[0]:
                                     )
                                 )
                                 
-                                restored_case_data = (
+                                restored_case_data = dict(
                                     selected_case_data.get(
                                         "case_data",
                                         {}
                                     )
+                                    or {}
                                 )
 
-                                pending_arguments = (
+                                pending_arguments = dict(
                                     st.session_state.get(
                                         "pending_case_arguments",
                                         {}
                                     )
+                                    or {}
                                 )
 
-                                merged_case_data = dict(restored_case_data)
-                                merged_case_data.update(pending_arguments)
-                                if selected_case_name == "自宅売却":
-                                    merged_case_data["property_usage"] = "owner_occupied"
+                                # 前に操作していた案件のセッション条件を破棄
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = {}
 
+                                # 選択した案件を基準にする
+                                merged_case_data = dict(
+                                    restored_case_data
+                                )
+
+                                # 案件選択前にユーザーが今回入力した条件だけ反映
+                                for key, value in pending_arguments.items():
+                                    if value is None:
+                                        continue
+
+                                    if value == "":
+                                        continue
+
+                                    merged_case_data[key] = value
+
+                                if selected_case_name == "自宅売却":
+                                    merged_case_data[
+                                        "property_usage"
+                                    ] = "owner_occupied"
+
+                                if (
+                                    merged_case_data.get(
+                                        "property_usage"
+                                    )
+                                    == "owner_occupied"
+                                ):
+                                    merged_case_data[
+                                        "owner_type"
+                                    ] = "individual"
+
+                                # 選択案件と今回入力分だけでセッションを作り直す
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = dict(
+                                    merged_case_data
+                                )
+
+                                selected_case_resume_arguments = dict(
+                                    merged_case_data
+                                )
+                                
                                 # st.write("restored_case_data")
                                 # st.code(
                                 #     json.dumps(
@@ -6344,24 +6432,7 @@ with all_tabs[0]:
                                 #     ),
                                 #     language="json"
                                 # )
-
-
-                                if (merged_case_data.get("property_usage") == "owner_occupied"):
-                                    merged_case_data["owner_type"] = "individual"
-
-                                st.session_state[
-                                    "real_estate_calculation_arguments"
-                                ] = merged_case_data
-
-                                selected_case_resume_arguments = dict(
-                                    merged_case_data
-                                )
-                                
-
-                                st.session_state[
-                                    "pending_case_arguments"
-                                ] = {}
-
+  
                                 st.session_state["pending_case_selection"] = False
                                 st.session_state["pending_case_candidates"] = []
                                 st.session_state["pending_case_arguments"] = {}
@@ -6932,6 +7003,16 @@ with all_tabs[0]:
                                     pending_case_arguments = {
                                         key: value
                                         for key, value in current_arguments.items()
+                                        if (
+                                            value is not None
+                                            and value != ""
+                                        )
+                                    }
+
+                                    pending_case_arguments = {
+                                        key: value
+                                        for key, value
+                                        in current_arguments.items()
                                         if (
                                             value is not None
                                             and value != ""
