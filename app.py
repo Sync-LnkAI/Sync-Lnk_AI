@@ -6739,6 +6739,10 @@ with all_tabs[0]:
 
                                 merged_arguments[key] = value
                             
+                            if (st.session_state.get("active_calculation_case_name") == "自宅売却"):
+                                merged_arguments["property_usage"] = "owner_occupied"
+                                merged_arguments["owner_type"] = "individual"
+
                             # st.write("previous_arguments")
                             # st.code(
                             #     json.dumps(
