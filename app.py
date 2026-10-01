@@ -7530,10 +7530,10 @@ with all_tabs[1]:
     display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
 
     #　要約を表示
-    st.markdown("##### 🧠 現在AIが覚えていること")
+    st.markdown("##### 🧠 現在AIが覚えている長期記憶")
     if display_summary != "なし":
         #st.info(display_summary)
-        st.caption("  AIが長期記憶として覚えている内容です。")
+        #st.caption("  AIが長期記憶として覚えている内容です。")
         st.markdown(display_summary.replace("\n"," \n"))
     else:
         st.caption("  まだ覚えている情報はありません。")
