@@ -8907,7 +8907,7 @@ if is_admin:
                 list(
                     set(
                         row["user_id"]
-                        for row in users_res.data
+                        for row in user_res.data
                         if row.get("user_id")
                     )
                 )
