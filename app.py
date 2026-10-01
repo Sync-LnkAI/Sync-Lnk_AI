@@ -8727,7 +8727,13 @@ if is_admin:
                             msg_res = (
                                 supabase
                                 .table("messages")
-                                .select("*")
+                                .select(
+                                    "role,"
+                                    "content,"
+                                    "created_at,"
+                                    "message_id,"
+                                    "response_mode"
+                                )
                                 .eq("user_id", selected_audit_user)
                                 .eq("message_id", item["id"])
                                 .order("created_at", desc=False)
@@ -9153,12 +9159,12 @@ if is_admin:
         # ──────────────────────────────────────────────────────────────────
         all_tester_logs = None
         try:
-            # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
-            all_tester_logs = supabase.table("messages").select("user_id").order("created_at", desc=True).limit(200).execute()
+            # 1. データベースの user_token_stats テーブルからユーザー取得
+            tester_users_res = supabase.table("user_token_stats").select("user_id").execute()
             
-            # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
-            if all_tester_logs.data:
-                user_list = sorted(list(set([u["user_id"] for u in all_tester_logs.data if u.get("user_id")])))
+            # 🟢 直前で引っこ抜いた「tester_users_res.data」の名前を正確にスキャンして名簿を作成します
+            if tester_users_res.data:
+                user_list = sorted(list(set([u["user_id"] for u in tester_users_res.data if u.get("user_id")])))
             else:
                 user_list = [CURRENT_USER_ID]
         except Exception as e_list:
@@ -9181,14 +9187,14 @@ if is_admin:
 
         if st.button(
             "📖 会話履歴を表示",
-            key="show_user_logs"
+            key="show_user_logs_button"
         ):
             st.session_state["show_user_logs"] = True
 
         # プルダウンで選択肢したテスターのログを表示
         try:
             if (
-                all_tester_logs.data
+                tester_users_res.data
                 and st.session_state.get(
                     "show_user_logs",
                     False
@@ -9198,16 +9204,22 @@ if is_admin:
                 selected_logs = (
                     supabase
                     .table("messages")
-                    .select("*")
+                    .select(
+                        "role,"
+                        "content,"
+                        "created_at,"
+                        "message_id,"
+                        "response_mode"
+                    )
                     .eq("user_id", selected_target_user_id)
                     .order("created_at", desc=True)
-                    .limit(1000)
+                    .limit(300)
                     .execute()
                 )
                 logs = selected_logs.data or []
 
                 # grouped_logs = {}
-                # for log in all_tester_logs.data:
+                # for log in tester_users_res.data:
                 #     uid = log.get("user_id", "unknown")
                 #     if uid not in grouped_logs:
                 #         grouped_logs[uid] = []
