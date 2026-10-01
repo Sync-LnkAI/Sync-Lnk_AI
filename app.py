@@ -4426,7 +4426,6 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "loan_balance",
     "land_acquisition_cost",
     "building_acquisition_cost",
-    "building_original_cost",
     "building_structure",
     "building_acquisition_date",
     "accumulated_depreciation",
@@ -4786,7 +4785,6 @@ REAL_ESTATE_FIELD_LABELS = {
     "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
     "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
     "acquisition_related_costs": "購入時諸費用（ない場合は0円）",
-    "building_original_cost": "建物取得額",
     "building_structure": "建物構造",
     "building_acquisition_date": "建物取得年月",
     "acquisition_date": "取得日",
@@ -6741,6 +6739,15 @@ with all_tabs[0]:
                                     continue
 
                                 merged_arguments[key] = value
+                                if (
+                                    "acquisition_related_costs" not in current_arguments
+                                    and merged_arguments.get("acquisition_related_costs") in {
+                                        0,
+                                        "0",
+                                        Decimal("0")
+                                    }
+                                ):
+                                    merged_arguments.pop("acquisition_related_costs", None)
                             
                             if (st.session_state.get("active_calculation_case_name") == "自宅売却"):
                                 merged_arguments["property_usage"] = "owner_occupied"
