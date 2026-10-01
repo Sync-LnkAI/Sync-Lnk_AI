@@ -8586,7 +8586,7 @@ if is_admin:
                             # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
                             msg_id = log.get("message_id")
                             created_at = log.get("created_at", "")
-                            time_display = created_at.split("T")[-1][:8] if "T" in created_at else created_at
+                            time_display = created_at.replace("T", " ")[:16] if "T" in created_at else created_at
                             
                             if not msg_id or msg_id == "None" or msg_id == "":
                                 # 過去データ用フォールバック：分単位で丸めて部屋を作ります
