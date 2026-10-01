@@ -7511,7 +7511,7 @@ with all_tabs[1]:
     st.caption("  より多くの情報を長期記憶として保持")
     st.write("")
     st.caption(" 👑 スタンダードプラン：記憶量【大】、閲覧・編集可")
-    st.caption("  より多くの情報を、より詳細に長期記憶として保持")
+    st.caption("  更に多くの情報を長期記憶として保持")
 
     # st.divider()
     st.markdown("---")
