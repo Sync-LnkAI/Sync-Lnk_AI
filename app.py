@@ -5092,6 +5092,17 @@ def execute_real_estate_sale_calculation(
                     building_acquisition_date=building_acquisition_date,
                     property_usage=property_usage
                 )
+            
+            st.write("depreciation_result")
+            st.code(
+                json.dumps(
+                    depreciation_result,
+                    ensure_ascii=False,
+                    indent=2,
+                    default=str
+                ),
+                language="json"
+            )
 
             normalized_arguments["accumulated_depreciation"] = depreciation_result[
                     "accumulated_depreciation"
@@ -5102,16 +5113,52 @@ def execute_real_estate_sale_calculation(
             f"🏠 計算不足項目: "
             f"{missing_fields}"
         )
-        st.write("normalized_arguments")
+        st.write("depreciation_debug")
         st.code(
             json.dumps(
-                normalized_arguments,
+                {
+                    "building_original_cost":
+                        normalized_arguments.get(
+                            "building_original_cost"
+                        ),
+
+                    "building_acquisition_cost":
+                        normalized_arguments.get(
+                            "building_acquisition_cost"
+                        ),
+
+                    "building_structure":
+                        normalized_arguments.get(
+                            "building_structure"
+                        ),
+
+                    "building_acquisition_date":
+                        normalized_arguments.get(
+                            "building_acquisition_date"
+                        ),
+
+                    "property_usage":
+                        normalized_arguments.get(
+                            "property_usage"
+                        ),
+
+                    "accumulated_depreciation":
+                        normalized_arguments.get(
+                            "accumulated_depreciation"
+                        ),
+
+                    "total_acquisition_cost":
+                        normalized_arguments.get(
+                            "total_acquisition_cost"
+                        )
+                },
                 ensure_ascii=False,
                 indent=2,
                 default=str
             ),
             language="json"
         )
+
         missing_fields = (
             get_real_estate_sale_missing_fields(
                 normalized_arguments
@@ -5182,6 +5229,7 @@ def execute_real_estate_sale_calculation(
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
     
     try:
+
         calculation_result = (
             calculate_real_estate_sale(
                 **calculation_arguments
@@ -7661,7 +7709,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            st.rerun()
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
