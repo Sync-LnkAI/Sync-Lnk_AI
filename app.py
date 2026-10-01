@@ -5146,16 +5146,36 @@ def execute_real_estate_sale_calculation(
     #     f"{calculation_arguments}"
     # )
     # calculate_real_estate_sale()に渡す値だけに限定
+    calculation_function_fields = {
+        "owner_type",
+        "sale_price",
+        "loan_balance",
+        "land_acquisition_cost",
+        "building_acquisition_cost",
+        "accumulated_depreciation",
+        "acquisition_related_costs",
+        "total_acquisition_cost",
+        "brokerage_fee",
+        "transfer_expenses",
+        "other_cash_expenses",
+        "acquisition_date",
+        "sale_date",
+        "holding_period_type",
+        "special_deduction",
+        "corporate_effective_tax_rate",
+        "use_deemed_acquisition_cost",
+        "deemed_acquisition_cost_rate"
+    }
+
     calculation_arguments = {
         key: value
-        for key, value
-        in normalized_arguments.items()
+        for key, value in normalized_arguments.items()
         if (
-            key
-            in REAL_ESTATE_SALE_ALLOWED_FIELDS
+            key in calculation_function_fields
             and value is not None
         )
     }
+    
     # st.warning(f"{calculation_arguments}")
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
     
