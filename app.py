@@ -6065,22 +6065,107 @@ with all_tabs[0]:
                             )
 
                             selected_case = None
+                            create_new_case_requested = False
+                            new_case_number = len(candidates) + 1
 
-                            for index, case in enumerate(candidates, start=1):
-                                case_name = str(case.get("case_name", "") or "").strip()
+                            if normalized_input in {
+                                str(new_case_number),
+                                f"{new_case_number}番",
+                                f"{new_case_number}番目"
+                            }:
+                                create_new_case_requested = True
+                            else:
+                                for index, case in enumerate(candidates, start=1):
+                                    case_name = str(case.get("case_name", "") or "").strip()
 
-                                if normalized_input in {str(index), f"{index}番", f"{index}番目"}:
-                                    selected_case = case
-                                    break
+                                    if normalized_input in {
+                                        str(index),
+                                        f"{index}番",
+                                        f"{index}番目"
+                                    }:
+                                        selected_case = case
+                                        break
 
-                                if case_name and case_name.lower() in normalized_input:
-                                    selected_case = case
-                                    break
-                            
-                            # st.write("selected_case", selected_case)
+                                    if (
+                                        case_name
+                                        and case_name.lower()
+                                        in normalized_input
+                                    ):
+                                        selected_case = case
+                                        break
 
                             selected_case_confirmed = False
-                            if selected_case:
+
+                            if create_new_case_requested:
+                                new_case_data = dict(
+                                    st.session_state.get(
+                                        "pending_case_arguments",
+                                        {}
+                                    )
+                                    or {}
+                                )
+
+                                property_usage = str(
+                                    new_case_data.get(
+                                        "property_usage"
+                                    )
+                                    or "owner_occupied"
+                                )
+
+                                if property_usage == "owner_occupied":
+                                    new_case_data["owner_type"] = "individual"
+
+                                create_result = create_calculation_case(
+                                    case_type="real_estate_sale",
+                                    property_usage=property_usage,
+                                    case_data=new_case_data,
+                                    current_plan_type=current_plan_type
+                                )
+
+                                if not create_result.get("success"):
+                                    create_error_reply = (
+                                        "新しい計算案件を作成できませんでした。"
+                                        "入力内容を確認して、もう一度お試しください。"
+                                    )
+
+                                    save_message(
+                                        "user",
+                                        user_input,
+                                        current_msg_id,
+                                        "analysis"
+                                    )
+
+                                    save_message(
+                                        "assistant",
+                                        create_error_reply,
+                                        current_msg_id,
+                                        "analysis"
+                                    )
+
+                                    st.markdown(
+                                        f"{current_concierge_name}: "
+                                        f"{create_error_reply}"
+                                    )
+
+                                    st.stop()
+
+                                new_case_id = create_result.get("case_id")
+
+                                new_case_name = get_default_case_name(
+                                    case_type="real_estate_sale",
+                                    property_usage=property_usage
+                                )
+
+                                st.session_state["active_calculation_case_id"] = new_case_id
+                                st.session_state["active_calculation_case_name"] = new_case_name
+                                st.session_state["real_estate_calculation_arguments"] = new_case_data
+                                selected_case_resume_arguments = dict(new_case_data)
+                                st.session_state["pending_case_selection"] = False
+                                st.session_state["pending_case_candidates"] = []
+                                st.session_state["pending_case_arguments"] = {}
+                                selected_case_confirmed = True
+
+                            elif selected_case:
                                 selected_case_id = selected_case["case_id"]
                                 selected_case_name = selected_case["case_name"]
 
@@ -6666,6 +6751,9 @@ with all_tabs[0]:
                                             f"{i}. {case.get('case_name', '')}\n"
                                             f"最終更新: {updated_at}"
                                         )
+
+                                    new_case_number = len(candidates) + 1
+                                    candidate_lines.append(f"{new_case_number}. 新しく追加")
 
                                     ai_reply = (
                                         "以前の計算案件が見つかりました。\n\n"
