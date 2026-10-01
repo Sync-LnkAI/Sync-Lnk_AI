@@ -7915,7 +7915,7 @@ with all_tabs[3]:
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
             st.markdown("---")
-            st.markdown("**🔒 プレミアム会話設定**")
+            st.markdown("**🔒 拡張会話設定**")
             # st.markdown("##### 🔒 プレミアム会話設定")
 
             is_free_plan = (
