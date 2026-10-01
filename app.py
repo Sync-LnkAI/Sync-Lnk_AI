@@ -6700,34 +6700,47 @@ with all_tabs[0]:
                             if selected_case_resume_arguments is not None:
                                 calculation_extraction_result = {
                                     "should_calculate": True,
-                                    "arguments": dict(
-                                        selected_case_resume_arguments
-                                    ),
+                                    "arguments": dict(selected_case_resume_arguments),
                                     "extraction_status": "extracted",
                                     "in_tokens": 0,
                                     "out_tokens": 0,
                                     "cost": 0.0
                                 }
+                                previous_arguments = {}
+                                current_arguments = dict(selected_case_resume_arguments)
                             else:
-                                calculation_extraction_result = (
-                                    extract_real_estate_sale_parameters(
-                                        user_input=user_input,
-                                        recent_history=recent_history_str
+                                calculation_extraction_result = extract_real_estate_sale_parameters(
+                                    user_input=user_input,
+                                    recent_history=recent_history_str
+                                )
+                                previous_arguments = dict(
+                                    st.session_state.get(
+                                        "real_estate_calculation_arguments",
+                                        {}
                                     )
+                                    or {}
+                                )
+                                current_arguments = dict(
+                                    calculation_extraction_result.get(
+                                        "arguments",
+                                        {}
+                                    )
+                                    or {}
                                 )
 
-                            extraction_elapsed = (
-                                time.time()
-                                - calculation_start_time
-                            )
+                            extraction_elapsed = (time.time() - calculation_start_time)
 
-                            # 前回までに確認できている条件
-                            previous_arguments = dict(
-                                st.session_state.get(
-                                    "real_estate_calculation_arguments",
-                                    {}
-                                )
-                                or {}
+                            st.write("merged_arguments")
+                            st.code(
+                                json.dumps(
+                                    make_json_safe(
+                                        merged_arguments
+                                    ),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
                             )
 
                             # st.write("calculation_extraction_result")
@@ -6740,15 +6753,6 @@ with all_tabs[0]:
                             #     ),
                             #     language="json"
                             # )
-
-                            # 今回新しく抽出された条件
-                            current_arguments = dict(
-                                calculation_extraction_result.get(
-                                    "arguments",
-                                    {}
-                                )
-                                or {}
-                            )
 
                             total_cost_expressions = {
                                 "総取得費",
