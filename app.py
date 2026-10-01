@@ -5123,6 +5123,17 @@ def execute_real_estate_sale_calculation(
             )
         )
 
+        st.write("missing_fields")
+        st.code(
+            json.dumps(
+                missing_fields,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
+
     except Exception as missing_check_error:
         print(
             "不動産売却の不足項目判定エラー: "
