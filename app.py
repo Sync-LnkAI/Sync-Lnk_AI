@@ -7501,8 +7501,17 @@ with all_tabs[0]:
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 with all_tabs[1]:
-    st.markdown("##### 🧠 記憶ルーム")
-    st.caption("  AIが覚えている内容や保存メモを確認できます。")
+    st.markdown("##### 🧠 長期記憶について")
+    st.caption("  AIは会話の中から、長期的に役立つ情報を整理して記憶しています。")
+    st.caption("  記憶量が増えるほど、過去の会話や好み、継続的な話題をより多く反映した会話が可能になります。")
+    st.write("")
+    st.caption(" 🆓 無料プラン：記憶量【小】")
+    st.write("")
+    st.caption(" 💎 ライトプラン：記憶量【中】")
+    st.caption("  より多くの情報を長期記憶として保持")
+    st.write("")
+    st.caption(" 👑 スタンダードプラン：記憶量【大】")
+    st.caption("  より多くの情報を、より詳細に長期記憶として保持")
 
     # st.divider()
     st.markdown("---")
