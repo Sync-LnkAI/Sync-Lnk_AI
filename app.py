@@ -4459,6 +4459,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
 REAL_ESTATE_DATE_FIELDS = {
     "acquisition_date",
     "sale_date"
+    "building_acquisition_date"
 }
 
 BUILDING_USEFUL_LIFE = {
@@ -5071,7 +5072,7 @@ def execute_real_estate_sale_calculation(
             )
         }
     
-    if ("accumulated_depreciation" not in normalized_arguments):
+    if (to_decimal(normalized_arguments.get("accumulated_depreciation",Decimal("0"))) <= Decimal("0")):
         building_original_cost = (normalized_arguments.get("building_original_cost"))
         building_structure = (normalized_arguments.get("building_structure"))
         building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
@@ -5098,6 +5099,16 @@ def execute_real_estate_sale_calculation(
         print(
             f"🏠 計算不足項目: "
             f"{missing_fields}"
+        )
+        st.write("normalized_arguments")
+        st.code(
+            json.dumps(
+                normalized_arguments,
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
         )
         missing_fields = (
             get_real_estate_sale_missing_fields(
