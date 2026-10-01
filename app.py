@@ -5160,6 +5160,19 @@ def execute_real_estate_sale_calculation(
             )
         )
 
+        st.write("merged_arguments")
+        st.code(
+            json.dumps(
+                make_json_safe(
+                    merged_arguments
+                ),
+                ensure_ascii=False,
+                indent=2,
+                default=str
+            ),
+            language="json"
+        )
+
         if missing_fields:
             return {
                 "status": "missing_fields",
@@ -6729,19 +6742,6 @@ with all_tabs[0]:
                                 )
 
                             extraction_elapsed = (time.time() - calculation_start_time)
-
-                            st.write("merged_arguments")
-                            st.code(
-                                json.dumps(
-                                    make_json_safe(
-                                        merged_arguments
-                                    ),
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
 
                             # st.write("calculation_extraction_result")
                             # st.code(
