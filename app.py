@@ -4140,6 +4140,11 @@ def extract_real_estate_sale_parameters(
     ↓
     total_acquisition_costに設定してください。
 
+    【建物取得価額】
+    ・建物購入価格、建物取得額、建物価格は、building_acquisition_cost に設定してください。
+    ・建物購入価格を、building_original_cost や total_acquisition_cost に設定してはいけません。
+    ・total_acquisition_cost は、土地と建物などを合算した取得費総額が明示された場合だけ設定してください。
+
     【重要】
     ・取得費が明示されている場合は、acquisition_related_costs を 0 や null にしてはいけません。
     ・土地取得費や建物取得費が不明であっても、総取得費や合算簿価が提示されている場合はacquisition_related_costs に設定してください。
@@ -4236,7 +4241,6 @@ def extract_real_estate_sale_parameters(
             "loan_balance": null,
             "land_acquisition_cost": null,
             "building_acquisition_cost": null,
-            "building_original_cost": null,
             "building_structure": null,
             "building_acquisition_date": null,
             "accumulated_depreciation": null,
@@ -5075,7 +5079,7 @@ def execute_real_estate_sale_calculation(
         }
     
     if (to_decimal(normalized_arguments.get("accumulated_depreciation",Decimal("0"))) <= Decimal("0")):
-        building_original_cost = (normalized_arguments.get("building_original_cost"))
+        building_original_cost = (normalized_arguments.get("building_acquisition_cost"))
         building_structure = (normalized_arguments.get("building_structure"))
         building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
         property_usage = (normalized_arguments.get("property_usage"))
