@@ -6928,7 +6928,22 @@ with all_tabs[0]:
                                 else:
                                     st.session_state["pending_case_candidates"] = candidates
                                     st.session_state["pending_case_selection"] = True
-                                    st.session_state["pending_case_arguments"] = make_json_safe(merged_arguments)
+                                    
+                                    pending_case_arguments = {
+                                        key: value
+                                        for key, value in current_arguments.items()
+                                        if (
+                                            value is not None
+                                            and value != ""
+                                        )
+                                    }
+
+                                    st.session_state[
+                                        "pending_case_arguments"
+                                    ] = make_json_safe(
+                                        pending_case_arguments
+                                    )
+
                                     candidate_lines = []
                                     for i, case in enumerate(candidates, start=1):
 
@@ -7078,7 +7093,7 @@ with all_tabs[0]:
                                 st.session_state[
                                     "real_estate_calculation_arguments"
                                 ] = saved_arguments
-                                
+
                                 st.session_state[
                                     "real_estate_calculation_pending"
                                 ] = False
