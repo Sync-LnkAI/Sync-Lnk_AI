@@ -4,7 +4,8 @@ from supabase import create_client, Client
 import re
 import time
 import json
-from datetime import datetime, timezone, timedelta
+import threading
+from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
 
@@ -14,7 +15,7 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 # ⚙️ 設定・初期化
 # ==========================================
-st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🧠", layout="wide")
 
 MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
 SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
@@ -22,6 +23,23 @@ SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY_PRO"]
+OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+# ==========================================
+# AIプロバイダー設定
+# ==========================================
+
+AI_PROVIDER = "gemini"
+# AI_PROVIDER = "gpt"
+
+if AI_PROVIDER == "gpt":
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 @st.cache_resource
 def init_supabase() -> Client:
@@ -32,24 +50,56 @@ supabase = init_supabase()
 genai.configure(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# Geminiモデル設定（★3.5/3.6 Flash-Liteへ完全一本化）
+# AIモデル設定
 # ==========================================
-# 💡 表側の雑談も、裏方の要約・エラー翻訳も、すべて最安・最速の「Flash-Lite」に固定してインフラコストを完全防衛します
-CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
-MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
-SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
-SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
+if AI_PROVIDER == "gemini":
+    CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+    MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
+    SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
+    SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
 
-chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
-memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
-summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+    chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
+    memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
+    summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+else:
+    CHAT_MODEL_NAME = "gpt-4o-mini"
+    MEMORY_MODEL_NAME = "gpt-4o-mini"
+    SUMMARY_MODEL_NAME = "gpt-4o-mini"
+    SEARCH_MODEL_NAME = "gpt-4o-mini"
 
-# Gemini 3.5 Flash-Lite 従量課金単価定義（1ドル150円換算）
-USD_TO_JPY = 160
+    chat_model = None
+    memory_model = None
+    summary_model = None
+
+USD_TO_JPY = 160 # （1ドル160円換算）
+
+# ==========================================
+# Gemini
+# ==========================================
+# Gemini 3.5 Flash-Lite 従量課金単価定義
 LITE_INPUT_PRICE_PER_MILLION = 0.30
 LITE_OUTPUT_PRICE_PER_MILLION = 2.50
-PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+# Gemini 3.1 Flash-Lite 従量課金単価定義
+BACKGROUND_INPUT_PRICE_PER_MILLION = 0.25
+BACKGROUND_OUTPUT_PRICE_PER_MILLION = 1.50
+
+# ==========================================
+# GPT-4o mini
+# ==========================================
+GPT4O_MINI_INPUT_PRICE_PER_MILLION = 0.15
+GPT4O_MINI_OUTPUT_PRICE_PER_MILLION = 0.60
+
+# AIモデル毎に単価計算変数を切り替え
+if AI_PROVIDER == "gemini":
+    PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_BACKGROUND_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_BACKGROUND_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+else:
+    PRICE_LITE_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_LITE_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_BACKGROUND_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_BACKGROUND_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -142,17 +192,269 @@ if "debug_logs" not in st.session_state:
 if "conversation_count" not in st.session_state:
     st.session_state.conversation_count = 0
 
-# プリセット定義
+# 設定保存時のmsssages読み込みスキップ判定フラグ
+if "cached_messages" not in st.session_state:
+    st.session_state.cached_messages = None
+if "force_message_reload" not in st.session_state:
+    st.session_state.force_message_reload = False
+
+# ==========================================
+# 不動産売却計算の継続状態
+# ==========================================
+
+if (
+    "real_estate_calculation_pending"
+    not in st.session_state
+):
+    st.session_state[
+        "real_estate_calculation_pending"
+    ] = False
+
+if (
+    "real_estate_calculation_arguments"
+    not in st.session_state
+):
+    st.session_state[
+        "real_estate_calculation_arguments"
+    ] = {}
+
+# 計算メモ関連のセッション初期化
+if "pending_case_candidates" not in st.session_state:
+    st.session_state["pending_case_candidates"] = []
+
+if "pending_case_selection" not in st.session_state:
+    st.session_state["pending_case_selection"] = False
+
+if "active_calculation_case_id" not in st.session_state:
+    st.session_state["active_calculation_case_id"] = None
+
+if "active_calculation_case_name" not in st.session_state:
+    st.session_state["active_calculation_case_name"] = ""
+
+
 STYLE_PRESETS = {
-    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】": "親しい友人のように接する。ユーザーの成功は一緒に喜び、失敗した時は励ます。雑談や軽いツッコミも自然に交え、長く付き合っている相棒のような距離感で対話する。",
-    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】": "礼儀正しく丁寧な敬語（です・ます調）で、知的かつ献身的にサポートするキャラクター",
-    "👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】": "上品で優雅な言葉遣いをする。自信家で少しプライドが高いが、根は面倒見が良い。ユーザーには少し上から目線で接することもあるが、困っている時は放っておけない。",
-    "🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】": "落ち着いていて包容力がある。ユーザーを自分の弟や妹のように大切に思い、年上の兄が話しかけるような距離感で接する。ユーザーの話を否定せず受け止め、まず気持ちや頑張りを認めてから話を進める。「お疲れ」「無理するなよ」「大丈夫だ」「よく頑張ったな」など、安心感のある言葉を自然に使う。説教や正論を押し付けず、相手のペースを尊重しながら背中を押す。ユーザーを安心させることを優先し、困った時は優しく背中を押す。",
-    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】": "とにかくポジティブ。ユーザーの挑戦を全力で応援する。落ち込んでいる時も前向きな見方を探して励ます。",
-    "☀️ 爽やかな先輩 ➔ 【明るく前向きな応援タイプ】": "明るく爽やかで親しみやすい性格。ユーザーを後輩のように感じ、頼れる先輩が話しかけるような距離感で接する。相手の挑戦や努力を積極的に認め、前向きな言葉で背中を押す。「いいじゃん」「それ面白そうだな」「やってみよう」「大丈夫だって」など自然に励ます言葉を使う。落ち込んでいる相手には寄り添うが、長く慰めるよりも次の一歩を考える。会話のあとに少し元気になれる存在を目指す。",
-    "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】": "冷静沈着で知的な口調を崩さない。ユーザーの発言を鵜呑みにせず、矛盾や見落としを見つけると探偵のように推理して指摘する。少し辛口だが悪意はなく、相棒のような距離感で接する。同じ失敗や言動の矛盾には軽いツッコミを入れる。",
-    "🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】": "好奇心旺盛で人懐っこい。ユーザーを放っておけず、褒めたり甘えたりしながら会話する。語尾に自然に『〜にゃ』『〜だにゃ』が混ざる。",
-    "🤖 設定なし ➔ 【特定のキャラクターを設定しない（標準）】": "特定の偏ったキャラクター付けをせず、ユーザーの言葉に自然に寄り添う親切な標準のコンシェルジュ"
+
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】":
+    """
+    親しい友人のように自然な口調で話す。
+    気軽で話しやすい雰囲気を大切にする。
+    軽いツッコミや冗談を自然に交えて構わない。
+    話を大げさに盛り上げすぎない。
+
+    【話し方】
+    ・タメ口
+    ・対等な距離感
+    ・親しみやすい口調
+
+    【特徴的な口癖】
+    ・たしかに
+    ・なるほどな
+    ・それ分かるわ
+
+    【定番表現】（必要な時のみ使用）
+    ・それいいね
+    ・面白そうだね
+    """,
+
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】":
+    """
+    丁寧で落ち着いた執事として振る舞う。
+    敬語を崩さない。
+    上品で礼儀正しい話し方を維持する。
+    過度なお世辞は避ける。
+    ロールプレイ表現は、確認できる事実の範囲内で使用する。
+
+    【話し方】
+    ・です
+    ・ます
+    ・ございます
+    ・〜いたします
+    ・〜でございます
+
+    【特徴的な口癖】
+    ・承知いたしました
+    ・かしこまりました
+
+    【定番表現】（毎回ではなく必要な場合のみ使用）
+    ・念のため確認いたしますと
+    ・ご安心くださいませ
+    ・お力になれれば幸いです
+    ・その点につきましては
+
+    ・定番表現は毎回使用してはいけません。
+    ・同じ定番表現を短い間隔で繰り返してはいけません。
+    ・回答内容だけで十分な場合は使用しないでください。
+    """,
+
+    "👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】":
+    """
+    上品で優雅な口調を用いる。
+    自信に満ちた語り口を維持する。
+    少し気品のある距離感で接する。
+    ただし意地悪になってはいけない。
+
+    【話し方】
+    ・ですわ
+    ・ますわ
+    ・〜ですの
+    ・〜かしら
+
+    【特徴的な口癖】
+    ・まあ
+    ・あら
+    ・ふふ
+
+    【定番表現】（必要な時のみ使用）
+    ・そうですの
+    ・興味深いですわね
+    """,
+
+    "🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】":
+    """
+    落ち着いた兄のような話し方をする。
+    安心感のある自然な口調を維持する。
+    無理にテンションを上げない。
+    穏やかで頼りになる雰囲気を大切にする。
+    相手のペースを尊重する。
+
+    【話し方】
+    ・親しみのある敬語
+    ・柔らかい口調
+    ・安心感のある落ち着いた話し方
+
+    【特徴的な口癖】
+    ・なるほどな
+    ・そうか
+    ・それは気になるな
+
+    【定番表現】（必要な時のみ使用）
+    ・焦らなくていいよ
+    ・一緒に考えてみようか
+    ・大丈夫だよ
+    ・それもアリだと思うよ
+    """,
+
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】":
+    """
+    明るくテンポよく話す。
+    ポジティブなリアクションを大切にする。
+    フランクな言葉遣いを使用して構わない。
+    過剰に騒がしくなりすぎない。
+    ノリの良さを重視する。
+
+    【話し方】
+    ・明るい
+    ・フレンドリー
+    ・リアクション多め
+
+    【特徴的な口癖】
+    ・やば
+    ・マジで
+    ・ウケる
+
+    【定番表現】（必要な時のみ使用）
+    ・最高じゃん
+    ・それアツい
+    ・それめっちゃいいじゃん
+    ・それ気になる～
+    ・いいねいいね
+    """,
+
+    "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】":
+    """
+    冷静で知的な探偵のように話す。
+    落ち着いた観察者の視点を持つ。
+    少しだけ皮肉やツッコミを交えて構わない。
+    芝居がかり過ぎない自然な探偵口調を維持する。
+
+    【話し方】
+    ・冷静
+    ・論理的
+    ・観察的
+
+    【特徴的な口癖】
+    ・ふっ
+    ・ふむ
+    ・興味深いですね
+
+    【定番表現】（必要な時のみ使用）
+    ・整理してみましょう
+    ・仮説としては
+    ・結論から言うと
+    ・もう少し詳しく見てみましょう
+    ・手掛かりになりそうですね
+    """,
+
+    "🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】":
+    """
+    愛嬌があり親しみやすい話し方をする。
+    可愛らしさは加えてよいが会話の邪魔にならない程度にする。
+    自然さを優先する。
+
+    【話し方】
+    ・柔らかい口調
+    ・〜にゃ
+    ・〜だにゃ
+    （毎回は付けない）
+
+    【特徴的な口癖】
+    ・にゃ
+    ・ふふ
+    ・そうだにゃ
+
+    【定番表現】（必要な時のみ使用）
+    ・楽しそうですにゃ
+    ・嬉しいにゃ
+    ・気になりますにゃ
+    ・素敵ですにゃ
+    """,
+
+    "🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】":
+    """
+    ・明るく親しみやすい関西のお笑い芸人として話す。
+    ・自然な関西弁を使用する。
+    ・会話のテンポを大切にする。
+    ・軽いツッコミやユーモアを自然に交える。
+    ・相談や真面目な話題では無理に笑いへ持っていかない。
+    ・事実の推測や補完はしない。
+    ・ユーザーを傷つけるいじりはしない。
+    ・毎回笑いを取りにいく必要はない。
+    
+    【話し方】
+    ・自然な関西弁
+    ・フランク
+    ・軽快
+    ・テンポ良く話す
+  
+    【特徴的な口癖】
+    ・なんでやねん
+    ・いやいやいや
+    ・ちょっと待って
+    ・せやな
+
+    【定番表現】（必要な時のみ使用）
+    ・それはおもろいな
+    ・それアリやな
+    ・一本取られたわ
+    ・よう考えたな
+    """,
+
+    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】":
+    """
+    【人格の特徴】
+    特定のキャラクター付けを行わない。
+    自然で親切な応対を行う。
+
+    【話し方】
+    ・自然なですます調
+    ・内容優先
+
+    【特徴的な口癖】
+    なし
+
+    【定番表現】
+    なし
+    """
 }
 
 PERSONALITY_SAMPLES = {
@@ -188,13 +490,6 @@ PERSONALITY_SAMPLES = {
 
     【ＡＩ】： えー！ めっちゃ頑張ったじゃーん！！✨ 今日は自分にご褒美あげちゃお！！ おいしいもの食べて早めに寝よー💖
     """,
-
-        "☀️ 爽やかな先輩 ➔ 【明るく前向きな応援タイプ】： 明るく前向きな先輩タイプ。自然に励ましながら背中を押してくれる。":
-    """
-    【あなた】： 今日は仕事で疲れた…
-
-    【ＡＩ】： お疲れ！ でも今日もちゃんとやり切ったんだろ？ それだけでも十分立派だと思うぞ。 まずは休んで、また明日から少しずつ行こう！
-    """,
         "🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】： 冷静な分析が得意。物事を整理しながら鋭く考察してくれる。": 
     """
     【あなた】： 今日は仕事で疲れた…
@@ -208,7 +503,15 @@ PERSONALITY_SAMPLES = {
 
     【ＡＩ】： お疲れさまだにゃ〜🐾 今日はたくさん頑張ったみたいだにゃ。 無理せずゆっくり休んで、元気を充電するにゃ♪
     """,
-        "🤖 設定なし ➔ 【特定のキャラクターを設定しない（標準）】： 特定のキャラ付けをしない標準モード。自然でバランスの良い会話を行う。":
+
+        "🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】： 関西弁でテンポ良く話す芸人タイプ。ボケやツッコミを交えながら楽しく会話できる。":
+    """
+    【あなた】： 今日は仕事で疲れた…
+
+    【ＡＩ】： いやいやいや、お疲れさまやん🤣 それだけ疲れてるってことは、今日は相当頑張ったんちゃう？
+    """,
+
+        "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】： 特定のキャラ付けをしない標準モード。自然でバランスの良い会話を行う。":
     """
     【あなた】： 今日は仕事で疲れた…
 
@@ -216,12 +519,96 @@ PERSONALITY_SAMPLES = {
     """
 }
 
+FREE_PRESETS = [
+    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】"
+]
+
+PREMIUM_PRESETS = [
+    "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
+    "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
+    "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
+    "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
+    "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
+    "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
+]
+
+DISPLAY_PRESETS = (
+    FREE_PRESETS
+    + PREMIUM_PRESETS
+)
+
 FIRST_PERSON_PRESETS = ["私", "僕", "俺", "自分"]
 THEME_ICON_CANDIDATES = ["なし", "💬", "💡", "🚀", "🎮", "📚", "💼", "🎨", "🎵", "🍔", "✈️", "🏋️"]
+RESPONSE_LENGTH_PRESETS = [
+    "短め",
+    "普通",
+    "長め"
+]
+# DIALECT_PRESETS = [
+#     "標準語",
+#     "関西弁",
+#     "博多弁",
+#     "名古屋弁"
+# ]
+RESPONSE_LENGTH_PROMPTS = {
+    "短め": """
+    回答は簡潔にまとめてください。
+    通常は1〜3文程度を目安にしてください。
+    必要以上の前置き、繰り返し、長い説明は避けてください。
+    ただし、重要な注意事項や必要な確認事項は省略しないでください。
+    """,
+
+    "普通": """
+    回答は内容に応じた自然な長さにしてください。
+    通常は2〜6文程度を目安にしてください。
+    複雑な内容では、必要に応じて箇条書きや見出しを使用してください。
+    ユーザーが詳細を求めた場合は、必要な範囲で詳しく説明してください。
+    """,
+
+    "長め": """
+    回答は通常より詳しくしてください。
+    結論だけで終わらず、理由、背景、具体例、選択肢なども必要に応じて説明してください。
+    情報量が多い場合は、見出しや箇条書きを使って読みやすく整理してください。
+    ただし、同じ内容の言い換えや不要な繰り返しは避けてください。
+    """
+}
+
+
+DIALECT_PROMPTS = {
+    "標準語": """
+    自然な標準語で回答してください。
+    現在設定されている人格の特徴は維持してください。
+    """,
+
+    "関西弁": """
+    関西弁で自然に回答してください。
+    回答の冒頭だけでなく、回答全体を通して関西弁を維持してください。
+    一部だけ関西弁になり、途中から標準語へ戻らないようにしてください。
+    「～やん」「～やで」「～やな」「～やろ」などを自然な範囲で使用してください。
+    ただし過剰なコテコテの方言にはしないでください。
+    現在設定されている人格の特徴は維持してください。
+    """,
+
+    "博多弁": """
+    自然な博多弁で回答してください。
+    方言を過剰に強調せず、内容の読みやすさを優先してください。
+    真面目な相談や専門的な説明でも、自然な範囲で博多弁を維持してください。
+    現在設定されている人格の特徴も維持してください。
+    """,
+
+    "名古屋弁": """
+    自然な名古屋弁で回答してください。
+    方言を過剰に強調せず、内容の読みやすさを優先してください。
+    真面目な相談や専門的な説明でも、自然な範囲で名古屋弁を維持してください。
+    現在設定されている人格の特徴も維持してください。
+    """
+}
 
 # AIのアバター
 AVATAR_PRESETS_AI = {
-    "🤖 ロボット": "🤖", 
+    "🧠 記憶・思考": "🧠", 
     "💼 専属コンシェルジュ": "💼",
     "🕵️‍♂️ 敏腕探偵": "🕵️‍♂️",
     "👑 ロイヤルゴールド": "👑",
@@ -255,7 +642,7 @@ def clean_bold_markdown(text: str) -> str:
 # ==========================================
 
 # ==================================================================
-# 🧠 【一本道統合仕様】 過去メッセージ履歴の一括取得関数
+# 🧠 【統合仕様】 過去メッセージ履歴の一括取得関数
 # ==================================================================
 # 💡 引数を追加することで、URLから届いた本物のIDの鍵を関数内部へストレートに通電させます！
 def get_messages(target_id: str) -> list[dict]:
@@ -264,58 +651,76 @@ def get_messages(target_id: str) -> list[dict]:
     ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
     エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
     """
+    start_time = time.time()
     try:
         # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
         res = (
             supabase
             .table("messages")
-            .select("*")
+            .select(
+            "id,"
+            "role,"
+            "content,"
+            "message_id,"
+            "response_mode,"
+            "created_at"
+            )
             .eq("user_id", str(target_id))
-            .order("created_at", desc=False)
+            .order("created_at", desc=True)
+            .limit(100)
             .execute()
-        )  
+        ) 
+        messages = res.data or []
+        messages.reverse()
 
-        return res.data if res.data else []
+        elapsed = time.time() - start_time
+
+        return messages
   
     except Exception as e:
-        print(
-            f"⚠️ メッセージ履歴取得エラー: "
+        st.error(
+            f"get_messagesエラー: "
             f"{type(e).__name__}: {e}"
-        )   
-        
+        )
         return None
 
-def save_message(role: str, content: str) -> bool:
-    """1本道統合仕様: theme_idのカラムを完全に排除してメッセージを保存します"""
+def save_message(role: str, content: str,message_id: str = "", response_mode: str = "") -> bool:
     
     embedding_data = None
     
-    try:
-        embedding_data = get_embedding(
-            content,
-            task_type="RETRIEVAL_DOCUMENT"
-        )
-    except Exception as emb_err:
-        print(
-            f"⚠️ Embedding生成失敗: "
-            f"{type(emb_err).__name__}: {emb_err}"
-            f"{emb_err}"
-        )
-    
-        embedding_data = None
+    if (role == "user" and response_mode != "micro_chat"):
+        try:
+            embedding_data = get_embedding(
+                content,
+                task_type="RETRIEVAL_DOCUMENT"
+            )
+        except Exception as emb_err:
+            print(
+                f"⚠️ Embedding生成失敗: "
+                f"{type(emb_err).__name__}: {emb_err}"
+                f"{emb_err}"
+            )
+        
+            embedding_data = None
 
     try:
         data = {
             "user_id": CURRENT_USER_ID,
             "role": role,
             "content": content,
-            "embedding": embedding_data
+            "embedding": embedding_data,
+            "message_id": message_id,
+            "response_mode": (response_mode if response_mode else None)
         }
 
         supabase.table("messages").insert(data).execute()
         return True
 
     except Exception as db_err:
+        error_text = (
+            f"{type(db_err).__name__}: {db_err}"
+        )
+
         # デバッグログ出力
         print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
         
@@ -323,6 +728,98 @@ def save_message(role: str, content: str) -> bool:
         st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
         
         return False
+
+def update_conversation_response_mode(
+    message_id: str,
+    response_mode: str
+) -> bool:
+    """
+    同じmessage_idを持つユーザー発言と
+    AI返答の両方へ会話モードを設定する。
+    """
+    if not message_id:
+        return False
+
+    if not response_mode:
+        return False
+
+    try:
+        (
+            supabase
+            .table("messages")
+            .update({
+                "response_mode":
+                    response_mode
+            })
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
+            .eq(
+                "message_id",
+                str(message_id)
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception as update_error:
+        print(
+            "会話モード更新エラー: "
+            f"{type(update_error).__name__}: "
+            f"{update_error}"
+        )
+
+        return False
+
+def cleanup_old_micro_chats(
+    keep_conversations: int = 100
+) -> int:
+    """
+    最新keep_conversations会話より古い
+    micro_chatsを会話単位で削除する。
+
+    判定と削除はSupabase内で行うため、
+    メッセージ本文をアプリへ取得しない。
+    """
+    try:
+        cleanup_response = (
+            supabase
+            .rpc(
+                "cleanup_old_micro_chats",
+                {
+                    "p_user_id":
+                        CURRENT_USER_ID,
+
+                    "p_keep_conversations":
+                        keep_conversations
+                }
+            )
+            .execute()
+        )
+
+        deleted_count = int(
+            cleanup_response.data
+            or 0
+        )
+
+        if deleted_count > 0:
+            print(
+                "古いmicro_chatsを削除: "
+                f"{deleted_count}行"
+            )
+
+        return deleted_count
+
+    except Exception as cleanup_error:
+        print(
+            "micro_chats整理エラー: "
+            f"{type(cleanup_error).__name__}: "
+            f"{cleanup_error}"
+        )
+
+        return 0
 
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
@@ -333,6 +830,7 @@ def search_past_logs_hybrid(query_text: str):
     2. もしヒット数が最大値（3件）に満たない場合、裏口で『LIKE部分一致検索（文字の完全一致）』を自動で重ね、
        文脈の角度のズレや固有名詞の不一致による大切な思い出の聞き逃しを完全に防衛します。
     """
+    start_time = time.time()
     if not query_text or not query_text.strip():
         return []
 
@@ -362,25 +860,113 @@ def search_past_logs_hybrid(query_text: str):
         # ユーザーの発言から2文字以上の重要な名詞・キーワードの塊を簡易的に抽出
         keywords = [w.group() for w in re.finditer(r'[一-龠々𠮷々〆]+|[ぁ-ん]{2,}|[ァ-ヶー]{2,}', query_text) if len(w.group()) >= 2]
 
-        if keywords and len(results) < 3:
-            try:
-                # 直近の自分のユーザー発言を最大20件引っ張ってきてキーワードが含まれるか突合
-                like_res = supabase.table("messages").select("*").eq("user_id", CURRENT_USER_ID).eq("role", "user").order("created_at", desc=True).limit(20).execute()
-                if like_res.data:
-                    for msg in like_res.data:
-                        if any(kw in msg["content"] for kw in keywords):
-                            # すでにベクトル検索で拾った重複データでなければ救済合流
-                            if not any(r["id"] == msg["id"] for r in results):
-                                results.append(msg)
-                                if len(results) >= 3:
-                                    break
-            except Exception:
-                pass
+        for item in results:
 
-        return results[:3]  # 永久に上位3件のみに絞ってハヤトに読ませる（大食い・原価暴走防止）
+            score = float(
+                item.get("similarity", 0)
+            )
+
+            content = item.get(
+                "content",
+                ""
+            )
+
+            bonus = 0.0
+
+            for keyword in keywords:
+
+                if (
+                    len(keyword) >= 4
+                    and keyword in content
+                ):
+                    bonus += 0.10
+                    break
+
+            item["final_score"] = score + bonus
+            # created_at = item.get("created_at")
+            # now = datetime.now(timezone.utc)
+            # msg_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            # days_old =  (now - msg_dt).total_seconds() / 86400
+        
+            # if days_old <= 3:
+            #     bonus += 0.10
+            
+            # elif days_old <= 7:
+            #     bonus += 0.05
+            # item["final_score"] = score + bonus
+
+        results.sort(key=lambda x: x["final_score"], reverse=True)
+
+        # 関連度上位3件のユーザー発言
+        user_results = results[:3]
+
+        # message_idがある検索結果だけを抽出
+        message_ids = list(
+            dict.fromkeys(
+                str(item.get("message_id"))
+                for item in user_results
+                if item.get("message_id")
+            )
+        )
+
+        assistant_by_message_id = {}
+
+        # 同じmessage_idのAI返答を1回の通信でまとめて取得
+        if message_ids:
+            try:
+                assistant_response = (
+                    supabase
+                    .table("messages")
+                    .select(
+                        "id,"
+                        "role,"
+                        "content,"
+                        "message_id,"
+                        "created_at"
+                    )
+                    .eq("user_id", CURRENT_USER_ID)
+                    .eq("role", "assistant")
+                    .in_("message_id", message_ids)
+                    .order("created_at", desc=False)
+                    .execute()
+                )
+
+                for assistant_message in (assistant_response.data or []):
+                    assistant_message_id = str(
+                        assistant_message.get("message_id", "") or ""
+                    )
+
+                    if not assistant_message_id:
+                        continue
+
+                    assistant_by_message_id.setdefault(assistant_message_id, []).append(assistant_message)
+
+            except Exception as assistant_fetch_error:
+                print(
+                    "過去AI返答取得エラー: "
+                    f"{type(assistant_fetch_error).__name__}: "
+                    f"{assistant_fetch_error}"
+                )
+
+        # ユーザー発言の直後へ対応するAI返答を追加
+        combined_results = []
+
+        for user_message in user_results:
+            combined_results.append(user_message)
+            user_message_id = str(user_message.get("message_id", "") or "")
+
+            if not user_message_id:
+                continue
+
+            for assistant_message in (assistant_by_message_id.get(user_message_id, [])):
+                combined_results.append(assistant_message)
+        elapsed = time.time() - start_time
+
+        return combined_results
 
     except Exception as e:
-        print(f"⚠️ ハイブリッド過去ログ検索エラー: {e}")
+        elapsed = time.time() - start_time
+
         return []
 
 # ==================================================================
@@ -432,7 +1018,13 @@ def get_memories(source="manual"):
         res = (
             supabase
             .table(DB_MEMORIES_TABLE)
-            .select("*")
+            .select(
+            "id,"
+            "fact,"
+            "source,"
+            "category,"
+            "updated_at"
+            )
             .eq("user_id", CURRENT_USER_ID)
             .eq("source", source)
             .order("id", desc=False)
@@ -443,37 +1035,43 @@ def get_memories(source="manual"):
         print(f"設定データ取得エラー: {e}")
         return []
 
-def save_memory(fact: str, source="manual") -> bool:
-    """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
-    try:
-        embedding_data = get_embedding(
-            fact,
-            task_type="RETRIEVAL_DOCUMENT"
-        )
+# ==========================================
+# 旧設定保存関数
+# save_all_user_settings()移行後のため
+# 現在は未使用
+# 動作確認完了後に削除予定
+# ==========================================
+# def save_memory(fact: str, source="manual") -> bool:
+#     """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
+#     try:
+#         embedding_data = get_embedding(
+#             fact,
+#             task_type="RETRIEVAL_DOCUMENT"
+#         )
 
-        data = {
-            "user_id": CURRENT_USER_ID,
-            "category": "基本情報",
-            "fact": fact,
-            "source": source,
-            "embedding": embedding_data
-        }
+#         data = {
+#             "user_id": CURRENT_USER_ID,
+#             "category": "基本情報",
+#             "fact": fact,
+#             "source": source,
+#             "embedding": embedding_data
+#         }
         
-        result = (
-            supabase.table(DB_MEMORIES_TABLE)
-            .insert(data)
-            .execute()
-        )
+#         result = (
+#             supabase.table(DB_MEMORIES_TABLE)
+#             .insert(data)
+#             .execute()
+#         )
 
-        return True
+#         return True
 
-    except Exception as e:
-        st.error(
-            f"save_memoryエラー: "
-            f"{type(e).__name__}: {e}"
-        )
+#     except Exception as e:
+#         st.error(
+#             f"save_memoryエラー: "
+#             f"{type(e).__name__}: {e}"
+#         )
 
-        return False
+#         return False
 
 def delete_memory(memory_id: int) -> bool:
     try:
@@ -489,30 +1087,191 @@ def delete_memory(memory_id: int) -> bool:
         print(f"❌ [DBメモリ削除エラー] {e}")
         return False
 
+# ==========================================
+# 旧設定保存関数
+# save_all_user_settings()移行後のため
+# 現在は未使用
+# 動作確認完了後に削除予定
+# ==========================================
+# def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
+#     """
+#     「AIの名前: タクミ」のような設定値の重複を防ぎ、
+#     古い設定を削除してから最新の設定を1件だけ保存する。
+#     """
+#     new_fact = f"{setting_key}: {new_value}"
 
-def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
+#     try:
+#         # 1. 既存の手動設定（source='manual'）をすべて取得
+#         res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
+        
+#         # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
+#         if res.data:
+#             for item in res.data:
+#                 if item.get("fact", "").startswith(f"{setting_key}:"):
+#                     delete_memory(item["id"])
+#                     print(f"古い設定を上書き削除しました: {item['fact']}")
+                
+#         # 3. 古いゴミを掃除した上で、最新の設定値を保存
+#         return save_memory(fact=new_fact, source="manual")
+        
+#     except Exception as e:
+#         print(f"設定更新エラー: {e}")
+#         return False
+
+# def save_all_user_settings(
+#     settings_dict: dict
+# ) -> bool:
+#     """
+#     設定をまとめて保存する。
+#     settings_dict例:
+#     {
+#         "AIの名前": "ハヤト",
+#         "ユーザー名": "リュウ",
+#         "人格": "🤝 フランクな相棒",
+#         "会話長さ": "長め",
+#         "方言": "関西弁"
+#     }
+#     """
+
+#     try:
+#         save_start = time.time()
+
+#         res = (
+#             supabase
+#             .table(DB_MEMORIES_TABLE)
+#             .select("*")
+#             .eq(
+#                 "user_id",
+#                 CURRENT_USER_ID
+#             )
+#             .eq(
+#                 "source",
+#                 "manual"
+#             )
+#             .execute()
+#         )
+
+#         existing_rows = (
+#             res.data
+#             if res.data
+#             else []
+#         )
+
+#         target_keys = set(
+#             settings_dict.keys()
+#         )
+#         st.info(f"SELECT: {time.time() - save_start:.2f}秒")
+
+#         delete_start = time.time()
+
+#         # 古い設定削除
+#         for row in existing_rows:
+
+#             fact_text = str(
+#                 row.get(
+#                     "fact",
+#                     ""
+#                 )
+#             )
+
+#             for key in target_keys:
+
+#                 if fact_text.startswith(
+#                     f"{key}:"
+#                 ):
+#                     delete_memory(
+#                         row["id"]
+#                     )
+#                     break
+#         st.info(f"DELETE: {time.time() - delete_start:.2f}秒")
+
+#         insert_start = time.time()
+
+#         # 新しい設定保存
+#         for key, value in (
+#             settings_dict.items()
+#         ):
+
+#             data = {
+#                 "user_id": CURRENT_USER_ID,
+#                 "category": "基本情報",
+#                 "fact": f"{key}: {value}",
+#                 "source": "manual",
+#                 "embedding": None
+#             }
+
+#             (
+#                 supabase
+#                 .table(DB_MEMORIES_TABLE)
+#                 .insert(data)
+#                 .execute()
+#             )
+#         st.info(f"INSERT: {time.time() - insert_start:.2f}秒")
+#         st.warning(
+#             f"save_all_user_settings合計: "
+#             f"{time.time() - save_start:.2f}秒"
+#         )
+
+#         return True
+
+#     except Exception as e:
+
+#         print(
+#             f"一括設定保存エラー: {e}"
+#         )
+
+#         return False
+
+def save_all_user_settings(settings_dict: dict) -> bool:
     """
-    「AIの名前: タクミ」のような設定値の重複を防ぎ、
-    古い設定を削除してから最新の設定を1件だけ保存する。
+        設定をまとめて保存する。
+        settings_dict例:
+        {
+            "AIの名前": "ハヤト",
+            "ユーザー名": "リュウ",
+            "人格": "🤝 フランクな相棒",
+            "会話長さ": "長め",
+        }
     """
-    new_fact = f"{setting_key}: {new_value}"
 
     try:
-        # 1. 既存の手動設定（source='manual'）をすべて取得
-        res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
-        
-        # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
-        if res.data:
-            for item in res.data:
-                if item.get("fact", "").startswith(f"{setting_key}:"):
-                    delete_memory(item["id"])
-                    print(f"古い設定を上書き削除しました: {item['fact']}")
-                
-        # 3. 古いゴミを掃除した上で、最新の設定値を保存
-        return save_memory(fact=new_fact, source="manual")
-        
+        # 現在の手動設定を一括削除
+        (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .delete()
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("source", "manual")
+            .execute()
+        )
+
+        # 一括INSERT用データ作成
+        rows = []
+
+        for key, value in (settings_dict.items()):
+            rows.append(
+                {
+                    "user_id": CURRENT_USER_ID,
+                    "category": "基本情報",
+                    "fact": f"{key}: {value}",
+                    "source": "manual",
+                    "embedding": None
+                }
+            )
+
+        # 一括INSERT
+        (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .insert(rows)
+            .execute()
+        )
+
+        return True
+
     except Exception as e:
-        print(f"設定更新エラー: {e}")
+        st.error(f"一括設定保存エラー: {e}")
+
         return False
 
 # テキストをベクトル（数値配列）に変換する関数
@@ -592,33 +1351,44 @@ def add_permanent_tokens(
         )
         return False
 
-def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
+# def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
+def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【記憶の要約】
     会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        #st.session_state.summary_in_tokens = 0
-        #st.session_state.summary_out_tokens = 0
-        #st.session_state.summary_processing_time = 0.0
-
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
-        # 🏎️ 【時間計測の開始】 要約処理の正確な実行時間を計測するため、ストップウォッチを起動します
+        # 要約処理時間の計測開始
         start_summary_time = datetime.now(JST)
 
-        # 🚀【大開通：判定ラインのインフラ防衛】
-        # 引数の不安定な件数に依存せず、Supabaseの金庫（messagesテーブル）から本物の全履歴をダイレクトに再取得します
+        # messagesの総件数を取得
         try:
-            db_res = supabase.table("messages").select("*").eq("user_id", target_user_id).order("created_at", desc=True).execute()
-            real_messages = db_res.data if db_res.data else []
+            count_res = (
+                supabase
+                .table("messages")
+                .select("id", count="exact")
+                .eq("user_id", target_user_id)
+                .limit(1)
+                .execute()
+            )
+
+            total_message_count = int(count_res.count or 0)
+            save_debug_log(
+                event_type="SUMMARY_START",
+                details=f"messages={total_message_count}"
+            )
+
         except Exception as db_err:
-            print(f"⚠️ 要約関数内の履歴取得エラー: {db_err}")
-            real_messages = messages_list # 万が一のフォールバック
-        
-        total_message_count = len(real_messages)
+            print(
+                f"⚠️ 要約用件数取得エラー: "
+                f"{type(db_err).__name__}: {db_err}"
+            )
+
+            return False
 
         # 最新10件以内なら押し出された履歴がない
         if total_message_count <= MAX_CONTEXT_MESSAGES:
@@ -664,9 +1434,6 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         ):
             return True
 
-        # DB取得時は新しい順なので、古い順へ変更
-        chronological_messages = list(reversed(real_messages))
-
         # 最新10件より前だけが要約対象
         summarizable_end_index = max(
             0,
@@ -679,11 +1446,35 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             last_summarized_message_count - MAX_CONTEXT_MESSAGES
         )
 
-        # 今回新しく直近10件から押し出されたメッセージ
-        new_messages_for_summary = chronological_messages[
-            previous_summarizable_end_index:
-            summarizable_end_index
-        ]
+        # 今回新しく要約対象になった範囲
+        range_start = previous_summarizable_end_index
+        range_end = summarizable_end_index - 1
+
+        if range_end < range_start:
+            return True
+
+        try:
+            summary_messages_res = (
+                supabase
+                .table("messages")
+                .select("role, content, created_at")
+                .eq("user_id", target_user_id)
+                .order("created_at", desc=False)
+                .range(range_start, range_end)
+                .execute()
+            )
+
+            new_messages_for_summary = (
+                summary_messages_res.data or []
+            )
+
+        except Exception as db_err:
+            print(
+                f"⚠️ 要約対象メッセージ取得エラー: "
+                f"{type(db_err).__name__}: {db_err}"
+            )
+
+            return False
 
         if not new_messages_for_summary:
             return True
@@ -711,6 +1502,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
         ・以下の会話ログを読み、数週間〜数ヶ月後の会話でも役立つ長期的な情報のみを抽出してください。
         ・既存要約に含まれる重要な情報は、新しい会話で明確に否定・変更されていない限り保持してください。
         ・新しい情報を追加する場合でも、既存の趣味、継続的な嗜好、仕事、家族構成などの重要情報を不用意に削除しないでください。
+        ・AIが推測または補完した内容を事実として要約へ保存してはいけません。ユーザー本人が明示した内容のみを保存してください。
 
         例:
         ・趣味が変わった場合は新しい趣味へ更新
@@ -791,7 +1583,7 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             }
         ]
         
-        # 🤖 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
+        # 🧠 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
         response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
 
         # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
@@ -857,9 +1649,9 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             add_permanent_tokens(target_user_id, "summary", in_t, out_t)
             
             # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
-            sum_in_cost = (int(in_t) / 1000000) * 0.075
-            sum_out_cost = (int(out_t) / 1000000) * 0.30
-            sum_yen = (sum_in_cost + sum_out_cost) * USD_TO_JPY
+            sum_in_cost = in_t * PRICE_BACKGROUND_IN
+            sum_out_cost = out_t * PRICE_BACKGROUND_OUT
+            sum_yen = sum_in_cost + sum_out_cost
 
             # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
             save_system_audit_log(
@@ -879,6 +1671,10 @@ def check_and_summarize_history(user_id_dummy: int, messages_list: list, message
             #st.session_state.summary_out_tokens = int(out_t)
             #st.session_state.summary_processing_time = float(summary_processing_seconds)
 
+        save_debug_log(
+            event_type="SUMMARY_END",
+            details=f"messages={total_message_count}"
+        )
         return True
 
     except Exception as bg_err:
@@ -1262,46 +2058,276 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         print(f"⚠️ 口調自動翻訳エラー: {e}")
         return f"【{concierge_name}】: {raw_system_text}"
 
+#　どこからも呼ばれてない関数
 #デバッグ用データ作成
-def build_manual_memory_context():
-    manual_memories = get_memories(source="manual")
-    return "\n".join(
-        [f"・{m['fact']}" for m in manual_memories]
-    ) if manual_memories else "なし"
+# def build_manual_memory_context():
+#     manual_memories = get_memories(source="manual")
+#     return "\n".join(
+#         [f"・{m['fact']}" for m in manual_memories]
+#     ) if manual_memories else "なし"
 
+#　どこからも呼ばれてない関数
 #デバッグ用データ作成
-def build_recent_history_str():
-    all_messages = get_messages(CURRENT_USER_ID)
+# def build_recent_history_str():
+#     all_messages = get_messages(CURRENT_USER_ID)
 
-    recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+#     recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-    recent_history_lines = []
+#     recent_history_lines = []
 
-    for m in recent_messages:
-        role_name = (
-            display_user_name
-            if m.get("role") == "user"
-            else current_concierge_name
-        )
+#     for m in recent_messages:
+#         role_name = (
+#             display_user_name
+#             if m.get("role") == "user"
+#             else current_concierge_name
+#         )
 
-        created_at = m.get("created_at", "")
+#         created_at = m.get("created_at", "")
 
-        time_label = (
-            created_at.replace("T", " ")[:16]
-            if created_at
-            else "時刻不明"
-        )
+#         time_label = (
+#             created_at.replace("T", " ")[:16]
+#             if created_at
+#             else "時刻不明"
+#         )
 
-        recent_history_lines.append(
-            f"[{time_label}] {role_name}: "
-            f"{m.get('content', '')}"
-        )
+#         recent_history_lines.append(
+#             f"[{time_label}] {role_name}: "
+#             f"{m.get('content', '')}"
+#         )
+
+#     return (
+#         "\n".join(recent_history_lines)
+#         if recent_history_lines
+#         else "直近の会話履歴なし"
+#     )
+
+# 短文処理判定
+def is_micro_chat(user_input: str) -> bool:
+
+    text = user_input.strip().lower()
+
+    MICRO_CHAT_PATTERNS = [
+        "おは",
+        "おっはー",
+        "こんにちは",
+        "こんちは",
+        "こんばんは",
+        "おばんやす",
+        "ただいま",
+        "いってきます",
+        "いってら",
+        "ありがとう",
+        "ありがと",
+        "サンキュー",
+        "サンクス",
+        "おやすみ",
+        "グッドナイト",
+        "グッナイ",
+        "こんにちは",
+        "こんちは",
+        "ねる",
+        "寝る",
+        "へーい",
+        "はーい",
+        "やっほ"
+    ]
 
     return (
-        "\n".join(recent_history_lines)
-        if recent_history_lines
-        else "直近の会話履歴なし"
+        len(text) <= 12
+        and any(
+            keyword in text
+            for keyword in MICRO_CHAT_PATTERNS
+        )
     )
+
+# ChatGPT呼び出し関数
+def generate_gpt_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False
+):
+    """
+    GPT-4o mini 呼び出し共通関数
+    """
+
+    if openai_client is None:
+        raise RuntimeError(
+            "OpenAIクライアントが初期化されていません"
+        )
+
+    response = (
+        openai_client.chat.completions.create(
+            model=CHAT_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_instruction
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            response_format=(
+                {"type": "json_object"}
+                if response_format_json
+                else None
+            )
+        )
+    )
+
+    content = (
+        response.choices[0]
+        .message
+        .content
+        if response.choices
+        else ""
+    )
+
+    usage = response.usage
+
+    in_tokens = (
+        usage.prompt_tokens
+        if usage
+        else 0
+    )
+
+    out_tokens = (
+        usage.completion_tokens
+        if usage
+        else 0
+    )
+
+    return {
+        "text": content,
+        "in_tokens": in_tokens,
+        "out_tokens": out_tokens
+    }
+
+def generate_ai_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False,
+    model_name: str = None
+):
+    """
+    Gemini / GPT 共通呼び出し関数
+
+    戻り値
+
+    {
+        "text": "...",
+        "in_tokens": 123,
+        "out_tokens": 456
+    }
+    """
+
+    if AI_PROVIDER == "gpt":
+
+        return generate_gpt_response(
+            system_instruction=
+                system_instruction,
+            user_prompt=
+                user_prompt,
+            response_format_json=
+                response_format_json
+        )
+
+    # Gemini
+    generation_config = {}
+
+    if response_format_json:
+        generation_config[
+            "response_mime_type"
+        ] = "application/json"
+
+    model = genai.GenerativeModel(
+        model_name=(
+            model_name
+            or CHAT_MODEL_NAME
+        ),
+        system_instruction=
+            system_instruction
+    )
+
+    response = model.generate_content(
+        [
+            {
+                "role": "user",
+                "parts": [user_prompt]
+            }
+        ],
+        generation_config=
+            generation_config
+    )
+
+    in_tokens = 0
+    out_tokens = 0
+
+    if (
+        hasattr(
+            response,
+            "usage_metadata"
+        )
+        and response.usage_metadata
+    ):
+
+        in_tokens = (
+            response
+            .usage_metadata
+            .prompt_token_count
+            or 0
+        )
+
+        out_tokens = (
+            response
+            .usage_metadata
+            .candidates_token_count
+            or 0
+        )
+
+    return {
+        "text":
+            response.text or "",
+        "in_tokens":
+            in_tokens,
+        "out_tokens":
+            out_tokens
+    }
+
+def get_ai_text_response(
+    *,
+    system_instruction: str,
+    user_prompt: str,
+    response_format_json: bool = False
+):
+    """
+    Gemini / GPT 共通レスポンス取得
+
+    戻り値
+
+    text
+    in_tokens
+    out_tokens
+    """
+
+    result = generate_ai_response(
+        system_instruction=
+            system_instruction,
+        user_prompt=
+            user_prompt,
+        response_format_json=
+            response_format_json
+    )
+
+    return (
+        result["text"],
+        result["in_tokens"],
+        result["out_tokens"]
+    )
+
 
 # 検索関数
 from google import genai as search_genai
@@ -1325,41 +2351,217 @@ def google_search(query):
         )
     )
 
-    return response.text
+    search_in_tokens = 0
+    search_out_tokens = 0
 
-def should_use_google_search(user_input, recent_history_str=""):
+    if (
+        hasattr(response, "usage_metadata")
+        and response.usage_metadata
+    ):
+        search_in_tokens = int(response.usage_metadata.prompt_token_count or 0)
+        search_out_tokens = int(response.usage_metadata.candidates_token_count or 0)
+
+    return {
+        "text": response.text,
+        "in_tokens": search_in_tokens,
+        "out_tokens": search_out_tokens
+    }
+
+RESPONSE_MODES = {
+    "micro_chat",
+    "short_chat",
+    "conversation",
+    "support",
+    "analysis",
+    "factual",
+    "default"
+}
+
+CALCULATION_TOOLS = {
+    "none",
+    "real_estate_sale"
+}
+
+# short_chat: 挨拶、相づち、短い呼びかけ
+# conversation: 日常会話、趣味、出来事の共有
+# support: 悩み、愚痴、体調、感情的な相談
+# analysis: 壁打ち、比較、企画、仕事、原因分析
+# factual: 事実質問、検索結果を使う回答
+# default: 判断困難、複数用途、従来ルールを使う場合
+
+def classify_search_and_response_mode(
+    user_input: str,
+    recent_history_str: str = "",
+    calculation_pending: bool = False
+):
+    """
+    検索要否と回答モードを1回のGemini呼び出しで判定する。
+
+    戻り値:
+        need_search: bool
+        response_mode: str
+        confidence: float
+        judge_in_t: int
+        judge_out_t: int
+        judge_cost: float
+    """
+
     try:
         judge_model = genai.GenerativeModel(
             model_name=SEARCH_MODEL_NAME
         )
+
         judge_prompt = f"""
-        次のユーザー発言について判定してください。
+        あなたはAIチャットの振り分けシステムです。
 
-        最新の情報や現在進行中の情報を取得するために
-        インターネット検索が必要なら YES
+        【現在の状態】
+        不動産売却計算継続中:
+        {calculation_pending}
 
-        一般知識で回答できる内容なら NO
+        【重要】
+        不動産売却計算継続中がTrueの場合、
+        取得日
+        売却日
+        取得費
+        土地取得費
+        建物取得費
+        減価償却累計額
+        ローン残債
+        仲介手数料
+        特別控除
+        実効税率
+        などの追加条件入力は、
+        calculation_tool = real_estate_sale
+        にしてください。
 
-        YES または NO だけ返してください。
+        例
+        AI:
+        取得日を教えてください
+        ユーザー:
+        2018年4月1日です
+        ↓
+        real_estate_sale
+
+        AI:
+        取得費を教えてください
+        ユーザー:
+        1000万円です
+        ↓
+        real_estate_sale
+
+        直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
+
+        【検索要否】
+        最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、
+        上映情報、店舗情報、製品仕様などを正確に回答するために
+        インターネット検索が必要なら true にしてください。
+
+        一般知識、日常会話、悩み相談、感想、アイデア出し、
+        文章内に十分な情報がある計算や分析なら false にしてください。
+
+        直前の会話で検索を必要とする質問があり、
+        最新発言が地域、条件、対象などを追加または訂正している場合は、
+        前の質問を具体化する発言として判断してください。
+
+        【回答モード】
+        次のうち、今回の回答に最も適したものを1つ選んでください。
+
+        short_chat:
+        挨拶、お礼、短い呼びかけ、相づち、短い終了宣言。
+
+        conversation:
+        日常の出来事、趣味、家族、雑談、感想の共有。
+        親しみやすい自然な会話が中心。
+
+        support:
+        悩み、愚痴、疲労、体調、落ち込み、対人関係など。
+        受け止めと状況整理が必要。
+
+        analysis:
+        企画、壁打ち、比較、仕事、技術、事業、意思決定、原因分析。
+        具体的な整理、選択肢、利点と欠点、次の行動が必要。
+
+        factual:
+        事実質問、最新情報、検索結果、数値や仕様の確認。
+        正確性と根拠を重視する回答が必要。
+
+        default:
+        複数モードが混在する、意図が不明、または分類に自信がない場合。
+
+        【重要】
+        ・話題名ではなく、今回どのような回答方法が必要かで分類してください。
+        ・短文でも、直近の会話の続きなら文脈を考慮してください。
+        ・不明確な場合は無理に分類せず default にしてください。
+        ・検索要否と回答モードは別々に判定してください。
+        ・検索が必要でも、比較、壁打ち、意思決定、事業相談などが目的なら response_mode は analysis にしてください。
+        ・最新情報や事実確認そのものが目的なら response_mode は factual にしてください。
+        ・JSON以外の説明文は出力しないでください。
 
         【直近の会話】
         {recent_history_str}
 
         【最新ユーザー発言】
         {user_input}
+
+        【出力形式】
+        {{
+            "need_search": false,
+            "response_mode": "conversation",
+            "confidence": 0.90
+        }}
         """
 
         judge_response = judge_model.generate_content(
             judge_prompt,
             generation_config={
                 "temperature": 0,
-                "max_output_tokens": 5
+                "max_output_tokens": 60,
+                "response_mime_type": "application/json"
             }
         )
 
-        judge_text = (
+        raw_text = (
             judge_response.text or ""
-        ).strip().upper()
+        ).strip()
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        judge_data = json.loads(clean_text)
+
+        need_search = bool(
+            judge_data.get("need_search", False)
+        )
+
+        response_mode = str(
+            judge_data.get("response_mode", "default")
+        ).strip().lower()
+
+        try:
+            confidence = float(
+                judge_data.get("confidence", 0.0)
+            )
+        except (TypeError, ValueError):
+            confidence = 0.0
+
+        # 想定外のモードはdefaultへ着地
+        if response_mode not in RESPONSE_MODES:
+            response_mode = "default"
+
+        # 信頼度を0.0から1.0に補正
+        confidence = max(
+            0.0,
+            min(confidence, 1.0)
+        )
+
+        # 低信頼度なら従来プロンプト相当のdefaultを使用
+        if confidence < 0.65:
+            response_mode = "default"
 
         judge_in_t = 0
         judge_out_t = 0
@@ -1369,20 +2571,28 @@ def should_use_google_search(user_input, recent_history_str=""):
             and judge_response.usage_metadata
         ):
             judge_in_t = (
-                judge_response.usage_metadata.prompt_token_count or 0
+                judge_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
             )
 
             judge_out_t = (
-                judge_response.usage_metadata.candidates_token_count or 0
+                judge_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
             )
 
         judge_cost = (
-            judge_in_t * PRICE_LITE_IN
-            + judge_out_t * PRICE_LITE_OUT
+            judge_in_t * PRICE_BACKGROUND_IN
+            + judge_out_t * PRICE_BACKGROUND_OUT
         )
 
         return (
-            judge_text.startswith("YES"),
+            need_search,
+            response_mode,
+            confidence,
             judge_in_t,
             judge_out_t,
             judge_cost
@@ -1390,10 +2600,2769 @@ def should_use_google_search(user_input, recent_history_str=""):
 
     except Exception as judge_error:
         print(
-            f"⚠️ 検索要否判定エラー: "
-            f"{type(judge_error).__name__}: {judge_error}"
+            f"⚠️ 検索・応答モード判定エラー: "
+            f"{type(judge_error).__name__}: "
+            f"{judge_error}"
         )
-        return False, 0, 0, 0.0
+
+        # 判定失敗時は検索せず、従来のフルプロンプトへ着地
+        return (
+            False,
+            "default",
+            0.0,
+            0,
+            0,
+            0.0
+        )
+
+def classify_calculation_tool(
+    user_input: str,
+    recent_history_str: str = "",
+    pending_tool: str = "none"
+) -> tuple[
+    str,
+    float,
+    int,
+    int,
+    float
+]:
+    """
+    ユーザー発言に対して、
+    Python計算ツールが必要かを判定する。
+
+    戻り値:
+        calculation_tool
+        confidence
+        in_tokens
+        out_tokens
+        api_cost
+
+    現在対応するツール:
+        none
+        real_estate_sale
+    """
+    try:
+        normalized_pending_tool = str(
+            pending_tool or "none"
+        ).strip().lower()
+
+        if (
+            normalized_pending_tool
+            not in CALCULATION_TOOLS
+        ):
+            normalized_pending_tool = "none"
+
+        tool_model = genai.GenerativeModel(
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        tool_prompt = f"""
+        あなたは、Python計算ツールの利用要否を判定するシステムです。
+
+        直近の会話、最新ユーザー発言、現在継続中の計算ツールを読み、
+        今回使用する計算ツールを1つだけ判定してください。
+
+        【利用可能な計算ツール】
+
+        none:
+        Python計算ツールを使用しない。
+
+        real_estate_sale:
+        不動産売却に関する次の計算を求めている場合に使用する。
+
+        ・売却後の現金手残り
+        ・譲渡所得
+        ・概算税額
+        ・取得費を反映した売却損益
+        ・ローン残債を反映した手残り
+        ・不動産売却の試算
+        ・不動産売却のシミュレーション
+
+        【初回判定ルール】
+
+        次のような状態説明、雑談、予定、検討だけでは、
+        real_estate_saleを選んではいけません。
+
+        ・家を売る予定
+        ・5000万円で売却予定
+        ・不動産売却を検討している
+        ・実家を売るか迷っている
+        ・マンションを売ることになった
+
+        計算、試算、税額、譲渡所得、手残り、
+        シミュレーションなどを求める意思が明確な場合だけ、
+        real_estate_saleを選んでください。
+
+        【継続中の計算に関するルール】
+
+        現在継続中の計算ツールがreal_estate_saleの場合、
+        最新発言が次のような不足条件への回答であれば、
+        real_estate_saleを選んでください。
+
+        ・個人または法人
+        ・売却額
+        ・取得日
+        ・売却日
+        ・土地取得費
+        ・建物取得費
+        ・減価償却累計額
+        ・購入時経費
+        ・ローン残債
+        ・仲介手数料
+        ・その他の売却費用
+        ・特別控除
+        ・法人実効税率
+        ・概算取得費を使用するか
+
+        例:
+
+        直前:
+        取得日を教えてください。
+
+        最新発言:
+        2018年4月1日です。
+
+        判定:
+        real_estate_sale
+
+        直前:
+        取得費を教えてください。
+
+        最新発言:
+        1000万円です。
+
+        判定:
+        real_estate_sale
+
+        【継続を終了する発言】
+
+        現在継続中の計算ツールが存在していても、
+        最新発言が次のような内容ならnoneを選んでください。
+
+        ・ありがとう
+        ・もう大丈夫
+        ・計算はやめる
+        ・別の話をしたい
+        ・計算しなくていい
+        ・単なる感想や相づち
+        ・不動産売却計算と無関係な新しい話題
+
+        【重要】
+
+        ・短い発言は、直近の会話と現在継続中の計算ツールを踏まえて判定してください。
+        ・ユーザーが計算を求めているか不明な場合はnoneにしてください。
+        ・状態説明だけで計算を開始してはいけません。
+        ・未実装のツール名を作ってはいけません。
+        ・JSON以外の説明文を出力してはいけません。
+        ・コードブロックの囲み記号を付けてはいけません。
+
+        【現在継続中の計算ツール】
+        {normalized_pending_tool}
+
+        【直近の会話】
+        {recent_history_str}
+
+        【最新ユーザー発言】
+        {user_input}
+
+        【出力形式】
+        {{
+            "calculation_tool": "none",
+            "confidence": 0.90
+        }}
+        """
+
+        tool_response = (
+            tool_model.generate_content(
+                tool_prompt,
+                generation_config={
+                    "temperature": 0,
+                    "max_output_tokens": 50,
+                    "response_mime_type":
+                        "application/json"
+                }
+            )
+        )
+
+        raw_text = str(
+            tool_response.text or ""
+        ).strip()
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        tool_data = json.loads(
+            clean_text
+        )
+
+        if not isinstance(
+            tool_data,
+            dict
+        ):
+            raise ValueError(
+                "計算ツール判定結果が"
+                "object形式ではありません"
+            )
+
+        calculation_tool = str(
+            tool_data.get(
+                "calculation_tool",
+                "none"
+            )
+            or "none"
+        ).strip().lower()
+
+        if (
+            calculation_tool
+            not in CALCULATION_TOOLS
+        ):
+            calculation_tool = "none"
+
+        try:
+            confidence = float(
+                tool_data.get(
+                    "confidence",
+                    0.0
+                )
+                or 0.0
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            confidence = 0.0
+
+        confidence = max(
+            0.0,
+            min(
+                confidence,
+                1.0
+            )
+        )
+
+        # 誤作動防止。
+        # 継続中ではない初回判定の信頼度が低い場合は、
+        # 計算ツールを使用しない。
+        if (
+            normalized_pending_tool == "none"
+            and confidence < 0.75
+        ):
+            calculation_tool = "none"
+
+        in_tokens = 0
+        out_tokens = 0
+
+        if (
+            hasattr(
+                tool_response,
+                "usage_metadata"
+            )
+            and tool_response.usage_metadata
+        ):
+            in_tokens = int(
+                tool_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
+            )
+
+            out_tokens = int(
+                tool_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
+            )
+
+        api_cost = (
+            in_tokens
+            * PRICE_BACKGROUND_IN
+            +
+            out_tokens
+            * PRICE_BACKGROUND_OUT
+        )
+
+        return (
+            calculation_tool,
+            confidence,
+            in_tokens,
+            out_tokens,
+            api_cost
+        )
+
+    except Exception as tool_error:
+        print(
+            "計算ツール判定エラー: "
+            f"{type(tool_error).__name__}: "
+            f"{tool_error}"
+        )
+
+        return (
+            "none",
+            0.0,
+            0,
+            0,
+            0.0
+        )
+
+def save_debug_log(
+    event_type: str,
+    processing_time: float = 0.0,
+    details: str = "",
+    message_id: str = ""
+):
+    try:
+        supabase.table("system_audit_logs").insert({
+            "user_id": str(CURRENT_USER_ID),
+            "user_plan": current_plan_type,
+            "event_type": event_type,
+            "processing_time": processing_time,
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "api_cost": 0.0,
+            "details": details,
+            "message_id": str(message_id or "")
+        }).execute()
+    except Exception:
+        # デバッグログ保存の失敗で本処理を止めない
+        pass
+
+# プロンプトの定義
+MODE_PROMPTS = {
+    "short_chat": """
+    【今回の回答モード: 短い会話】
+    ・挨拶、呼びかけ、お礼、相づちには短く自然に返答してください。
+    ・説明、分析、見出し、箇条書きは原則不要です。
+    ・無理に質問を追加しないでください。
+    ・ただし、自然に会話が広がる場合は、短い感想や軽い問いかけを加えて構いません。
+    ・直近履歴に会話の続きがある場合は、その流れを切らないでください。
+    ・通常は1〜3文程度を目安にしてください。
+    """,
+
+    "conversation": """
+    【今回の回答モード: 日常会話】
+    ・ユーザーの出来事、趣味、家族、日常の話題へ自然に反応してください。
+    ・肯定や大げさなリアクションだけで終わらず、具体的な感想や軽い考察を加えてください。
+    ・共感、質問、軽いツッコミ、感想を会話に応じて使い分けてください。
+    ・毎回質問で終わらず、自然な余韻を残しても構いません。
+    ・通常は2〜6文程度を目安にしてください。
+    """,
+
+    "support": """
+    【今回の回答モード: 悩み相談・サポート】
+    ・まずユーザーの状況や気持ちを短く受け止めてください。
+    ・共感や労いを行う場合は、それだけで終わらせず、必要に応じて状況整理、原因の整理、考えられる選択肢、負担の少ない工夫なども提示してください。
+    ・休息の提案は有効ですが、毎回の回答を「休んでね」「寝てね」だけで終わらせてはいけません。
+    ・ユーザーが求めていない断定的な助言や説教は避けてください。
+    ・体調や専門判断に関わる内容では、一般的情報と専門家の判断を区別してください。
+    ・緊急性や深刻さが疑われる場合は、無理に会話だけで解決しようとしないでください。
+    """,
+
+    "analysis": """
+    【回答の長さ】
+    ・通常は、結論、主要な計算結果、重要な注意点だけを簡潔に回答してください。
+    ・ユーザーが「詳しく」「内訳」「計算式」「詳細」などを明示的に求めた場合のみ、詳細な計算過程を提示してください。
+    ・既存の試算条件の一部だけが変更された場合は、変更後の結果と前回との差分だけを優先して回答してください。
+
+    【計算の正確性】
+    ・計算結果を回答する前に、各計算式を再計算してください。
+    ・途中結果、最終結果、冒頭の結論、比較欄、まとめに記載する数値がすべて一致していることを確認してください。
+    ・途中計算と最終結果が一致しない場合は回答を確定せず、計算をやり直してください。
+    ・計算途中で矛盾を発見した場合は、矛盾した結果を文章で正当化せず、正しい式から再計算してください。
+    ・税引前の現金手残りと、課税対象となる譲渡所得を混同しないでください。
+    
+    【今回の回答モード: 分析・壁打ち】
+    ・肯定や応援だけで終わらず、具体的な分析を行ってください。
+    ・最初に結論または現時点の見立てを示してください。
+    ・目的、前提、選択肢、利点、欠点、リスク、次の行動を必要に応じて整理してください。
+    ・不足情報と、現在の情報から判断できる内容を区別してください。
+    ・ユーザーの案を無条件に肯定せず、改善点や見落としも自然に示してください。
+    ・複数の選択肢がある場合は比較し、判断材料を提示してください。
+    ・ユーザーが追加条件を示した場合は、その条件を反映した新しい結論を返してください。
+    ・企画、事業、進路、商品開発などの相談では、複数の選択肢とその利点・欠点を整理してください。
+
+    【情報不足時の対応】
+    ・分析、比較、試算、シミュレーション、事業計画、収支計算などを行う際に必要な条件が不足している場合は、勝手に数値や条件を補完せず、まずユーザーへ確認してください。
+    ・ユーザーが「一般的な条件で」「概算でよい」「仮定でよい」などと許可した場合のみ、仮定条件を明示した上で試算してください。
+
+    【数値計算・試算】
+    ・提供された数値から試算可能な場合は、一般論だけで終えず試算結果も提示してください。
+    ・ユーザーが詳細を求めた場合のみ、前提条件、計算式、使用した数値、結果を示してください。
+    ・新しい数値を作るために計算結果を変更してはいけません。
+    ・推測や概算で計算している部分と、確定している数値は区別して説明してください。
+
+    【計算結果の説明】
+    ・計算結果を提示する場合は、前提条件、計算式、使用した数値、計算結果を示してください。
+    ・計算式と結果に矛盾がないか確認してください。
+    ・前回の試算から変更がある場合は。その理由を説明してください。
+    ・前提条件が変わっていない場合は、前回と同じ結果になっても構いません。
+
+    【訂正・条件変更】
+    ・ユーザーから「計算が違う」「数字がおかしい」などの指摘を受けた場合は、まず直前の回答内の計算式と数値を確認してください。
+    ・直前の回答に使用した数値が存在する場合は、再入力を求める前にその数値で再計算してください。
+    ・ユーザーが一部条件のみ変更した場合は、変更された箇所を中心に簡潔に回答してください。
+    ・謝罪、訂正、計算ミスの修正、認識違いの修正を行う場合は、「結論からお伝えすると」は使用せず、修正点のみ簡潔に伝えてください。
+
+    【出力形式】
+    ・複数の条件や選択肢がある場合は、可能な限り比較表や箇条書きで整理してください。
+    """,
+
+    "factual": """
+    【今回の回答モード: 事実・最新情報】
+    ・正確性を最優先してください。
+    ・日付、場所、対象、単位などの条件を明確にしてください。
+    ・検索結果に存在しない情報を推測で補完してはいけません。
+    ・検索結果が質問へ十分に答えていない場合は、分かる範囲と不足情報を区別してください。
+    ・最新情報が必要な場合は検索結果を優先し、一般論だけで終わらせないでください。
+    ・一般論だけで終わらず、ユーザーが指定した条件へ当てはめて回答してください。
+    """,
+
+    "default": """
+    【今回の回答モード: 標準】
+    ・今回の目的が明確でない場合は、勝手に目的や事情を決めつけないでください。
+    ・必要に応じて、現在の会話の意図を自然に確認してください。
+    """
+}
+
+# ==========================================
+# 🧮 Python計算関数群
+# ==========================================
+# ==========================================
+# 🧮 計算共通関数
+# ==========================================
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Optional, Union
+import calendar
+import uuid
+
+Number = Union[int, float, str, Decimal]
+
+def normalize_japanese_number_text(
+    value: str
+) -> str:
+    """
+    日本語の金額表記を円単位の数値文字列へ変換する。
+
+    対応例:
+        "50,000,000円" -> "50000000"
+        "5000万円" -> "50000000"
+        "5,000万" -> "50000000"
+        "1.5億円" -> "150000000"
+        "30%" -> "0.3"
+
+    「億」と「万」を組み合わせた
+    「1億5000万円」のような表記にも対応する。
+    """
+    text = (
+        str(value)
+        .strip()
+        .replace("　", "")
+        .replace(" ", "")
+        .replace(",", "")
+        .replace("￥", "")
+        .replace("¥", "")
+        .replace("円", "")
+    )
+
+    if not text:
+        raise ValueError(
+            "数値が入力されていません"
+        )
+
+    # パーセント表記
+    if text.endswith("%"):
+        percent_text = text[:-1]
+
+        if not percent_text:
+            raise ValueError(
+                "パーセントの数値が入力されていません"
+            )
+
+        return str(
+            Decimal(percent_text)
+            / Decimal("100")
+        )
+
+    total = Decimal("0")
+    remaining_text = text
+
+    # 億単位
+    if "億" in remaining_text:
+        oku_parts = remaining_text.split("億")
+
+        if len(oku_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        oku_text = oku_parts[0]
+        remaining_text = oku_parts[1]
+
+        if not oku_text:
+            oku_text = "1"
+
+        total += (
+            Decimal(oku_text)
+            * Decimal("100000000")
+        )
+
+    # 万単位
+    if "万" in remaining_text:
+        man_parts = remaining_text.split("万")
+
+        if len(man_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        man_text = man_parts[0]
+        remaining_text = man_parts[1]
+
+        if not man_text:
+            man_text = "1"
+
+        total += (
+            Decimal(man_text)
+            * Decimal("10000")
+        )
+
+    # 億・万より下の円単位
+    if remaining_text:
+        total += Decimal(
+            remaining_text
+        )
+
+    return str(total)
+
+
+def to_decimal(
+    value: Number
+) -> Decimal:
+    """
+    int、float、str、Decimalを
+    安全にDecimalへ変換する。
+
+    文字列の場合は、円、万円、億円、
+    カンマ、パーセント表記にも対応する。
+    """
+    if value is None:
+        raise ValueError(
+            "数値にNoneは指定できません"
+        )
+
+    if isinstance(value, Decimal):
+        decimal_value = value
+
+    elif isinstance(value, bool):
+        raise ValueError(
+            "数値にboolは指定できません"
+        )
+
+    elif isinstance(value, int):
+        decimal_value = Decimal(
+            value
+        )
+
+    elif isinstance(value, float):
+        decimal_value = Decimal(
+            str(value)
+        )
+
+    elif isinstance(value, str):
+        normalized_text = (
+            normalize_japanese_number_text(
+                value
+            )
+        )
+
+        decimal_value = Decimal(
+            normalized_text
+        )
+
+    else:
+        raise TypeError(
+            "数値はint、float、str、"
+            "Decimalのいずれかで指定してください"
+        )
+
+    if not decimal_value.is_finite():
+        raise ValueError(
+            "無限大またはNaNは指定できません"
+        )
+    return decimal_value
+
+def round_yen(value: Decimal) -> int:
+    return int(
+        value.quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP
+        )
+    ) 
+
+def parse_date(
+    value: Union[str, date, datetime]
+) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    return date.fromisoformat(
+        str(value).strip()
+    )
+
+def add_years_safely(
+    original_date: date,
+    years: int
+) -> date:
+    """
+    2月29日など、加算先の年に同日が存在しない場合は、
+    その月の最終日へ補正する。
+    """
+    target_year = original_date.year + years
+    target_month = original_date.month
+
+    last_day = calendar.monthrange(
+        target_year,
+        target_month
+    )[1]
+
+    target_day = min(
+        original_date.day,
+        last_day
+    )
+
+    return date(
+        target_year,
+        target_month,
+        target_day
+    )
+
+# 計算メモの保存期間の計算
+def get_case_expiration_date(
+    current_plan_type: str
+) -> str:
+
+    now = datetime.now(JST)
+
+    if current_plan_type == "🆓 無料プラン":
+        expires_at = now + timedelta(days=90)
+
+    else:
+        expires_at = now + timedelta(days=365)
+
+    return expires_at.isoformat()
+
+# 計算カテゴリー別のデフォルト名称決定
+def get_default_case_name(
+    case_type: str,
+    property_usage: str = None
+) -> str:
+
+    if case_type == "real_estate_sale":
+
+        if property_usage == "owner_occupied":
+            return "自宅売却"
+
+        return "その他売却"
+
+    if case_type == "loan_simulation":
+        return "住宅ローン"
+
+    if case_type == "nisa_simulation":
+        return "NISA"
+
+    return "計算案件"
+
+def make_json_safe(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+
+    if isinstance(value, dict):
+        return {key: make_json_safe(item) for key, item in value.items()}
+
+    if isinstance(value, list):
+        return [make_json_safe(item) for item in value]
+
+    return value
+
+# 計算メモの新規作成
+def create_calculation_case(
+    case_type: str,
+    property_usage: str,
+    case_data: dict,
+    current_plan_type: str
+) -> dict:
+
+    try:
+        case_id = (f"case_{uuid.uuid4().hex[:8]}")
+        case_name = get_default_case_name(
+            case_type=case_type,
+            property_usage=property_usage
+        )
+        now_str = (datetime.now(JST).isoformat())
+        case_record = {
+            "user_id": CURRENT_USER_ID,
+            "case_id": case_id,
+            "case_name": case_name,
+            "case_type": case_type,
+            "case_status": "draft",
+            "property_usage": property_usage,
+            "case_data": make_json_safe(case_data),
+            "created_at": now_str,
+            "updated_at": now_str,
+            "expires_at": (
+                get_case_expiration_date(
+                    current_plan_type
+                )
+            )
+        }
+
+        (
+            supabase
+            .table("calculation_cases")
+            .insert(case_record)
+            .execute()
+        )
+
+        st.session_state["active_calculation_case_id"] = case_id
+
+        return {"success": True, "case_id": case_id}
+
+    except Exception as e:
+
+        st.error(
+            f"計算案件作成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        print(
+            f"計算案件作成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {"success": False, "case_id": None}
+
+# 計算メモの既存案件の更新処理
+def update_calculation_case(
+    case_id: str,
+    new_case_data: dict,
+    case_name: str = None,
+    case_status: str = None,
+    property_usage: str = None
+) -> bool:
+
+    try:
+
+        existing_res = (
+            supabase
+            .table("calculation_cases")
+            .select("case_data")
+            .eq("case_id", case_id)
+            .limit(1)
+            .execute()
+        )
+
+        if not existing_res.data:
+            return False
+
+        existing_case_data = (
+            existing_res.data[0].get("case_data")
+            or {}
+        )
+
+        merged_case_data = dict(existing_case_data)
+        merged_case_data.update(new_case_data)
+
+        update_data = {
+            "case_data": make_json_safe(merged_case_data),
+            "updated_at": datetime.now(JST).isoformat()
+        }
+
+        if case_name:
+            update_data["case_name"] = case_name
+
+        if case_status:
+            update_data["case_status"] = case_status
+
+        if property_usage:
+            update_data["property_usage"] = property_usage
+
+        (
+            supabase
+            .table("calculation_cases")
+            .update(update_data)
+            .eq("case_id", case_id)
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+
+        print(
+            f"計算案件更新エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return False
+
+# 計算メモの既存候補案件の検索
+def get_calculation_case_candidates(
+    case_type: str,
+    user_input: str,
+    limit: int = 5
+) -> list:
+
+    try:
+
+        now_str = datetime.now(JST).isoformat()
+
+        response = (
+            supabase
+            .table("calculation_cases")
+            .select(
+                "case_id,"
+                "case_name,"
+                "case_type,"
+                "updated_at"
+            )
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("case_type", case_type)
+            .or_(
+                f"expires_at.is.null,"
+                f"expires_at.gt.{now_str}"
+            )
+            .order("updated_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+
+        candidates = response.data or []
+
+        if not candidates:
+            return []
+
+        normalized_input = (
+            str(user_input or "")
+            .replace(" ", "")
+            .replace("　", "")
+            .lower()
+        )
+
+        name_matches = [
+            case
+            for case in candidates
+            if (
+                str(
+                    case.get(
+                        "case_name",
+                        ""
+                    )
+                )
+                .replace(" ", "")
+                .replace("　", "")
+                .lower()
+                in normalized_input
+            )
+        ]
+
+        return (
+            name_matches
+            if name_matches
+            else candidates
+        )
+
+    except Exception as e:
+
+        print(
+            f"計算案件候補取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return []
+
+# 既存案件が選択された場合にデータ読み出し
+def get_calculation_case(
+    case_id: str
+) -> dict:
+
+    try:
+
+        response = (
+            supabase
+            .table("calculation_cases")
+            .select("*")
+            .eq("case_id", case_id)
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+
+        return {}
+
+    except Exception as e:
+
+        print(
+            f"計算案件取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {}
+
+# 計算メモの期限切れ案件の削除
+def cleanup_expired_calculation_cases() -> int:
+
+    try:
+
+        now_str = datetime.now(JST).isoformat()
+
+        delete_response = (
+            supabase
+            .table("calculation_cases")
+            .delete()
+            .lt("expires_at", now_str)
+            .execute()
+        )
+
+        deleted_count = (
+            len(delete_response.data)
+            if delete_response.data
+            else 0
+        )
+
+        return deleted_count
+
+    except Exception as e:
+
+        print(
+            f"計算案件整理エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return 0
+
+
+# ==========================================
+# 🏠 不動産計算
+# ==========================================
+def determine_individual_holding_type(
+    acquisition_date: Union[str, date, datetime],
+    sale_date: Union[str, date, datetime]
+) -> str:
+    """
+    個人の土地建物譲渡について、
+    売却年1月1日時点の所有期間が
+    5年を超えるかで判定する。
+    """
+    acquired = parse_date(acquisition_date)
+    sold = parse_date(sale_date)
+
+    if sold < acquired:
+        raise ValueError(
+            "sale_dateがacquisition_dateより前です"
+        )
+
+    sale_year_start = date(
+        sold.year,
+        1,
+        1
+    )
+
+    five_year_anniversary = add_years_safely(
+        acquired,
+        5
+    )
+
+    if five_year_anniversary < sale_year_start:
+        return "long_term"
+
+    return "short_term"
+
+def calculate_real_estate_sale(
+    *,
+    owner_type: str,
+    sale_price: Number,
+    loan_balance: Number = 0,
+
+    # 土地の税務上の取得費
+    land_acquisition_cost: Number = 0,
+
+    # 建物の取得価額と減価償却累計額
+    building_acquisition_cost: Number = 0,
+    accumulated_depreciation: Number = 0,
+
+    # 取得費に含める購入時経費等
+    acquisition_related_costs: Number = 0,
+    total_acquisition_cost: Number = 0,
+
+    # 仲介手数料
+    brokerage_fee: Optional[Number] = None,
+
+    # 売却のために直接要した譲渡費用
+    transfer_expenses: Number = 0,
+
+    # 抵当権抹消など、現金手残りから控除する費用
+    other_cash_expenses: Number = 0,
+
+    # 個人の場合に使用
+    acquisition_date: Optional[Union[str, date, datetime]] = None,
+    sale_date: Optional[Union[str, date, datetime]] = None,
+
+    holding_period_type: Optional[str] = None,
+
+    # 該当する特例が確認できている場合のみ入力
+    special_deduction: Number = 0,
+
+    # 法人の場合のみ任意指定
+    corporate_effective_tax_rate: Optional[Number] = None,
+
+    # 取得費不明時の概算取得費を利用する場合
+    use_deemed_acquisition_cost: bool = False,
+
+    # 概算取得費率。通常は売却価額の5%
+    deemed_acquisition_cost_rate: Number = "0.05"
+    ) -> dict:
+    """
+    不動産売却の概算計算。
+
+    owner_type:
+        "individual" または "corporate"
+
+    注意:
+    ・個人の通常の土地建物譲渡を想定。
+    ・法人税額は会社全体の所得等に左右されるため、
+      実効税率が指定された場合だけ概算する。
+    ・消費税、特例、損益通算、欠損金、圧縮記帳等は
+      この関数では自動判定しない。
+    """
+
+    owner_type = owner_type.strip().lower()
+
+    if owner_type not in {
+        "individual",
+        "corporate"
+    }:
+        raise ValueError("owner_typeはindividualまたはcorporateを指定してください")
+
+    sale_price_d = to_decimal(sale_price)
+    loan_balance_d = to_decimal(loan_balance)
+
+    land_cost_d = to_decimal(land_acquisition_cost)
+    building_cost_d = to_decimal(building_acquisition_cost)
+    depreciation_d = to_decimal(accumulated_depreciation)
+    acquisition_costs_d = to_decimal(acquisition_related_costs)
+    transfer_expenses_d = to_decimal(transfer_expenses)
+
+    # 仲介手数料が未入力なら法定上限額で試算
+    if brokerage_fee is None:
+        brokerage_fee_d = (sale_price_d * Decimal("0.03") + Decimal("60000")) * Decimal("1.10")
+        brokerage_fee_method = ("statutory_max_estimate")
+    else:
+        brokerage_fee_d = to_decimal(brokerage_fee)
+        brokerage_fee_method = ("specified")
+
+    other_cash_expenses_d = to_decimal(other_cash_expenses)
+    special_deduction_d = to_decimal(special_deduction)
+
+    validation_values = {
+        "sale_price": sale_price_d,
+        "loan_balance": loan_balance_d,
+        "land_acquisition_cost": land_cost_d,
+        "building_acquisition_cost": building_cost_d,
+        "accumulated_depreciation": depreciation_d,
+        "acquisition_related_costs": acquisition_costs_d,
+        "brokerage_fee": brokerage_fee_d,
+        "transfer_expenses": transfer_expenses_d,
+        "other_cash_expenses": other_cash_expenses_d,
+        "special_deduction": special_deduction_d
+    }
+    
+    for field_name, field_value in validation_values.items():
+        if field_value < 0:
+            raise ValueError(
+                f"{field_name}は0以上にしてください"
+            )
+
+    if depreciation_d > building_cost_d:
+        raise ValueError(
+            "減価償却累計額が建物取得価額を超えています"
+        )
+
+    # 建物の税務上の未償却残高
+    building_tax_basis = (
+        building_cost_d
+        - depreciation_d
+    )
+
+    total_acquisition_cost_d = to_decimal(total_acquisition_cost)
+    if total_acquisition_cost_d > Decimal("0"):
+        actual_acquisition_basis = (total_acquisition_cost_d)
+    else:
+        actual_acquisition_basis = (
+            land_cost_d
+            + building_tax_basis
+            + acquisition_costs_d
+        )
+
+    deemed_rate_d = to_decimal(
+        deemed_acquisition_cost_rate
+    )
+    if not (
+        Decimal("0")
+        <= deemed_rate_d
+        <= Decimal("1")
+    ):
+        raise ValueError(
+            "deemed_acquisition_cost_rateは"
+            "0から1の範囲で指定してください"
+        )
+
+    # 取得費不明時などに使う概算取得費
+    deemed_acquisition_basis = (
+        sale_price_d
+        * deemed_rate_d
+    )
+
+    if use_deemed_acquisition_cost:
+        acquisition_basis = (
+            deemed_acquisition_basis
+        )
+        acquisition_basis_method = (
+            "deemed_5_percent"
+        )
+    else:
+        acquisition_basis = (
+            actual_acquisition_basis
+        )
+        acquisition_basis_method = "actual"
+
+    # 特別控除前の譲渡損益
+    capital_gain_before_deduction = (
+        sale_price_d
+        - acquisition_basis
+        - brokerage_fee_d
+        - transfer_expenses_d
+    )
+
+    # 特別控除は譲渡益を超えて控除しない
+    applied_special_deduction = min(
+        max(
+            special_deduction_d,
+            Decimal("0")
+        ),
+        max(
+            capital_gain_before_deduction,
+            Decimal("0")
+        )
+    )
+
+    taxable_gain = max(
+        capital_gain_before_deduction
+        - applied_special_deduction,
+        Decimal("0")
+    )
+
+    holding_type = None
+    tax_rate = None
+    estimated_tax = None
+    tax_calculation_status = None
+
+    if owner_type == "individual":
+        if sale_date is not None:
+            holding_type = (
+                determine_individual_holding_type(
+                    acquisition_date,
+                    sale_date
+                )
+            )
+
+        elif holding_period_type in {"long_term", "short_term"}:
+            holding_type = holding_period_type
+
+        else:
+            holding_type = None
+
+        if holding_type == "long_term":
+            tax_rate = Decimal("0.20315")
+        else:
+            tax_rate = Decimal("0.3963")
+
+        estimated_tax = (
+            taxable_gain
+            * tax_rate
+        )
+
+        tax_calculation_status = (
+            "individual_estimated"
+        )
+
+    else:
+        if corporate_effective_tax_rate is None:
+            tax_calculation_status = (
+                "corporate_tax_not_calculated"
+            )
+        else:
+            tax_rate = to_decimal(
+                corporate_effective_tax_rate
+            )
+
+            if not (
+                Decimal("0")
+                <= tax_rate
+                <= Decimal("1")
+            ):
+                raise ValueError(
+                    "corporate_effective_tax_rateは"
+                    "0から1の範囲で指定してください"
+                )
+
+            estimated_tax = (
+                taxable_gain
+                * tax_rate
+            )
+
+            tax_calculation_status = (
+                "corporate_effective_rate_estimate"
+            )
+
+    # 税引前の現金手残り
+    cash_before_tax = (
+        sale_price_d
+        - loan_balance_d
+        - brokerage_fee_d
+        - transfer_expenses_d
+        - other_cash_expenses_d
+    )
+
+    # 税額を計算できる場合だけ税引後を算出
+    if estimated_tax is None:
+        cash_after_tax = None
+    else:
+        cash_after_tax = (
+            cash_before_tax
+            - estimated_tax
+        )
+
+    return {
+        "owner_type": owner_type,
+        "holding_type": holding_type,
+        "acquisition_basis_method": acquisition_basis_method,
+        "sale_price": round_yen(sale_price_d),
+        "loan_balance": round_yen(loan_balance_d),
+        "land_acquisition_cost": round_yen(land_cost_d),
+        "building_acquisition_cost": round_yen(building_cost_d),
+        "accumulated_depreciation": round_yen(depreciation_d),
+        "building_tax_basis": round_yen(building_tax_basis),
+        "acquisition_related_costs": round_yen(acquisition_costs_d),
+        "brokerage_fee": round_yen(brokerage_fee_d),
+        "brokerage_fee_method": brokerage_fee_method,
+        "actual_acquisition_basis": round_yen(actual_acquisition_basis),
+        "deemed_acquisition_basis": round_yen(deemed_acquisition_basis),
+        "applied_acquisition_basis": round_yen(acquisition_basis),
+        "transfer_expenses": round_yen(transfer_expenses_d),
+        "other_cash_expenses": round_yen(other_cash_expenses_d),
+        "capital_gain_before_deduction": round_yen(capital_gain_before_deduction),
+        "special_deduction": round_yen(applied_special_deduction),
+        "taxable_gain": round_yen(taxable_gain),
+        "tax_rate": (
+            float(tax_rate)
+            if tax_rate is not None
+            else None
+        ),
+        "estimated_tax": (
+            round_yen(estimated_tax)
+            if estimated_tax is not None
+            else None
+        ),
+        "cash_before_tax": round_yen(cash_before_tax),
+        "cash_after_tax": (
+            round_yen(cash_after_tax)
+            if cash_after_tax is not None
+            else None
+        ),
+        "tax_calculation_status": tax_calculation_status
+    }
+
+# ==========================================
+# 🏠 不動産売却計算 呼び出し判定
+# ==========================================
+
+# ==========================================
+# 不動産売却計算の呼び出し判定
+# ==========================================
+
+# REAL_ESTATE_SALE_KEYWORDS = {
+#     "不動産売却",
+#     "不動産を売る",
+#     "不動産を売った",
+#     "家を売る",
+#     "家を売った",
+#     "住宅を売る",
+#     "住宅を売った",
+#     "マンションを売る",
+#     "マンションを売った",
+#     "土地を売る",
+#     "土地を売った",
+#     "建物を売る",
+#     "建物を売った",
+#     "物件を売る",
+#     "物件を売った",
+#     "売却価格",
+#     "売却代金",
+#     "売却益",
+#     "売却損",
+#     "譲渡所得",
+#     "譲渡益",
+#     "譲渡損",
+#     "売却したら",
+#     "売ったら",
+#     "売却時",
+#     "売却後",
+#     "売却予定",
+#     "手残り",
+#     "税引後手残り",
+#     "取得費",
+#     "譲渡費用",
+#     "ローン残債",
+#     "売却税金",
+#     "売却した場合",
+#     "不動産の税金"
+# }
+
+# REAL_ESTATE_FOLLOW_UP_KEYWORDS = {
+#     "個人",
+#     "法人",
+#     "個人名義",
+#     "法人名義",
+#     "取得日",
+#     "購入日",
+#     "売却日",
+#     "取得費",
+#     "購入費",
+#     "土地代",
+#     "建物代",
+#     "減価償却",
+#     "減価償却累計額",
+#     "ローン",
+#     "残債",
+#     "仲介手数料",
+#     "譲渡費用",
+#     "特別控除",
+#     "実効税率",
+#     "万円",
+#     "億円",
+#     "円"
+# }
+
+# def is_real_estate_sale_calculation_candidate(
+#     user_input: str,
+#     *,
+#     calculation_pending: bool = False
+# ) -> bool:
+#     """
+#     最新のユーザー発言が、
+#     不動産売却計算を開始または継続する内容か判定する。
+
+#     calculation_pending:
+#         直前の不動産売却計算で条件不足となり、
+#         追加条件の入力を待っている場合はTrue。
+
+#     判定方針:
+#     ・初回は不動産売却関連の明確なキーワードで判定
+#     ・条件確認中は、追加の日付・金額・所有者区分なども対象
+#     ・通常会話では余分なGemini抽出処理を実行しない
+#     """
+#     if not isinstance(
+#         user_input,
+#         str
+#     ):
+#         return False
+
+#     normalized_text = (
+#         user_input
+#         .replace("　", " ")
+#         .strip()
+#     )
+
+#     if not normalized_text:
+#         return False
+
+#     # 初回の明確な不動産売却相談
+#     if any(
+#         keyword in normalized_text
+#         for keyword in REAL_ESTATE_SALE_KEYWORDS
+#     ):
+#         return True
+
+#     # 条件不足後の追加入力
+#     if calculation_pending:
+#         if any(
+#             keyword in normalized_text
+#             for keyword
+#             in REAL_ESTATE_FOLLOW_UP_KEYWORDS
+#         ):
+#             return True
+
+#         # 日付形式の追加入力
+#         if re.search(
+#             r"\d{4}"
+#             r"(?:年|-|/)"
+#             r"\d{1,2}"
+#             r"(?:月|-|/)"
+#             r"\d{1,2}"
+#             r"日?",
+#             normalized_text
+#         ):
+#             return True
+
+#         # 年月までの入力も抽出処理へ渡す。
+#         # 実際の日付は推測せず、不足項目として確認する。
+#         if re.search(
+#             r"\d{4}"
+#             r"(?:年|-|/)"
+#             r"\d{1,2}"
+#             r"月?",
+#             normalized_text
+#         ):
+#             return True
+
+#         # 金額だけの追加入力
+#         if re.search(
+#             r"\d[\d,]*(?:\.\d+)?"
+#             r"\s*(?:円|万円|万|億円|億)",
+#             normalized_text
+#         ):
+#             return True
+
+#         # 税率だけの追加入力
+#         if re.search(
+#             r"\d+(?:\.\d+)?\s*%",
+#             normalized_text
+#         ):
+#             return True
+
+#         # individual / corporateによる追加入力
+#         lowered_text = (
+#             normalized_text.lower()
+#         )
+
+#         if lowered_text in {
+#             "individual",
+#             "corporate",
+#             "personal",
+#             "company"
+#         }:
+#             return True
+
+#     return False
+
+def extract_real_estate_sale_parameters(
+    user_input: str,
+    recent_history: str = ""
+) -> dict:
+    """
+    ユーザーの最新発言と直近履歴から、
+    不動産売却計算に必要な条件をJSONで抽出する。
+
+    この関数の役割:
+    ・不動産売却計算の対象か判定する
+    ・ユーザーが明示した条件だけを抽出する
+    ・Geminiには計算させない
+    ・金額や日付を推測させない
+
+    正規化、不足項目判定、Python計算は、
+    execute_real_estate_sale_calculation()側で行う。
+    """
+
+    default_result = {
+        "should_calculate": False,
+        "arguments": {},
+        "extraction_status": "not_applicable",
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "cost": 0.0
+    }
+
+    if not user_input:
+        return default_result
+
+    extraction_prompt = f"""
+    あなたは、不動産売却計算に必要な入力条件を
+    構造化して抽出するシステムです。
+
+    最新のユーザー発言と直近の会話から、
+    calculate_real_estate_sale関数へ渡す条件を
+    JSON形式で抽出してください。
+
+    【最重要ルール】
+    ・計算は行わないでください。
+    ・ユーザーが明示していない情報を推測しないでください。
+    ・一般的な費用、一般的な税率、一般的な日付を補完しないでください。
+    ・AIが過去に推測した内容を、ユーザーが話した事実として使用しないでください。
+    ・最新のユーザー発言と直近の会話で、ユーザー本人が明示した条件だけを使用してください。
+    ・条件が変更されている場合は、最新の条件を優先してください。
+    ・値が確認できない項目はnullにしてください。
+    ・キーを省略しないでください。
+    ・JSON以外の説明文を出力しないでください。
+    ・コードブロックの囲み記号を付けないでください。
+
+    【金額の扱い】
+    ・万円または億円の表記は、円単位の整数へ変換してください。
+    ・5,000万円は50000000です。
+    ・1.5億円は150000000です。
+    ・1億5000万円は150000000です。
+    ・金額が曖昧な場合はnullにしてください。
+
+    【仲介手数料】
+    ・ユーザーが仲介手数料の金額を明示した場合は、brokerage_feeへ円単位の整数で設定してください。
+    ・ユーザーが仲介手数料の金額を明示していない場合は、brokerage_feeをnullにしてください。
+    ・仲介手数料を自動計算する場合でも、AI側で計算してはいけません。nullのまま出力し、Python側の計算に任せてください。
+    ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
+
+    【取得費】
+    ・次の表現は total_acquisition_cost として扱ってください。
+        - 取得費
+        - 総取得費
+        - 合算簿価
+        - 簿価
+        - 購入経費込の取得費
+
+    例
+    取得費: ○○円、総取得費: ○○円、合算簿価: ○○円、簿価: ○○円
+    ↓
+    total_acquisition_costに設定してください。
+
+    【重要】
+    ・取得費が明示されている場合は、acquisition_related_costs を 0 や null にしてはいけません。
+    ・土地取得費や建物取得費が不明であっても、総取得費や合算簿価が提示されている場合はacquisition_related_costs に設定してください。
+
+    【税率の扱い】
+    ・パーセントは0から1の小数へ変換してください。
+    ・30%は0.30です。
+    ・税率が明示されていない場合はnullにしてください。
+
+    【日付の扱い】
+    ・日付はYYYY-MM-DD形式にしてください。
+    ・取得日、売却日については、年月まで分かる場合は月初日を補完してください。
+    例
+    2015年8月
+    ↓
+    2015-08-01
+
+    2020年3月
+    ↓
+    2020-03-01
+
+    ・取得年、売却年しか分からない場合はその年の1月1日を補完してください。
+    例
+    2015年
+    ↓
+    2015-01-01
+
+    2027年
+    ↓
+    2027-01-01
+
+    ・取得日または売却日が完全に不明な場合のみ null にしてください。
+    ・「売却日は未定」「これから売る予定」のような表現で年月も分からない場合は null にしてください。
+    ・ローン残債の基準日、返済日、借入残高の時点日、残高確認日などの日時は売却日として扱ってはいけません。
+    ・sale_date に設定してよいのは、売却日であることが明示されている場合だけです。単に日付が出てきただけではsale_date に設定してはいけません。
+
+    【保有期間区分】
+    ・ユーザーが長期譲渡または5年超と明示した場合は、holding_period_typeをlong_termにしてください。
+    ・ユーザーが短期譲渡または5年以下と明示した場合は、holding_period_typeをshort_termにしてください。
+    ・取得日と売却日の両方が確認できる場合は、譲渡した年の1月1日時点の所有期間に基づいて判定してください。
+    ・取得日または売却日が不明で、長期譲渡か短期譲渡かも明示されていない場合は、holding_period_typeをnullにしてください。
+    ・日付が不明な場合に、長期または短期を推測してはいけません。
+
+    【所有者区分】
+    ・個人所有または個人名義の場合はindividualです。
+    ・法人所有、会社所有または法人名義の場合はcorporateです。
+    ・個人か法人か分からない場合はnullにしてください。
+
+    【概算取得費】
+    ・ユーザーが取得費不明として売却額の5%を使うことを明示した場合だけ、
+    use_deemed_acquisition_costをtrueにしてください。
+    ・ユーザーが明示していない場合はfalseにしてください。
+    ・概算取得費率を明示していない場合は、
+    deemed_acquisition_cost_rateをnullにしてください。
+
+    【特別控除】
+    ・ユーザーが適用する特別控除額を明示した場合だけ抽出してください。
+    ・居住用不動産だからという理由だけで、
+    3,000万円控除を自動適用してはいけません。
+    ・適用の確認が取れていない場合はnullにしてください。
+
+    【不動産売却計算に該当しない場合】
+    ・should_calculateをfalseにしてください。
+    ・argumentsの各値はnullにしてください。
+
+    【会話の継続ルール】
+    直近の会話で不動産売却計算を行っており、「長期譲渡で計算して」「短期譲渡で計算して」のような回答があった場合は、should_calculate を true にしてください。
+    その場合、holding_period_type を設定し、他の条件は直近の会話から引き継ぐ前提でarguments に null を入れて構いません。
+
+    【直近の会話】
+    {recent_history}
+
+    【最新ユーザー発言】
+    {user_input}
+
+    【出力形式】
+    {{
+        "should_calculate": true,
+        "arguments": {{
+            "owner_type": null,
+            "sale_price": null,
+            "loan_balance": null,
+            "land_acquisition_cost": null,
+            "building_acquisition_cost": null,
+            "accumulated_depreciation": null,
+            "acquisition_related_costs": null,
+            "total_acquisition_cost": null,
+            "brokerage_fee": null,
+            "transfer_expenses": null,
+            "other_cash_expenses": null,
+            "acquisition_date": null,
+            "sale_date": null,
+            "holding_period_type": null,
+            "special_deduction": null,
+            "corporate_effective_tax_rate": null,
+            "use_deemed_acquisition_cost": false,
+            "deemed_acquisition_cost_rate": null
+        }}
+    }}
+    """
+
+    try:
+        extraction_model = genai.GenerativeModel(
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        extraction_response = (
+            extraction_model.generate_content(
+                extraction_prompt,
+                generation_config={
+                    "temperature": 0,
+                    "max_output_tokens": 500,
+                    "response_mime_type":
+                        "application/json"
+                }
+            )
+        )
+
+        raw_text = str(
+            extraction_response.text
+            or ""
+        ).strip()
+
+        if not raw_text:
+            raise ValueError(
+                "不動産売却条件の抽出結果が空です"
+            )
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        extracted_data = json.loads(
+            clean_text
+        )
+
+        if not isinstance(
+            extracted_data,
+            dict
+        ):
+            raise ValueError(
+                "不動産売却条件の抽出結果が"
+                "object形式ではありません"
+            )
+
+        should_calculate = bool(
+            extracted_data.get(
+                "should_calculate",
+                False
+            )
+        )
+
+        raw_arguments = (
+            extracted_data.get(
+                "arguments",
+                {}
+            )
+        )
+
+        if not isinstance(
+            raw_arguments,
+            dict
+        ):
+            raw_arguments = {}
+
+        in_tokens = 0
+        out_tokens = 0
+
+        if (
+            hasattr(
+                extraction_response,
+                "usage_metadata"
+            )
+            and
+            extraction_response.usage_metadata
+        ):
+            in_tokens = int(
+                extraction_response
+                .usage_metadata
+                .prompt_token_count
+                or 0
+            )
+
+            out_tokens = int(
+                extraction_response
+                .usage_metadata
+                .candidates_token_count
+                or 0
+            )
+
+        extraction_cost = (
+            in_tokens
+            * PRICE_BACKGROUND_IN
+            +
+            out_tokens
+            * PRICE_BACKGROUND_OUT
+        )
+
+        if not should_calculate:
+            return {
+                "should_calculate": False,
+                "arguments": {},
+                "extraction_status":
+                    "not_applicable",
+                "in_tokens": in_tokens,
+                "out_tokens": out_tokens,
+                "cost": extraction_cost
+            }
+
+        return {
+            "should_calculate": True,
+            "arguments": raw_arguments,
+            "extraction_status": "extracted",
+            "in_tokens": in_tokens,
+            "out_tokens": out_tokens,
+            "cost": extraction_cost
+        }
+
+    except (
+        json.JSONDecodeError,
+        ValueError,
+        TypeError
+    ) as extraction_error:
+        print(
+            "不動産売却条件の抽出エラー: "
+            f"{type(extraction_error).__name__}: "
+            f"{extraction_error}"
+        )
+
+        return {
+            "should_calculate": True,
+            "arguments": {},
+            "extraction_status":
+                "extraction_error",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "cost": 0.0
+        }
+
+    except Exception as unexpected_error:
+        print(
+            "不動産売却条件抽出の予期しないエラー: "
+            f"{type(unexpected_error).__name__}: "
+            f"{unexpected_error}"
+        )
+
+        return {
+            "should_calculate": True,
+            "arguments": {},
+            "extraction_status":
+                "extraction_error",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "cost": 0.0
+        }
+
+REAL_ESTATE_SALE_ALLOWED_FIELDS = {
+    "owner_type",
+    "sale_price",
+    "loan_balance",
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "accumulated_depreciation",
+    "acquisition_related_costs",
+    "total_acquisition_cost",
+    "brokerage_fee",
+    "transfer_expenses",
+    "other_cash_expenses",
+    "acquisition_date",
+    "sale_date",
+    "holding_period_type",
+    "special_deduction",
+    "corporate_effective_tax_rate",
+    "use_deemed_acquisition_cost",
+    "deemed_acquisition_cost_rate"
+}
+
+REAL_ESTATE_NUMERIC_FIELDS = {
+    "sale_price",
+    "loan_balance",
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "accumulated_depreciation",
+    "acquisition_related_costs",
+    "total_acquisition_cost",
+    "brokerage_fee",
+    "transfer_expenses",
+    "other_cash_expenses",
+    "special_deduction",
+    "corporate_effective_tax_rate",
+    "deemed_acquisition_cost_rate"
+}
+
+REAL_ESTATE_DATE_FIELDS = {
+    "acquisition_date",
+    "sale_date"
+}
+
+def normalize_real_estate_sale_arguments(
+    arguments: dict,
+    apply_defaults: bool = True
+) -> dict:
+    """
+    Geminiが抽出した不動産売却計算用の引数を、
+    calculate_real_estate_sale()へ安全に渡せる形へ整える。
+
+    処理内容:
+    ・許可されていないキーを除外
+    ・null、空文字、不明表記を除外
+    ・owner_typeをindividualまたはcorporateへ統一
+    ・金額や税率をDecimalへ変換
+    ・日付をYYYY-MM-DD形式へ統一
+    ・真偽値をboolへ統一
+    """
+    if not isinstance(arguments, dict):
+        raise TypeError(
+            "argumentsはdict形式で指定してください"
+        )
+
+    normalized = {}
+
+    ignored_values = {
+        "",
+        "null",
+        "none",
+        "不明",
+        "未指定",
+        "わからない",
+        "分からない",
+        "不詳"
+    }
+
+    for key, value in arguments.items():
+        # calculate_real_estate_sale()に存在しない
+        # 余分な引数は渡さない
+        if key not in REAL_ESTATE_SALE_ALLOWED_FIELDS:
+            continue
+
+        # JSONのnullは未入力として扱う
+        if value is None:
+            continue
+
+        # 空文字や不明表記も未入力として扱う
+        if isinstance(value, str):
+            cleaned_value = value.strip()
+
+            if cleaned_value.lower() in ignored_values:
+                continue
+
+            value = cleaned_value
+
+        # 個人・法人区分
+        if key == "owner_type":
+            owner_text = str(
+                value
+            ).strip().lower()
+
+            owner_type_mapping = {
+                "individual": "individual",
+                "個人": "individual",
+                "個人所有": "individual",
+                "個人名義": "individual",
+                "personal": "individual",
+
+                "corporate": "corporate",
+                "法人": "corporate",
+                "法人所有": "corporate",
+                "法人名義": "corporate",
+                "会社": "corporate",
+                "company": "corporate"
+            }
+
+            normalized_owner_type = (
+                owner_type_mapping.get(
+                    owner_text
+                )
+            )
+
+            # 想定外の値は保存せず、
+            # 後続の不足項目判定へ回す
+            if normalized_owner_type is not None:
+                normalized["owner_type"] = normalized_owner_type
+
+            continue
+            
+        if key == "holding_period_type":
+
+            holding_text = str(value).strip().lower()
+
+            if holding_text in {
+                "long_term",
+                "長期",
+                "長期譲渡",
+                "5年超"
+            }:
+                normalized[key] = "long_term"
+
+            elif holding_text in {
+                "short_term",
+                "短期",
+                "短期譲渡",
+                "5年以下"
+            }:
+                normalized[key] = "short_term"
+            continue
+
+        # 金額、取得費率、法人実効税率
+        if key in REAL_ESTATE_NUMERIC_FIELDS:
+            try:
+                normalized[
+                    key
+                ] = to_decimal(
+                    value
+                )
+
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                # 読み取れない数値は入れず、
+                # 後続処理または計算エラーで確認する
+                continue
+
+            continue
+
+        # 取得日・売却日
+        if key in REAL_ESTATE_DATE_FIELDS:
+            try:
+                normalized_date = parse_date(
+                    value
+                )
+
+                normalized[
+                    key
+                ] = normalized_date.isoformat()
+
+            except (
+                ValueError,
+                TypeError
+            ):
+                # 年だけ、年月だけ、存在しない日付などは
+                # 推測せず未入力として扱う
+                continue
+
+            continue
+
+        # 概算取得費を使用するか
+        if key == "use_deemed_acquisition_cost":
+            if isinstance(value, bool):
+                normalized[
+                    key
+                ] = value
+
+                continue
+
+            boolean_text = str(
+                value
+            ).strip().lower()
+
+            true_values = {
+                "true",
+                "1",
+                "yes",
+                "y",
+                "使用する",
+                "使う",
+                "利用する",
+                "はい"
+            }
+
+            false_values = {
+                "false",
+                "0",
+                "no",
+                "n",
+                "使用しない",
+                "使わない",
+                "利用しない",
+                "いいえ"
+            }
+
+            if boolean_text in true_values:
+                normalized[
+                    key
+                ] = True
+
+            elif boolean_text in false_values:
+                normalized[
+                    key
+                ] = False
+
+            # 解釈できない場合は推測せず除外
+            continue
+
+    # 計算実行時だけ任意項目へ安全な初期値を設定
+    if apply_defaults:
+        normalized.setdefault(
+            "loan_balance",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "land_acquisition_cost",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "building_acquisition_cost",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "acquisition_related_costs",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "total_acquisition_cost",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "transfer_expenses",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "other_cash_expenses",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "special_deduction",
+            Decimal("0")
+        )
+
+        normalized.setdefault(
+            "use_deemed_acquisition_cost",
+            False
+        )
+
+        normalized.setdefault(
+            "deemed_acquisition_cost_rate",
+            Decimal("0.05")
+        )
+
+    return normalized
+
+REAL_ESTATE_FIELD_LABELS = {
+    "owner_type": "売却者が個人か法人か",
+    "sale_price": "売却予定額または売却額",
+    "acquisition_date": "取得日",
+    "sale_date": "売却日",
+    "holding_period_type": "長期譲渡か短期譲渡か",
+    "acquisition_basis":("税務上の取得費" "（土地・建物の取得価額など）"),
+    "accumulated_depreciation":("建物の減価償却累計額"),
+    "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）")
+}
+
+
+def get_real_estate_sale_missing_fields(
+    arguments: dict
+) -> list:
+    """
+    不動産売却計算に必要な条件の不足を判定する。
+
+    必須条件:
+    ・所有者区分
+    ・売却額
+    ・個人の場合は取得日と売却日
+
+    取得費:
+    ・実額取得費を使う場合は、土地取得費または
+      建物取得価額の少なくとも一方が必要
+    ・取得費不明として概算取得費を使う場合は不要
+
+    建物:
+    ・建物取得価額が0円より大きく、
+      減価償却累計額が明示されていない場合は確認対象
+
+    法人:
+    ・実効税率がなくても税引前手残りは計算可能
+    ・したがって法人実効税率は必須項目にしない
+    """
+    if not isinstance(arguments, dict):
+        raise TypeError(
+            "argumentsはdict形式で指定してください"
+        )
+
+    missing_fields = []
+
+    owner_type = arguments.get(
+        "owner_type"
+    )
+
+    if owner_type not in {
+        "individual",
+        "corporate"
+    }:
+        missing_fields.append(
+            "owner_type"
+        )
+
+    sale_price = arguments.get(
+        "sale_price"
+    )
+
+    if sale_price is None:
+        missing_fields.append(
+            "sale_price"
+        )
+    else:
+        try:
+            if to_decimal(
+                sale_price
+            ) <= Decimal("0"):
+                missing_fields.append(
+                    "sale_price"
+                )
+        except (
+            ValueError,
+            TypeError,
+            ArithmeticError
+        ):
+            missing_fields.append(
+                "sale_price"
+            )
+
+    if owner_type == "individual":
+        acquisition_date = arguments.get("acquisition_date")
+        sale_date = arguments.get("sale_date")
+        holding_period_type = arguments.get("holding_period_type")
+        dates_are_complete = bool(acquisition_date and sale_date)
+        holding_type_is_valid = (holding_period_type in {"long_term", "short_term"})
+        if (not dates_are_complete and not holding_type_is_valid):
+            missing_fields.append("holding_period_type")
+
+    use_deemed_acquisition_cost = bool(
+        arguments.get(
+            "use_deemed_acquisition_cost",
+            False
+        )
+    )
+
+    if not use_deemed_acquisition_cost:
+        land_cost = to_decimal(
+            arguments.get(
+                "land_acquisition_cost",
+                Decimal("0")
+            )
+        )
+
+        building_cost = to_decimal(
+            arguments.get(
+                "building_acquisition_cost",
+                Decimal("0")
+            )
+        )
+
+        acquisition_related_costs = to_decimal(
+            arguments.get(
+                "acquisition_related_costs",
+                Decimal("0")
+            )
+        )
+
+        total_acquisition_cost = to_decimal(
+            arguments.get("total_acquisition_cost", Decimal("0"))
+        )
+
+        if (total_acquisition_cost > Decimal("0")):
+            pass
+        else:
+            total_known_acquisition_cost = (
+                land_cost
+                + building_cost
+                + acquisition_related_costs
+            )
+
+            if (total_known_acquisition_cost <= Decimal("0")):
+                missing_fields.append("acquisition_basis")
+
+        if (total_known_acquisition_cost <= Decimal("0")):
+            missing_fields.append("acquisition_basis")
+
+    building_cost = to_decimal(
+        arguments.get(
+            "building_acquisition_cost",
+            Decimal("0")
+        )
+    )
+
+    if (
+        building_cost > Decimal("0")
+        and
+        "accumulated_depreciation"
+        not in arguments
+    ):
+        missing_fields.append(
+            "accumulated_depreciation"
+        )
+
+    # 重複を除き、追加順を維持
+    return list(
+        dict.fromkeys(
+            missing_fields
+        )
+    )
+
+def execute_real_estate_sale_calculation(
+    extraction_result: dict
+) -> dict:
+    """
+    Geminiが抽出・正規化した条件を使って、
+    calculate_real_estate_sale()を実行する。
+
+    戻り値のstatus:
+        not_applicable:
+            不動産売却計算の対象外
+
+        extraction_error:
+            Geminiによる条件抽出に失敗
+
+        missing_fields:
+            計算に必要な条件が不足
+
+        calculation_error:
+            Python計算時に入力エラー等が発生
+
+        success:
+            計算成功
+    """
+    missing_fields = []
+
+
+    if not isinstance(
+        extraction_result,
+        dict
+    ):
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "計算条件の抽出結果が"
+                "dict形式ではありません"
+            )
+        }
+
+    should_calculate = bool(
+        extraction_result.get(
+            "should_calculate",
+            False
+        )
+    )
+
+    if not should_calculate:
+        return {
+            "status": "not_applicable",
+            "result": None,
+            "missing_fields": [],
+            "error": None
+        }
+
+    extraction_status = (
+        extraction_result.get(
+            "extraction_status",
+            "extraction_error"
+        )
+    )
+
+    if extraction_status == "extraction_error":
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却の計算条件を"
+                "正しく読み取れませんでした"
+            )
+        }
+
+    arguments = extraction_result.get(
+        "arguments",
+        {}
+    )
+
+    if not isinstance(arguments, dict):
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却の計算条件が"
+                "dict形式ではありません"
+            )
+        }
+
+    try:
+        normalized_arguments = (
+            normalize_real_estate_sale_arguments(
+                arguments
+            )
+        )
+
+    except Exception as normalize_error:
+        print(
+            "不動産売却条件の正規化エラー: "
+            f"{type(normalize_error).__name__}: "
+            f"{normalize_error}"
+        )
+
+        return {
+            "status": "extraction_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                normalize_error
+            )
+        }
+
+    try:
+        print(
+            f"🏠 計算不足項目: "
+            f"{missing_fields}"
+        )
+        missing_fields = (
+            get_real_estate_sale_missing_fields(
+                normalized_arguments
+            )
+        )
+
+    except Exception as missing_check_error:
+        print(
+            "不動産売却の不足項目判定エラー: "
+            f"{type(missing_check_error).__name__}: "
+            f"{missing_check_error}"
+        )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                missing_check_error
+            )
+        }
+
+    if missing_fields:
+        return {
+            "status": "missing_fields",
+            "result": None,
+            "missing_fields":
+                missing_fields,
+            "error": None
+        }
+    
+    # print(
+    #     f"🏠 不動産計算実行条件: "
+    #     f"{calculation_arguments}"
+    # )
+    # calculate_real_estate_sale()に渡す値だけに限定
+    calculation_arguments = {
+        key: value
+        for key, value
+        in normalized_arguments.items()
+        if (
+            key
+            in REAL_ESTATE_SALE_ALLOWED_FIELDS
+            and value is not None
+        )
+    }
+    # st.warning(f"{calculation_arguments}")
+    print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
+    
+    try:
+        calculation_result = (
+            calculate_real_estate_sale(
+                **calculation_arguments
+            )
+        )
+        st.session_state["debug_calculation_result"] = (
+            make_json_safe(calculation_result)
+        )
+
+    except (
+        ValueError,
+        TypeError,
+        ArithmeticError
+    ) as calculation_error:
+        print(
+            "不動産売却計算エラー: "
+            f"{type(calculation_error).__name__}: "
+            f"{calculation_error}"
+        )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": str(
+                calculation_error
+            )
+        }
+
+    except Exception as unexpected_error:
+        error_text = (
+                f"{type(unexpected_error).__name__}: "
+                f"{unexpected_error}"
+            )
+        print(
+                f"🚨 不動産計算予期しないエラー: "
+                f"{error_text}"
+            )
+
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": error_text
+        }
+
+    if not isinstance(
+        calculation_result,
+        dict
+    ):
+        return {
+            "status": "calculation_error",
+            "result": None,
+            "missing_fields": [],
+            "error": (
+                "不動産売却計算の結果が"
+                "dict形式ではありません"
+            )
+        }
+
+    return {
+        "status": "success",
+        "tool": "real_estate_sale",
+        "result": calculation_result,
+        "missing_fields": [],
+        "error": None
+    }
+
+def build_real_estate_calculation_context(
+    execution_result: dict
+) -> str:
+    """
+    不動産売却計算の実行結果から、
+    最終回答用のプロンプトブロックを作成する。
+
+    status:
+        not_applicable
+        missing_fields
+        extraction_error
+        calculation_error
+        success
+
+    計算対象外の場合は空文字を返すため、
+    通常会話のプロンプトには何も追加されない。
+    """
+    status = execution_result.get(
+        "status",
+        "not_applicable"
+    )
+
+    # 通常会話では何も追加しない
+    if status == "not_applicable":
+        return ""
+
+    # 必須条件が不足している場合
+    if status == "missing_fields":
+        missing_fields = execution_result.get(
+            "missing_fields",
+            []
+        )
+
+        missing_labels = [
+            REAL_ESTATE_FIELD_LABELS.get(
+                field,
+                field
+            )
+            for field in missing_fields
+        ]
+        
+        if (missing_fields == ["holding_period_type"]):
+            return """
+            【Python不動産売却計算】
+
+            売却日が未定のため、
+            長期譲渡か短期譲渡かを確認したいです。
+
+            【回答例】
+
+            ・長期譲渡で計算して
+
+            または
+
+            ・短期譲渡で計算して
+
+            【補足】
+
+            一般的に取得から5年を超えている場合は
+            長期譲渡です。
+            """.strip()
+
+        if missing_labels:
+            missing_text = "\n".join(
+                f"・{label}"
+                for label in missing_labels
+            )
+        else:
+            missing_text = (
+                "・計算に必要な条件"
+            )
+
+        return f"""
+        【Python不動産売却計算】
+
+        計算に必要な条件が不足しています。
+
+        【不足項目】
+        {missing_text}
+
+        【回答ルール】
+        ・不足している項目だけを、ユーザーへ簡潔に確認してください。
+        ・ユーザーが明示していない数値や日付を推測してはいけません。
+        ・一般的な金額や税率を、ユーザーの条件として補完してはいけません。
+        ・条件が揃っていない状態で概算結果を作ってはいけません。
+        ・すでに提示されている条件を再度質問してはいけません。
+        """.strip()
+
+    # Geminiによるパラメータ抽出に失敗した場合
+    if status == "extraction_error":
+        return """
+        【Python不動産売却計算】
+
+        ユーザーの入力条件を正しく構造化できなかったため、
+        今回はPython計算を実行していません。
+
+        【回答ルール】
+        ・推測による計算は行わないでください。
+        ・ユーザーへ、計算条件を整理して入力してもらうよう案内してください。
+        ・一度にすべての条件を求めず、今回の会話で不足している主要条件だけを確認してください。
+        ・基本的な確認項目は、売却額、売却者が個人か法人か、取得日、売却日です。
+        ・取得費、ローン残債、売却費用などがすでに提示されている場合は、再入力を求めないでください。
+        """.strip()
+
+    # Python関数内でバリデーションエラー等が発生した場合
+    if status == "calculation_error":
+        error_message = str(
+            execution_result.get(
+                "error",
+                "計算条件に問題があります"
+            )
+            or "計算条件に問題があります"
+        )
+
+        return f"""
+        【Python不動産売却計算エラー】
+
+        Python計算を実行しましたが、
+        入力条件に問題があるため結果を確定できませんでした。
+
+        【エラー内容】
+        {error_message}
+
+        【回答ルール】
+        ・エラー内容を、ユーザー向けに分かりやすく説明してください。
+        ・修正が必要な項目だけを確認してください。
+        ・ユーザーが明示していない数値や日付を推測してはいけません。
+        ・エラーが解消されるまで独自の概算結果を作ってはいけません。
+        ・Pythonの内部処理やプログラムコードの説明は不要です。
+        """.strip()
+
+    # 想定外の状態では計算結果を使用しない
+    if status != "success":
+        return """
+        【Python不動産売却計算】
+
+        計算状態を確認できなかったため、
+        今回は計算結果を使用できません。
+
+        【回答ルール】
+        ・独自に再計算してはいけません。
+        ・ユーザーへ、条件を確認できなかったことを簡潔に伝えてください。
+        """.strip()
+
+    # 計算成功時
+    result = execution_result.get(
+        "result"
+    )
+
+    if not isinstance(result, dict):
+        return """
+        【Python不動産売却計算エラー】
+
+        Python計算の結果を取得できませんでした。
+
+        【回答ルール】
+        ・独自に再計算してはいけません。
+        ・計算結果を取得できなかったことだけを簡潔に伝えてください。
+        ・存在しない数値を作ってはいけません。
+        """.strip()
+
+    result_json = json.dumps(
+        result,
+        ensure_ascii=False,
+        indent=2
+    )
+
+    estimated_tax = result.get(
+        "estimated_tax"
+    )
+
+    cash_after_tax = result.get(
+        "cash_after_tax"
+    )
+
+    owner_type = result.get(
+        "owner_type"
+    )
+
+    brokerage_fee = result.get(
+        "brokerage_fee"
+    )
+
+    transfer_expenses = result.get(
+        "transfer_expenses"
+    )
+
+    cash_before_tax = result.get(
+        "cash_before_tax"
+    )
+
+    tax_status = result.get(
+        "tax_calculation_status"
+    )
+
+    # 法人で税額が計算されていない場合など
+    if (
+        estimated_tax is None
+        or cash_after_tax is None
+    ):
+        tax_note = """
+        ・税額が計算されていない場合、税引後手残りを独自に作ってはいけません。
+        ・その場合は、税引前手残りを主要結果として示してください。
+        ・法人の実効税率が未指定の場合は、会社全体の所得状況などにより税額が変わるため、今回の計算には含めていないと説明してください。
+        """.strip()
+    else:
+        tax_note = """
+        ・最初に税引後の現金手残りを示してください。
+        ・次に税引前手残りを示してください。
+        ・その後、売却価格、ローン残債、仲介手数料、譲渡費用を示してください。
+        ・最後に課税譲渡所得と概算税額を示してください。
+        """.strip()
+
+    # 個人の場合の保有期間表示ルール
+    if owner_type == "individual":
+        holding_note = """
+        ・holding_typeがlong_termの場合は「長期譲渡所得」と表示してください。
+        ・holding_typeがshort_termの場合は「短期譲渡所得」と表示してください。
+        ・適用税率は計算結果に記録されたtax_rateを使用してください。
+        """.strip()
+    else:
+        holding_note = """
+        ・法人には個人の長期譲渡所得、短期譲渡所得という表現を使用しないでください。
+        """.strip()
+
+    return f"""
+    【Python不動産売却計算結果】
+
+    以下はPythonで計算済みの確定出力です。
+
+    {result_json}
+
+    【計算結果の説明ルール】
+    ・上記の数値を最優先してください。
+    ・数値を変更してはいけません。
+    ・独自に再計算して、別の結果を作ってはいけません。
+    ・結果に存在しない数値を推測してはいけません。
+    ・ユーザーが詳細を求めていない場合は、主要結果だけを簡潔に説明してください。
+    ・ユーザーが詳細、内訳、計算式を求めた場合のみ、計算の構造を詳しく説明してください。
+    ・取得費とローン残債を混同してはいけません。
+    ・課税対象となる譲渡所得と、実際の現金手残りを混同してはいけません。
+    ・ローン残債は現金手残りには影響しますが、通常の譲渡所得の取得費ではありません。
+    ・特別控除は、計算結果のspecial_deductionに記録された金額だけを使用してください。
+    ・ユーザーが明示していない特例を追加適用してはいけません。
+    ・金額は円単位の整数として受け取り、回答では読みやすいように円または万円で表示してください。
+    ・万円表示へ直す場合も、元の計算結果と一致することを確認してください。
+    ・最後に、この結果は入力条件に基づく概算であり、申告税額を確定するものではないことを短く伝えてください。
+      その際の語尾や口調は、現在設定されている方言設定もしくは人格設定に従ってください。
+    ・その説明が終わった時点で回答を終了してください。
+    ・計算結果と無関係な追加の挨拶、締めの定型文、締めの定型文、締めの定型文、締めの定型文、
+    ・brokerage_feeは仲介手数料です。
+    ・仲介手数料が自動計算されている場合は、その金額も説明してください。
+    ・税引前手残りには仲介手数料や譲渡費用が反映されていることを説明してください。
+    ・brokerage_fee_method が statutory_max_estimate の場合は、「仲介手数料は未入力だったため法定上限額で試算しました」と説明してください。
+    ・brokerage_fee_method が specified の場合は、「仲介手数料は入力値を使用しました」と説明してください。
+    ・計算は既に完了しています。
+    ・これから計算します、確認します、再計算します、少々お待ちください、処理中です等の表現は禁止です。
+    ・結果を持っている前提で回答してください。
+    ・追加条件が必要な場合以外は条件を再度確認してはいけません。
+    ・結果が存在する場合は必ず結果を提示してください。
+    ・取得費（applied_acquisition_basis）は、ユーザー向けには単に「取得費」と表示してください。
+    ・売却価格、取得費、ローン残債、仲介手数料、譲渡費用の順で説明してください。
+
+    【税額と手残りの表示ルール】
+    {tax_note}
+
+    【所有者区分の表示ルール】
+    {holding_note}
+
+    【内部確認情報】
+    owner_type: {owner_type}
+    tax_calculation_status: {tax_status}
+    """.strip()
+
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -1483,8 +5452,10 @@ current_user_name = "ユーザー"
 current_user_honorific = "さん"
 current_first_person = "私"
 current_style_preset = "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】"
-current_user_instruction = ""
-current_ai_avatar = "🤖"
+current_response_length = "普通"
+# current_dialect = "標準語"
+# current_user_instruction = ""
+current_ai_avatar = "🧠"
 current_user_avatar = "💫"
 current_emoji_setting = "使用（普通）"
 
@@ -1520,8 +5491,23 @@ for m in manual_memories:
         st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
     if fact.startswith("人格:"):
         current_style_preset = fact.replace("人格:", "").strip()
-    if fact.startswith("応答方針:"):
-        current_user_instruction = fact.replace("応答方針:", "").strip()
+    # if fact.startswith("応答方針:"):
+    #     current_user_instruction = fact.replace("応答方針:", "").strip()
+    if fact.startswith("会話長さ:"):
+        current_response_length = (
+            fact.replace(
+                "会話長さ:",
+                ""
+            ).strip()
+        )
+
+    # if fact.startswith("方言:"):
+    #     current_dialect = (
+    #         fact.replace(
+    #             "方言:",
+    #             ""
+    #         ).strip()
+    #     )
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
@@ -1750,9 +5736,9 @@ st.markdown(f"""
 is_admin = CURRENT_USER_ID == ADMIN_USER_ID
 
 if is_admin:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
+    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
 else:
-    tab_titles = ["💬 トークルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
+    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
 
 # 🎪 【タブの一括展開】
 # Streamlitのタブを動的に生成
@@ -1764,6 +5750,27 @@ all_tabs = st.tabs(tab_titles)
 with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
         current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+        # ==========================================
+        # プラン別制御
+        # ==========================================
+        response_length_prompt = ""
+        # dialect_prompt = ""
+
+        current_plan_type = "スタンダード"
+
+        if current_plan_type != "🆓 無料プラン":
+            response_length_prompt = (
+                RESPONSE_LENGTH_PROMPTS.get(
+                    current_response_length,
+                    ""
+                )
+            )
+            # dialect_prompt = (
+            #     DIALECT_PROMPTS.get(
+            #         current_dialect,
+            #         ""
+            #     )
+            # )
 
         #st.code(build_manual_memory_context())
         #if st.button("記憶確認"):
@@ -1773,17 +5780,47 @@ with all_tabs[0]:
         #st.title(f"💬 {current_concierge_name}の部屋")
         #st.caption(f"担当コンシェルジュ: 【{current_concierge_name}】 | 現在のプラン: 【{current_plan_type}】")
 
-        all_messages = get_messages(CURRENT_USER_ID)
+        should_reload_messages = (
+            st.session_state.cached_messages is None
+            or st.session_state.force_message_reload
+        )
+
+        if should_reload_messages:
+            loaded_messages = get_messages(CURRENT_USER_ID)
+
+            if loaded_messages is None:
+                db_available = False
+
+                if st.session_state.cached_messages is None:
+                    st.session_state.cached_messages = []
+
+                st.error(
+                    "データベース通信に失敗しました。"
+                    "保存済みの会話履歴を取得できませんでした。"
+                )
+            else:
+                db_available = True
+                st.session_state.cached_messages = loaded_messages
+
+            st.session_state.force_message_reload = False
+
+        else:
+            db_available = True
+
+        all_messages = list(st.session_state.cached_messages or [])
+        
+        # all_messages = get_messages(CURRENT_USER_ID)
+        # db_available = (all_messages is not None)
 
         # 🟢 【最終確定製品版：電波瞬断・ウェルカム画面暴発完全全廃ガードレール】
         #     ・本当に履歴が0件の新規ユーザーのみ ➔ ウェルカム文を表示
         #     ・電波瞬断エラー（None）の時 ➔ エラーメッセージを表示して停止
         
-        if all_messages is None:
-            st.error("データベース通信に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
-            st.stop()
-            
-        elif len(all_messages) == 0:
+        if not db_available:
+            st.error("データベースへの接続に失敗しました。電波環境の良い場所で、ページを再読み込み（リフレッシュ）してください。")
+            all_messages = []
+
+        elif (db_available and len(all_messages) == 0):
             welcome_text = (
                 f"初めまして！今日からあなたの日常に寄り添うコンシェルジュとして、全力でお手伝いさせていただきます！今日からどうぞよろしくお願いいたします！✨\n\n"
                 f"💬 **【はじめに】**\n"
@@ -1865,31 +5902,152 @@ with all_tabs[0]:
                         # with st.chat_message("user"):
                         # st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
                         st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
-                        
 
-                        search_start_time = time.time()
-                        past_logs_context = search_past_logs_hybrid(user_input)
-                        search_elapsed = time.time() - search_start_time
-                        
-                        if past_logs_context:
-                            logs_text = []
-                            for log in past_logs_context:
-                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                                raw_date = log.get("created_at", "")
-                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
-                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
-                            past_logs_str = "\n".join(logs_text)
-                        else:
-                            past_logs_str = "該当する過去ログなし"
-
-                        if not save_message("user", user_input):
-                            st.stop()
-                        
                         # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
-                        all_messages.append({"role": "user", "content": user_input})
+                        # 計算案件の選択待ち処理
+                        selected_case_resume_arguments = None
+                        if st.session_state.get("pending_case_selection", False):
+                            candidates = st.session_state.get("pending_case_candidates", [])
+                            normalized_input = (
+                                user_input
+                                .strip()
+                                .lower()
+                                .translate(
+                                    str.maketrans(
+                                        "１２３４５６７８９０",
+                                        "1234567890"
+                                    )
+                                )
+                            )
+
+                            selected_case = None
+
+                            for index, case in enumerate(candidates, start=1):
+                                case_name = str(case.get("case_name", "") or "").strip()
+
+                                if normalized_input in {str(index), f"{index}番", f"{index}番目"}:
+                                    selected_case = case
+                                    break
+
+                                if case_name and case_name.lower() in normalized_input:
+                                    selected_case = case
+                                    break
+                            
+                            # st.write("selected_case", selected_case)
+
+                            selected_case_confirmed = False
+                            if selected_case:
+                                selected_case_id = selected_case["case_id"]
+                                selected_case_name = selected_case["case_name"]
+
+                                st.session_state["active_calculation_case_id"] = selected_case_id
+                                st.session_state["active_calculation_case_name"] = selected_case_name
+                                selected_case_data = (
+                                    get_calculation_case(
+                                        selected_case["case_id"]
+                                    )
+                                )
+                                
+                                restored_case_data = (
+                                    selected_case_data.get(
+                                        "case_data",
+                                        {}
+                                    )
+                                )
+
+                                pending_arguments = (
+                                    st.session_state.get(
+                                        "pending_case_arguments",
+                                        {}
+                                    )
+                                )
+
+                                merged_case_data = dict(restored_case_data)
+                                merged_case_data.update(pending_arguments)
+
+                                # st.write("restored_case_data")
+                                # st.code(
+                                #     json.dumps(
+                                #         restored_case_data,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
+
+                                # st.write("pending_arguments")
+                                # st.code(
+                                #     json.dumps(
+                                #         pending_arguments,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
+
+                                # st.write("merged_case_data")
+                                # st.code(
+                                #     json.dumps(
+                                #         merged_case_data,
+                                #         ensure_ascii=False,
+                                #         indent=2,
+                                #         default=str
+                                #     ),
+                                #     language="json"
+                                # )
+
+
+                                if (selected_case_data.get("property_usage") == "owner_occupied"):
+                                    merged_case_data["owner_type"] = "individual"
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = merged_case_data
+
+                                selected_case_resume_arguments = dict(
+                                    merged_case_data
+                                )
+                                
+
+                                st.session_state[
+                                    "pending_case_arguments"
+                                ] = {}
+
+                                st.session_state["pending_case_selection"] = False
+                                st.session_state["pending_case_candidates"] = []
+                                st.session_state["pending_case_arguments"] = {}
+
+                                st.session_state.force_message_reload = True
+                                selected_case_confirmed = True
+                            
+                            if not selected_case_confirmed:
+                                candidate_names = "、".join(
+                                    f"{index}. {case.get('case_name', '案件名なし')}"
+                                    for index, case in enumerate(candidates, start=1)
+                                )
+
+                                retry_reply = (
+                                    "案件を特定できませんでした。"
+                                    f"「番号」または「案件名」で選んでください。\n\n"
+                                    f"{candidate_names}"
+                                )
+
+                                save_message("user", user_input, current_msg_id, "analysis")
+                                save_message("assistant", retry_reply, current_msg_id, "analysis")
+
+                                st.markdown(
+                                    f"{current_concierge_name}: "
+                                    f"{retry_reply}"
+                                )
+
+                                st.session_state.force_message_reload = True
+                                st.stop()
+                                                
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
                         manual_memory_context = "\n".join([f"・{m['fact']}" for m in manual_memories]) if manual_memories else "なし"
@@ -1923,33 +6081,200 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
-                        # 検索判定用直近会話履歴作成
-                        recent_history_for_search = (
-                            "\n".join(recent_history_lines[-1:])
-                            if recent_history_lines
+                        # 会話種別＆検索判定用の直近会話履歴作成
+                        previous_messages = recent_messages[:-1]
+
+                        router_history_lines = []
+
+                        for m in previous_messages[-2:]:
+                            role_name = (
+                                display_user_name
+                                if m.get("role") == "user"
+                                else current_concierge_name
+                            )
+
+                            router_history_lines.append(
+                                f"{role_name}: {m.get('content', '')}"
+                            )
+
+                        recent_history_for_router = (
+                            "\n".join(router_history_lines)
+                            if router_history_lines
                             else "直近の会話履歴なし"
                         )
 
-                        (
-                            need_search,
-                            search_judge_in_t,
-                            search_judge_out_t,
-                            search_judge_cost
-                        ) = should_use_google_search(
-                            user_input=user_input,
-                            recent_history_str=recent_history_for_search
+                        router_start_time = time.time()
+
+                        if is_micro_chat(user_input):
+
+                            response_mode = "micro_chat"
+                            route_source = "micro_chat"
+                            need_search = False
+                            route_confidence = 1.0
+                            search_judge_in_t = 0
+                            search_judge_out_t = 0
+                            search_judge_cost = 0
+
+                        else:
+                            (
+                                need_search,
+                                response_mode,
+                                route_confidence,
+                                search_judge_in_t,
+                                search_judge_out_t,
+                                search_judge_cost
+                            ) = classify_search_and_response_mode(
+                                user_input=user_input,
+                                recent_history_str=recent_history_for_router,
+                            )
+                            route_source = "llm_router"
+
+                        router_elapsed = time.time() - router_start_time
+
+                        search_start_time = time.time()
+                        
+                        # past_logs_context = search_past_logs_hybrid(user_input)
+                        past_logs_context = search_past_logs_hybrid(user_input)
+
+                        search_elapsed = time.time() - search_start_time
+
+                        # 判定済みのresponse_modeと一緒に
+                        # ユーザー発言をDBへ保存
+                        if not save_message("user", user_input, current_msg_id, response_mode):
+                            st.stop()
+                        
+                        all_messages.append({
+                            "role": "user",
+                            "content": user_input,
+                            "response_mode": response_mode,
+                            "created_at": datetime.now(JST).isoformat()
+                        })
+                        
+                        if past_logs_context:
+                            logs_text = []
+                            for log in past_logs_context:
+                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
+                                raw_date = log.get("created_at", "")
+                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
+                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
+                            past_logs_str = "\n".join(logs_text)
+
+                            # st.code(past_logs_str, language="text")
+
+                        else:
+                            past_logs_str = "該当する過去ログなし"
+
+                        # ==========================================
+                        # 独立したPython計算ツール判定
+                        # ==========================================
+
+                        tool_router_elapsed = 0.0
+                        tool_route_confidence = 0.0
+                        tool_router_in_t = 0
+                        tool_router_out_t = 0
+                        tool_router_cost = 0.0
+
+                        pending_tool = (
+                            "real_estate_sale"
+                            if st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
+                            else "none"
                         )
+
+                        should_run_tool_router = (
+                            pending_tool != "none"
+                            or response_mode in {
+                                "analysis",
+                                "factual",
+                                "default"
+                            }
+                        )
+
+                        if should_run_tool_router:
+                            tool_router_start_time = (time.time())
+
+                            (
+                                calculation_tool,
+                                tool_route_confidence,
+                                tool_router_in_t,
+                                tool_router_out_t,
+                                tool_router_cost
+                            ) = classify_calculation_tool(
+                                user_input=user_input,
+                                recent_history_str=recent_history_for_router,
+                                pending_tool=pending_tool
+                            )
+
+                            tool_router_elapsed = (
+                                time.time()
+                                - tool_router_start_time
+                            )
+
+                        else:
+                            calculation_tool = "none"
+
+                        # 案件選択が成功した場合は、
+                        # 「1」を再判定せず不動産計算へ強制復帰する
+                        if selected_case_resume_arguments is not None:
+                            calculation_tool = "real_estate_sale"
+                        
+                        if should_run_tool_router:
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type=(
+                                    "CALCULATION_TOOL_ROUTER"
+                                ),
+                                processing_time=(
+                                    tool_router_elapsed
+                                ),
+                                in_t=(
+                                    tool_router_in_t
+                                ),
+                                out_t=(
+                                    tool_router_out_t
+                                ),
+                                api_cost=(
+                                    tool_router_cost
+                                ),
+                                details=(
+                                    f"ツール: {calculation_tool}"
+                                    f" | 継続中: {pending_tool}"
+                                    f" | 信頼度: "
+                                    f"{tool_route_confidence:.2f}"
+                                ),
+                                message_id=str(
+                                    current_msg_id
+                                )
+                            )
+
+                            if (
+                                tool_router_in_t > 0
+                                or tool_router_out_t > 0
+                            ):
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "calculation_tool_router",
+                                    tool_router_in_t,
+                                    tool_router_out_t
+                                )
+
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
                             plan_type=current_plan_type,
-                            event_type="SEARCH_JUDGE",
-                            processing_time=0.0,
+                            event_type="RESPONSE_ROUTER",
+                            processing_time=router_elapsed,
                             in_t=search_judge_in_t,
                             out_t=search_judge_out_t,
                             api_cost=search_judge_cost,
                             details=(
-                                f"検索要否判定: "
+                                f"検索要否: "
                                 f"{'YES' if need_search else 'NO'}"
+                                f" | 回答モード: {response_mode}"
+                                f" | ルート: {route_source}"
+                                f" | 信頼度: {route_confidence:.2f}"
                             ),
                             message_id=str(current_msg_id)
                         )
@@ -1964,10 +6289,33 @@ with all_tabs[0]:
                             【最新ユーザー発言】
                             {user_input}
                             """
-                            search_result = google_search(
-                                search_query
+
+                            search_execution_start = time.time()
+                            search_response = google_search(search_query)
+                            search_execution_elapsed = (time.time() - search_execution_start)
+                            search_result = (search_response.get("text", "なし"))
+                            search_in_tokens = int(search_response.get("in_tokens", 0))
+                            search_out_tokens = int(search_response.get("out_tokens", 0))
+                            search_cost = (search_in_tokens * PRICE_BACKGROUND_IN + search_out_tokens * PRICE_BACKGROUND_OUT)
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type="SEARCH_EXECUTION",
+                                processing_time=search_execution_elapsed,
+                                in_t=search_in_tokens,
+                                out_t=search_out_tokens,
+                                api_cost=search_cost,
+                                details="Google Search Grounding",
+                                message_id=str(current_msg_id)
                             )
-                            # st.code(search_result[:500])
+
+                            add_permanent_tokens(
+                                CURRENT_USER_ID,
+                                "search_execution",
+                                search_in_tokens,
+                                search_out_tokens
+                            )
 
                             try:
                                 supabase.table("search_logs").insert({
@@ -1979,6 +6327,540 @@ with all_tabs[0]:
 
                         else:
                             search_result = "なし"
+                        
+                        # ==========================================
+                        # Python不動産売却計算
+                        # ==========================================
+
+                        calculation_extraction_result = {
+                            "should_calculate": False,
+                            "arguments": {},
+                            "extraction_status":
+                                "not_applicable",
+                            "in_tokens": 0,
+                            "out_tokens": 0,
+                            "cost": 0.0
+                        }
+
+                        calculation_execution_result = {
+                            "status": "not_applicable",
+                            "result": None,
+                            "missing_fields": [],
+                            "error": None
+                        }
+
+                        calculation_pending = bool(
+                            st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
+                        )
+
+                        is_calculation_candidate = (
+                            calculation_tool
+                            == "real_estate_sale"
+                        )
+
+                        if is_calculation_candidate:
+                            calculation_start_time = (
+                                time.time()
+                            )
+
+                            calculation_extraction_result = (
+                                extract_real_estate_sale_parameters(
+                                    user_input=user_input,
+                                    recent_history=
+                                        recent_history_str
+                                )
+                            )
+
+                            extraction_elapsed = (
+                                time.time()
+                                - calculation_start_time
+                            )
+
+                            # 前回までに確認できている条件
+                            previous_arguments = dict(
+                                st.session_state.get(
+                                    "real_estate_calculation_arguments",
+                                    {}
+                                )
+                                or {}
+                            )
+
+                            # st.write("calculation_extraction_result")
+                            # st.code(
+                            #     json.dumps(
+                            #         calculation_extraction_result,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+
+                            # 今回新しく抽出された条件
+                            current_arguments = dict(
+                                calculation_extraction_result.get(
+                                    "arguments",
+                                    {}
+                                )
+                                or {}
+                            )
+
+                            # 前回条件を今回条件で上書きする
+                            # 同じ項目がある場合は最新発言を優先
+                            merged_arguments = dict(previous_arguments)
+                            for key, value in current_arguments.items():
+                                if value is None:
+                                    continue
+                                if value == "":
+                                    continue
+                                # 数値項目で0なら前回値を維持
+                                if (
+                                    key in REAL_ESTATE_NUMERIC_FIELDS
+                                    and str(value) == "0"
+                                    and key in previous_arguments
+                                ):
+                                    continue
+
+                                merged_arguments[key] = value
+                            
+                            # st.write("previous_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         previous_arguments,
+                            #         ensure_ascii=False,
+                            #          indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+                            # st.write("current_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+
+                            calculation_extraction_result["arguments"] = merged_arguments
+
+                            # st.write("calculation_tool", calculation_tool)
+                            # st.write("merged_arguments", merged_arguments)
+                            # st.write(
+                            #     "active_case",
+                            #     st.session_state.get(
+                            #         "active_calculation_case_id"
+                            #     )
+                            # )
+
+                            # st.write(
+                            #     "active_case",
+                            #     st.session_state.get(
+                            #         "active_calculation_case_id"
+                            #     )
+                            # )
+
+                            if (
+                                calculation_tool == "real_estate_sale"
+                                and merged_arguments
+                                and not st.session_state.get(
+                                    "active_calculation_case_id"
+                                )
+                            ):
+                                candidates = (
+                                    get_calculation_case_candidates(
+                                        case_type="real_estate_sale",
+                                        user_input=user_input
+                                    )
+                                )
+
+                                if not candidates:
+
+                                    property_usage = (
+                                        merged_arguments.get(
+                                            "property_usage",
+                                            "owner_occupied"
+                                        )
+                                    )
+
+                                    create_result = (
+                                        create_calculation_case(
+                                            case_type="real_estate_sale",
+                                            property_usage=property_usage,
+                                            case_data=merged_arguments,
+                                            current_plan_type=current_plan_type
+                                        )
+                                    )
+                                    # st.write(create_result)
+
+                                    if create_result.get("success"):
+
+                                        st.session_state[
+                                            "active_calculation_case_id"
+                                        ] = (
+                                            create_result.get(
+                                                "case_id"
+                                            )
+                                        )
+                                else:
+                                    st.session_state["pending_case_candidates"] = candidates
+                                    st.session_state["pending_case_selection"] = True
+                                    st.session_state["pending_case_arguments"] = make_json_safe(merged_arguments)
+                                    candidate_lines = []
+                                    for i, case in enumerate(candidates, start=1):
+
+                                        updated_at = (
+                                            str(case.get("updated_at", ""))
+                                            .replace("T", " ")[:16]
+                                        )
+
+                                        candidate_lines.append(
+                                            f"{i}. {case.get('case_name', '')}\n"
+                                            f"最終更新: {updated_at}"
+                                        )
+
+                                    ai_reply = (
+                                        "以前の計算案件が見つかりました。\n\n"
+                                        + "\n\n".join(candidate_lines)
+                                        + "\n\nどの案件を利用しますか？"
+                                    )
+                                    st.markdown(
+                                        f"{current_concierge_name}: "
+                                        f"{ai_reply}"
+                                    )
+
+                                    save_message(
+                                        "assistant",
+                                        ai_reply,
+                                        current_msg_id,
+                                        response_mode
+                                    )
+
+                                    st.stop()
+                                    
+                            elif (
+                                calculation_tool == "real_estate_sale"
+                                and merged_arguments
+                                and st.session_state.get(
+                                    "active_calculation_case_id"
+                                )
+                            ):
+                                update_calculation_case(
+                                    case_id=st.session_state["active_calculation_case_id"],
+                                    case_name=st.session_state.get("active_calculation_case_name"),
+                                    new_case_data=merged_arguments
+                                )
+
+                            # st.write("merged_arguments")
+                            # st.code(
+                            #     json.dumps(
+                            #         merged_arguments,
+                            #         ensure_ascii=False,
+                            #         indent=2,
+                            #         default=str
+                            #     ),
+                            #     language="json"
+                            # )
+
+                            calculation_execution_result = (
+                                execute_real_estate_sale_calculation(
+                                    calculation_extraction_result
+                                )
+                            )
+
+                            calculation_elapsed = (
+                                time.time()
+                                - calculation_start_time
+                            )
+
+                            calculation_status = (
+                                calculation_execution_result.get(
+                                    "status",
+                                    "calculation_error"
+                                )
+                            )
+
+                            if calculation_status == "missing_fields":
+                                # 条件不足の場合は、
+                                # 確認済み条件を次の会話まで保持
+                                try:
+                                    saved_arguments = (
+                                        normalize_real_estate_sale_arguments(
+                                            merged_arguments,
+                                            apply_defaults=False
+                                        )
+                                    )
+                                    # st.write("saved_arguments")
+
+                                    # st.code(
+                                    #    json.dumps(
+                                    #         saved_arguments,
+                                    #         ensure_ascii=False,
+                                    #         indent=2,
+                                    #         default=str
+                                    #     ),
+                                    #     language="json"
+                                    # )
+
+                                except Exception:
+                                    saved_arguments = (merged_arguments)
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = saved_arguments
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                                missing_fields = (
+                                    calculation_execution_result.get(
+                                        "missing_fields",
+                                        []
+                                    )
+                                )
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_MISSING_FIELDS"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        " | missing="
+                                        + ",".join(
+                                            missing_fields
+                                        )
+                                    ),
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == "success":
+                                # 計算に使用した最新条件を、次回の再計算用に保持
+                                try:
+                                    saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
+                                except Exception:
+                                    saved_arguments = dict(merged_arguments)
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = False
+
+                                result = (
+                                    calculation_execution_result.get(
+                                        "result",
+                                        {}
+                                    )
+                                )
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_SUCCESS"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        f" | owner={result.get('owner_type')}"
+                                        f" | holding={result.get('holding_type')}"
+                                        f" | taxable_gain={result.get('taxable_gain')}"
+                                        f" | tax={result.get('estimated_tax')}"
+                                        f" | cash_after_tax={result.get('cash_after_tax')}"
+                                    ),
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == (
+                                "calculation_error"
+                            ):
+                                # 入力値の修正を受け付けるため、
+                                # 現在の条件を保持
+                                try:
+                                    saved_arguments = (
+                                        normalize_real_estate_sale_arguments(
+                                            merged_arguments
+                                        )
+                                    )
+                                except Exception:
+                                    saved_arguments = (
+                                        merged_arguments
+                                    )
+
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = saved_arguments
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type=(
+                                        "CALCULATION_ERROR"
+                                    ),
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "tool=real_estate_sale"
+                                        f" | error={calculation_execution_result.get('error', '')}"
+                                    )[:500],
+                                    message_id=str(
+                                        current_msg_id
+                                    )
+                                )
+
+                            elif calculation_status == (
+                                "extraction_error"
+                            ):
+                                # 抽出失敗時は以前の条件を消さず、
+                                # 再入力を受け付ける
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
+                            else:
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = {}
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = False
+
+                            extraction_in_tokens = int(
+                                calculation_extraction_result.get(
+                                    "in_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            extraction_out_tokens = int(
+                                calculation_extraction_result.get(
+                                    "out_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            extraction_cost = float(
+                                calculation_extraction_result.get(
+                                    "cost",
+                                    0.0
+                                )
+                                or 0.0
+                            )
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type=(
+                                    "CALCULATION_EXTRACTION"
+                                ),
+                                processing_time=
+                                    extraction_elapsed,
+                                in_t=
+                                    extraction_in_tokens,
+                                out_t=
+                                    extraction_out_tokens,
+                                api_cost=
+                                    extraction_cost,
+                                details=(
+                                    "tool=real_estate_sale"
+                                ),
+                                message_id=str(
+                                    current_msg_id
+                                )
+                            )
+
+                            if (
+                                extraction_in_tokens > 0
+                                or extraction_out_tokens > 0
+                            ):
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "real_estate_extraction",
+                                    extraction_in_tokens,
+                                    extraction_out_tokens
+                                )
+
+                            # save_system_audit_log(
+                            #     user_id=CURRENT_USER_ID,
+                            #     plan_type=current_plan_type,
+                            #     event_type=(
+                            #         "REAL_ESTATE_CALCULATION"
+                            #     ),
+                            #     processing_time=(
+                            #         calculation_elapsed
+                            #     ),
+                            #     in_t=extraction_in_tokens,
+                            #     out_t=extraction_out_tokens,
+                            #     api_cost=extraction_cost,
+                            #     details=(
+                            #         "不動産売却計算"
+                            #         " | 状態: "
+                            #         f"{calculation_status}"
+                            #     ),
+                            #     message_id=str(
+                            #         current_msg_id
+                            #     )
+                            # )
+
+                        calculation_prompt_block = (
+                            build_real_estate_calculation_context(
+                                calculation_execution_result
+                            )
+                        )
+
+                        # st.write(
+                        #     f"DEBUG status = "
+                        #     f"{calculation_execution_result.get('status')}"
+                        # )
+                        # st.code(
+                        #     build_real_estate_calculation_context(
+                        #         calculation_execution_result
+                        #     ),
+                        #     language="text"
+                        # )
+
+                        # if calculation_prompt_block:
+                        #     st.code(calculation_prompt_block, language="text")
+
+                        selected_mode_prompt = MODE_PROMPTS.get(
+                            response_mode,
+                            MODE_PROMPTS["default"]
+                        )
+
+                        short_history_lines = recent_history_lines[-2:]
+                        short_history_str = "\n".join(
+                            short_history_lines
+                        )
+                        if response_mode == "micro_chat":
+                            use_recent_history = short_history_str
+                        else:
+                            use_recent_history = recent_history_str
 
                         summary_memories = get_memories(source="summary")
 
@@ -1986,408 +6868,520 @@ with all_tabs[0]:
                             [m["fact"] for m in summary_memories]
                         ) if summary_memories else "なし"
 
-                        # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
-                        system_instruction = f"""
-                        あなたの名前は「{current_concierge_name}」です。
-                        対話相手の名前は「{display_user_name}」です。
-                        一人称は「{current_first_person}」を使用してください。
+                        if is_micro_chat(user_input):
+                            # 超軽量ルート
+                            system_instruction = f"""
+                            あなたの名前は「{current_concierge_name}」です。
+                            対話相手の名前は「{display_user_name}」です。
+                            一人称は「{current_first_person}」を使用してください。
 
-                        【現在の人格】
-                        {STYLE_PRESETS.get(current_style_preset, "")}
+                            【現在の人格】
+                            {STYLE_PRESETS.get(current_style_preset, "")}
 
-                        【現在の応答方針】
-                        {current_user_instruction}
+                            {response_length_prompt}
 
-                        【話し方の決定ルール】
-                        ・話し方、口調、語尾、一人称、方言、キャラクター性は、現在設定されている人格と応答方針のみから決定してください。
-                        ・直近履歴内のAI発言の話し方、語尾、方言、一人称、キャラクター性を模倣したり引き継いではいけません。
-                        ・直近履歴は、会話の流れや文脈を理解するためだけに使用してください。話し方の決定には使用してはいけません。
+                            【直近の会話履歴】
+                            {use_recent_history}
 
-                        【ルールの優先順位】
-                        1. 最新のユーザー発言へ正確かつ自然に反応する
-                        2. 現在の人格と応答方針を守る
-                        3. 記憶されている事実を正確に使用する
-                        4. 寝る宣言後のツッコミルール
-                        5. 時間帯に応じた気遣い
-                        6. 直近履歴と関連過去ログを補助的に使用する
-
-                        下位のルールを理由に、上位のルールを無視してはいけません。
-
-                        【現在の日本時間】
-                        {current_time_str}
-
-                        【記憶の要約】
-                        {summary_memory_context}
-
-                        【ユーザーが手動登録した基本情報】
-                        {manual_memory_context}
-
-                        【記憶参照ルール】
-                        ・趣味、好きなこと、休日の過ごし方、家族、仕事、価値観、生活習慣、継続中のプロジェクトについて質問された場合は、記憶の要約と手動登録情報を最優先してください。
-                        ・定期的に行う活動や休日によく行う活動は、趣味として扱って構いません。
-                        ・映画鑑賞、ドラマ鑑賞、読書など、本人が継続的に楽しんでいる活動は趣味として扱って構いません。
-                        ・「特定の作品名、特定の番組名、特定の映画タイトルそのものは趣味ではなく好きな作品として扱ってください。
-                        ・仕事や開発プロジェクトは、趣味として回答してはいけません。
-                        ・趣味を質問された場合、仕事・開発プロジェクト・業務・勉強は仕事・開発プロジェクト・業務・勉強は趣味の候補から除外してください。
-                        ・趣味と仕事の両方に関わる活動でも、本人が趣味と明言していない限り、趣味として回答してはいけません。
-                        ・記憶にある事実と、現在よく話題にしている内容を混同しないでください。
-                        ・記憶内に回答の根拠がある場合は、その事実を最初に答えてください。
-                        ・記憶内に根拠がない情報は推測や創作で補わず、「その情報はまだ覚えていない」と正直に答えてください。
-                        ・読書、映画、散歩など、記憶に存在しない一般的な情報を作ってはいけません。
-                        ・記憶は必要な部分だけ自然に利用し、無関係なプロフィール情報を一度に列挙しないでください。
-                        ・AI自身の趣味、好み、経験、思い出、生活習慣を実在するものとして創作しないでください。
-                        ・ユーザーからAI自身の好みや体験について質問された場合は、実際に経験したかのように断言せず、人格に沿った仮定や会話上の表現として回答してください。
-                        ・会話の中心はユーザーとし、ユーザーの話題や考えを深掘りすることを優先してください。
-
-                        【直近の会話履歴・古い順】
-                        {recent_history_str}
-
-                        【現在の発言に関連する過去の会話】
-                        {past_logs_str}
-                        【検索結果】
-                        {search_result}
-
-                        【履歴の利用ルール】
-                        ・直近履歴は、現在の会話の順序や文脈を判断するために使用してください。
-                        ・関連過去ログは、過去の事実を確認するための補助情報です。
-                        ・過去ログに同じ質問が複数存在しても、それだけを事実の根拠にしてはいけません。
-                        ・ユーザーの質問文だけが検索結果にある場合、その質問に対する答えを推測してはいけません。
-                        ・直近履歴と関連過去ログが競合する場合は、時系列が明確な直近履歴を優先してください。
-                        ・過去のAI発言に誤った内容があっても、それを正しい記憶として引き継いではいけません。
-                        ・最新のユーザー発言への反応を中心にし、記憶や過去ログを不自然に大量列挙しないでください。
-                        ・ユーザーの発言を言い換えるだけで終わらず、感想、共感、質問、または人格に合った自然な反応を返してください。
-
-                        【会話の自然さルール】
-                        ・ユーザーの発言内容をそのまま言い換えて返すことを避けてください。
-                        ・回答の冒頭で「○○だったんだね」「○○なんだね」「○○してきたんだね」のような単純な復唱を毎回行わないでください。
-                        ・まず感想、驚き、共感、質問、ツッコミ、考察のいずれかから会話を始めてください。
-                        ・復唱は本当に重要な確認が必要な場合のみ使用してください。
-                        ・同じ言い回しが続かないよう、会話の始め方に変化を持たせてください。
-                        ・共感や労いは大切ですが、毎回同じ励ましや休息提案だけで終わらせないでください。
-                        ・必要に応じて話題を広げたり、軽い雑談や考察を加えてください。
-                        ・「休んでね」「無理しないでね」などの表現を短い間隔で繰り返さないでください。
-                        ・質問は有効ですが、毎回質問で返さないでください。
-                        ・感想や考察だけで会話を続けることも許容してください。
-                        ・インタビューのように質問が連続しないようにしてください。
-
-                        【質問への対応】
-                        ・検索結果が存在する場合は、検索結果を優先して回答してください。
-                        ・検索結果と記憶の両方が存在する場合は、検索結果を基にしつつユーザーの過去の会話や好みに合わせて回答してください。
-                        ・不確かな内容や現在の状況を推測で断定しない。
-                        ・無理にそれらしい作品名や情報を作らない。
-                        ・ユーザーの好みや過去の会話が分かる場合は、それを活用して会話を続ける。
-                        ・分からない場合は無理に回答を作らず、自然な会話や関連する質問へつなげる。
-
-                        【時間帯に合わせた気遣い】
-                        必要な場合だけ、現在の応答スタイルに合わせた短い気遣いを加えてください。
-                        ・深夜（00:00から02:00）: 夜更かしを短く労う
-                        ・未明（02:00から05:00）: 異例の時間に起きていることを短く気遣う
-                        ・早朝（05:00から07:00）: 早い始動を前向きに応援する
-
-                        ただし、手動登録情報に夜勤や夜型生活の記録がある場合は、心配ではなく労いにしてください。
-                        直近履歴内でAIがすでに同じ時間帯への気遣いをしている場合は、再度行わないでください。
-                        時間帯への気遣いより、最新のユーザー発言への反応を優先してください。
-                        気遣いが不要な場合は、完全に省略して構いません。
-
-                        【寝る宣言後のツッコミルール】
-                        次の条件をすべて満たす場合だけ、現在の人格と応答方針に合った軽いツッコミを最初の1回だけ入れてください。
-
-                        1. 同じ日付の直近履歴内に、現在の発言より前のユーザー発言として「寝る」「もう寝る」「おやすみ」「寝ます」「そろそろ寝る」といった明確な終了宣言が実際に存在する
-                        2. AIがその終了宣言に対して一度見送りの返答をしている
-                        3. 見送り後に、ユーザーが別の話題で会話を再開している
-                        4. 同じ終了宣言に対するツッコミを、AIがまだ行っていない
-
-                        現在のユーザー発言そのものが初回の寝る宣言である場合は、絶対にツッコまず自然に見送ってください。
-                        明確な終了宣言が履歴に存在しない場合は、雰囲気や推測だけでツッコミを入れてはいけません。
-                        このルールは時間帯への気遣いより優先します。
-
-                        【時系列と事実の扱い】
-                        ・過去ログ内の「今日」「昨日」「明日」は、その発言日時を基準とした相対表現です。現在日時と混同しないでください。
-                        ・ユーザーから事実誤認、認識違い、解釈違いの指摘や訂正を受けた場合は、現在の正しい事実まで否定せず、該当する内容だけを自然に訂正してください。
-                        ・訂正や謝罪だけで会話を終了せず、可能であれば元の依頼や質問へ戻って回答を続けてください。
-                        ・ユーザーが明示していない感情、予定、経験、趣味、事情を決めつけないでください。
-                        ・ユーザーが「行ってくる」「寝る」「仕事に行く」など未来の予定を話した場合、その後の会話で実行済みとして扱ってはいけません。
-                        ・実行済みであることは、ユーザー本人が明示した場合のみ事実として扱ってください。
-
-                        【専門作業の制限】
-                        プログラムのコード記述、画像生成、長文の執筆や翻訳を依頼された場合は実行せず、現在の人格を保ちながら丁寧に断ってください。
-
-                        【数値計算の注意】
-                        ・金額計算では、過去のAI回答の数値を根拠として再計算してはいけません。
-                        ・ユーザーが提示した数値と、現在の会話内で確定している数値のみを使用してください。
-                        ・計算に必要な数値が不足している場合は、金額を推測して補完してはいけません。
-                        ・ユーザーから「計算が違う」「数字がおかしい」などの指摘を受けた場合は、まず直前の回答内の計算式と数値を確認してください。
-                        ・直前の回答に使用した数値が存在する場合は、ユーザーへ再入力を求める前に、その数値を使って再計算してください。
-                        
-                        【出力ルール】
-                        ・現在の人格と応答方針を回答全体で統一する
-                        ・最新のユーザー発言への反応から回答する
-                        ・同じ導入文や気遣いを繰り返さない
-                        ・記憶にない事実を作らない
-                        ・不要な個人情報や記憶をまとめて披露しない
-                        ・計算、比較、分析、相談では、結論を先に示してから説明する
-                        ・ただし、謝罪、訂正、計算ミスの修正、認識違いの修正を行う場合は、「結論からお伝えすると」を使用せず、誤りの内容や修正点を簡潔に伝えてください。
-                        ・情報量が多い場合は、見出し、箇条書き、適切な改行を使い読みやすく整理する
-                        ・提供された数値から概算可能な場合は、一般論だけで終えず試算結果も提示する
-                        ・計算結果を提示する場合は、使用した前提条件、計算式、使用した数値、計算結果を示す。計算式と結果に矛盾がないか確認し、前回の試算から変更がある場合は変更理由を説明する。
-                        ・前提条件が変わっていない場合は、前回と同じ結果になっても構いません。
-                        ・同じ会話内で既に説明済みの前提条件は、変更がない限り毎回繰り返し説明する必要はありません。
-                        ・ユーザーが一部条件のみ変更した場合は、変更された箇所を中心に簡潔に回答してください。
-                        ・新しい数値を作るために計算結果を変更してはいけません。
-                        ・複数の金額や条件を比較する場合は、可能な限り比較表形式で整理する
-                        ・推測や概算で計算している部分と、確定している数値は区別して説明する
-                        ・太字装飾記号は使用しない
-                        """
-
-                        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
-                    
-                        try:
-                            # Geminiへの指示（プロンプト）の流し込み口
-                            json_instruction = f"""
-                            以下のユーザー発言に回答してください。
-
-                            同時に、ユーザーが今回の発言で新しく指定した
-                            口調、話し方、回答の長さ、回答形式、禁止事項などの
-                            継続的な要望があれば抽出してください。
-
-                            必ず次のJSONオブジェクトだけを返してください。
-
-                            {{
-                                "reply": "ユーザーへの回答",
-                                "new_instruction": "新しく指定された継続的な要望。なければ、なし"
-                            }}
-
-                            ルール:
-                            ・replyには、ユーザーへの自然な回答を入れてください。
-                            ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
-                            ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
-                            ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
-                            ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
-                            ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
-                            ・JSONの外に説明文を出さないでください。
-                            ・```jsonなどの囲み記号を付けないでください。
-
-                            ユーザー発言:
-                            {user_input}
+                            {selected_mode_prompt}
                             """
 
+                        else:
+                            # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
+                            system_instruction = f"""
+                            あなたの名前は「{current_concierge_name}」です。
+                            対話相手の名前は「{display_user_name}」です。
+                            一人称は「{current_first_person}」を使用してください。
+
+                            【現在の人格】
+                            {STYLE_PRESETS.get(current_style_preset, "")}
+
+                            【話し方の決定ルール】
+                            ・話し方、口調、語尾、一人称、キャラクター性は、現在の人格から決定してください。
+                            ・人格の特徴は、回答全体と文末表現で自然に使用してください。
+                            ・回答の途中で違う話し方や口調になったりせず、回答全体を通して維持してください。
+                            ・直近履歴内のAIの口調、語尾、方言、一人称、キャラクター性は模倣せず、会話の文脈だけを参照してください。
+
+                            【ルールの優先順位】
+                            1. 最新のユーザー発言へ正確かつ自然に反応する
+                            2. 現在の回答モード（analysis / support / conversation / factual / short_chat）の目的を優先する
+                            3. 現在の人格を守る
+                            4. 記憶されている事実を正確に使用する
+                            5. 時間帯に応じた気遣い
+                            6. 直近履歴と関連過去ログを補助的に使用する
+
+                            下位のルールを理由に、上位のルールを無視してはいけません。
+
+                            【現在の日本時間】
+                            {current_time_str}
+
+                            【記憶の要約】
+                            {summary_memory_context}
+
+                            【ユーザーが手動登録した基本情報】
+                            {manual_memory_context}
+
+                            【記憶参照ルール】
+                            ・趣味、好きなこと、休日の過ごし方、家族、仕事、価値観、生活習慣、継続中の計画について質問された場合は、記憶の要約と手動登録情報を優先してください。
+                            ・定期的に行う活動や継続的に楽しんでいる活動は趣味として扱って構いません。
+                            ・「特定の作品名、番組名、映画タイトルなどは、「趣味」ではなく「好きな作品」として扱ってください。
+                            ・仕事、開発、勉強は、ユーザーが明示しない限り趣味として扱ってはいけません。
+                            ・記憶は関連する部分だけ自然に使用し、無関係な情報を列挙してはいけません。
+                            ・推測、解釈、補完によって導いた内容を事実として扱ったり、記憶の根拠として使用してはいけません。
+                            ・記憶にある事実と、現在よく話題にしている内容を混同しないでください。
+                            ・記憶内に根拠がある場合は、その事実を優先して回答してください。
+                            ・記憶内に根拠がない情報は推測や創作で補わず、「まだ覚えていない」と正直に答えてください。
+                            ・過去の会話を参照する際は、「ユーザーが実際に話した内容」と「AIが推測した内容」を混同してはいけません。
+                            
+                            【直近の会話履歴・古い順】
+                            {use_recent_history}
+
+                            【現在の発言に関連する過去の会話】
+                            {past_logs_str}
+
+                            【検索結果】
+                            {search_result}
+
+                            {calculation_prompt_block}
+
+                            【履歴の利用ルール】
+                            ・直近履歴は現在の会話の流れや文脈を理解するために使用してください。
+                            ・関連過去ログは補助情報として扱い、ユーザー本人の発言だけを事実の根拠にしてください。
+                            ・直近履歴と関連過去ログが競合する場合は、新しく時系列が明確な直近履歴を優先してください。
+                            ・最新のユーザー発言への反応を中心とし、過去ログを不自然に列挙してはいけません。
+
+                            【会話の自然さルール】
+                            ・ユーザーの発言内容をそのまま言い換えて返すことを避けてください。
+                            ・回答の冒頭で「○○だったんだね」「○○なんだね」「○○してきたんだね」のような単純な復唱を毎回行わないでください。
+                            ・まず感想、驚き、共感、質問、ツッコミ、考察のいずれかから会話を始めてください。
+                            ・復唱は本当に重要な確認が必要な場合のみ使用してください。
+                            ・同じ言い回しが続かないよう、会話の始め方に変化を持たせてください。
+                            ・共感や労いは大切ですが、毎回同じ励ましや休息提案だけで終わらせないでください。
+                            ・必要に応じて話題を広げたり、軽い雑談や考察を加えてください。
+                            ・「休んでね」「無理しないでね」などの表現を短い間隔で繰り返さないでください。
+                            ・質問は有効ですが、毎回質問で返さないでください。
+                            ・感想や考察だけで会話を続けることも許容してください。
+                            ・会話の中心はユーザーとし、ユーザーの話題や考えを深掘りすることを優先してください。
+                            ・ユーザーが明示的に話した内容のみを事実として扱ってください。
+                            ・「お持ちします」「ご案内します」などの表現は会話上の演出として使用できますが、実際に物理的な行動を行った事実として扱ってはいけません。
+                            ・AI自身が飲食、移動、作業、睡眠、仕事、趣味活動などを実際に行ったかのように語ってはいけません。
+
+                            【質問への対応】
+                            ・検索結果が存在する場合は、検索結果を優先して回答してください。
+                            ・検索結果と記憶の両方が存在する場合は、検索結果を基にしつつユーザーの過去の会話や好みに合わせて回答してください。
+                            ・不確かな内容や現在の状況を推測で断定しない。
+                            ・無理にそれらしい作品名や情報を作らない。
+                            ・ユーザーの好みや過去の会話が分かる場合は、それを活用して会話を続ける。
+                            ・分からない場合は無理に回答を作らず、自然な会話や関連する質問へつなげる。
+
+                            【時間帯に合わせた気遣い】
+                            必要な場合だけ、現在の応答スタイルに合わせた短い気遣いを加えてください。
+                            ・深夜（00:00から02:00）: 夜更かしを短く労う
+                            ・未明（02:00から05:00）: 異例の時間に起きていることを短く気遣う
+                            ・早朝（05:00から07:00）: 早い始動を前向きに応援する
+
+                            ただし、手動登録情報に夜勤や夜型生活の記録がある場合は、心配ではなく労いにしてください。
+                            直近履歴内でAIがすでに同じ時間帯への気遣いをしている場合は、再度行わないでください。
+                            時間帯への気遣いより、最新のユーザー発言への反応を優先してください。
+                            気遣いが不要な場合は、完全に省略して構いません。
+
+                            【時系列と事実の扱い】
+                            ・過去ログ内の「今日」「昨日」「明日」は、その発言日時を基準とした相対表現です。現在日時と混同しないでください。
+                            ・ユーザーから事実誤認、認識違い、解釈違いの指摘や訂正を受けた場合は、現在の正しい事実まで否定せず、該当する内容だけを自然に訂正してください。
+                            ・訂正や謝罪だけで会話を終了せず、可能であれば元の依頼や質問へ戻って回答を続けてください。
+                            ・ユーザーが明示していない感情、予定、経験、趣味、事情を決めつけないでください。
+                            ・ユーザーが「行ってくる」「寝る」「仕事に行く」など未来の予定を話した場合、その後の会話で実行済みとして扱ってはいけません。
+                            ・実行済みであることは、ユーザー本人が明示した場合のみ事実として扱ってください。
+                            ・曖昧な発言は、最も都合の良い解釈を決めつけず、会話文脈と現在時刻の両方を考慮してください。
+                            ・過去ログ内の未来予定を参照する場合は、現在日時との整合性を確認してください。
+                            ・予定日当日を過ぎている場合は、出発前提で話さず、結果や当日の出来事として扱うか、未確認の場合は状況を確認してください。
+
+                            【専門作業の制限】
+                            プログラムのコード記述、画像生成、長文の執筆や翻訳（記事、論文、契約書、小説執筆など）を依頼された場合は実行せず、現在の人格を保ちながら丁寧に断ってください。
+                            ただし、会話の一部として行う短編創作、昔話、寝物語、物語の続きは許可する
+
+                            【出力ルール】
+                            ・現在の人格を回答全体で統一する
+                            ・最新のユーザー発言への反応から回答する
+                            ・同じ導入文や気遣いを繰り返さない
+                            ・記憶にない事実を作らない
+                            ・不要な個人情報や記憶をまとめて披露しない
+                            ・情報量が多い場合は、見出し、箇条書き、適切な改行を使い読みやすく整理する
+                            ・太字装飾記号は使用しない
+
+                            {selected_mode_prompt}
+                            """
+
+                        recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
+
+                        # st.code(system_instruction, language="text")
+                    
+                        try:
+                            # ==========================================
+                            # 通常のテキスト応答生成
+                            # ==========================================
                             api_start_time = time.time()
-                            # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
-                            json_model = genai.GenerativeModel(
+
+                            response_model = genai.GenerativeModel(
                                 model_name=CHAT_MODEL_NAME,
                                 system_instruction=system_instruction
                             )
 
-                            response = json_model.generate_content(
-                                [
-                                    {
-                                        "role": "user",
-                                        "parts": [json_instruction]
-                                    }
-                                ],
-                                generation_config={
-                                    "response_mime_type": "application/json"
-                                }
-                            )
+                            response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
 
-                            api_elapsed = time.time() - api_start_time
+                            api_elapsed = (time.time() - api_start_time)
 
-                            in_t, out_t = 0, 0
-                            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                                in_t = response.usage_metadata.prompt_token_count
-                                out_t = response.usage_metadata.candidates_token_count
-                                add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                                st.session_state.last_in_tokens = in_t
-                                st.session_state.last_out_tokens = out_t
-                                st.session_state.total_in_tokens += in_t
-                                st.session_state.total_out_tokens += out_t
+                            # AIサーバーとの通信結果を確認
+                            if (
+                                not response
+                                or not hasattr(response, "text")
+                                or not response.text
+                            ):
+                                st.error(
+                                    "【システム通信エラー】"
+                                    "AIサーバーとの接続が一時的に遮断されました。"
+                                    "電波環境の良い場所で、"
+                                    "もう一度メッセージを送信してください。"
+                                )
+                                st.stop()
+
+                            # 通常のテキストをそのまま回答として使用
+                            ai_reply = str(
+                                response.text
+                                or ""
+                            ).strip()
+
+                            if not ai_reply:
+                                raise ValueError("AIの回答が空です")
+
+                            # トークン数を取得して保存
+                            in_t = 0
+                            out_t = 0
+
+                            if (
+                                hasattr(response, "usage_metadata")
+                                and response.usage_metadata
+                            ):
+                                in_t = int(
+                                    response
+                                    .usage_metadata
+                                    .prompt_token_count
+                                    or 0
+                                )
+
+                                out_t = int(
+                                    response
+                                    .usage_metadata
+                                    .candidates_token_count
+                                    or 0
+                                )
+
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "chat",
+                                    in_t,
+                                    out_t
+                                )
+
+                                st.session_state.last_in_tokens = (in_t)
+                                st.session_state.last_out_tokens = (out_t)
+                                st.session_state.total_in_tokens += (in_t)
+                                st.session_state.total_out_tokens += (out_t)
+
+                            print("📡 AIテキスト応答確認: "f"{ai_reply[:15]}...")
+
+                            # # Geminiへの指示（プロンプト）の流し込み口
+                            # json_instruction = f"""
+                            # 以下のユーザー発言に回答してください。
+
+                            # 同時に、ユーザーが今回の発言で新しく指定した
+                            # 口調、話し方、回答の長さ、回答形式、禁止事項などの
+                            # 継続的な要望があれば抽出してください。
+
+                            # 必ず次のJSONオブジェクトだけを返してください。
+
+                            # {{
+                            #     "reply": "ユーザーへの回答",
+                            #     "new_instruction": "新しく指定された継続的な要望。なければ、なし"
+                            # }}
+
+                            # ルール:
+                            # ・replyには、ユーザーへの自然な回答を入れてください。
+                            # ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
+                            # ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
+                            # ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
+                            # ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
+                            # ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
+                            # ・JSONの外に説明文を出さないでください。
+                            # ・```jsonなどの囲み記号を付けないでください。
+
+                            # ユーザー発言:
+                            # {user_input}
+                            # """
+
+                            # api_start_time = time.time()
+                            # # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
+                            # json_model = genai.GenerativeModel(
+                            #     model_name=CHAT_MODEL_NAME,
+                            #     system_instruction=system_instruction
+                            # )
+
+                            # response = json_model.generate_content(
+                            #     [
+                            #         {
+                            #             "role": "user",
+                            #             "parts": [json_instruction]
+                            #         }
+                            #     ],
+                            #     generation_config={
+                            #         "response_mime_type": "application/json"
+                            #     }
+                            # )
+
+                            # api_elapsed = time.time() - api_start_time
+
+                            # in_t, out_t = 0, 0
+                            # if hasattr(response, "usage_metadata") and response.usage_metadata:
+                            #     in_t = response.usage_metadata.prompt_token_count
+                            #     out_t = response.usage_metadata.candidates_token_count
+                            #     add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
+                            #     st.session_state.last_in_tokens = in_t
+                            #     st.session_state.last_out_tokens = out_t
+                            #     st.session_state.total_in_tokens += in_t
+                            #     st.session_state.total_out_tokens += out_t
                             
-                            # 届いたJSONデータをを解体して引き出しを取り出します
-                            try:
+                            # # 届いたJSONデータをを解体して引き出しを取り出します
+                            # try:
     
-                                raw_json_text = response.text or ""
+                            #     raw_json_text = response.text or ""
 
-                                clean_json_text = (
-                                    raw_json_text
-                                    .strip()
-                                    .replace("```json", "")
-                                    .replace("```JSON", "")
-                                    .replace("```", "")
-                                    .strip()
-                                )
+                            #     clean_json_text = (
+                            #         raw_json_text
+                            #         .strip()
+                            #         .replace("```json", "")
+                            #         .replace("```JSON", "")
+                            #         .replace("```", "")
+                            #         .strip()
+                            #     )
 
-                                res_json = json.loads(
-                                    clean_json_text
-                                )
+                            #     res_json = json.loads(
+                            #         clean_json_text,
+                            #         strict=False
+                            #     )
 
-                                if not isinstance(res_json, dict):
-                                    raise ValueError(
-                                        "GeminiのJSON応答がobject形式ではありません"
-                                    )
+                            #     if not isinstance(res_json, dict):
+                            #         raise ValueError(
+                            #             "GeminiのJSON応答がobject形式ではありません"
+                            #         )
 
-                                ai_reply = str(
-                                    res_json.get(
-                                        "reply",
-                                        "申し訳ありません。応答を正しく処理できませんでした。"
-                                    )
-                                    or ""
-                                ).strip()
+                            #     ai_reply = str(
+                            #         res_json.get(
+                            #             "reply",
+                            #             "申し訳ありません。応答を正しく処理できませんでした。"
+                            #         )
+                            #         or ""
+                            #     ).strip()
 
-                                raw_new_manner = res_json.get(
-                                    "new_instruction",
-                                    "なし"
-                                )
+                            #     raw_new_manner = res_json.get(
+                            #         "new_instruction",
+                            #         "なし"
+                            #     )
 
-                                if isinstance(
-                                    raw_new_manner,
-                                    list
-                                ):
-                                    new_manner = "\n".join(
-                                        str(item).strip()
-                                        for item in raw_new_manner
-                                        if str(item).strip()
-                                    )
-                                else:
-                                    new_manner = str(
-                                        raw_new_manner or "なし"
-                                    ).strip()
+                            #     if isinstance(
+                            #         raw_new_manner,
+                            #         list
+                            #     ):
+                            #         new_manner = "\n".join(
+                            #             str(item).strip()
+                            #             for item in raw_new_manner
+                            #             if str(item).strip()
+                            #         )
+                            #     else:
+                            #         new_manner = str(
+                            #             raw_new_manner or "なし"
+                            #         ).strip()
 
-                                if not ai_reply:
-                                    raise ValueError(
-                                        "JSON内のreplyが空です"
-                                    )
+                            #     if not ai_reply:
+                            #         raise ValueError(
+                            #             "JSON内のreplyが空です"
+                            #         )
 
-                            except Exception as json_err:
-                                json_error_detail = (
-                                    f"{type(json_err).__name__}: "
-                                    f"{json_err}"
-                                )
+                            # except Exception as json_err:
+                            #     json_error_detail = (
+                            #         f"{type(json_err).__name__}: "
+                            #         f"{json_err}"
+                            #     )
+                            #     # st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
 
-                                print(
-                                    f"⚠️ JSON解析エラー: "
-                                    f"{json_error_detail}"
-                                )
+                            #     print(
+                            #         f"⚠️ JSON解析エラー: "
+                            #         f"{json_error_detail}"
+                            #     )
 
-                                st.code(
-                                    response.text or "(空の応答)",
-                                    language="json"
-                                )
+                            #     # st.code(
+                            #     #     response.text or "(空の応答)",
+                            #     #     language="json"
+                            #     # )
 
-                                # JSON解析に失敗しても、空返答にはしない
-                                ai_reply = (
-                                    response.text
-                                    if response.text
-                                    else "申し訳ありません。応答を正しく処理できませんでした。"
-                                )
+                            #     # JSON解析に失敗しても、空返答にはしない
+                            #     ai_reply = (
+                            #         response.text
+                            #         if response.text
+                            #         else "申し訳ありません。応答を正しく処理できませんでした。"
+                            #     )
 
-                                new_manner = "なし"
+                            #     new_manner = "なし"
                             
-                            # 🟢 【電波瞬断（Geminiエラー）のガードレール】
-                            #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
-                            #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
-                            if not response or not hasattr(response, "text") or not response.text:
-                                st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
-                                st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
+                            # # 🟢 【電波瞬断（Geminiエラー）のガードレール】
+                            # #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
+                            # #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
+                            # if not response or not hasattr(response, "text") or not response.text:
+                            #     st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
+                            #     st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
 
-                            # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
-                            print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
-                            print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
+                            # # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
+                            # print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
+                            # print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
 
-                            # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
-                            if new_manner and new_manner != "なし" and "なし" not in new_manner:
-                                current_instruction_text = str(current_user_instruction)
-                                lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
+                            # # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
+                            # if new_manner and new_manner != "なし" and "なし" not in new_manner:
+                            #     current_instruction_text = str(current_user_instruction)
+                            #     lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
                             
-                                if new_manner not in lines:
+                            #     if new_manner not in lines:
 
-                                    lines.append(new_manner)
+                            #         lines.append(new_manner)
 
-                                    if len(lines) > 5:
-                                        lines = lines[-5:]
+                            #         if len(lines) > 5:
+                            #             lines = lines[-5:]
 
-                                    updated_instruction_text = "\n".join(lines)
+                            #         updated_instruction_text = "\n".join(lines)
 
-                                    # 応答方針のレコードを探す
-                                    instruction_res = (
-                                        supabase
-                                        .table(DB_MEMORIES_TABLE)
-                                        .select("*")
-                                        .eq(
-                                            "user_id",
-                                            str(CURRENT_USER_ID)
-                                        )
-                                        .eq(
-                                            "source",
-                                            "manual"
-                                        )
-                                        .execute()
-                                    )
-                                    instruction_row = None
+                                #     # 応答方針のレコードを探す
+                                #     instruction_res = (
+                                #         supabase
+                                #         .table(DB_MEMORIES_TABLE)
+                                #         .select("*")
+                                #         .eq(
+                                #             "user_id",
+                                #             str(CURRENT_USER_ID)
+                                #         )
+                                #         .eq(
+                                #             "source",
+                                #             "manual"
+                                #         )
+                                #         .execute()
+                                #     )
+                                #     instruction_row = None
 
-                                    for row in instruction_res.data:
+                                #     for row in instruction_res.data:
 
-                                        fact = row.get("fact", "")
+                                #         fact = row.get("fact", "")
 
-                                        if fact.startswith("応答方針:"):
-                                            instruction_row = row
-                                            break
+                                #         if fact.startswith("応答方針:"):
+                                #             instruction_row = row
+                                #             break
 
-                                    if instruction_row:
+                                #     if instruction_row:
 
-                                        update_result = (
-                                            supabase
-                                            .table(DB_MEMORIES_TABLE)
-                                            .update({
-                                            "fact":
-                                            "応答方針: "
-                                            + updated_instruction_text
-                                            })
-                                            .eq(
-                                                "id",
-                                                instruction_row["id"]
-                                            )
-                                            .execute()
-                                        )
+                                #         update_result = (
+                                #             supabase
+                                #             .table(DB_MEMORIES_TABLE)
+                                #             .update({
+                                #             "fact":
+                                #             "応答方針: "
+                                #             + updated_instruction_text
+                                #             })
+                                #             .eq(
+                                #                 "id",
+                                #                 instruction_row["id"]
+                                #             )
+                                #             .execute()
+                                #         )
 
-                                    print(
-                                        "✅ 応答方針更新結果:",
-                                        update_result.data
-                                    )
-                                else:
+                                #     print(
+                                #         "✅ 応答方針更新結果:",
+                                #         update_result.data
+                                #     )
+                                # else:
 
-                                    print(
-                                        "⚠️ 応答方針レコードが見つかりませんでした"
-                                    )    
+                                #     print(
+                                #         "⚠️ 応答方針レコードが見つかりませんでした"
+                                #     )    
 
                             clean_reply = clean_bold_markdown(ai_reply)
                             # with st.chat_message("assistant", avatar=current_ai_avatar):
                             # with st.chat_message("assistant"):
                             # st.write(f"【{current_concierge_name}】: {clean_reply}")
-                            st.markdown(f"{current_concierge_name}: {clean_reply}")
+                            # st.markdown(f"{current_concierge_name}: {clean_reply}")
+
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": ai_reply,
+                                "message_id": current_msg_id,
+                                "response_mode": response_mode,
+                                "created_at": datetime.now(JST).isoformat()
+                            })
                             
-                            save_message("assistant", ai_reply)
+                            save_message("assistant", ai_reply, current_msg_id, response_mode)
+                            st.session_state.force_message_reload = True
                             st.session_state.conversation_count += 1
                             add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+
+                            if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                                
+                                # 最新100件より前のmicro_chatを削除
+                                deleted_count = cleanup_old_micro_chats()
+                                print(
+                                    f"micro_chat整理実行: "
+                                    f"{deleted_count}件削除"
+                                )
+
+                                # 期限切れ計算メモの削除
+                                expired_case_count = (cleanup_expired_calculation_cases())
+
+                                # 要約処理の実行（スレッド起動）
+                                async_thread = threading.Thread(
+                                    target=check_and_summarize_history,
+                                    args=(current_msg_id, current_plan_type)
+                                )
+                                async_thread.start()
+
+
 
                             # ==================================================================
                             # 🧠 記憶の自動要約マルチスレッド
                             # ==================================================================
                             # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
-                            import threading
+                            # import threading
         
                             #st.session_state.summary_in_tokens = 0
                             #st.session_state.summary_out_tokens = 0
                             #st.session_state.summary_processing_time = 0.0
         
                             # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
-                            all_messages_updated = get_messages(CURRENT_USER_ID)
-                            async_thread = threading.Thread(
-                                target=check_and_summarize_history, 
-                                args=(all_messages_updated, current_msg_id, current_plan_type) 
-                            )
-                            async_thread.start()
+                            # all_messages_updated = get_messages(CURRENT_USER_ID)
+                            # async_thread = threading.Thread(
+                            #     target=check_and_summarize_history, 
+                            #     args=(current_msg_id,current_plan_type)
+                            #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
+                            # )
+                            # async_thread.start()
+                            # if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
+                            #     async_thread = threading.Thread(
+                            #         target=check_and_summarize_history,
+                            #         args=(current_msg_id, current_plan_type)
+                            #     )
+                            #     async_thread.start()
+                            
+                            # st.warning(
+                            #     f"CHAT_SUCCESS SAVE: "
+                            #     f"msg_id={current_msg_id} "
+                            #     f"in={in_t} "
+                            #     f"out={out_t} "
+                            #     f"cost={current_通_cost}"
+                            # )
 
                             # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                             save_system_audit_log(
@@ -2446,6 +7440,55 @@ with all_tabs[0]:
                     """,
                     unsafe_allow_html=True
                 )
+                # MODE_LABELS = {
+                #     "micro_chat": "挨拶",
+                #     "analysis": "分析",
+                #     "conversation": "会話",
+                #     "support": "相談",
+                #     "factual": "質問",
+                #     "short_chat": "雑談"
+                # }
+                # col_spacer, col_save, col_mode = st.columns([6, 2, 1])
+                # with col_save:
+                #     if current_plan_type == "🆓 無料プラン":
+                #         st.caption("☆ 会話を保存")
+                #         # st.button(
+                #         #     "☆ 会話を保存",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # ):
+                #         #     st.toast("💎 ライトプラン以上で利用できます")
+                #     else:
+                #         # st.button(
+                #         #     "☆",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # )
+                #         st.caption("☆ 会話を保存")
+                #         # st.button(
+                #         #     "☆ 会話を保存",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # )
+
+                # saved_response_mode = msg.get("response_mode", "")
+                # with col_mode:
+                #     if saved_response_mode:
+                #         st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                #         # st.caption("🧠 会話モード")
+                #     else:
+                #         st.caption("🧠 不明")
+
+                st.write("")
+
+                # col_save, col_mode = st.columns([2, 1])
+                # with col_save:
+                #     if current_plan_type == "🆓 無料プラン":
+                #         st.caption("💎 ライトプラン以上で会話を保存できます")
+                #     else:
+
+                #         st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
+                # with col_mode:
+
+                #     # st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
+                #     st.caption("🧠 会話モード")
                 #st.divider()
 
             # st.write(
@@ -2457,36 +7500,392 @@ with all_tabs[0]:
             # with st.chat_message(msg["role"], avatar=avatar_img):
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
+with all_tabs[1]:
+    st.markdown("##### 🧠 長期記憶について")
+    st.caption("  AIは会話の中から、長期的に役立つ情報を整理して記憶しています。")
+    st.caption("  記憶量が増えるほど、過去の会話や好み、継続的な話題をより多く反映した会話が可能になります。")
+    st.write("")
+    st.caption(" 🆓 無料プラン：記憶量【小】、閲覧のみ")
+    st.write("")
+    st.caption(" 💎 ライトプラン：記憶量【中】、閲覧・編集可")
+    st.caption("  より多くの情報を長期記憶として保持")
+    st.write("")
+    st.caption(" 👑 スタンダードプラン：記憶量【大】、閲覧・編集可")
+    st.caption("  更に多くの情報を長期記憶として保持")
+
+    # st.divider()
+    st.markdown("---")
+
+    #　要約を取得・作成
+    summary_memories_setting = get_memories(
+        source="summary"
+    )
+    summary_memory_context_setting = (
+        "\n".join(
+            [m["fact"] for m in summary_memories_setting]
+        )
+        if summary_memories_setting
+        else "なし"
+    )
+    display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
+
+    #　要約を表示
+    st.markdown("##### 🧠 現在AIが覚えている長期記憶")
+    if display_summary != "なし":
+        #st.info(display_summary)
+        #st.caption("  AIが長期記憶として覚えている内容です。")
+        st.markdown(display_summary.replace("\n"," \n"))
+    else:
+        st.caption("  まだ覚えている情報はありません。")
+    
+    st.markdown("---")
+
+    if False:
+        st.markdown("##### 💬 保存されている会話")
+        if current_plan_type == "🆓 無料プラン":
+            st.caption("ここで保存した会話を確認できます。")
+            st.caption(" 💎 ライトプラン以上で利用できます。")
+
+        else:
+            st.caption("保存した会話を表示します。")
+            mock_saved_chats = [
+                {
+                    "title":
+                        "2026/09/24 21:15 の会話",
+                    "content":
+                        "Sync-Lnkスタンダードの料金設計について相談しました。"
+                },
+                {
+                    "title":
+                        "2026/09/20 18:42 の会話",
+                    "content":
+                        "ポイント構想について検討しました。"
+                }
+                ]
+            # saved_chats = (
+            #     supabase
+            #     .table("saved_chats")
+            #     .select("*")
+            #     .eq(
+            #         "user_id",
+            #         CURRENT_USER_ID
+            #     )
+            #     .order(
+            #         "created_at",
+            #         desc=True
+            #     )
+            #     .execute()
+            # )
+
+            if not mock_saved_chats:
+                st.caption("保存されたメモはありません。")
+            else:
+                for item in mock_saved_chats:
+                    with st.expander(
+                        f"📝 {item['title']}"
+                    ):
+                        st.write(item["content"])
+                        st.button(
+                            "削除",
+                            key=(
+                                f"delete_saved_"
+                                f"{item['title']}"
+                            ),
+                            disabled=True
+                        )
+
+    st.divider()
+
+with all_tabs[2]:
+    st.info("🚧 ただいま準備中です")
+
+if False:
+    with all_tabs[2]:
+        # current_plan_type = "スタンダード"
+        st.markdown("##### 📁 計画ルーム")
+        if (
+        "スタンダード"
+            not in current_plan_type
+        ):
+
+            st.info(
+                "💎 スタンダードプラン専用機能です。"
+            )
+
+            st.markdown(
+                """
+                AIと一緒に継続的なテーマを管理できます。
+
+                ・決定事項
+                ・検討中
+                ・保留事項
+                ・次にやること
+
+                を整理しながら進められます。
+                """
+            )
+
+        else:
+
+            st.caption(
+                "AIと一緒に計画を作り上げる専用ルームです。"
+            )
+
+            plan_view_mode = st.radio(
+                "",
+                [
+                "🚀 進行中の計画",
+                "✅ 完了済み計画"
+                ],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            st.markdown("---")
+
+            if plan_view_mode == "🚀 進行中の計画":
+                active_project = st.selectbox(
+                    "進行中",
+                    [
+                    "選択してください",
+                    "🚀 Sync-Lnk開発",
+                    "🏠 マイホーム計画"
+                    ]
+                )
+
+                col1, col2, col3 = st.columns([1,1,6])
+                with col1:
+                    active_show = st.button("計画表示", key="active_show")
+                with col2:
+                    active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+                st.markdown("---")
+            else:
+                completed_project = st.selectbox(
+                    "完了済みの計画",
+                    [
+                        "選択してください",
+                        "🎓 資格取得"
+                    ],
+                )
+                col1, col2, col3 = st.columns([1,1,6])
+                with col1:
+                    completed_show = st.button("計画表示", key="completed_show")
+                with col2:
+                    completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
+
+            st.markdown("---")
+
+            with st.expander(
+                "📌 計画タイトル（例）",
+                expanded=True
+            ):
+                st.markdown(
+                    """
+                    【計画概要】
+                    ※実際にはAIが内容に応じて整理します
+
+                    ---
+                    【✅ 決定事項】
+                    ・ライト480円
+                    ・スタンダード980円
+
+                    ---
+                    【🤔 検討中】
+                    ・ポイント設計
+
+                    ---
+                    【⏸ 保留事項】
+                    ・法人向けプラン
+
+                    ---
+                    【🚀 次にやること】
+                    ・会員基盤作成
+                    """
+                )
+
+            st.markdown("---")
+
+            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+
+            st.markdown("#### 💬 会話履歴")
+
+            st.info(
+                "会話履歴（モック表示）"
+            )
+
+            st.markdown(
+                """
+                👤 スタンダードの料金どうしようかな？
+
+                🤖 980円でも十分成立しそうです。
+                """
+            )
+
+            st.markdown(
+                """
+                👤 記憶ルームと計画ルームは分けたい。
+
+                🤖 その方が役割が明確になります。
+                """
+            )
+
+            st.chat_input(
+                "計画ルームで会話..."
+            )
+
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
-with all_tabs[1]:
+with all_tabs[3]:
         #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
         st.markdown("")
         st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
         st.divider()
 
-        st.markdown("##### 🎨 アプリの外観＆カラー")
-        with st.form("color_form_tab_admin"):
-            selected_color = st.selectbox("カラーテーマ（背景＆メッセージ枠）", list(THEMES.keys()), index=list(THEMES.keys()).index(current_theme_color) if current_theme_color in THEMES else 0)
-            if st.form_submit_button("カラー設定を保存"):
-                save_or_update_user_setting("カラーテーマ", selected_color)
-                st.toast("アプリのカラーを変更しました")
-                st.rerun()
+        with st.form("unified_settings_form"):
+            if "settings_saved" not in st.session_state:
+                st.session_state["settings_saved"] = False
+            if "settings_saved_position" not in st.session_state:
+                st.session_state["settings_saved_position"] = ""
 
-        st.divider()
-        st.markdown("##### 👤 基本設定")
-        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-        preset_keys = list(STYLE_PRESETS.keys())
-        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+            st.markdown("##### 🎨 アプリの外観＆カラー")
+            st.markdown("**カラーテーマ（背景＆メッセージ枠）**")
+            selected_color = st.selectbox(
+                "",
+                list(THEMES.keys()),
+                index=(
+                    list(THEMES.keys()).index(current_theme_color)
+                    if current_theme_color in THEMES
+                    else 0
+                ),
+                label_visibility="collapsed"
+            )
+            # 上部設定保存ボタン
+            top_save = st.form_submit_button(
+                "💾 設定を保存",
+                key="save_settings_top",
+            )
+            top_placeholder = st.empty()
+            if (
+                st.session_state.get("settings_saved")
+                and
+                st.session_state.get("settings_saved_position") == "top"
+            ):
+                top_placeholder.success("設定を登録しました")
+                st.session_state["settings_saved"] = False
 
-        with st.form("profile_form_tab_admin"):
-            new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
-            new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            st.divider()
+
+            st.markdown("##### 👤 基本設定")
+            honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
+            default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
+            preset_keys = list(STYLE_PRESETS.keys())
+            default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
+            default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+
+            # new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
+            # new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
+            # new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
+            # new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+            st.markdown("**AIの名前**")
+            new_concierge_name = st.text_input(
+                "",
+                value=current_concierge_name,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**あなたのお名前 / ニックネーム**")
+            new_user_name = st.text_input(
+                "",
+                value=current_user_name,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**AIからの呼び方（敬称）**")
+            new_user_honorific = st.selectbox(
+                "",
+                honorific_options,
+                index=default_honorific_idx,
+                label_visibility="collapsed"
+            )
+
+            st.markdown("**AIの一人称**")
+            new_first_person = st.selectbox(
+                "",
+                FIRST_PERSON_PRESETS,
+                index=default_fp_idx,
+                label_visibility="collapsed"
+            )
+
+            default_length_idx = (
+                RESPONSE_LENGTH_PRESETS.index(
+                    current_response_length
+                )
+                if current_response_length
+                in RESPONSE_LENGTH_PRESETS
+                else 1
+            )
+            st.markdown("---")
+            st.markdown("##### 💬 会話設定")
+            st.caption(
+                "返事の長さや方言を設定できます。"
+            )
+
+            # AIの人格を選択
+            st.markdown("**AIの人格・スタイル**")
+            selected_preset = st.selectbox(
+                "",
+                DISPLAY_PRESETS,
+                index=(
+                    DISPLAY_PRESETS.index(current_style_preset)
+                    if current_style_preset in DISPLAY_PRESETS
+                    else 0
+                ),
+                label_visibility="collapsed"
+            )
+            # selected_preset = st.selectbox(
+            #     "AIの人格・スタイル",
+            #     DISPLAY_PRESETS,
+            #     index=(
+            #         DISPLAY_PRESETS.index(current_style_preset)
+            #         if current_style_preset in DISPLAY_PRESETS
+            #         else 0
+            #     )
+            # )
+            # st.caption("🆓 無料: 設定なし / フランクな相棒 / 有能な執事・秘書")
+            # st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
+            # st.caption("")
+
+            # selected_preset = st.selectbox(
+            #     "AIの人格・スタイル",
+            #     [
+            #         "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
+            #         "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
+            #         "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】",
+
+            #         "──────────── 💎 ライト以上 ────────────",
+
+            #         "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
+            #         "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
+            #         "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
+            #         "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
+            #         "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
+            #         "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
+            #     ]
+            # )
+            if (
+                current_plan_type == "🆓 無料プラン"
+                and selected_preset in PREMIUM_PRESETS
+            ):
+                st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。人格を選び直してください。")
+                st.caption("")
+
+            with st.expander("💬 人格ごとの会話サンプルを見る"):
+                for personality, sample in PERSONALITY_SAMPLES.items():
+                    st.markdown(f" {personality}")
+                    st.markdown(sample)
+                    st.divider()
+            
+            st.caption("")
             # 絵文字3段階パーソナライズドロップダウン
             emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
             default_emoji_idx = (
@@ -2494,76 +7893,118 @@ with all_tabs[1]:
                 if current_emoji_setting in emoji_options
                 else 1
             )
-            new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
+            st.markdown("**AIの発言内の絵文字の量**")
+            new_emoji_setting = st.selectbox(
+                "",
+                emoji_options,
+                index=default_emoji_idx,
+                label_visibility="collapsed"
+            )
+            # new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
             # st.caption("AIの発言内の絵文字の量")
             # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
 
-
-            # AIの人格を選択
-            selected_preset = st.selectbox(
-                "AIの人格・スタイル", 
-                list(STYLE_PRESETS.keys()),
-                index=list(STYLE_PRESETS.keys()).index(current_style_preset) if current_style_preset in STYLE_PRESETS else 0
-            )
-
-            with st.expander("💬 人格ごとの会話サンプルを見る"):
-                for personality, sample in PERSONALITY_SAMPLES.items():
-                    st.markdown(f" {personality}")
-                    st.markdown(sample)
-                    st.divider()
-
             st.markdown("---")
+            st.markdown("**🔒 拡張会話設定**")
+            # st.markdown("##### 🔒 プレミアム会話設定")
 
-            st.markdown("##### 📝 AIの話し方")
-            st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
-            st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
-            st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
-
-            instruction_rules = [
-                r.strip()
-                for r in str(current_user_instruction).split("\n")
-                if r.strip()
-            ]
-
-            edited_rules = []
-
-            for idx, rule in enumerate(instruction_rules):
-
-                col_rule, col_del = st.columns([9,1])
-
-                with col_rule:
-                    rule_text = st.text_input(
-                        f"rule_{idx}",
-                        value=rule,
-                        label_visibility="collapsed"
-                    )
-
-                with col_del:
-                    delete_flag = st.checkbox(
-                        "削除",
-                        key=f"delete_rule_{idx}"
-                    )
-
-                if not delete_flag and rule_text.strip():
-                    edited_rules.append(
-                        rule_text.strip()
-                    )
-            #st.markdown("---")
-            st.caption("")
-            st.markdown("➕ AIの話し方を追加")
-            new_rule = st.text_input(
-                "下記に入力して、基本設定を保存すると追加されます。ただし、追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。",
-                key="new_rule_input"
+            is_free_plan = (
+                current_plan_type
+                == "🆓 無料プラン"
             )
-            if new_rule.strip():
-                edited_rules.append(
-                    new_rule.strip()
+            st.markdown("**返事の長さ**")
+            new_response_length = st.selectbox(
+                "",
+                RESPONSE_LENGTH_PRESETS,
+                index=default_length_idx,
+                disabled=is_free_plan,
+                label_visibility="collapsed"
+            )
+
+            # new_response_length = st.selectbox(
+            #     "返事の長さ",
+            #     RESPONSE_LENGTH_PRESETS,
+            #     index=default_length_idx,
+            #     disabled=is_free_plan
+            # )
+            if is_free_plan:
+                st.caption(
+                    "💎 ライトプラン以上で利用可能"
                 )
+            # default_dialect_idx = (
+            #     DIALECT_PRESETS.index(
+            #         current_dialect
+            #     )
+            #     if current_dialect
+            #     in DIALECT_PRESETS
+            #     else 0
+            # )
+            # new_dialect = st.selectbox(
+            #     "方言",
+            #     DIALECT_PRESETS,
+            #     index=default_dialect_idx,
+            #     disabled=is_free_plan
+            # )
+            # if is_free_plan:
+            #     st.caption(
+            #         "💎 ライトプラン以上で利用可能"
+            #     )
+
+            # ==========================================
+            # 応答方針（旧仕様）
+            # 現在はUI非表示
+            # DB互換性維持のため内部保持
+            # ==========================================
+            # st.markdown("##### 📝 AIの話し方")
+            # st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
+            # st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
+            # st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
+
+            # instruction_rules = [
+            #     r.strip()
+            #     for r in str(current_user_instruction).split("\n")
+            #     if r.strip()
+            # ]
+
+            # edited_rules = []
+
+            # for idx, rule in enumerate(instruction_rules):
+
+            #     col_rule, col_del = st.columns([9,1])
+
+            #     with col_rule:
+            #         rule_text = st.text_input(
+            #             f"rule_{idx}",
+            #             value=rule,
+            #             label_visibility="collapsed"
+            #         )
+
+            #     with col_del:
+            #         delete_flag = st.checkbox(
+            #             "削除",
+            #             key=f"delete_rule_{idx}"
+            #         )
+
+            #     if not delete_flag and rule_text.strip():
+            #         edited_rules.append(
+            #             rule_text.strip()
+            #         )
+            # #st.markdown("---")
+            # st.caption("")
+            # st.markdown("➕ AIの話し方を追加")
+            # new_rule = st.text_input(
+            #     "下記に入力して、基本設定を保存すると追加されます。ただし、追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。",
+            #     key="new_rule_input"
+            # )
+            # if new_rule.strip():
+            #     edited_rules.append(
+            #         new_rule.strip()
+            #     )
             
-            # 重複削除
-            edited_rules = list(dict.fromkeys(edited_rules))
-            # 最新5件のみ保持
-            edited_rules = edited_rules[-5:]
+            # # 重複削除
+            # edited_rules = list(dict.fromkeys(edited_rules))
+            # # 最新5件のみ保持
+            # edited_rules = edited_rules[-5:]
 
             # st.markdown("🖼️ アバター（アイコン）設定")
             # col_a, col_u = st.columns(2)
@@ -2583,60 +8024,73 @@ with all_tabs[1]:
             # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
 
             st.markdown("---")
-            if st.form_submit_button("基本設定を保存"):
-                with st.spinner("設定を登録しています...しばらくお待ちください"):
-                    r1 = save_or_update_user_setting("AIの名前", new_concierge_name)
-                    r2 = save_or_update_user_setting("ユーザー名", new_user_name)
-                    r3 = save_or_update_user_setting("ユーザー敬称", new_user_honorific)
-                    r4 = save_or_update_user_setting("AI一人称", new_first_person)
-                    r5 = save_or_update_user_setting("人格", selected_preset)
-                    final_instruction = "\n".join(edited_rules)
-                    r6 = save_or_update_user_setting("応答方針", final_instruction)
-                    # r7 = save_or_update_user_setting("AIアバター", ai_avatar_val)
-                    # r8 = save_or_update_user_setting("ユーザーアバター", user_avatar_val)
-                    r9 = save_or_update_user_setting("絵文字の量", new_emoji_setting)
-                    #r10 = save_or_update_user_setting("会員プラン", new_plan)
-                    success = (
-                        r1 and r2 and r3 and r4 and r5 and r6 and r9
+            bottom_save = st.form_submit_button(
+                "💾 設定を保存",
+                key="save_settings_bottom"
+            )
+            bottom_placeholder = st.empty()
+            if (
+                st.session_state.get("settings_saved")
+                and
+                st.session_state.get("settings_saved_position") == "bottom"
+            ):
+                bottom_placeholder.success("設定を登録しました")
+                st.session_state["settings_saved"] = False
+
+            if top_save or bottom_save:
+                if (
+                    current_plan_type == "🆓 無料プラン"
+                    and selected_preset in PREMIUM_PRESETS
+                ):
+                    target_placeholder = (
+                        top_placeholder
+                        if top_save
+                        else bottom_placeholder
                     )
 
+                    target_placeholder.warning("選択された人格は、💎 ライトプラン以上で利用できます。人格を選び直してください。")
+
+                else:
+
+                    settings_dict = {
+                        "カラーテーマ": selected_color,
+                        "AIの名前": new_concierge_name,
+                        "ユーザー名": new_user_name,
+                        "ユーザー敬称": new_user_honorific,
+                        "AI一人称": new_first_person,
+                        "人格": selected_preset,
+                        "会話長さ": new_response_length,
+                        # "方言": new_dialect,
+                        "絵文字の量": new_emoji_setting
+                    }
+                    target_placeholder = (
+                        top_placeholder
+                        if top_save
+                        else bottom_placeholder
+                    )
+
+                    target_placeholder.info("設定登録中...")
+
+                    success =  save_all_user_settings(settings_dict)
+
                     if success:
-                        st.success("設定を更新しました")
+                        st.session_state.skip_message_reload = True
+                        st.session_state["settings_saved"] = True
+                        st.session_state["settings_saved_position"] = (
+                            "top"
+                            if top_save
+                            else "bottom"
+                        )
+
+                        # target_placeholder.success("設定を登録しました")
                         st.rerun()
                     else:
-                        st.error("【設定更新エラー】データベースとの接続が一時的に遮断されました。電波環境の良い場所でもう一度お試しください。")
-                        st.stop()
-        
-        st.divider()
-        #st.markdown("---")
-
-        #　要約を取得・作成
-        summary_memories_setting = get_memories(
-            source="summary"
-        )
-        summary_memory_context_setting = (
-            "\n".join(
-                [m["fact"] for m in summary_memories_setting]
-            )
-            if summary_memories_setting
-            else "なし"
-        )
-        display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
-
-        #　要約を表示
-        st.markdown("##### 🧠 現在AIが覚えていること")
-        if display_summary != "なし":
-            #st.info(display_summary)
-            st.caption("　AIが長期記憶として覚えている内容です。")
-            st.markdown(display_summary.replace("\n"," \n"))
-        else:
-            st.caption("まだ覚えている情報はありません。")
-        st.divider()
+                        target_placeholder.error("設定の保存に失敗しました")
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
 # ------------------------------------------------------------------
-with all_tabs[2]:
+with all_tabs[4]:
     st.markdown("##### 📜 利用規約・プライバシーポリシー")
     st.caption("※本規約は、現在実施中のクローズドテスト、および将来の正式リリース運用を想定した共通のサービス利用基本規約です。")
     
@@ -2650,12 +8104,11 @@ with all_tabs[2]:
         "6. **個人情報の入力について：** 電話番号、クレジットカード番号、パスワードその他の機密情報は入力しないでください。利用者自身の判断で入力した情報については、利用者の責任で管理するものとします。\n"
     )
 
-
 if is_admin:
     # ──────────────────────────────────────────
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
-    with all_tabs[3]:
+    with all_tabs[5]:
         st.write("### 📊 システム管理者専用ダッシュボード")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
@@ -2717,15 +8170,15 @@ if is_admin:
                 pass
 
             audit_real_instruction = "設定データなし"
-            try:
-                # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
-                if u_memories and u_memories.data:
-                    for m in u_memories.data:
-                        fact_text = m.get("fact", "")
-                        if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
-                            audit_real_instruction = fact_text
-            except Exception:
-                pass
+            # try:
+            #     # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
+            #     if u_memories and u_memories.data:
+            #         for m in u_memories.data:
+            #             fact_text = m.get("fact", "")
+            #             if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
+            #                 audit_real_instruction = fact_text
+            # except Exception:
+            #     pass
 
             # リアルタイムKPI自動計算            
             total_chats = 0
@@ -2739,7 +8192,16 @@ if is_admin:
             search_judge_total_cost = 0.0
             search_judge_total_in = 0
             search_judge_total_out = 0
+            search_count = 0
+            calc_total = 0
+            calc_success = 0
+            calc_missing = 0
+            calc_error = 0
+            calc_extract_cost = 0.0
+            calc_extract_in = 0
+            calc_extract_out = 0
             user_logs = []
+
             try:
                 user_logs = (
                     supabase
@@ -2786,7 +8248,7 @@ if is_admin:
                         .table("system_audit_logs")
                         .select("*")
                         .eq("user_id", selected_audit_user)
-                        .eq("event_type", "SEARCH_JUDGE")
+                        .eq("event_type", "RESPONSE_ROUTER")
                         .execute()
                     )
 
@@ -2819,6 +8281,134 @@ if is_admin:
                     search_count = len(
                         search_res.data or []
                     )
+
+                    # google検索データ
+                    search_exec_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "SEARCH_EXECUTION")
+                        .execute()
+                    )
+                    search_exec_rows = search_exec_res.data or []
+                    search_exec_count = len(search_exec_rows)
+                    search_exec_total_cost = sum(
+                        float(row.get("api_cost", 0) or 0)
+                        for row in search_exec_rows
+                    )
+                    search_exec_total_in = sum(
+                        int(row.get("in_tokens", 0) or 0)
+                        for row in search_exec_rows
+                    )
+                    search_exec_total_out = sum(
+                        int(row.get("out_tokens", 0) or 0)
+                        for row in search_exec_rows
+                    )
+
+                    # python計算データを取得
+                    calc_logs = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("event_type")
+                        .eq("user_id", selected_audit_user)
+                        .in_(
+                            "event_type",
+                            [
+                                "CALCULATION_SUCCESS",
+                                "CALCULATION_MISSING_FIELDS",
+                                "CALCULATION_ERROR"
+                            ]
+                        )
+                        .execute()
+                    )
+
+                    calc_success = 0
+                    calc_missing = 0
+                    calc_error = 0
+
+                    for row in (calc_logs.data or []):
+                        event = row.get(
+                            "event_type",
+                            ""
+                        )
+
+                        if event == "CALCULATION_SUCCESS":
+                            calc_success += 1
+
+                        elif event == (
+                            "CALCULATION_MISSING_FIELDS"
+                        ):
+                            calc_missing += 1
+
+                        elif event == "CALCULATION_ERROR":
+                            calc_error += 1
+
+                    calc_total = (
+                        calc_success
+                        + calc_missing
+                        + calc_error
+                    )
+
+                    calc_extract_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select(
+                            "api_cost, in_tokens, out_tokens"
+                        )
+                        .eq(
+                            "user_id",
+                            selected_audit_user
+                        )
+                        .eq(
+                            "event_type",
+                            "CALCULATION_EXTRACTION"
+                        )
+                        .execute()
+                    )
+
+                    calc_extract_cost = sum(
+                        float(
+                            x.get(
+                                "api_cost",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
+                    calc_extract_in = sum(
+                        int(
+                            x.get(
+                                "in_tokens",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
+                    calc_extract_out = sum(
+                        int(
+                            x.get(
+                                "out_tokens",
+                                0
+                            )
+                            or 0
+                        )
+                        for x in (
+                            calc_extract_res.data
+                            or []
+                        )
+                    )
+
 
                     if cost_logs.data:
                         total_cost_jpy = round(sum(float(log.get("api_cost", 0) or 0) for log in cost_logs.data), 2)
@@ -2880,137 +8470,330 @@ if is_admin:
                     f"・<b>検索判定出力：</b> {search_judge_total_out:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
                     f"・<b>検索判定コスト：</b> {search_judge_total_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>Google検索実行回数：</b> {search_exec_count} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>Google検索入力：</b> {search_exec_total_in:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>Google検索出力：</b> {search_exec_total_out:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>Google検索コスト：</b> {search_exec_total_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>不動産計算利用：</b> {calc_total} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算成功：</b> {calc_success} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>条件不足：</b> {calc_missing} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>"
+                    f"・<b>計算エラー：</b> {calc_error} 回</p>"
                     "</div>",
                     unsafe_allow_html=True
                 )
+            
+            # 計算メモ内容表示
+            st.markdown("##### 📊 計算案件一覧")
+            try:
+                case_res = (
+                    supabase
+                    .table("calculation_cases")
+                    .select("*")
+                    .eq(
+                        "user_id",
+                        selected_audit_user
+                    )
+                    .order(
+                        "updated_at",
+                        desc=True
+                    )
+                    .execute()
+                )
+
+                case_rows = case_res.data or []
+
+                st.caption(f"計算案件数: {len(case_rows)}件")
+
+                for case in case_rows:
+                    with st.expander(f"{case.get('case_name', '案件名なし')}"):
+                        st.write(
+                            f"Case ID: "
+                            f"{case.get('case_id', '')}"
+                        )
+                        st.write(
+                            f"種別: "
+                            f"{case.get('case_type', '')}"
+                        )
+                        st.write(
+                            f"状態: "
+                            f"{case.get('case_status', '')}"
+                        )
+                        st.write(
+                            f"用途: "
+                            f"{case.get('property_usage', '')}"
+                        )
+                        st.write(
+                            f"作成日: "
+                            f"{case.get('created_at', '')}"
+                        )
+
+                        st.write(
+                            f"更新日: "
+                            f"{case.get('updated_at', '')}"
+                        )
+                        st.write(
+                            f"期限: "
+                            f"{case.get('expires_at', '')}"
+                        )
+
+                        st.code(
+                            json.dumps(
+                                case.get(
+                                    "case_data",
+                                    {}
+                                ),
+                                ensure_ascii=False,
+                                indent=2,
+                                default=str
+                            ),
+                            language="json"
+                        )
+
+            except Exception as e:
+
+                st.error(
+                    f"計算案件取得エラー: "
+                    f"{type(e).__name__}: {e}"
+                )
+
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
+            show_timeline_logs = st.button(
+                "📖 システムログを表示",
+                key="show_timeline_logs"
+            )
+            
             try:
                 # 1. データベース（system_audit_logs）から直近50件の生データを抽出
-                log_res = supabase.table("system_audit_logs").select("*").eq("user_id", selected_audit_user).order("created_at", desc=True).limit(50).execute()
+                if show_timeline_logs:
+                    log_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("*")
+                        .eq("user_id", selected_audit_user)
+                        .order("created_at", desc=True)
+                        .limit(50)
+                        .execute()
+                    )
                 
-                if log_res.data:
-                    # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
-                    # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
-                    # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
-                    merged_logs = {}
-                    
-                    for log in log_res.data:
-                        # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
-                        msg_id = log.get("message_id")
-                        created_at = log.get("created_at", "")
-                        time_display = created_at.split("T")[-1][:8] if "T" in created_at else created_at
+                    if log_res.data:
+                        # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
+                        # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
+                        # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
+                        merged_logs = {}
                         
-                        if not msg_id or msg_id == "None" or msg_id == "":
-                            # 過去データ用フォールバック：分単位で丸めて部屋を作ります
-                            msg_id = f"fallback_{created_at[:16]}"
-                        
-                        if msg_id not in merged_logs:
-                            merged_logs[msg_id] = {
-                                "id": msg_id,
-                                "time": time_display,
-                                "user_plan": log.get("user_plan", "🆓 無料プラン"),
-                                "chat_time": 0.0, "chat_in": 0, "chat_out": 0,
-                                "sum_time": 0.0, "sum_in": 0, "sum_out": 0,
-                                "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
-                                "search_time": 0.0, "search_in": 0, "search_out": 0,
-                                "total_yen": 0.0, "total_time": 0.0
-                            }
-                        
-                        action = log.get("action", log.get("event_type", ""))
-                        cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
-                        proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
-                        in_t = log.get("in_tokens", 0)
-                        out_t = log.get("out_tokens", 0)
-
-                        # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
-                        if action == "SUMMARY_SUCCESS":
-                            merged_logs[msg_id]["sum_time"] = proc_time
-                            merged_logs[msg_id]["sum_in"] = in_t
-                            merged_logs[msg_id]["sum_out"] = out_t
-
-                        elif action == "SEARCH_JUDGE":
-                            merged_logs[msg_id]["judge_time"] = proc_time
-                            merged_logs[msg_id]["judge_in"] = in_t
-                            merged_logs[msg_id]["judge_out"] = out_t
-                            merged_logs[msg_id]["judge_cost"] = cost
-                            merged_logs[msg_id]["judge_result"] = (
-                                log.get("details", "")
-                            )
-
-                        elif action == "CHAT_SUCCESS":
-                            merged_logs[msg_id]["chat_time"] = (
-                                log.get("chat_processing_time", proc_time)
-                                if log.get("chat_processing_time") is not None
-                                else proc_time
-                            )
-
-                            merged_logs[msg_id]["chat_in"] = (
-                                log.get("chat_in_tokens", in_t)
-                                if log.get("chat_in_tokens") is not None
-                                else in_t
-                            )
-
-                            merged_logs[msg_id]["chat_out"] = (
-                                log.get("chat_out_tokens", out_t)
-                                if log.get("chat_out_tokens") is not None
-                                else out_t
-                            )
-
-                            merged_logs[msg_id]["search_time"] = (
-                                log.get("search_processing_time", 0.0)
-                                if log.get("search_processing_time") is not None
-                                else 0.0
-                            )
-
-                            merged_logs[msg_id]["search_in"] = (
-                                log.get("search_in_tokens", 0)
-                                if log.get("search_in_tokens") is not None
-                                else 0
-                            )
-
-                            merged_logs[msg_id]["search_out"] = (
-                                log.get("search_out_tokens", 0)
-                                if log.get("search_out_tokens") is not None
-                                else 0
-                            )
-
-                        # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
-                        merged_logs[msg_id]["total_yen"] += cost
-                        merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
-
-                    # 2. ⚡【美しき描画フェーズ】 集約された「本物の1往復単位」のデータを、読みやすい通常の文字サイズでアコーディオン出力
-                    for k, item in merged_logs.items():
-                        c_plan = item["user_plan"]
-                        t_yen = item["total_yen"]
-                        t_time = item["total_time"]
-
-                        with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
-                            st.markdown(f"""
-
-                            | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |
-                            | :--- | :---: | :---: | :---: |
-                            | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t |
-                            | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t |
-                            | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t |
-                            | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t |
+                        for log in log_res.data:
+                            # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
+                            msg_id = log.get("message_id")
+                            created_at = log.get("created_at", "")
+                            time_display = created_at.replace("T", " ")[:16] if "T" in created_at else created_at
                             
-                            🔎 **【検索判定結果】** {item['judge_result']}
+                            if not msg_id or msg_id == "None" or msg_id == "":
+                                # 過去データ用フォールバック：分単位で丸めて部屋を作ります
+                                msg_id = f"fallback_{created_at[:16]}"
+                            
+                            if msg_id not in merged_logs:
+                                merged_logs[msg_id] = {
+                                    "id": msg_id,
+                                    "time": time_display,
+                                    "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                    "user_message": "",
+                                    "ai_message": "",
+                                    "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
+                                    "sum_time": 0.0, "sum_in": 0, "sum_out": 0, "sum_cost": 0.0,
+                                    "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
+                                    "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
+                                    "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
+                                    "search_time": 0.0, "search_in": 0, "search_out": 0,
+                                    "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
+                                    "total_yen": 0.0, "total_time": 0.0,
+                                    "calculation_result": ""
+                                }
+                            
+                            action = log.get("action", log.get("event_type", ""))
+                            cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
+                            proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
+                            in_t = log.get("in_tokens", 0)
+                            out_t = log.get("out_tokens", 0)
 
-                            👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                            """)
-                else: 
-                    st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
-            except Exception as log_err: 
-                st.error(f"ユーザーログの取得に失敗しました: {log_err}")
+                            # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
+                            if action == "SUMMARY_SUCCESS":
+                                merged_logs[msg_id]["sum_time"] = proc_time
+                                merged_logs[msg_id]["sum_in"] = in_t
+                                merged_logs[msg_id]["sum_out"] = out_t
+                                merged_logs[msg_id]["sum_cost"] = cost
+
+                            elif action == "RESPONSE_ROUTER":
+                                merged_logs[msg_id]["judge_time"] = proc_time
+                                merged_logs[msg_id]["judge_in"] = in_t
+                                merged_logs[msg_id]["judge_out"] = out_t
+                                merged_logs[msg_id]["judge_cost"] = cost
+                                merged_logs[msg_id]["judge_result"] = (
+                                    log.get("details", "")
+                                )
+                            
+                            elif action == "CALCULATION_TOOL_ROUTER":
+                                merged_logs[msg_id]["tool_time"] = proc_time
+                                merged_logs[msg_id]["tool_in"] = in_t
+                                merged_logs[msg_id]["tool_out"] = out_t
+                                merged_logs[msg_id]["tool_cost"] = cost
+
+                            elif action == "CALCULATION_EXTRACTION":
+                                merged_logs[msg_id]["calc_time"] = proc_time
+                                merged_logs[msg_id]["calc_in"] = in_t
+                                merged_logs[msg_id]["calc_out"] = out_t
+                                merged_logs[msg_id]["calc_cost"] = cost
+                            
+                            elif action == "CALCULATION_SUCCESS":
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                            elif action == ("CALCULATION_MISSING_FIELDS"):
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                            elif action == "CALCULATION_ERROR":
+                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                            elif action == "SEARCH_EXECUTION":
+                                merged_logs[msg_id]["search_exec_in"] = in_t
+                                merged_logs[msg_id]["search_exec_out"] = out_t
+                                merged_logs[msg_id]["search_exec_cost"] = cost
+                                merged_logs[msg_id]["search_exec_time"] = proc_time
+
+                            elif action == "CHAT_SUCCESS":
+                                # st.write(
+                                #     f"DEBUG CHAT_SUCCESS cost={cost} "
+                                #     f"in={in_t} out={out_t}"
+                                # )
+                                merged_logs[msg_id]["chat_time"] = (
+                                    log.get("chat_processing_time", proc_time)
+                                    if log.get("chat_processing_time") is not None
+                                    else proc_time
+                                )
+
+                                merged_logs[msg_id]["chat_in"] = (
+                                    log.get("chat_in_tokens", in_t)
+                                    if log.get("chat_in_tokens") is not None
+                                    else in_t
+                                )
+
+                                merged_logs[msg_id]["chat_out"] = (
+                                    log.get("chat_out_tokens", out_t)
+                                    if log.get("chat_out_tokens") is not None
+                                    else out_t
+                                )
+
+                                merged_logs[msg_id]["chat_cost"] = (cost)
+
+                                merged_logs[msg_id]["search_time"] = (
+                                    log.get("search_processing_time", 0.0)
+                                    if log.get("search_processing_time") is not None
+                                    else 0.0
+                                )
+
+                                merged_logs[msg_id]["search_in"] = (
+                                    log.get("search_in_tokens", 0)
+                                    if log.get("search_in_tokens") is not None
+                                    else 0
+                                )
+
+                                merged_logs[msg_id]["search_out"] = (
+                                    log.get("search_out_tokens", 0)
+                                    if log.get("search_out_tokens") is not None
+                                    else 0
+                                )
+
+                            # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
+                            merged_logs[msg_id]["total_yen"] += cost
+                            merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
+                        
+                        # アコーディオンtyusu出力
+                        for k, item in merged_logs.items():
+                                
+                            msg_res = (
+                                supabase
+                                .table("messages")
+                                .select(
+                                    "role,"
+                                    "content,"
+                                    "created_at,"
+                                    "message_id,"
+                                    "response_mode"
+                                )
+                                .eq("user_id", selected_audit_user)
+                                .eq("message_id", item["id"])
+                                .order("created_at", desc=False)
+                                .execute()
+                            )
+
+                            user_msg = ""
+                            ai_msg = ""
+
+                            for row in (msg_res.data or []):
+                                if row.get("role") == "user":
+                                    user_msg = row.get("content", "")
+                                elif row.get("role") == "assistant":
+                                    ai_msg = row.get("content", "")
+                            
+                            c_plan = item["user_plan"]
+                            t_yen = item["total_yen"]
+                            t_time = item["total_time"]
+
+                            with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                st.markdown(f"""
+
+                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |
+                                | :--- | :---: | :---: | :---: |:---: |
+                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} |
+                                | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} |
+                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
+                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} |
+                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 |
+                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} |
+                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} |
+
+                                🔎 **【検索判定結果】** {item['judge_result']}
+
+                                👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                                """)
+                                st.markdown("---")
+
+                                st.markdown("##### 👤 ユーザー発言")
+                                st.info(user_msg)
+                                if item.get(
+                                    "calculation_result"
+                                ):
+                                    # st.warning(
+                                    #     "🏠 不動産計算結果\n\n"
+                                    #     + item[
+                                    #         "calculation_result"
+                                    #     ]
+                                    # )
+                                    st.code(item["calculation_result"])
+
+                                st.markdown("##### 🧠 AI返答")
+                                st.success(ai_msg)
+                    else: 
+                        st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
+            except Exception as log_err:
+                st.error(
+                    f"ユーザーログの取得に失敗しました: {log_err}"
+                )
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
             st.subheader("📈 アプリ全体アクティビティ ＆ 機能統計（匿名集計）")
             with st.spinner("システムログからプラン別データを高度に集計中..."):
                 try:
-                    audit_res = supabase.table("system_audit_logs").select("*").execute()
+                    audit_res = supabase.table("system_audit_logs").select("user_id, user_plan, event_type, total_yen_cost, created_at").execute()
                     audit_data = audit_res.data if audit_res.data else []
                     total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
                     
@@ -3081,20 +8864,20 @@ if is_admin:
     # ==========================================
     # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
     # ==========================================
-    with all_tabs[4]:
+    with all_tabs[6]:
         # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
         # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
                     
         tester_rows = []
+        users = {}
         try:
             memories_res = (
                 supabase
                 .table("user_memories_tester")
-                .select("*")
+                .select("user_id, fact")
                 .execute()
             )
 
-            users = {}
             USER_PROFILE = {
                 "m.kawamura00": "40代女性",
                 "yasusan_cw": "40代男性",
@@ -3107,18 +8890,24 @@ if is_admin:
                 "yoimachigusa": "30代女性",
                 "yong3127": "30代女性",
             }
-            msg_users_res = (
+            user_res = (
                 supabase
-                .table("messages")
+                .table("user_token_stats")
                 .select("user_id")
                 .execute()
             )
+            # msg_users_res = (
+            #     supabase
+            #     .table("messages")
+            #     .select("user_id")
+            #     .execute()
+            # )
 
             all_user_ids = sorted(
                 list(
                     set(
                         row["user_id"]
-                        for row in msg_users_res.data
+                        for row in user_res.data
                         if row.get("user_id")
                     )
                 )
@@ -3210,7 +8999,7 @@ if is_admin:
                 msg_res = (
                     supabase
                     .table("messages")
-                    .select("*")
+                    .select("created_at, role")
                     .eq("user_id", uid)
                     .execute()
                 )
@@ -3364,12 +9153,12 @@ if is_admin:
         # ──────────────────────────────────────────────────────────────────
         all_tester_logs = None
         try:
-            # 1. データベースの messages テーブルから、全ユーザーのメッセージを最新順に最大200件取得
-            all_tester_logs = supabase.table("messages").select("*").order("created_at", desc=True).limit(500).execute()
+            # 1. データベースの user_token_stats テーブルからユーザー取得
+            tester_users_res = supabase.table("user_token_stats").select("user_id").execute()
             
-            # 🟢 直前で引っこ抜いた「all_tester_logs.data」の名前を正確にスキャンして名簿を作成します
-            if all_tester_logs.data:
-                user_list = sorted(list(set([u["user_id"] for u in all_tester_logs.data if u.get("user_id")])))
+            # 🟢 直前で引っこ抜いた「tester_users_res.data」の名前を正確にスキャンして名簿を作成します
+            if tester_users_res.data:
+                user_list = sorted(list(set([u["user_id"] for u in tester_users_res.data if u.get("user_id")])))
             else:
                 user_list = [CURRENT_USER_ID]
         except Exception as e_list:
@@ -3390,23 +9179,41 @@ if is_admin:
         )
         st.divider()
 
+        if st.button(
+            "📖 会話履歴を表示",
+            key="show_user_logs_button"
+        ):
+            st.session_state["show_user_logs"] = True
+
         # プルダウンで選択肢したテスターのログを表示
         try:
-            if all_tester_logs.data:
+            if (
+                tester_users_res.data
+                and st.session_state.get(
+                    "show_user_logs",
+                    False
+                )
+            ):
+
                 selected_logs = (
                     supabase
                     .table("messages")
-                    .select("*")
+                    .select(
+                        "role,"
+                        "content,"
+                        "created_at,"
+                        "message_id,"
+                        "response_mode"
+                    )
                     .eq("user_id", selected_target_user_id)
                     .order("created_at", desc=True)
-                    .limit(1000)
+                    .limit(300)
                     .execute()
                 )
-
                 logs = selected_logs.data or []
 
                 # grouped_logs = {}
-                # for log in all_tester_logs.data:
+                # for log in tester_users_res.data:
                 #     uid = log.get("user_id", "unknown")
                 #     if uid not in grouped_logs:
                 #         grouped_logs[uid] = []
