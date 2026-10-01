@@ -4749,11 +4749,6 @@ def normalize_real_estate_sale_arguments(
         )
 
         normalized.setdefault(
-            "acquisition_related_costs",
-            Decimal("0")
-        )
-
-        normalized.setdefault(
             "total_acquisition_cost",
             Decimal("0")
         )
@@ -4790,6 +4785,7 @@ REAL_ESTATE_FIELD_LABELS = {
     "sale_price": "売却予定額または売却額",
     "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
     "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
+    "acquisition_related_costs": "購入時諸費用（ない場合は0円）",
     "building_original_cost": "建物取得額",
     "building_structure": "建物構造",
     "building_acquisition_date": "建物取得年月",
@@ -4886,52 +4882,18 @@ def get_real_estate_sale_missing_fields(
     )
 
     if not use_deemed_acquisition_cost:
-        total_acquisition_cost = to_decimal(
-            arguments.get(
-                "total_acquisition_cost",
-                Decimal("0")
-            )
-        )
+        total_acquisition_cost = to_decimal(arguments.get("total_acquisition_cost",Decimal("0")))
 
         if total_acquisition_cost <= Decimal("0"):
-            land_cost_is_provided = (
-                "land_acquisition_cost" in arguments
-            )
-            building_cost_is_provided = (
-                "building_acquisition_cost" in arguments
-            )
+            land_cost_is_provided = ("land_acquisition_cost" in arguments)
+            building_cost_is_provided = ("building_acquisition_cost" in arguments)
+            acquisition_related_costs_is_provided = ("acquisition_related_costs" in arguments)
 
-            if not land_cost_is_provided:
-                missing_fields.append(
-                    "land_acquisition_cost"
-                )
+            if not land_cost_is_provided:missing_fields.append("land_acquisition_cost")
+            if not building_cost_is_provided:missing_fields.append("building_acquisition_cost")
+            if not acquisition_related_costs_is_provided:missing_fields.append("acquisition_related_costs")
 
-            if not building_cost_is_provided:
-                missing_fields.append(
-                    "building_acquisition_cost"
-                )
-
-        if (total_acquisition_cost > Decimal("0")):
-            pass
-        else:
-            total_known_acquisition_cost = (
-                land_cost
-                + building_cost
-                + acquisition_related_costs
-            )
-
-            if (total_known_acquisition_cost <= Decimal("0")):
-                missing_fields.append("acquisition_basis")
-
-            if (total_known_acquisition_cost <= Decimal("0")):
-                missing_fields.append("acquisition_basis")
-
-    building_cost = to_decimal(
-        arguments.get(
-            "building_acquisition_cost",
-            Decimal("0")
-        )
-    )
+    building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
 
     if (
         building_cost > Decimal("0")
@@ -4955,8 +4917,8 @@ def get_real_estate_sale_missing_fields(
             if not building_structure: missing_fields.append("building_structure")
             if not building_acquisition_date: missing_fields.append("building_acquisition_date")
 
-        # 重複を除き、追加順を維持
-        return list(dict.fromkeys(missing_fields))
+    # 重複を除き、追加順を維持
+    return list(dict.fromkeys(missing_fields))
 
 def execute_real_estate_sale_calculation(
     extraction_result: dict
@@ -6713,6 +6675,22 @@ with all_tabs[0]:
                                 or {}
                             )
 
+                            total_cost_expressions = {
+                                "総取得費",
+                                "取得費合計",
+                                "合算簿価",
+                                "購入経費込の取得費",
+                                "土地建物合計"
+                            }
+
+                            total_cost_is_explicit = any(
+                                expression in user_input
+                                for expression in total_cost_expressions
+                            )
+
+                            if not total_cost_is_explicit:
+                                current_arguments.pop("total_acquisition_cost", None)
+
                             # 前回条件を今回条件で上書きする
                             # 同じ項目がある場合は最新発言を優先
                             merged_arguments = dict(previous_arguments)
@@ -6728,7 +6706,8 @@ with all_tabs[0]:
                                     and key in previous_arguments
                                     and key not in {
                                         "land_acquisition_cost",
-                                        "building_acquisition_cost"
+                                        "building_acquisition_cost",
+                                        "acquisition_related_costs"
                                     }
                                 ):
                                     continue
