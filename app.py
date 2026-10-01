@@ -5101,6 +5101,15 @@ def execute_real_estate_sale_calculation(
         st.code(
             json.dumps(
                 {
+                    "acquisition_related_costs":
+                        normalized_arguments.get(
+                            "acquisition_related_costs"
+                        ),
+                    "acquisition_related_costs_confirmed":
+                        normalized_arguments.get(
+                            "acquisition_related_costs_confirmed"
+                        ),
+                    
                     "building_original_cost":
                         normalized_arguments.get(
                             "building_original_cost"
