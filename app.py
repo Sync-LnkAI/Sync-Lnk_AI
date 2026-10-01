@@ -7606,6 +7606,9 @@ with all_tabs[1]:
 
     st.divider()
 
+with all_tabs[2]:
+    st.info("🚧 ただいま準備中です")
+
 if False:
     with all_tabs[2]:
         # current_plan_type = "スタンダード"
