@@ -7076,6 +7076,10 @@ with all_tabs[0]:
                                     saved_arguments = dict(merged_arguments)
 
                                 st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = saved_arguments
+                                
+                                st.session_state[
                                     "real_estate_calculation_pending"
                                 ] = False
 
