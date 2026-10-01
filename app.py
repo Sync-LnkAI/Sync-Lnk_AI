@@ -6742,6 +6742,16 @@ with all_tabs[0]:
                             if (st.session_state.get("active_calculation_case_name") == "自宅売却"):
                                 merged_arguments["property_usage"] = "owner_occupied"
                                 merged_arguments["owner_type"] = "individual"
+                            
+                            if (
+                                current_arguments.get("building_acquisition_cost")
+                                is not None
+                                and current_arguments.get("total_acquisition_cost")
+                                in {None, "", 0, "0"}
+                            ):
+                                merged_arguments["total_acquisition_cost"] = 0
+                            
+                            calculation_extraction_result["arguments"] = merged_arguments
 
                             # st.write("previous_arguments")
                             # st.code(
@@ -6763,8 +6773,6 @@ with all_tabs[0]:
                             #     ),
                             #     language="json"
                             # )
-
-                            calculation_extraction_result["arguments"] = merged_arguments
 
                             # st.write("calculation_tool", calculation_tool)
                             # st.write("merged_arguments", merged_arguments)
