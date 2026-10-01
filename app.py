@@ -4734,6 +4734,8 @@ def normalize_real_estate_sale_arguments(
 
             # 解釈できない場合は推測せず除外
             continue
+    
+    normalized[key] = value
 
     # 計算実行時だけ任意項目へ安全な初期値を設定
     if apply_defaults:
@@ -5175,7 +5177,7 @@ def execute_real_estate_sale_calculation(
             and value is not None
         )
     }
-    
+
     # st.warning(f"{calculation_arguments}")
     print(f"🏠 不動産計算実行条件: " f"{calculation_arguments}")
     
