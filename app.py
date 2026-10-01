@@ -4419,6 +4419,12 @@ def extract_real_estate_sale_parameters(
             "cost": 0.0
         }
 
+ACQUISITION_COMPONENT_FIELDS = {
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "acquisition_related_costs"
+}
+
 REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "owner_type",
     "property_usage",
@@ -4441,6 +4447,9 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "corporate_effective_tax_rate",
     "use_deemed_acquisition_cost",
     "deemed_acquisition_cost_rate"
+}| {
+    f"{field}_confirmed"
+    for field in ACQUISITION_COMPONENT_FIELDS
 }
 
 REAL_ESTATE_NUMERIC_FIELDS = {
@@ -4883,13 +4892,31 @@ def get_real_estate_sale_missing_fields(
         total_acquisition_cost = to_decimal(arguments.get("total_acquisition_cost",Decimal("0")))
 
         if total_acquisition_cost <= Decimal("0"):
-            land_cost_is_provided = ("land_acquisition_cost" in arguments)
-            building_cost_is_provided = ("building_acquisition_cost" in arguments)
-            acquisition_related_costs_is_provided = ("acquisition_related_costs" in arguments)
-
-            if not land_cost_is_provided:missing_fields.append("land_acquisition_cost")
-            if not building_cost_is_provided:missing_fields.append("building_acquisition_cost")
-            if not acquisition_related_costs_is_provided:missing_fields.append("acquisition_related_costs")
+            for field in ACQUISITION_COMPONENT_FIELDS:
+                field_is_provided = False
+                if (
+                    field in arguments
+                    and arguments.get(field) is not None
+                ):
+                    try:
+                        field_amount = to_decimal(arguments.get(field))
+                        field_is_provided = (
+                            field_amount > Decimal("0")
+                            or bool(
+                                arguments.get(
+                                    f"{field}_confirmed",
+                                    False
+                                )
+                            )
+                        )
+                    except (
+                        ValueError,
+                        TypeError,
+                        ArithmeticError
+                    ):
+                        field_is_provided = False
+                if not field_is_provided:
+                    missing_fields.append(field)
 
     building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
 
@@ -6739,6 +6766,7 @@ with all_tabs[0]:
                                     continue
 
                                 merged_arguments[key] = value
+
                                 if (
                                     "acquisition_related_costs" not in current_arguments
                                     and merged_arguments.get("acquisition_related_costs") in {
@@ -6749,6 +6777,35 @@ with all_tabs[0]:
                                 ):
                                     merged_arguments.pop("acquisition_related_costs", None)
                             
+                            for field in ACQUISITION_COMPONENT_FIELDS:
+                                if (
+                                    field in current_arguments
+                                    and current_arguments.get(field) is not None
+                                ):
+                                    merged_arguments[f"{field}_confirmed"] = True
+
+                            for field in ACQUISITION_COMPONENT_FIELDS:
+                                field_value = merged_arguments.get(field)
+                                confirmed_field = f"{field}_confirmed"
+                                if field_value is None:
+                                    continue
+                                try:
+                                    field_amount = to_decimal(field_value)
+                                except (
+                                    ValueError,
+                                    TypeError,
+                                    ArithmeticError
+                                ):
+                                    continue
+                                if (
+                                    field_amount == Decimal("0")
+                                    and not merged_arguments.get(
+                                        confirmed_field,
+                                        False
+                                    )
+                                ):
+                                    merged_arguments.pop(field, None)
+
                             if (st.session_state.get("active_calculation_case_name") == "自宅売却"):
                                 merged_arguments["property_usage"] = "owner_occupied"
                                 merged_arguments["owner_type"] = "individual"
