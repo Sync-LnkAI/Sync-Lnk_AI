@@ -7459,41 +7459,41 @@ with all_tabs[0]:
                     """,
                     unsafe_allow_html=True
                 )
-                MODE_LABELS = {
-                    "micro_chat": "挨拶",
-                    "analysis": "分析",
-                    "conversation": "会話",
-                    "support": "相談",
-                    "factual": "質問",
-                    "short_chat": "雑談"
-                }
-                col_spacer, col_save, col_mode = st.columns([6, 2, 1])
-                with col_save:
-                    if current_plan_type == "🆓 無料プラン":
-                        st.caption("☆ 会話を保存")
-                        # st.button(
-                        #     "☆ 会話を保存",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # ):
-                        #     st.toast("💎 ライトプラン以上で利用できます")
-                    else:
-                        # st.button(
-                        #     "☆",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # )
-                        st.caption("☆ 会話を保存")
-                        # st.button(
-                        #     "☆ 会話を保存",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # )
+                # MODE_LABELS = {
+                #     "micro_chat": "挨拶",
+                #     "analysis": "分析",
+                #     "conversation": "会話",
+                #     "support": "相談",
+                #     "factual": "質問",
+                #     "short_chat": "雑談"
+                # }
+                # col_spacer, col_save, col_mode = st.columns([6, 2, 1])
+                # with col_save:
+                #     if current_plan_type == "🆓 無料プラン":
+                #         st.caption("☆ 会話を保存")
+                #         # st.button(
+                #         #     "☆ 会話を保存",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # ):
+                #         #     st.toast("💎 ライトプラン以上で利用できます")
+                #     else:
+                #         # st.button(
+                #         #     "☆",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # )
+                #         st.caption("☆ 会話を保存")
+                #         # st.button(
+                #         #     "☆ 会話を保存",
+                #         #     key=f"save_chat_{msg.get('message_id', '')}"
+                #         # )
 
-                saved_response_mode = msg.get("response_mode", "")
-                with col_mode:
-                    if saved_response_mode:
-                        st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
-                        # st.caption("🧠 会話モード")
-                    else:
-                        st.caption("🧠 不明")
+                # saved_response_mode = msg.get("response_mode", "")
+                # with col_mode:
+                #     if saved_response_mode:
+                #         st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                #         # st.caption("🧠 会話モード")
+                #     else:
+                #         st.caption("🧠 不明")
 
                 st.write("")
 
@@ -7550,194 +7550,194 @@ with all_tabs[1]:
     
     st.markdown("---")
 
-    st.markdown("##### 💬 保存されている会話")
-    if current_plan_type == "🆓 無料プラン":
-        st.caption("ここで保存した会話を確認できます。")
-        st.caption(" 💎 ライトプラン以上で利用できます。")
+    if False:
+        st.markdown("##### 💬 保存されている会話")
+        if current_plan_type == "🆓 無料プラン":
+            st.caption("ここで保存した会話を確認できます。")
+            st.caption(" 💎 ライトプラン以上で利用できます。")
 
-    else:
-        st.caption("保存した会話を表示します。")
-        mock_saved_chats = [
-            {
-                "title":
-                    "2026/09/24 21:15 の会話",
-                "content":
-                    "Sync-Lnkスタンダードの料金設計について相談しました。"
-            },
-            {
-                "title":
-                    "2026/09/20 18:42 の会話",
-                "content":
-                    "ポイント構想について検討しました。"
-            }
-            ]
-        # saved_chats = (
-        #     supabase
-        #     .table("saved_chats")
-        #     .select("*")
-        #     .eq(
-        #         "user_id",
-        #         CURRENT_USER_ID
-        #     )
-        #     .order(
-        #         "created_at",
-        #         desc=True
-        #     )
-        #     .execute()
-        # )
-
-        if not mock_saved_chats:
-            st.caption("保存されたメモはありません。")
         else:
-            for item in mock_saved_chats:
-                with st.expander(
-                    f"📝 {item['title']}"
-                ):
-                    st.write(item["content"])
-                    st.button(
-                        "削除",
-                        key=(
-                            f"delete_saved_"
-                            f"{item['title']}"
-                        ),
-                        disabled=True
-                    )
+            st.caption("保存した会話を表示します。")
+            mock_saved_chats = [
+                {
+                    "title":
+                        "2026/09/24 21:15 の会話",
+                    "content":
+                        "Sync-Lnkスタンダードの料金設計について相談しました。"
+                },
+                {
+                    "title":
+                        "2026/09/20 18:42 の会話",
+                    "content":
+                        "ポイント構想について検討しました。"
+                }
+                ]
+            # saved_chats = (
+            #     supabase
+            #     .table("saved_chats")
+            #     .select("*")
+            #     .eq(
+            #         "user_id",
+            #         CURRENT_USER_ID
+            #     )
+            #     .order(
+            #         "created_at",
+            #         desc=True
+            #     )
+            #     .execute()
+            # )
+
+            if not mock_saved_chats:
+                st.caption("保存されたメモはありません。")
+            else:
+                for item in mock_saved_chats:
+                    with st.expander(
+                        f"📝 {item['title']}"
+                    ):
+                        st.write(item["content"])
+                        st.button(
+                            "削除",
+                            key=(
+                                f"delete_saved_"
+                                f"{item['title']}"
+                            ),
+                            disabled=True
+                        )
 
     st.divider()
 
-
-with all_tabs[2]:
-    # current_plan_type = "スタンダード"
-    st.markdown("##### 📁 計画ルーム")
-    if (
-       "スタンダード"
-        not in current_plan_type
-    ):
-
-        st.info(
-            "💎 スタンダードプラン専用機能です。"
-        )
-
-        st.markdown(
-            """
-            AIと一緒に継続的なテーマを管理できます。
-
-            ・決定事項
-            ・検討中
-            ・保留事項
-            ・次にやること
-
-            を整理しながら進められます。
-            """
-        )
-
-    else:
-
-        st.caption(
-            "AIと一緒に計画を作り上げる専用ルームです。"
-        )
-
-        plan_view_mode = st.radio(
-            "",
-            [
-            "🚀 進行中の計画",
-            "✅ 完了済み計画"
-            ],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-        st.markdown("---")
-
-        if plan_view_mode == "🚀 進行中の計画":
-            active_project = st.selectbox(
-                "進行中",
-                [
-                "選択してください",
-                "🚀 Sync-Lnk開発",
-                "🏠 マイホーム計画"
-                ]
-            )
-
-            col1, col2, col3 = st.columns([1,1,6])
-            with col1:
-                active_show = st.button("計画表示", key="active_show")
-            with col2:
-                active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
-            st.markdown("---")
-        else:
-            completed_project = st.selectbox(
-                "完了済みの計画",
-                [
-                    "選択してください",
-                    "🎓 資格取得"
-                ],
-            )
-            col1, col2, col3 = st.columns([1,1,6])
-            with col1:
-                completed_show = st.button("計画表示", key="completed_show")
-            with col2:
-                completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
-
-        st.markdown("---")
-
-        with st.expander(
-            "📌 計画タイトル（例）",
-            expanded=True
+if False:
+    with all_tabs[2]:
+        # current_plan_type = "スタンダード"
+        st.markdown("##### 📁 計画ルーム")
+        if (
+        "スタンダード"
+            not in current_plan_type
         ):
+
+            st.info(
+                "💎 スタンダードプラン専用機能です。"
+            )
+
             st.markdown(
                 """
-                【計画概要】
-                ※実際にはAIが内容に応じて整理します
+                AIと一緒に継続的なテーマを管理できます。
 
-                ---
-                【✅ 決定事項】
-                ・ライト480円
-                ・スタンダード980円
+                ・決定事項
+                ・検討中
+                ・保留事項
+                ・次にやること
 
-                ---
-                【🤔 検討中】
-                ・ポイント設計
-
-                ---
-                【⏸ 保留事項】
-                ・法人向けプラン
-
-                ---
-                【🚀 次にやること】
-                ・会員基盤作成
+                を整理しながら進められます。
                 """
             )
 
-        st.markdown("---")
+        else:
 
-        st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+            st.caption(
+                "AIと一緒に計画を作り上げる専用ルームです。"
+            )
 
-        st.markdown("#### 💬 会話履歴")
+            plan_view_mode = st.radio(
+                "",
+                [
+                "🚀 進行中の計画",
+                "✅ 完了済み計画"
+                ],
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+            st.markdown("---")
 
-        st.info(
-            "会話履歴（モック表示）"
-        )
+            if plan_view_mode == "🚀 進行中の計画":
+                active_project = st.selectbox(
+                    "進行中",
+                    [
+                    "選択してください",
+                    "🚀 Sync-Lnk開発",
+                    "🏠 マイホーム計画"
+                    ]
+                )
 
-        st.markdown(
-            """
-            👤 スタンダードの料金どうしようかな？
+                col1, col2, col3 = st.columns([1,1,6])
+                with col1:
+                    active_show = st.button("計画表示", key="active_show")
+                with col2:
+                    active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+                st.markdown("---")
+            else:
+                completed_project = st.selectbox(
+                    "完了済みの計画",
+                    [
+                        "選択してください",
+                        "🎓 資格取得"
+                    ],
+                )
+                col1, col2, col3 = st.columns([1,1,6])
+                with col1:
+                    completed_show = st.button("計画表示", key="completed_show")
+                with col2:
+                    completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
 
-            🤖 980円でも十分成立しそうです。
-            """
-        )
+            st.markdown("---")
 
-        st.markdown(
-            """
-            👤 記憶ルームと計画ルームは分けたい。
+            with st.expander(
+                "📌 計画タイトル（例）",
+                expanded=True
+            ):
+                st.markdown(
+                    """
+                    【計画概要】
+                    ※実際にはAIが内容に応じて整理します
 
-            🤖 その方が役割が明確になります。
-            """
-        )
+                    ---
+                    【✅ 決定事項】
+                    ・ライト480円
+                    ・スタンダード980円
 
-        st.chat_input(
-            "計画ルームで会話..."
-        )
+                    ---
+                    【🤔 検討中】
+                    ・ポイント設計
 
+                    ---
+                    【⏸ 保留事項】
+                    ・法人向けプラン
+
+                    ---
+                    【🚀 次にやること】
+                    ・会員基盤作成
+                    """
+                )
+
+            st.markdown("---")
+
+            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+
+            st.markdown("#### 💬 会話履歴")
+
+            st.info(
+                "会話履歴（モック表示）"
+            )
+
+            st.markdown(
+                """
+                👤 スタンダードの料金どうしようかな？
+
+                🤖 980円でも十分成立しそうです。
+                """
+            )
+
+            st.markdown(
+                """
+                👤 記憶ルームと計画ルームは分けたい。
+
+                🤖 その方が役割が明確になります。
+                """
+            )
+
+            st.chat_input(
+                "計画ルームで会話..."
+            )
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
