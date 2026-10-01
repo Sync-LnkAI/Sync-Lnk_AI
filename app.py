@@ -5012,7 +5012,8 @@ def execute_real_estate_sale_calculation(
     try:
         normalized_arguments = (
             normalize_real_estate_sale_arguments(
-                arguments
+                arguments,
+                apply_defaults=False
             )
         )
 
@@ -5120,6 +5121,22 @@ def execute_real_estate_sale_calculation(
         missing_fields = (
             get_real_estate_sale_missing_fields(
                 normalized_arguments
+            )
+        )
+
+        if missing_fields:
+            return {
+                "status": "missing_fields",
+                "result": None,
+                "missing_fields": missing_fields,
+                "error": None
+            }
+
+        # 必須項目が揃ってから任意項目へ初期値を設定
+        normalized_arguments = (
+            normalize_real_estate_sale_arguments(
+                normalized_arguments,
+                apply_defaults=True
             )
         )
 
