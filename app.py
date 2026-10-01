@@ -4899,7 +4899,9 @@ def get_real_estate_sale_missing_fields(
                     and arguments.get(field) is not None
                 ):
                     try:
-                        field_amount = to_decimal(arguments.get(field))
+                        field_amount = to_decimal(
+                            arguments.get(field)
+                        )
                         field_is_provided = (
                             field_amount > Decimal("0")
                             or bool(
