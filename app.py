@@ -4458,7 +4458,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
 
 REAL_ESTATE_DATE_FIELDS = {
     "acquisition_date",
-    "sale_date"
+    "sale_date",
     "building_acquisition_date"
 }
 
@@ -4927,8 +4927,8 @@ def get_real_estate_sale_missing_fields(
             if (total_known_acquisition_cost <= Decimal("0")):
                 missing_fields.append("acquisition_basis")
 
-        if (total_known_acquisition_cost <= Decimal("0")):
-            missing_fields.append("acquisition_basis")
+            if (total_known_acquisition_cost <= Decimal("0")):
+                missing_fields.append("acquisition_basis")
 
     building_cost = to_decimal(
         arguments.get(
@@ -4943,7 +4943,7 @@ def get_real_estate_sale_missing_fields(
         not in arguments
     ):
 
-        building_original_cost = to_decimal(arguments.get("building_original_cost", Decimal("0")))
+        building_original_cost = to_decimal(arguments.get("building_acquisition_cost", Decimal("0")))
         building_structure = arguments.get("building_structure")
         building_acquisition_date = arguments.get("building_acquisition_date")
 
@@ -5075,7 +5075,7 @@ def execute_real_estate_sale_calculation(
         }
     
     if (to_decimal(normalized_arguments.get("accumulated_depreciation",Decimal("0"))) <= Decimal("0")):
-        building_original_cost = (normalized_arguments.get("building_original_cost"))
+        building_original_cost = (normalized_arguments.get("building_acquisition_cost"))
         building_structure = (normalized_arguments.get("building_structure"))
         building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
         property_usage = (normalized_arguments.get("property_usage"))
