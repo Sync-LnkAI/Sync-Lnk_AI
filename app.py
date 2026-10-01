@@ -6695,13 +6695,24 @@ with all_tabs[0]:
                                 time.time()
                             )
 
-                            calculation_extraction_result = (
-                                extract_real_estate_sale_parameters(
-                                    user_input=user_input,
-                                    recent_history=
-                                        recent_history_str
+                            if selected_case_resume_arguments is not None:
+                                calculation_extraction_result = {
+                                    "should_calculate": True,
+                                    "arguments": dict(
+                                        selected_case_resume_arguments
+                                    ),
+                                    "extraction_status": "extracted",
+                                    "in_tokens": 0,
+                                    "out_tokens": 0,
+                                    "cost": 0.0
+                                }
+                            else:
+                                calculation_extraction_result = (
+                                    extract_real_estate_sale_parameters(
+                                        user_input=user_input,
+                                        recent_history=recent_history_str
+                                    )
                                 )
-                            )
 
                             extraction_elapsed = (
                                 time.time()
