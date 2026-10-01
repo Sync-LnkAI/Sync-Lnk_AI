@@ -3711,25 +3711,6 @@ def calculate_real_estate_sale(
             + building_tax_basis
             + acquisition_costs_d
         )
-    st.write(
-    "actual_acquisition_basis",
-    round_yen(actual_acquisition_basis)
-    )
-
-    st.write(
-        "land_cost_d",
-        round_yen(land_cost_d)
-    )
-
-    st.write(
-        "building_tax_basis",
-        round_yen(building_tax_basis)
-    )
-
-    st.write(
-        "acquisition_costs_d",
-        round_yen(acquisition_costs_d)
-    )
 
     deemed_rate_d = to_decimal(
         deemed_acquisition_cost_rate
