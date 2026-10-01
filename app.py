@@ -4201,6 +4201,18 @@ def extract_real_estate_sale_parameters(
     3,000万円控除を自動適用してはいけません。
     ・適用の確認が取れていない場合はnullにしてください。
 
+    【建物構造】
+    次の表現は building_structure として扱ってください。
+
+    ・木造 → wood
+    ・軽量鉄骨造 → light_steel
+    ・鉄骨造 → steel
+    ・RC造 → rc
+    ・SRC造 → src
+
+    構造が不明な場合は null にしてください。
+
+
     【不動産売却計算に該当しない場合】
     ・should_calculateをfalseにしてください。
     ・argumentsの各値はnullにしてください。
@@ -4224,6 +4236,9 @@ def extract_real_estate_sale_parameters(
             "loan_balance": null,
             "land_acquisition_cost": null,
             "building_acquisition_cost": null,
+            "building_original_cost": null,
+            "building_structure": null,
+            "building_acquisition_date": null,
             "accumulated_depreciation": null,
             "acquisition_related_costs": null,
             "total_acquisition_cost": null,
@@ -4402,10 +4417,14 @@ def extract_real_estate_sale_parameters(
 
 REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "owner_type",
+    "property_usage",
     "sale_price",
     "loan_balance",
     "land_acquisition_cost",
     "building_acquisition_cost",
+    "building_original_cost",
+    "building_structure",
+    "building_acquisition_date",
     "accumulated_depreciation",
     "acquisition_related_costs",
     "total_acquisition_cost",
@@ -4441,6 +4460,62 @@ REAL_ESTATE_DATE_FIELDS = {
     "acquisition_date",
     "sale_date"
 }
+
+BUILDING_USEFUL_LIFE = {
+    "wood": 22,
+    "light_steel": 19,
+    "steel": 34,
+    "rc": 47,
+    "src": 47
+}
+
+NON_BUSINESS_DEPRECIATION_RATE = {
+    "wood": Decimal("0.031"),
+    "light_steel": Decimal("0.036"),
+    "steel": Decimal("0.025"),
+    "rc": Decimal("0.015"),
+    "src": Decimal("0.015")
+}
+
+def calculate_building_depreciation(
+    building_original_cost,
+    building_structure,
+    building_acquisition_date,
+    property_usage
+) -> dict:
+
+    original_cost = to_decimal(building_original_cost)
+
+    useful_life = Decimal(BUILDING_USEFUL_LIFE[building_structure])
+
+    acquired_date = parse_date(building_acquisition_date)
+
+    today = datetime.now(JST).date()
+
+    elapsed_days = (today - acquired_date).days
+
+    elapsed_years = Decimal(str(elapsed_days / 365.25))
+
+    if property_usage == "owner_occupied":
+        depreciation_rate = NON_BUSINESS_DEPRECIATION_RATE[building_structure]
+        accumulated_depreciation = (
+            original_cost
+            * Decimal("0.9")
+            * depreciation_rate
+            * elapsed_years
+        )
+        accumulated_depreciation = min(accumulated_depreciation, original_cost * Decimal("0.95"))
+
+    else:
+        annual_depreciation = (original_cost / useful_life)
+        accumulated_depreciation = min(annual_depreciation * elapsed_years, original_cost)
+
+    building_tax_basis = (original_cost - accumulated_depreciation)
+
+    return {
+        "accumulated_depreciation":round_yen(accumulated_depreciation),
+        "building_tax_basis":round_yen(building_tax_basis)
+    }
 
 def normalize_real_estate_sale_arguments(
     arguments: dict,
@@ -4548,6 +4623,26 @@ def normalize_real_estate_sale_arguments(
                 "5年以下"
             }:
                 normalized[key] = "short_term"
+            continue
+        
+        if key == "property_usage":
+            property_usage_text = str(value).strip().lower()
+            property_usage_mapping = {
+                "owner_occupied": "owner_occupied",
+                "自宅": "owner_occupied",
+                "自宅用": "owner_occupied",
+                "居住用": "owner_occupied",
+                "マイホーム": "owner_occupied",
+                "investment": "investment",
+                "投資用": "investment",
+                "賃貸用": "investment",
+                "収益物件": "investment"
+            }
+            normalized_property_usage = property_usage_mapping.get(
+                property_usage_text
+            )
+            if normalized_property_usage is not None:
+                normalized["property_usage"] = normalized_property_usage
             continue
 
         # 金額、取得費率、法人実効税率
@@ -4696,6 +4791,9 @@ def normalize_real_estate_sale_arguments(
 REAL_ESTATE_FIELD_LABELS = {
     "owner_type": "売却者が個人か法人か",
     "sale_price": "売却予定額または売却額",
+    "building_original_cost": "建物取得額",
+    "building_structure": "建物構造",
+    "building_acquisition_date": "建物取得年月",
     "acquisition_date": "取得日",
     "sale_date": "売却日",
     "holding_period_type": "長期譲渡か短期譲渡か",
@@ -4703,7 +4801,6 @@ REAL_ESTATE_FIELD_LABELS = {
     "accumulated_depreciation":("建物の減価償却累計額"),
     "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）")
 }
-
 
 def get_real_estate_sale_missing_fields(
     arguments: dict
@@ -4839,20 +4936,28 @@ def get_real_estate_sale_missing_fields(
 
     if (
         building_cost > Decimal("0")
-        and
-        "accumulated_depreciation"
+        and "accumulated_depreciation"
         not in arguments
     ):
-        missing_fields.append(
-            "accumulated_depreciation"
+
+        building_original_cost = to_decimal(arguments.get("building_original_cost", Decimal("0")))
+        building_structure = arguments.get("building_structure")
+        building_acquisition_date = arguments.get("building_acquisition_date")
+
+        can_auto_calculate = (
+            building_original_cost > Decimal("0")
+            and building_structure
+            and building_acquisition_date
         )
 
-    # 重複を除き、追加順を維持
-    return list(
-        dict.fromkeys(
-            missing_fields
-        )
-    )
+        if not can_auto_calculate:
+            if (building_original_cost <= Decimal("0")):
+                missing_fields.append("building_original_cost")
+            if not building_structure: missing_fields.append("building_structure")
+            if not building_acquisition_date: missing_fields.append("building_acquisition_date")
+
+        # 重複を除き、追加順を維持
+        return list(dict.fromkeys(missing_fields))
 
 def execute_real_estate_sale_calculation(
     extraction_result: dict
@@ -4965,6 +5070,29 @@ def execute_real_estate_sale_calculation(
                 normalize_error
             )
         }
+    
+    if ("accumulated_depreciation" not in normalized_arguments):
+        building_original_cost = (normalized_arguments.get("building_original_cost"))
+        building_structure = (normalized_arguments.get("building_structure"))
+        building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
+        property_usage = (normalized_arguments.get("property_usage"))
+
+        if (
+            building_original_cost
+            and building_structure
+            and building_acquisition_date
+        ):
+
+            depreciation_result = calculate_building_depreciation(
+                    building_original_cost=building_original_cost,
+                    building_structure=building_structure,
+                    building_acquisition_date=building_acquisition_date,
+                    property_usage=property_usage
+                )
+
+            normalized_arguments["accumulated_depreciation"] = depreciation_result[
+                    "accumulated_depreciation"
+                ]
 
     try:
         print(
@@ -5160,6 +5288,19 @@ def build_real_estate_calculation_context(
             missing_text = (
                 "・計算に必要な条件"
             )
+        
+        adjusted_labels = []
+        for label in missing_labels:
+            if label == "建物の減価償却累計額":
+                adjusted_labels.append(
+                    "建物の減価償却累計額\n"
+                    "または\n"
+                    "建物取得額・建物構造・建物取得年月"
+                )
+
+            else:
+                adjusted_labels.append(label)
+        missing_labels = adjusted_labels
 
         return f"""
         【Python不動産売却計算】
@@ -5967,6 +6108,8 @@ with all_tabs[0]:
 
                                 merged_case_data = dict(restored_case_data)
                                 merged_case_data.update(pending_arguments)
+                                if selected_case_name == "自宅売却":
+                                    merged_case_data["property_usage"] = "owner_occupied"
 
                                 # st.write("restored_case_data")
                                 # st.code(
@@ -6002,7 +6145,7 @@ with all_tabs[0]:
                                 # )
 
 
-                                if (selected_case_data.get("property_usage") == "owner_occupied"):
+                                if (merged_case_data.get("property_usage") == "owner_occupied"):
                                     merged_case_data["owner_type"] = "individual"
 
                                 st.session_state[
