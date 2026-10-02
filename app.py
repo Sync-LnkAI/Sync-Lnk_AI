@@ -7084,6 +7084,8 @@ with all_tabs[0]:
                             #     language="json"
                             # )
 
+                            st.warning("execute_real_estate_sale_calculation start")
+
                             calculation_execution_result = (
                                 execute_real_estate_sale_calculation(
                                     calculation_extraction_result
