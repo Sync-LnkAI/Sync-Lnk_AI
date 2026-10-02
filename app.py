@@ -4251,6 +4251,26 @@ def extract_real_estate_sale_parameters(
     ・建物購入価格を、building_original_cost や total_acquisition_cost に設定してはいけません。
     ・total_acquisition_cost は、土地と建物などを合算した取得費総額が明示された場合だけ設定してください。
 
+    【不動産用途】
+    次の表現は property_usage として扱ってください。
+    ・自宅
+    ・居住用
+    ・マイホーム
+    ・自宅マンション
+    → owner_occupied
+
+    ・投資用
+    ・投資用マンション
+    ・収益物件
+    ・賃貸用
+    ・一棟マンション
+    ・一棟アパート
+    ・アパート経営
+    ・マンション経営
+    → investment
+
+    用途が不明な場合は null にしてください。
+
     【重要】
     ・取得費が明示されている場合は、acquisition_related_costs を 0 や null にしてはいけません。
     ・土地取得費や建物取得費が不明であっても、総取得費や合算簿価が提示されている場合はacquisition_related_costs に設定してください。
@@ -4372,6 +4392,7 @@ def extract_real_estate_sale_parameters(
         "arguments": {{
             "owner_type": null,
             "sale_price": null,
+            "property_usage": null,
             "loan_balance": null,
             "land_acquisition_cost": null,
             "building_acquisition_cost": null,
