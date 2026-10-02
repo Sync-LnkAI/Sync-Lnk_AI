@@ -6931,7 +6931,7 @@ with all_tabs[0]:
                                 "active_calculation_case_name"
                             )
                         )
-S
+
                         st.write(
                             "DEBUG calculation_pending",
                             calculation_pending
