@@ -6448,7 +6448,20 @@ with all_tabs[0]:
                                     )
                                 }
 
-                                property_usage = str(
+                                st.write("DEBUG new_case_data")
+                                st.code(
+                                    json.dumps(
+                                        make_json_safe(
+                                            new_case_data
+                                        ),
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
+                                property_usage = (
                                     new_case_data.get(
                                         "property_usage"
                                     )
