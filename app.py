@@ -4225,6 +4225,34 @@ def extract_real_estate_sale_parameters(
     ・should_calculateをfalseにしてください。
     ・argumentsの各値はnullにしてください。
 
+    【現在の計算状態】
+    不動産売却計算継続中: {calculation_pending}
+
+    【計算継続中のルール】
+    不動産売却計算継続中がTrueの場合、最新のユーザー発言は、不足項目への回答として優先的に解釈してください。
+    以下のような発言は、不動産売却計算対象として扱い、should_calculate を true にしてください。
+
+    ・金額のみの回答
+    ・土地取得費
+    ・建物取得費
+    ・購入時諸費用
+    ・建物構造
+    ・取得年月
+    ・取得日
+    ・売却日
+    ・長期譲渡
+    ・短期譲渡
+
+    計算継続中の場合は、単独では不動産売却に見えない短文でも、不足項目への回答として解釈してください。
+
+    例
+    木造 → building_structure = "wood"
+    RC造 → building_structure = "rc"
+    2018年購入 → building_acquisition_date
+    8年前に購入 → building_acquisition_date
+    長期譲渡 → holding_period_type = "long_term"
+    短期譲渡 → holding_period_type = "short_term"
+
     【会話の継続ルール】
     直近の会話で不動産売却計算を行っており、「長期譲渡で計算して」「短期譲渡で計算して」のような回答があった場合は、should_calculate を true にしてください。
     その場合、holding_period_type を設定し、他の条件は直近の会話から引き継ぐ前提でarguments に null を入れて構いません。
@@ -6827,7 +6855,8 @@ with all_tabs[0]:
                             else:
                                 calculation_extraction_result = extract_real_estate_sale_parameters(
                                     user_input=user_input,
-                                    recent_history=""
+                                    recent_history="",
+                                    calculation_pending=calculation_pending
                                 )
 
                                 st.write("DEBUG calculation_extraction_result")
