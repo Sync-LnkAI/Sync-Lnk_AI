@@ -4515,6 +4515,10 @@ NON_BUSINESS_DEPRECIATION_RATE = {
     "src": Decimal("0.015")
 }
 
+# 建物未償却残高と理論簿価の差異警告基準
+# 100万円を超える差異がある場合に警告する
+BUILDING_TAX_BASIS_WARNING_THRESHOLD = Decimal("1000000")
+
 def calculate_building_depreciation(
     building_original_cost,
     building_structure,
@@ -5086,6 +5090,95 @@ def execute_real_estate_sale_calculation(
             )
         }
     
+    # ==========================================
+    # 建物未償却残高と理論簿価の差異確認
+    # ==========================================
+    building_tax_basis_warning = False
+    theoretical_building_tax_basis = None
+    building_tax_basis_difference = None
+
+    input_building_tax_basis = (
+        normalized_arguments.get(
+            "building_tax_basis"
+        )
+    )
+
+    building_acquisition_cost = (
+        normalized_arguments.get(
+            "building_acquisition_cost"
+        )
+    )
+
+    building_structure = (
+        normalized_arguments.get(
+            "building_structure"
+        )
+    )
+
+    building_acquisition_date = (
+        normalized_arguments.get(
+            "building_acquisition_date"
+        )
+    )
+
+    property_usage = (
+        normalized_arguments.get(
+            "property_usage"
+        )
+    )
+
+    can_compare_building_tax_basis = (
+        input_building_tax_basis is not None
+        and building_acquisition_cost is not None
+        and building_structure
+        and building_acquisition_date
+    )
+
+    if can_compare_building_tax_basis:
+
+        theoretical_depreciation_result = (
+            calculate_building_depreciation(
+                building_original_cost=(
+                    building_acquisition_cost
+                ),
+                building_structure=(
+                    building_structure
+                ),
+                building_acquisition_date=(
+                    building_acquisition_date
+                ),
+                property_usage=(
+                    property_usage
+                )
+            )
+        )
+
+        theoretical_building_tax_basis = int(
+            theoretical_depreciation_result.get(
+                "building_tax_basis",
+                0
+            )
+            or 0
+        )
+
+        input_building_tax_basis_amount = (
+            to_decimal(
+                input_building_tax_basis
+            )
+        )
+
+        building_tax_basis_difference = abs(
+            input_building_tax_basis_amount
+            - to_decimal(
+                theoretical_building_tax_basis
+            )
+        )
+
+        building_tax_basis_warning = (
+            building_tax_basis_difference
+            > BUILDING_TAX_BASIS_WARNING_THRESHOLD
+        )
+
     if (
         normalized_arguments.get(
             "building_tax_basis"
@@ -5325,6 +5418,33 @@ def execute_real_estate_sale_calculation(
                 **calculation_arguments
             )
         )
+        calculation_result[
+            "building_tax_basis_source"
+        ] = (
+            "user_provided"
+            if input_building_tax_basis is not None
+            else "calculated"
+        )
+
+        calculation_result[
+            "theoretical_building_tax_basis"
+        ] = theoretical_building_tax_basis
+
+        calculation_result[
+            "building_tax_basis_difference"
+        ] = (
+            round_yen(
+                building_tax_basis_difference
+            )
+            if building_tax_basis_difference
+            is not None
+            else None
+        )
+
+        calculation_result[
+            "building_tax_basis_warning"
+        ] = building_tax_basis_warning
+
         st.session_state["debug_calculation_result"] = (
             make_json_safe(calculation_result)
         )
@@ -5567,6 +5687,40 @@ def build_real_estate_calculation_context(
         ensure_ascii=False,
         indent=2
     )
+    building_tax_basis_warning_text = ""
+
+    if result.get(
+        "building_tax_basis_warning",
+        False
+    ):
+        input_basis = int(
+            result.get(
+                "building_tax_basis",
+                0
+            )
+            or 0
+        )
+
+        theoretical_basis = int(
+            result.get(
+                "theoretical_building_tax_basis",
+                0
+            )
+            or 0
+        )
+
+        basis_difference = int(
+            result.get(
+                "building_tax_basis_difference",
+                0
+            )
+            or 0
+        )
+
+        building_tax_basis_warning_text = f"""
+    ⚠️ 入力していただいた建物未償却残高と、建物取得価額・構造・取得年月から算出した簿価に差異がありました。
+    今回は入力していただいた未償却残高を採用して計算しています。
+    """.strip()
 
     estimated_tax = result.get(
         "estimated_tax"
@@ -5608,10 +5762,9 @@ def build_real_estate_calculation_context(
         """.strip()
     else:
         tax_note = """
-        ・最初に税引後の現金手残りを示してください。
-        ・次に税引前手残りを示してください。
-        ・その後、売却価格、ローン残債、仲介手数料、譲渡費用を示してください。
-        ・最後に課税譲渡所得と概算税額を示してください。
+        ・結果は、適用条件、取得費の内訳、税額、最終手残りの順で説明してください。
+        ・税引前手残りと税引後手残りは、回答の最後に表示してください。
+        ・税引前手残りを先に表示し、その後に税引後手残りを表示してください。
         """.strip()
 
     # 個人の場合の保有期間表示ルール
@@ -5650,7 +5803,7 @@ def build_real_estate_calculation_context(
     ・最後に、この結果は入力条件に基づく概算であり、申告税額を確定するものではないことを短く伝えてください。
       その際の語尾や口調は、現在設定されている方言設定もしくは人格設定に従ってください。
     ・その説明が終わった時点で回答を終了してください。
-    ・計算結果と無関係な追加の挨拶、締めの定型文、締めの定型文、締めの定型文、締めの定型文、
+    ・計算結果と無関係な追加の挨拶、締めの定型文、締めの定型文、締めの定型文、締めの定型文は入れない。
     ・brokerage_feeは仲介手数料です。
     ・仲介手数料が自動計算されている場合は、その金額も説明してください。
     ・税引前手残りには仲介手数料や譲渡費用が反映されていることを説明してください。
@@ -5662,7 +5815,61 @@ def build_real_estate_calculation_context(
     ・追加条件が必要な場合以外は条件を再度確認してはいけません。
     ・結果が存在する場合は必ず結果を提示してください。
     ・取得費（applied_acquisition_basis）は、ユーザー向けには単に「取得費」と表示してください。
-    ・売却価格、取得費、ローン残債、仲介手数料、譲渡費用の順で説明してください。
+
+    【結果の表示順序】
+    次の順序を必ず守ってください。
+    1. 【適用条件】
+    ・物件用途
+    ・所有者区分
+    ・売却価格
+    ・ローン残債
+    ・土地取得費
+    ・建物取得価額
+    ・建物構造
+    ・建物取得年月または取得日
+    ・売却日または売却予定日
+    ・購入時諸費用
+    ・仲介手数料
+    ・譲渡費用
+    ・長期譲渡または短期譲渡
+    ・適用した税率
+
+    2. 【取得費の内訳】
+    ・土地取得費
+    ・建物取得価額
+    ・減価償却累計額
+    ・建物未償却残高
+    ・購入時諸費用
+    ・取得費合計
+
+    建物未償却残高がユーザー入力の場合でも、
+    建物取得価額と減価償却累計額との関係が分かるように表示してください。
+
+    building_tax_basis_source が user_provided の場合は、
+    建物未償却残高に「入力値」と付記してください。
+
+    building_tax_basis_source が calculated の場合は、
+    建物未償却残高に「自動計算」と付記してください。
+
+    3. 【建物未償却残高の確認】
+    以下に警告文がある場合だけ、その警告文を省略せず表示してください。
+
+    {building_tax_basis_warning_text}
+
+    警告文が空の場合は、この見出し自体を表示しないでください。
+
+    4. 【税額】
+    ・譲渡所得
+    ・特別控除
+    ・課税譲渡所得
+    ・適用税率
+    ・概算税額
+
+    5. 【最終手残り】
+    ・税引前手残り
+    ・税引後手残り
+
+    最終手残りは必ず回答の最後に表示してください。
 
     【税額と手残りの表示ルール】
     {tax_note}
