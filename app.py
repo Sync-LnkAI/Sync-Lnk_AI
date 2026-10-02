@@ -3454,44 +3454,6 @@ def get_calculation_case_candidates(
             .replace("　", "")
             .lower()
         )
-        if any(
-            keyword in user_input
-            for keyword in [
-                "新規案件",
-                "新規で",
-                "新しく計算",
-                "新しい案件",
-                "新規作成"
-            ]
-        ):
-
-            st.session_state[
-                "active_calculation_case_id"
-            ] = None
-
-            st.session_state[
-                "active_calculation_case_name"
-            ] = ""
-
-            st.session_state[
-                "real_estate_calculation_arguments"
-            ] = {}
-
-            st.session_state[
-                "real_estate_calculation_pending"
-            ] = False
-
-            st.session_state[
-                "pending_case_selection"
-            ] = False
-
-            st.session_state[
-                "pending_case_candidates"
-            ] = []
-
-            st.session_state[
-                "pending_case_arguments"
-            ] = {}
 
         name_matches = [
             case
@@ -6350,6 +6312,61 @@ with all_tabs[0]:
                         # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+
+                        # ==========================================
+                        # 新しい計算案件を開始する明示指示
+                        # ==========================================
+                        normalized_case_command = (
+                            str(user_input or "")
+                            .replace(" ", "")
+                            .replace("　", "")
+                            .lower()
+                        )
+
+                        start_new_real_estate_case = any(
+                            keyword in normalized_case_command
+                            for keyword in [
+                                "新規案件",
+                                "新規で",
+                                "新しく計算",
+                                "新しい案件",
+                                "新規作成",
+                                "別案件",
+                                "別の案件"
+                            ]
+                        )
+
+                        if start_new_real_estate_case:
+                            # 現在操作中の案件との関連付けを解除
+                            st.session_state[
+                                "active_calculation_case_id"
+                            ] = None
+
+                            st.session_state[
+                                "active_calculation_case_name"
+                            ] = ""
+
+                            # 前案件の計算条件を破棄
+                            st.session_state[
+                                "real_estate_calculation_arguments"
+                            ] = {}
+
+                            st.session_state[
+                                "real_estate_calculation_pending"
+                            ] = False
+
+                            # 前回の案件選択待ち状態も破棄
+                            st.session_state[
+                                "pending_case_selection"
+                            ] = False
+
+                            st.session_state[
+                                "pending_case_candidates"
+                            ] = []
+
+                            st.session_state[
+                                "pending_case_arguments"
+                            ] = {}
 
                         # 計算案件の選択待ち処理
                         selected_case_resume_arguments = None
