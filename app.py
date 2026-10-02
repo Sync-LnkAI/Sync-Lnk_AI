@@ -7231,6 +7231,19 @@ with all_tabs[0]:
                                 )
                             )
 
+                            st.write("DEBUG calculation_execution_result")
+                            st.code(
+                                json.dumps(
+                                    make_json_safe(
+                                        calculation_execution_result
+                                    ),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
+
                             calculation_elapsed = (
                                 time.time()
                                 - calculation_start_time
