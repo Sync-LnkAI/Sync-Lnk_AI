@@ -6948,13 +6948,36 @@ with all_tabs[0]:
                                     )
                                 )
 
-                                # 条件不足で計算継続中の場合、
-                                # または操作中の案件がある場合は、
-                                # その案件の最新条件を引き継ぐ
-                                if (
-                                    calculation_pending
-                                    or active_calculation_case_id
-                                ):
+                                previous_arguments = {}
+
+                                if active_calculation_case_id:
+                                    # 操作中案件のDB保存データを基準にする
+                                    active_case = get_calculation_case(
+                                        active_calculation_case_id
+                                    )
+
+                                    previous_arguments = dict(
+                                        active_case.get(
+                                            "case_data",
+                                            {}
+                                        )
+                                        or {}
+                                    )
+
+                                    # DB保存後にセッションだけで保持している条件があれば上書き
+                                    session_arguments = dict(
+                                        st.session_state.get(
+                                            "real_estate_calculation_arguments",
+                                            {}
+                                        )
+                                        or {}
+                                    )
+
+                                    previous_arguments.update(
+                                        session_arguments
+                                    )
+
+                                elif calculation_pending:
                                     previous_arguments = dict(
                                         st.session_state.get(
                                             "real_estate_calculation_arguments",
@@ -6962,8 +6985,6 @@ with all_tabs[0]:
                                         )
                                         or {}
                                     )
-                                else:
-                                    previous_arguments = {}
                                 
                                 current_arguments = dict(
                                     calculation_extraction_result.get(
