@@ -7339,6 +7339,20 @@ with all_tabs[0]:
                                 # 計算に使用した最新条件を、次回の再計算用に保持
                                 try:
                                     saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
+
+                                    st.write("DEBUG saved_arguments")
+                                    st.code(
+                                        json.dumps(
+                                            make_json_safe(
+                                                saved_arguments
+                                            ),
+                                            ensure_ascii=False,
+                                            indent=2,
+                                            default=str
+                                        ),
+                                        language="json"
+                                    )
+
                                 except Exception:
                                     saved_arguments = dict(merged_arguments)
 
