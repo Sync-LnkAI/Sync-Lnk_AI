@@ -6795,7 +6795,7 @@ with all_tabs[0]:
                             else:
                                 calculation_extraction_result = extract_real_estate_sale_parameters(
                                     user_input=user_input,
-                                    recent_history=recent_history_str
+                                    recent_history=""
                                 )
                                 previous_arguments = dict(
                                     st.session_state.get(
