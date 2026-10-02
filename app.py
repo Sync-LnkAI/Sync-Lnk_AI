@@ -7404,18 +7404,6 @@ with all_tabs[0]:
                             )
                         )
 
-                        # if calculation_status_for_reply in {
-                        #     "missing_fields",
-                        #     "success",
-                        #     "calculation_error",
-                        #     "extraction_error"
-                        # }:
-                        #     calculation_reply_recent_history = ("不動産計算中のため参照しません")
-                        #     calculation_reply_past_logs = ("不動産計算中のため参照しません")
-                        # else:
-                        #     calculation_reply_recent_history = None
-                        #     calculation_reply_past_logs = None
-
                         # st.write(
                         #     f"DEBUG status = "
                         #     f"{calculation_execution_result.get('status')}"
@@ -7469,17 +7457,8 @@ with all_tabs[0]:
                             """
 
                         else:
-                            reply_recent_history = (
-                                calculation_reply_recent_history
-                                if calculation_reply_recent_history is not None
-                                else use_recent_history
-                            )
-
-                            reply_past_logs = (
-                                calculation_reply_past_logs
-                                if calculation_reply_past_logs is not None
-                                else past_logs_str
-                            )
+                            reply_recent_history = use_recent_history
+                            reply_past_logs = past_logs_str
 
                             # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                             system_instruction = f"""
