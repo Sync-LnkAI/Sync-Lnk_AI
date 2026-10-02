@@ -3549,6 +3549,109 @@ def cleanup_expired_calculation_cases() -> int:
 
         return 0
 
+# ==========================================
+# 不動産売却計算 入力項目
+# ==========================================
+
+# 売却者区分：owner_type
+# individual = 個人
+# corporate = 法人
+
+# 不動産用途：property_usage
+# owner_occupied = 自宅
+# investment = 投資用・賃貸用
+
+# 売却価格：sale_price
+
+# 土地取得費：land_acquisition_cost
+# 購入時の土地価格
+
+# 建物取得費：building_acquisition_cost
+# 購入時の建物価格
+
+# 建物構造：building_structure
+# wood = 木造
+# light_steel = 軽量鉄骨
+# steel = 鉄骨造
+# rc = RC造
+# src = SRC造
+
+# 建物取得年月：building_acquisition_date
+# 減価償却計算の基準日
+
+# 不動産取得年月：acquisition_date
+# 長期譲渡・短期譲渡判定用
+
+# 長期譲渡・短期譲渡：holding_period_type
+# long_term = 長期譲渡
+# short_term = 短期譲渡
+
+# 購入時諸費用：acquisition_related_costs
+# 取得費へ加算する
+# 例
+# ・購入時仲介手数料
+# ・登記費用
+# ・司法書士報酬
+# ・不動産取得税
+# ・購入契約関係費用
+
+# ==========================================
+# 任意入力項目
+# ==========================================
+
+# 売却時仲介手数料：brokerage_fee
+# 未入力なら法定上限額で自動計算
+
+# 譲渡費用：transfer_expenses
+# 譲渡所得計算で控除する費用
+# 例
+# ・解体費
+# ・測量費
+# ・立退料
+# ・売却広告費
+
+# 税計算に含めない支出：other_cash_expenses
+# 現金手残りだけ減らす
+# 例
+# ・抵当権抹消費用
+# ・引越費用
+# ・その他雑費
+
+# ローン残債：loan_balance
+# 現金手残り計算のみで控除
+
+# 特別控除：special_deduction
+# 例：居住用3000万円特別控除
+
+# ==========================================
+# 自動計算項目
+# ==========================================
+
+# 建物減価償却累計額：accumulated_depreciation
+# 未入力時は自動計算
+
+# 建物簿価：building_tax_basis
+# 建物取得費－減価償却累計額
+
+# 実額取得費：actual_acquisition_basis
+# 土地取得費
+# ＋ 建物簿価
+# ＋ 購入時諸費用
+
+# 計算で使用した取得費：applied_acquisition_basis
+
+# 特別控除前譲渡所得：capital_gain_before_deduction
+
+# 課税譲渡所得：taxable_gain
+
+# 税率：tax_rate
+
+# 概算譲渡所得税：estimated_tax
+
+# 税引前現金手残り：cash_before_tax
+
+# 税引後現金手残り：cash_after_tax
+
 
 # ==========================================
 # 🏠 不動産計算
