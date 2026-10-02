@@ -6494,14 +6494,13 @@ with all_tabs[0]:
                                 )
 
                                 # 前に操作していた案件のセッション条件を破棄
-                                st.session_state[
-                                    "real_estate_calculation_arguments"
-                                ] = {}
+                                st.session_state["real_estate_calculation_arguments"] = {}
+                                st.session_state["real_estate_calculation_pending"] = False
+                                st.session_state["active_calculation_case_id"] = None
+                                st.session_state["active_calculation_case_name"] = ""
 
                                 # 選択した案件を基準にする
-                                merged_case_data = dict(
-                                    restored_case_data
-                                )
+                                merged_case_data = dict(restored_case_data)
 
                                 # 案件選択前にユーザーが今回入力した条件だけ反映
                                 for key, value in pending_arguments.items():
@@ -6919,7 +6918,20 @@ with all_tabs[0]:
                                 False
                             )
                         )
+                        st.write(
+                            "DEBUG active_calculation_case_id",
+                            st.session_state.get(
+                                "active_calculation_case_id"
+                            )
+                        )
 
+                        st.write(
+                            "DEBUG active_calculation_case_name",
+                            st.session_state.get(
+                                "active_calculation_case_name"
+                            )
+                        )
+S
                         st.write(
                             "DEBUG calculation_pending",
                             calculation_pending
