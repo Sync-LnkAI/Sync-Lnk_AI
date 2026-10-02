@@ -4452,7 +4452,6 @@ CONFIRMABLE_FIELDS = {
     "land_acquisition_cost",
     "building_acquisition_cost",
     "acquisition_related_costs",
-    "loan_balance"
 }
 
 REAL_ESTATE_SALE_ALLOWED_FIELDS = {
@@ -4918,6 +4917,18 @@ def get_real_estate_sale_missing_fields(
         holding_type_is_valid = (holding_period_type in {"long_term", "short_term"})
         if (not dates_are_complete and not holding_type_is_valid):
             missing_fields.append("holding_period_type")
+
+    loan_balance_confirmed = bool(
+        arguments.get(
+            "loan_balance_confirmed",
+            False
+        )
+    )
+
+    if not loan_balance_confirmed:
+        missing_fields.append(
+            "loan_balance"
+        )
 
     use_deemed_acquisition_cost = bool(
         arguments.get(
