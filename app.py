@@ -7282,17 +7282,18 @@ with all_tabs[0]:
                                             apply_defaults=False
                                         )
                                     )
-                                    # st.write("saved_arguments")
-
-                                    # st.code(
-                                    #    json.dumps(
-                                    #         saved_arguments,
-                                    #         ensure_ascii=False,
-                                    #         indent=2,
-                                    #         default=str
-                                    #     ),
-                                    #     language="json"
-                                    # )
+                                    st.write("DEBUG saved_arguments")
+                                    st.code(
+                                        json.dumps(
+                                            make_json_safe(
+                                                saved_arguments
+                                            ),
+                                            ensure_ascii=False,
+                                            indent=2,
+                                            default=str
+                                        ),
+                                        language="json"
+                                    )
 
                                 except Exception:
                                     saved_arguments = (merged_arguments)
