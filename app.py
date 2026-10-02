@@ -6942,7 +6942,19 @@ with all_tabs[0]:
                                             "extraction_status"
                                         ] = "extracted"
 
-                                if calculation_pending:
+                                active_calculation_case_id = (
+                                    st.session_state.get(
+                                        "active_calculation_case_id"
+                                    )
+                                )
+
+                                # 条件不足で計算継続中の場合、
+                                # または操作中の案件がある場合は、
+                                # その案件の最新条件を引き継ぐ
+                                if (
+                                    calculation_pending
+                                    or active_calculation_case_id
+                                ):
                                     previous_arguments = dict(
                                         st.session_state.get(
                                             "real_estate_calculation_arguments",
