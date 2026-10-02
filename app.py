@@ -6842,6 +6842,21 @@ with all_tabs[0]:
                                     language="json"
                                 )
 
+                                if calculation_pending:
+                                    calculation_extraction_result[
+                                        "should_calculate"
+                                    ] = True
+
+                                    if (
+                                        calculation_extraction_result.get(
+                                            "extraction_status"
+                                        )
+                                        == "not_applicable"
+                                    ):
+                                        calculation_extraction_result[
+                                            "extraction_status"
+                                        ] = "extracted"
+
                                 previous_arguments = dict(
                                     st.session_state.get(
                                         "real_estate_calculation_arguments",
