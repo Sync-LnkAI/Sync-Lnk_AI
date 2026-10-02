@@ -6335,6 +6335,8 @@ with all_tabs[0]:
                                 "別の案件"
                             ]
                         )
+                        if start_new_real_estate_case:
+                            candidates = []
 
                         if start_new_real_estate_case:
                             # 現在操作中の案件との関連付けを解除
@@ -6450,24 +6452,11 @@ with all_tabs[0]:
                                     new_case_data.get(
                                         "property_usage"
                                     )
-                                    or "owner_occupied"
                                 )
 
                                 new_case_data[
                                     "property_usage"
                                 ] = property_usage
-
-                                if property_usage == "owner_occupied":
-                                    new_case_data[
-                                        "owner_type"
-                                    ] = "individual"
-
-                                property_usage = str(
-                                    new_case_data.get(
-                                        "property_usage"
-                                    )
-                                    or "owner_occupied"
-                                )
 
                                 create_result = create_calculation_case(
                                     case_type="real_estate_sale",
