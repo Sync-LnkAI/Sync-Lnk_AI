@@ -7060,6 +7060,18 @@ with all_tabs[0]:
                             if not total_cost_is_explicit:
                                 current_arguments.pop("total_acquisition_cost", None)
 
+                            st.write("DEBUG previous_arguments")
+                            st.code(
+                                json.dumps(
+                                    make_json_safe(
+                                        previous_arguments
+                                    ),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
                             # 前回条件を今回条件で上書きする
                             # 同じ項目がある場合は最新発言を優先
                             merged_arguments = dict(previous_arguments)
@@ -7442,7 +7454,8 @@ with all_tabs[0]:
                             elif calculation_status == "success":
                                 # 計算に使用した最新条件を、次回の再計算用に保持
                                 try:
-                                    saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
+                                    # saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
+                                    
 
                                     st.write("DEBUG saved_arguments")
                                     st.code(
@@ -7788,7 +7801,7 @@ with all_tabs[0]:
                             ・分からない場合は無理に回答を作らず、自然な会話や関連する質問へつなげる。
 
                             【時間帯に合わせた気遣い】
-                            必要な場合だけ、現在の応答スタイルに合わせた短い気遣いを加えてください。
+                            下記の時間帯のみ、現在の応答スタイルに合わせた短い気遣いを加えてください。
                             ・深夜（00:00から02:00）: 夜更かしを短く労う
                             ・未明（02:00から05:00）: 異例の時間に起きていることを短く気遣う
                             ・早朝（05:00から07:00）: 早い始動を前向きに応援する
