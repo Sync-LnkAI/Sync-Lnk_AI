@@ -6823,6 +6823,20 @@ with all_tabs[0]:
                                     user_input=user_input,
                                     recent_history=""
                                 )
+
+                                st.write("DEBUG calculation_extraction_result")
+                                st.code(
+                                    json.dumps(
+                                        make_json_safe(
+                                            calculation_extraction_result
+                                        ),
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
+
                                 previous_arguments = dict(
                                     st.session_state.get(
                                         "real_estate_calculation_arguments",
