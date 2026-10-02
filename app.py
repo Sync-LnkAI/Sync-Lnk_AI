@@ -6783,6 +6783,11 @@ with all_tabs[0]:
                             )
                         )
 
+                        st.write(
+                            "DEBUG calculation_pending",
+                            calculation_pending
+                        )
+
                         is_calculation_candidate = (
                             calculation_tool
                             == "real_estate_sale"
