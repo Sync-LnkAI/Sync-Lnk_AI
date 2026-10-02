@@ -4107,7 +4107,9 @@ def extract_real_estate_sale_parameters(
     ・ユーザーが明示していない情報を推測しないでください。
     ・一般的な費用、一般的な税率、一般的な日付を補完しないでください。
     ・AIが過去に推測した内容を、ユーザーが話した事実として使用しないでください。
-    ・最新のユーザー発言と直近の会話で、ユーザー本人が明示した条件だけを使用してください。
+    ・argumentsには、最新のユーザー発言で明示された条件だけを設定してください。
+    ・直近の会話は発言の意味を理解するためだけに使用し、過去の金額、日付、構造、条件をargumentsへ再出力してはいけません。
+    ・過去に確認済みの条件はPython側で保持するため、抽出処理では引き継いではいけません。
     ・条件が変更されている場合は、最新の条件を優先してください。
     ・値が確認できない項目はnullにしてください。
     ・キーを省略しないでください。
@@ -7357,6 +7359,18 @@ with all_tabs[0]:
                             )
                         )
 
+                        if calculation_status_for_reply in {
+                            "missing_fields",
+                            "success",
+                            "calculation_error",
+                            "extraction_error"
+                        }:
+                            calculation_reply_recent_history = ("不動産計算中のため参照しません")
+                            calculation_reply_past_logs = ("不動産計算中のため参照しません")
+                        else:
+                            calculation_reply_recent_history = None
+                            calculation_reply_past_logs = None
+
                         # st.write(
                         #     f"DEBUG status = "
                         #     f"{calculation_execution_result.get('status')}"
@@ -7410,6 +7424,18 @@ with all_tabs[0]:
                             """
 
                         else:
+                            reply_recent_history = (
+                                calculation_reply_recent_history
+                                if calculation_reply_recent_history is not None
+                                else use_recent_history
+                            )
+
+                            reply_past_logs = (
+                                calculation_reply_past_logs
+                                if calculation_reply_past_logs is not None
+                                else past_logs_str
+                            )
+                            
                             # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                             system_instruction = f"""
                             あなたの名前は「{current_concierge_name}」です。
@@ -7457,10 +7483,10 @@ with all_tabs[0]:
                             ・過去の会話を参照する際は、「ユーザーが実際に話した内容」と「AIが推測した内容」を混同してはいけません。
                             
                             【直近の会話履歴・古い順】
-                            {use_recent_history}
+                            {reply_recent_history}
 
                             【現在の発言に関連する過去の会話】
-                            {past_logs_str}
+                            {reply_past_logs}
 
                             【検索結果】
                             {search_result}
