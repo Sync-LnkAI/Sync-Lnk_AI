@@ -6636,6 +6636,16 @@ with all_tabs[0]:
                         # 「1」を再判定せず不動産計算へ強制復帰する
                         if selected_case_resume_arguments is not None:
                             calculation_tool = "real_estate_sale"
+                        st.write("DEBUG selected_case_resume_arguments")
+                        st.code(
+                            json.dumps(
+                                make_json_safe(selected_case_resume_arguments),
+                                ensure_ascii=False,
+                                indent=2,
+                                default=str
+                            ),
+                            language="json"
+                        )
                         
                         if should_run_tool_router:
                             save_system_audit_log(
@@ -6792,8 +6802,22 @@ with all_tabs[0]:
                                     "out_tokens": 0,
                                     "cost": 0.0
                                 }
+                                
                                 previous_arguments = {}
                                 current_arguments = dict(selected_case_resume_arguments)
+
+                                st.write("DEBUG selected_case_resume_arguments")
+                                st.code(
+                                    json.dumps(
+                                        make_json_safe(
+                                            selected_case_resume_arguments
+                                        ),
+                                        ensure_ascii=False,
+                                        indent=2,
+                                        default=str
+                                    ),
+                                    language="json"
+                                )
                             else:
                                 calculation_extraction_result = extract_real_estate_sale_parameters(
                                     user_input=user_input,
@@ -6813,6 +6837,16 @@ with all_tabs[0]:
                                     )
                                     or {}
                                 )
+                            st.write("DEBUG current_arguments")
+                            st.code(
+                                json.dumps(
+                                    make_json_safe(current_arguments),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             extraction_elapsed = (time.time() - calculation_start_time)
 
@@ -6918,6 +6952,17 @@ with all_tabs[0]:
                                 merged_arguments["total_acquisition_cost"] = 0
                             
                             calculation_extraction_result["arguments"] = merged_arguments
+
+                            st.write("DEBUG merged_arguments")
+                            st.code(
+                                json.dumps(
+                                    make_json_safe(merged_arguments),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                    default=str
+                                ),
+                                language="json"
+                            )
 
                             # st.write("previous_arguments")
                             # st.code(
@@ -7359,17 +7404,17 @@ with all_tabs[0]:
                             )
                         )
 
-                        if calculation_status_for_reply in {
-                            "missing_fields",
-                            "success",
-                            "calculation_error",
-                            "extraction_error"
-                        }:
-                            calculation_reply_recent_history = ("不動産計算中のため参照しません")
-                            calculation_reply_past_logs = ("不動産計算中のため参照しません")
-                        else:
-                            calculation_reply_recent_history = None
-                            calculation_reply_past_logs = None
+                        # if calculation_status_for_reply in {
+                        #     "missing_fields",
+                        #     "success",
+                        #     "calculation_error",
+                        #     "extraction_error"
+                        # }:
+                        #     calculation_reply_recent_history = ("不動産計算中のため参照しません")
+                        #     calculation_reply_past_logs = ("不動産計算中のため参照しません")
+                        # else:
+                        #     calculation_reply_recent_history = None
+                        #     calculation_reply_past_logs = None
 
                         # st.write(
                         #     f"DEBUG status = "
@@ -7435,7 +7480,7 @@ with all_tabs[0]:
                                 if calculation_reply_past_logs is not None
                                 else past_logs_str
                             )
-                            
+
                             # 🧠 お節介＆矛盾防止指示をドッキングしたシステム指示書
                             system_instruction = f"""
                             あなたの名前は「{current_concierge_name}」です。
