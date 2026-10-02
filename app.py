@@ -6901,6 +6901,22 @@ with all_tabs[0]:
                                     )
                                     or {}
                                 )
+                            
+                            if (
+                                current_arguments.get("acquisition_date")
+                                and not current_arguments.get(
+                                    "building_acquisition_date"
+                                )
+                                and previous_arguments.get(
+                                    "building_acquisition_cost"
+                                )
+                            ):
+                                current_arguments[
+                                    "building_acquisition_date"
+                                ] = current_arguments[
+                                    "acquisition_date"
+                                ]
+                            
                             st.write("DEBUG current_arguments")
                             st.code(
                                 json.dumps(
