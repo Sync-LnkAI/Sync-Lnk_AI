@@ -6454,9 +6454,15 @@ with all_tabs[0]:
                                     )
                                 )
 
-                                new_case_data[
-                                    "property_usage"
-                                ] = property_usage
+                                if property_usage:
+                                    new_case_data[
+                                        "property_usage"
+                                    ] = property_usage
+                                else:
+                                    new_case_data.pop(
+                                        "property_usage",
+                                        None
+                                    )
 
                                 create_result = create_calculation_case(
                                     case_type="real_estate_sale",
