@@ -3707,6 +3707,11 @@ def calculate_real_estate_sale(
     building_acquisition_cost: Number = 0,
     accumulated_depreciation: Number = 0,
 
+    # 建物未償却残高・建物簿価
+    # 入力されている場合は減価償却を再計算せず、
+    # この金額をそのまま建物の税務上の残高として使用する
+    building_tax_basis: Optional[Number] = None,
+
     # 取得費に含める購入時経費等
     acquisition_related_costs: Number = 0,
     total_acquisition_cost: Number = 0,
@@ -3805,10 +3810,25 @@ def calculate_real_estate_sale(
         )
 
     # 建物の税務上の未償却残高
-    building_tax_basis = (
-        building_cost_d
-        - depreciation_d
-    )
+    if building_tax_basis is not None:
+        # ユーザーが建物未償却残高・建物簿価を明示した場合
+        # すでに減価償却後の金額なので再計算しない
+        building_tax_basis_d = to_decimal(
+            building_tax_basis
+        )
+
+        if building_tax_basis_d < Decimal("0"):
+            raise ValueError(
+                "building_tax_basisは0以上にしてください"
+            )
+
+    else:
+        # 建物未償却残高が未入力の場合だけ、
+        # 建物取得価額から減価償却累計額を差し引く
+        building_tax_basis_d = (
+            building_cost_d
+            - depreciation_d
+        )
 
     total_acquisition_cost_d = to_decimal(total_acquisition_cost)
     if total_acquisition_cost_d > Decimal("0"):
@@ -3816,7 +3836,7 @@ def calculate_real_estate_sale(
     else:
         actual_acquisition_basis = (
             land_cost_d
-            + building_tax_basis
+            + building_tax_basis_d
             + acquisition_costs_d
         )
 
@@ -3968,7 +3988,7 @@ def calculate_real_estate_sale(
         "land_acquisition_cost": round_yen(land_cost_d),
         "building_acquisition_cost": round_yen(building_cost_d),
         "accumulated_depreciation": round_yen(depreciation_d),
-        "building_tax_basis": round_yen(building_tax_basis),
+        "building_tax_basis": round_yen(building_tax_basis_d),
         "acquisition_related_costs": round_yen(acquisition_costs_d),
         "brokerage_fee": round_yen(brokerage_fee_d),
         "brokerage_fee_method": brokerage_fee_method,
@@ -5066,7 +5086,20 @@ def execute_real_estate_sale_calculation(
             )
         }
     
-    if (to_decimal(normalized_arguments.get("accumulated_depreciation",Decimal("0"))) <= Decimal("0")):
+    if (
+        normalized_arguments.get(
+            "building_tax_basis"
+        )
+        is None
+        and
+        to_decimal(
+            normalized_arguments.get(
+                "accumulated_depreciation",
+                Decimal("0")
+            )
+        )
+        <= Decimal("0")
+    ):
         building_original_cost = (normalized_arguments.get("building_acquisition_cost"))
         building_structure = (normalized_arguments.get("building_structure"))
         building_acquisition_date = (normalized_arguments.get("building_acquisition_date"))
@@ -5257,6 +5290,7 @@ def execute_real_estate_sale_calculation(
         "loan_balance",
         "land_acquisition_cost",
         "building_acquisition_cost",
+        "building_tax_basis",
         "accumulated_depreciation",
         "acquisition_related_costs",
         "total_acquisition_cost",
