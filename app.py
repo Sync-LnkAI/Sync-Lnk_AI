@@ -7173,6 +7173,17 @@ with all_tabs[0]:
                                     )
                                 )
 
+                                st.session_state[
+                                    "real_estate_calculation_arguments"
+                                ] = normalize_real_estate_sale_arguments(
+                                    merged_arguments,
+                                    apply_defaults=False
+                                )
+
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = True
+
                                 labels = [
                                     REAL_ESTATE_FIELD_LABELS.get(
                                         field,
