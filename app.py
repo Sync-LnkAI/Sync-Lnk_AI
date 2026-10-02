@@ -3454,6 +3454,33 @@ def get_calculation_case_candidates(
             .replace("　", "")
             .lower()
         )
+        if any(
+            keyword in user_input
+            for keyword in [
+                "新規案件",
+                "新規で",
+                "新しく計算",
+                "新しい案件",
+                "新規作成"
+            ]
+        ):
+
+            st.session_state[
+                "active_calculation_case_id"
+            ] = None
+
+            st.session_state[
+                "active_calculation_case_name"
+            ] = ""
+
+            st.session_state[
+                "real_estate_calculation_arguments"
+            ] = {}
+
+            st.session_state[
+                "real_estate_calculation_pending"
+            ] = False
+
 
         name_matches = [
             case
