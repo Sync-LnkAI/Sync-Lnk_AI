@@ -6375,6 +6375,10 @@ with all_tabs[0]:
                                 st.session_state[
                                     "real_estate_calculation_arguments"
                                 ] = {}
+                                st.session_state[
+                                    "real_estate_calculation_pending"
+                                ] = False
+
 
                                 # 今回ユーザーが案件選択前に入力した条件だけ引き継ぐ
                                 new_case_data = {
@@ -6453,6 +6457,7 @@ with all_tabs[0]:
 
                                 st.session_state["active_calculation_case_id"] = new_case_id
                                 st.session_state["active_calculation_case_name"] = new_case_name
+                                st.session_state["real_estate_calculation_pending"] = False
                                 st.session_state["real_estate_calculation_arguments"] = new_case_data
                                 selected_case_resume_arguments = dict(new_case_data)
                                 st.session_state["pending_case_selection"] = False
