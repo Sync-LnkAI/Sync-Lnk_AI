@@ -6990,13 +6990,17 @@ with all_tabs[0]:
                                             "extraction_status"
                                         ] = "extracted"
 
-                                previous_arguments = dict(
-                                    st.session_state.get(
-                                        "real_estate_calculation_arguments",
-                                        {}
+                                if calculation_pending:
+                                    previous_arguments = dict(
+                                        st.session_state.get(
+                                            "real_estate_calculation_arguments",
+                                            {}
+                                        )
+                                        or {}
                                     )
-                                    or {}
-                                )
+                                else:
+                                    previous_arguments = {}
+                                
                                 current_arguments = dict(
                                     calculation_extraction_result.get(
                                         "arguments",
