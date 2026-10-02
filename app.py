@@ -4448,6 +4448,13 @@ ACQUISITION_COMPONENT_FIELDS = {
     "acquisition_related_costs"
 }
 
+CONFIRMABLE_FIELDS = {
+    "land_acquisition_cost",
+    "building_acquisition_cost",
+    "acquisition_related_costs",
+    "loan_balance"
+}
+
 REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "owner_type",
     "property_usage",
@@ -4820,6 +4827,7 @@ def normalize_real_estate_sale_arguments(
 REAL_ESTATE_FIELD_LABELS = {
     "owner_type": "売却者が個人か法人か",
     "sale_price": "売却予定額または売却額",
+    "loan_balance": "ローン残債（無ければ0円）",
     "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
     "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
     "building_tax_basis": "建物未償却残高または建物簿価",
@@ -4922,7 +4930,7 @@ def get_real_estate_sale_missing_fields(
         total_acquisition_cost = to_decimal(arguments.get("total_acquisition_cost",Decimal("0")))
 
         if total_acquisition_cost <= Decimal("0"):
-            for field in ACQUISITION_COMPONENT_FIELDS:
+            for field in CONFIRMABLE_FIELDS:
                 field_is_provided = False
                 if (
                     field in arguments
@@ -4932,23 +4940,35 @@ def get_real_estate_sale_missing_fields(
                         field_amount = to_decimal(
                             arguments.get(field)
                         )
-                        field_is_provided = (
-                            field_amount > Decimal("0")
-                            or bool(
+                        if field == "loan_balance":
+                            field_is_provided = bool(
                                 arguments.get(
-                                    f"{field}_confirmed",
+                                    "loan_balance_confirmed",
                                     False
                                 )
                             )
-                        )
+                        else:
+                            field_is_provided = (
+                                field_amount > Decimal("0")
+                                or bool(
+                                    arguments.get(
+                                        f"{field}_confirmed",
+                                        False
+                                    )
+                                )
+                            )
                     except (
                         ValueError,
                         TypeError,
                         ArithmeticError
                     ):
                         field_is_provided = False
+                
                 if not field_is_provided:
                     missing_fields.append(field)
+                
+                if ("loan_balance" not in arguments):
+                    missing_fields.append("loan_balance")
 
     building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
 
