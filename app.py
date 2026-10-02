@@ -3623,6 +3623,11 @@ def cleanup_expired_calculation_cases() -> int:
 # 特別控除：special_deduction
 # 例：居住用3000万円特別控除
 
+# 建物未償却残高・建物簿価：building_tax_basis
+# すでに減価償却後の建物金額
+# この値がユーザーから明示された場合は、
+# 建物取得費に対する減価償却を再計算しない
+
 # ==========================================
 # 自動計算項目
 # ==========================================
@@ -3998,175 +4003,6 @@ def calculate_real_estate_sale(
 # 🏠 不動産売却計算 呼び出し判定
 # ==========================================
 
-# ==========================================
-# 不動産売却計算の呼び出し判定
-# ==========================================
-
-# REAL_ESTATE_SALE_KEYWORDS = {
-#     "不動産売却",
-#     "不動産を売る",
-#     "不動産を売った",
-#     "家を売る",
-#     "家を売った",
-#     "住宅を売る",
-#     "住宅を売った",
-#     "マンションを売る",
-#     "マンションを売った",
-#     "土地を売る",
-#     "土地を売った",
-#     "建物を売る",
-#     "建物を売った",
-#     "物件を売る",
-#     "物件を売った",
-#     "売却価格",
-#     "売却代金",
-#     "売却益",
-#     "売却損",
-#     "譲渡所得",
-#     "譲渡益",
-#     "譲渡損",
-#     "売却したら",
-#     "売ったら",
-#     "売却時",
-#     "売却後",
-#     "売却予定",
-#     "手残り",
-#     "税引後手残り",
-#     "取得費",
-#     "譲渡費用",
-#     "ローン残債",
-#     "売却税金",
-#     "売却した場合",
-#     "不動産の税金"
-# }
-
-# REAL_ESTATE_FOLLOW_UP_KEYWORDS = {
-#     "個人",
-#     "法人",
-#     "個人名義",
-#     "法人名義",
-#     "取得日",
-#     "購入日",
-#     "売却日",
-#     "取得費",
-#     "購入費",
-#     "土地代",
-#     "建物代",
-#     "減価償却",
-#     "減価償却累計額",
-#     "ローン",
-#     "残債",
-#     "仲介手数料",
-#     "譲渡費用",
-#     "特別控除",
-#     "実効税率",
-#     "万円",
-#     "億円",
-#     "円"
-# }
-
-# def is_real_estate_sale_calculation_candidate(
-#     user_input: str,
-#     *,
-#     calculation_pending: bool = False
-# ) -> bool:
-#     """
-#     最新のユーザー発言が、
-#     不動産売却計算を開始または継続する内容か判定する。
-
-#     calculation_pending:
-#         直前の不動産売却計算で条件不足となり、
-#         追加条件の入力を待っている場合はTrue。
-
-#     判定方針:
-#     ・初回は不動産売却関連の明確なキーワードで判定
-#     ・条件確認中は、追加の日付・金額・所有者区分なども対象
-#     ・通常会話では余分なGemini抽出処理を実行しない
-#     """
-#     if not isinstance(
-#         user_input,
-#         str
-#     ):
-#         return False
-
-#     normalized_text = (
-#         user_input
-#         .replace("　", " ")
-#         .strip()
-#     )
-
-#     if not normalized_text:
-#         return False
-
-#     # 初回の明確な不動産売却相談
-#     if any(
-#         keyword in normalized_text
-#         for keyword in REAL_ESTATE_SALE_KEYWORDS
-#     ):
-#         return True
-
-#     # 条件不足後の追加入力
-#     if calculation_pending:
-#         if any(
-#             keyword in normalized_text
-#             for keyword
-#             in REAL_ESTATE_FOLLOW_UP_KEYWORDS
-#         ):
-#             return True
-
-#         # 日付形式の追加入力
-#         if re.search(
-#             r"\d{4}"
-#             r"(?:年|-|/)"
-#             r"\d{1,2}"
-#             r"(?:月|-|/)"
-#             r"\d{1,2}"
-#             r"日?",
-#             normalized_text
-#         ):
-#             return True
-
-#         # 年月までの入力も抽出処理へ渡す。
-#         # 実際の日付は推測せず、不足項目として確認する。
-#         if re.search(
-#             r"\d{4}"
-#             r"(?:年|-|/)"
-#             r"\d{1,2}"
-#             r"月?",
-#             normalized_text
-#         ):
-#             return True
-
-#         # 金額だけの追加入力
-#         if re.search(
-#             r"\d[\d,]*(?:\.\d+)?"
-#             r"\s*(?:円|万円|万|億円|億)",
-#             normalized_text
-#         ):
-#             return True
-
-#         # 税率だけの追加入力
-#         if re.search(
-#             r"\d+(?:\.\d+)?\s*%",
-#             normalized_text
-#         ):
-#             return True
-
-#         # individual / corporateによる追加入力
-#         lowered_text = (
-#             normalized_text.lower()
-#         )
-
-#         if lowered_text in {
-#             "individual",
-#             "corporate",
-#             "personal",
-#             "company"
-#         }:
-#             return True
-
-#     return False
-
 def extract_real_estate_sale_parameters(
     user_input: str,
     recent_history: str = "",
@@ -4238,11 +4074,10 @@ def extract_real_estate_sale_parameters(
         - 取得費
         - 総取得費
         - 合算簿価
-        - 簿価
         - 購入経費込の取得費
 
     例
-    取得費: ○○円、総取得費: ○○円、合算簿価: ○○円、簿価: ○○円
+    取得費: ○○円、総取得費: ○○円、合算簿価: ○○円
     ↓
     total_acquisition_costに設定してください。
 
@@ -4250,6 +4085,18 @@ def extract_real_estate_sale_parameters(
     ・建物購入価格、建物取得額、建物価格は、building_acquisition_cost に設定してください。
     ・建物購入価格を、building_original_cost や total_acquisition_cost に設定してはいけません。
     ・total_acquisition_cost は、土地と建物などを合算した取得費総額が明示された場合だけ設定してください。
+
+    【建物未償却残高・建物簿価】
+    ・次の表現は building_tax_basis に設定してください。
+    - 建物未償却残高
+    - 建物の未償却残高
+    - 建物簿価
+    - 建物の簿価
+    - 減価償却後の建物残高
+    ・building_tax_basis は、すでに減価償却後の建物金額です。
+    ・building_tax_basis を building_acquisition_cost に設定してはいけません。
+    ・building_tax_basis を total_acquisition_cost に設定してはいけません。
+    ・建物取得価額と建物未償却残高を混同してはいけません。
 
     【不動産用途】
     次の表現は property_usage として扱ってください。
@@ -4396,6 +4243,7 @@ def extract_real_estate_sale_parameters(
             "loan_balance": null,
             "land_acquisition_cost": null,
             "building_acquisition_cost": null,
+            "building_tax_basis": null,
             "building_structure": null,
             "building_acquisition_date": null,
             "accumulated_depreciation": null,
@@ -4587,6 +4435,7 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "loan_balance",
     "land_acquisition_cost",
     "building_acquisition_cost",
+    "building_tax_basis",
     "building_structure",
     "building_acquisition_date",
     "accumulated_depreciation",
@@ -4612,6 +4461,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
     "loan_balance",
     "land_acquisition_cost",
     "building_acquisition_cost",
+    "building_tax_basis",
     "accumulated_depreciation",
     "acquisition_related_costs",
     "total_acquisition_cost",
@@ -4948,6 +4798,7 @@ REAL_ESTATE_FIELD_LABELS = {
     "sale_price": "売却予定額または売却額",
     "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
     "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
+    "building_tax_basis": "建物未償却残高または建物簿価",
     "acquisition_related_costs": "購入時諸費用（ない場合は0円）",
     "building_structure": "建物構造",
     "building_acquisition_date": "建物取得年月",
@@ -4955,7 +4806,7 @@ REAL_ESTATE_FIELD_LABELS = {
     "sale_date": "売却日",
     "holding_period_type": "長期譲渡か短期譲渡か",
     "acquisition_basis":("税務上の取得費" "（土地・建物の取得価額など）"),
-    "accumulated_depreciation":("建物の減価償却累計額"),
+    "accumulated_depreciation":"建物の減価償却累計額",
     "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）")
 }
 
