@@ -7218,10 +7218,11 @@ with all_tabs[0]:
 
                                     property_usage = (
                                         merged_arguments.get(
-                                            "property_usage",
-                                            "owner_occupied"
+                                            "property_usage"
                                         )
                                     )
+                                    if not property_usage:
+                                        property_usage = "investment"
 
                                     create_result = (
                                         create_calculation_case(
