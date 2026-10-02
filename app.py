@@ -4066,7 +4066,7 @@ def calculate_real_estate_sale(
 
 def extract_real_estate_sale_parameters(
     user_input: str,
-    recent_history: str = ""
+    recent_history: str = "",
     calculation_pending: bool = False
 ) -> dict:
     """
