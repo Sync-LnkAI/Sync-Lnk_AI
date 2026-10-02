@@ -3481,6 +3481,17 @@ def get_calculation_case_candidates(
                 "real_estate_calculation_pending"
             ] = False
 
+            st.session_state[
+                "pending_case_selection"
+            ] = False
+
+            st.session_state[
+                "pending_case_candidates"
+            ] = []
+
+            st.session_state[
+                "pending_case_arguments"
+            ] = {}
 
         name_matches = [
             case
