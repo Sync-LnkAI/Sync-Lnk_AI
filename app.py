@@ -4966,9 +4966,6 @@ def get_real_estate_sale_missing_fields(
                 
                 if not field_is_provided:
                     missing_fields.append(field)
-                
-                if ("loan_balance" not in arguments):
-                    missing_fields.append("loan_balance")
 
     building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
 
