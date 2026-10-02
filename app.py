@@ -4459,6 +4459,7 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "property_usage",
     "sale_price",
     "loan_balance",
+    "loan_balance_confirmed",
     "land_acquisition_cost",
     "building_acquisition_cost",
     "building_tax_basis",
