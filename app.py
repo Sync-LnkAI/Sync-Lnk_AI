@@ -7152,6 +7152,36 @@ with all_tabs[0]:
                             )
 
                             if calculation_status == "missing_fields":
+                                missing_fields = (
+                                    calculation_execution_result.get(
+                                        "missing_fields",
+                                        []
+                                    )
+                                )
+
+                                labels = [
+                                    REAL_ESTATE_FIELD_LABELS.get(
+                                        field,
+                                        field
+                                    )
+                                    for field in missing_fields
+                                ]
+
+                                ai_reply = (
+                                    "計算を続けるために、次の項目を教えてください。\n\n"
+                                    + "\n".join(
+                                        f"・{label}"
+                                        for label in labels
+                                    )
+                                )
+
+                                save_message("assistant", ai_reply, current_msg_id, response_mode)
+
+                                st.markdown(f"{current_concierge_name}: {ai_reply}")
+
+                                st.stop()
+
+                            if calculation_status == "missing_fields":
                                 # 条件不足の場合は、
                                 # 確認済み条件を次の会話まで保持
                                 try:
