@@ -7342,8 +7342,15 @@ with all_tabs[0]:
                                 ):
                                     merged_arguments[f"{field}_confirmed"] = True
                             
-                            if ("loan_balance" in current_arguments):
-                                merged_arguments["loan_balance_confirmed"] = True
+                            if (
+                                "loan_balance" in current_arguments
+                                and current_arguments.get(
+                                    "loan_balance"
+                                ) is not None
+                            ):
+                                merged_arguments[
+                                    "loan_balance_confirmed"
+                                ] = True
 
                             for field in ACQUISITION_COMPONENT_FIELDS:
                                 field_value = merged_arguments.get(field)
