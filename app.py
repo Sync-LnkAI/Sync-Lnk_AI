@@ -5110,6 +5110,89 @@ def get_real_estate_sale_missing_fields(
     # 重複を除き、追加順を維持
     return list(dict.fromkeys(missing_fields))
 
+# 計算の不足条件項目の表示関数
+def format_missing_fields_message(
+    case_name: str,
+    current_arguments: dict,
+    missing_fields: list
+) -> str:
+
+    missing_labels = [
+        REAL_ESTATE_FIELD_LABELS.get(
+            field,
+            field
+        )
+        for field in missing_fields
+    ]
+
+    entered_conditions = []
+
+    for key, value in current_arguments.items():
+
+        if value is None:
+            continue
+
+        if key.endswith("_confirmed"):
+            continue
+
+        label = REAL_ESTATE_FIELD_LABELS.get(
+            key,
+            key
+        )
+
+        # 表示用変換
+        if key == "owner_type":
+
+            if value == "individual":
+                value = "個人"
+
+            elif value == "corporate":
+                value = "法人"
+
+        elif key == "holding_period_type":
+
+            if value == "long_term":
+                value = "長期譲渡所得"
+
+            elif value == "short_term":
+                value = "短期譲渡所得"
+
+        elif isinstance(
+            value,
+            (int, float)
+        ):
+            try:
+                value = f"{int(value):,}"
+            except Exception:
+                pass
+
+        entered_conditions.append(
+            f"・{label}: {value}"
+        )
+
+    entered_text = (
+        "\n".join(entered_conditions)
+        if entered_conditions
+        else "なし"
+    )
+
+    missing_text = "\n".join(
+        f"・{label}"
+        for label in missing_labels
+    )
+
+    return (
+        f"【案件情報】\n"
+        f"案件名："
+        f"{case_name or '未選択'}\n\n"
+
+        f"【確認が必要な項目】\n"
+        f"{missing_text}\n\n"
+
+        f"【入力済条件】\n"
+        f"{entered_text}"
+    )
+
 def execute_real_estate_sale_calculation(
     extraction_result: dict
 ) -> dict:
@@ -8487,12 +8570,16 @@ with all_tabs[0]:
                                     for field in missing_fields
                                 ]
 
-                                ai_reply = (
-                                    "計算を続けるために、次の項目を教えてください。\n\n"
-                                    + "\n".join(
-                                        f"・{label}"
-                                        for label in labels
-                                    )
+                                ai_reply = format_missing_fields_message(
+                                    case_name=st.session_state.get(
+                                        "active_calculation_case_name",
+                                        ""
+                                    ),
+                                    current_arguments=st.session_state.get(
+                                        "real_estate_calculation_arguments",
+                                        {}
+                                    ),
+                                    missing_fields=missing_fields
                                 )
 
                                 all_messages.append({
