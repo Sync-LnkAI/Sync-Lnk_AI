@@ -8108,6 +8108,18 @@ with all_tabs[0]:
                             
                             calculation_extraction_result["arguments"] = merged_arguments
 
+                            # 総取得費は0円を含めて明示値を保持する
+                            total_acquisition_cost_value = (
+                                current_arguments.get(
+                                    "total_acquisition_cost"
+                                )
+                            )
+
+                            if total_acquisition_cost_value is not None:
+                                merged_arguments[
+                                    "total_acquisition_cost"
+                                ] = total_acquisition_cost_value
+
                             # st.write("DEBUG merged_arguments")
                             # st.code(
                             #     json.dumps(
@@ -8118,6 +8130,7 @@ with all_tabs[0]:
                             #     ),
                             #     language="json"
                             # )
+
 
                             if "merged_arguments" in locals():
                                 debug_json(
