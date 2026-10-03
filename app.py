@@ -3561,27 +3561,32 @@ def cleanup_expired_calculation_cases() -> int:
         return 0
 
 # 計算案件の名称変更
-def extract_case_name_change(
-    user_input: str
-):
+def extract_case_name_change(user_input: str):
     patterns = [
         r"案件名を(.+?)に変更",
         r"案件名を(.+?)へ変更",
         r"案件名を(.+?)にして",
-        r"案件名は(.+)",
+
+        r"計算名を(.+?)に変更",
+        r"計算名を(.+?)へ変更",
+
+        r"案件を(.+?)に変更",
+        r"案件を(.+?)へ変更",
+
+        r"計算案件を(.+?)に変更",
+        r"計算案件を(.+?)へ変更",
+
+        r"計算メモを(.+?)に変更",
+        r"計算メモを(.+?)へ変更",
     ]
 
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            user_input
-        )
+    for pattern in patterns:match = re.search(pattern, user_input)
+        if match:new_name = (match.group(1).strip())
 
-        if match:
-            return (
-                match.group(1)
-                .strip()
-            )
+            # 念のため不要な末尾を除去
+            new_name = re.sub(r"(に変更|へ変更|にして)$", "", new_name).strip()
+
+            return new_name
 
     return None
 
