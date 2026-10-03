@@ -5785,6 +5785,41 @@ def build_real_estate_calculation_context(
             )
             for field in missing_fields
         ]
+
+        current_case_name = (
+            st.session_state.get(
+                "active_calculation_case_name",
+                ""
+            )
+        )
+
+        current_arguments = dict(
+            st.session_state.get(
+                "real_estate_calculation_arguments",
+                {}
+            )
+            or {}
+        )
+
+        entered_conditions = []
+        for key, value in current_arguments.items():
+            if value is None:
+                continue
+            if key.endswith("_confirmed"):
+                continue
+            label = REAL_ESTATE_FIELD_LABELS.get(
+                key,
+                key
+            )
+            entered_conditions.append(
+                f"・{label}: {value}"
+            )
+
+        entered_text = (
+            "\n".join(entered_conditions)
+            if entered_conditions
+            else "なし"
+        )
         
         if (missing_fields == ["holding_period_type"]):
             return """
@@ -5831,19 +5866,19 @@ def build_real_estate_calculation_context(
         missing_labels = adjusted_labels
 
         return f"""
-        【Python不動産売却計算】
+        【案件情報】
+        案件名：{current_case_name or "未選択"}
 
-        計算に必要な条件が不足しています。
-
-        【不足項目】
+        【確認が必要な項目】
         {missing_text}
 
+        【入力済条件】
+        {entered_text}
+
         【回答ルール】
-        ・不足している項目だけを、ユーザーへ簡潔に確認してください。
+        ・不足している項目だけを確認してください。
         ・ユーザーが明示していない数値や日付を推測してはいけません。
-        ・一般的な金額や税率を、ユーザーの条件として補完してはいけません。
-        ・条件が揃っていない状態で概算結果を作ってはいけません。
-        ・すでに提示されている条件を再度質問してはいけません。
+        ・現在入力済みの条件は再質問してはいけません。
         """.strip()
 
     # Geminiによるパラメータ抽出に失敗した場合
