@@ -5638,6 +5638,67 @@ def execute_real_estate_sale_calculation(
         "error": None
     }
 
+def format_real_estate_result(
+    result: dict
+) -> str:
+
+    owner_type = result.get("owner_type")
+    holding_type = result.get("holding_type")
+
+    sale_price = int(result.get("sale_price", 0) or 0)
+    loan_balance = int(result.get("loan_balance", 0) or 0)
+    acquisition_basis = int(result.get("applied_acquisition_basis", 0) or 0)
+    taxable_gain = int(result.get("taxable_gain", 0) or 0)
+    estimated_tax = int(result.get("estimated_tax", 0) or 0)
+    cash_before_tax = int(result.get("cash_before_tax",0) or 0)
+    cash_after_tax = int(result.get("cash_after_tax",0) or 0)
+
+    ownership_label = (
+        "個人"
+        if owner_typ e == "individual"
+        else "法人"
+    )
+
+    holding_label = (
+        "長期譲渡所得"
+        if holding_type == "long_term"
+        else "短期譲渡所得"
+    )
+
+    lines = [
+        "【適用条件】",
+        "",
+        f"・所有者区分：{ownership_label}",
+        f"・保有期間：{holding_label}",
+        f"・売却価格：{sale_price:,}円",
+        f"・ローン残債：{loan_balance:,}円",
+        "",
+
+        "【取得費の内訳】",
+        "",
+        f"・取得費：{acquisition_basis:,}円",
+        "",
+
+        "【税額】",
+        "",
+        f"・課税譲渡所得：{taxable_gain:,}円",
+        f"・概算税額：{estimated_tax:,}円",
+        "",
+
+        "【最終手残り】",
+        "",
+        f"・税引前手残り：{cash_before_tax:,}円",
+        f"・税引後手残り：{cash_after_tax:,}円",
+        "",
+
+        (
+            "この結果は入力条件に基づく概算であり、"
+            "実際の申告税額を確定するものではございません。"
+        )
+    ]
+
+    return "\n".join(lines)
+
 def build_real_estate_calculation_context(
     execution_result: dict
 ) -> str:
@@ -6109,72 +6170,16 @@ def build_case_rename_followup(
             "real_estate_calculation_pending"
         ] = False
 
-        sale_price = int(
-            result.get(
-                "sale_price",
-                0
-            )
-            or 0
+        formatted_result = format_real_estate_result(
+            result
         )
 
-        loan_balance = int(
-            result.get(
-                "loan_balance",
-                0
-            )
-            or 0
-        )
-
-        acquisition_basis = int(
-            result.get(
-                "applied_acquisition_basis",
-                0
-            )
-            or 0
-        )
-
-        estimated_tax = result.get(
-            "estimated_tax"
-        )
-
-        cash_before_tax = result.get(
-            "cash_before_tax"
-        )
-
-        cash_after_tax = result.get(
-            "cash_after_tax"
-        )
-
-        result_lines = [
-            f"案件名を「{new_case_name}」へ変更しました。",
-            "",
-            "現在保存されている条件で再計算しました。",
-            "",
-            f"・売却価格：{sale_price:,}円",
-            f"・ローン残債：{loan_balance:,}円",
-            f"・取得費：{acquisition_basis:,}円",
-        ]
-
-        if estimated_tax is not None:
-            result_lines.append(
-                f"・概算税額："
-                f"{int(estimated_tax):,}円"
-            )
-
-        if cash_before_tax is not None:
-            result_lines.append(
-                f"・税引前手残り："
-                f"{int(cash_before_tax):,}円"
-            )
-
-        if cash_after_tax is not None:
-            result_lines.append(
-                f"・税引後手残り："
-                f"{int(cash_after_tax):,}円"
-            )
-
-        return "\n".join(
-            result_lines
+        return (
+            f"案件名を"
+            f"「{new_case_name}」"
+            f"へ変更しました。\n\n"
+            "現在保存されている条件で再計算しました。\n\n"
+            f"{formatted_result}"
         )
 
     # ======================================
