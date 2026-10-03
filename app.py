@@ -3305,7 +3305,7 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = false
+DEBUG_MODE = False
 # DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
