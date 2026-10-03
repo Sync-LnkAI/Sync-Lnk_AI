@@ -5642,20 +5642,66 @@ def format_real_estate_result(
     result: dict
 ) -> str:
 
-    owner_type = result.get("owner_type")
-    holding_type = result.get("holding_type")
+    owner_type = result.get(
+        "owner_type"
+    )
 
-    sale_price = int(result.get("sale_price", 0) or 0)
-    loan_balance = int(result.get("loan_balance", 0) or 0)
-    acquisition_basis = int(result.get("applied_acquisition_basis", 0) or 0)
-    taxable_gain = int(result.get("taxable_gain", 0) or 0)
-    estimated_tax = int(result.get("estimated_tax", 0) or 0)
-    cash_before_tax = int(result.get("cash_before_tax",0) or 0)
-    cash_after_tax = int(result.get("cash_after_tax",0) or 0)
+    holding_type = result.get(
+        "holding_type"
+    )
+
+    sale_price = int(
+        result.get(
+            "sale_price",
+            0
+        ) or 0
+    )
+
+    loan_balance = int(
+        result.get(
+            "loan_balance",
+            0
+        ) or 0
+    )
+
+    acquisition_basis = int(
+        result.get(
+            "applied_acquisition_basis",
+            0
+        ) or 0
+    )
+
+    taxable_gain = int(
+        result.get(
+            "taxable_gain",
+            0
+        ) or 0
+    )
+
+    estimated_tax = int(
+        result.get(
+            "estimated_tax",
+            0
+        ) or 0
+    )
+
+    cash_before_tax = int(
+        result.get(
+            "cash_before_tax",
+            0
+        ) or 0
+    )
+
+    cash_after_tax = int(
+        result.get(
+            "cash_after_tax",
+            0
+        ) or 0
+    )
 
     ownership_label = (
         "個人"
-        if owner_typ e == "individual"
+        if owner_type == "individual"
         else "法人"
     )
 
@@ -5666,6 +5712,7 @@ def format_real_estate_result(
     )
 
     lines = [
+
         "【適用条件】",
         "",
         f"・所有者区分：{ownership_label}",
