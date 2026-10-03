@@ -6263,6 +6263,22 @@ def build_case_rename_followup(
         "保存されている計算条件を確認できませんでした。"
     )
 
+# 改行表示変換関数
+def display_message(
+    speaker: str,
+    content: str
+):
+    display_content = (
+        clean_bold_markdown(content)
+        .replace("\n", "<br>")
+    )
+
+    st.markdown(
+        f"{speaker}:<br>{display_content}",
+        unsafe_allow_html=True
+    )
+
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -6865,14 +6881,9 @@ with all_tabs[0]:
                                     "conversation"
                                 )
 
-                                display_reply = (
+                                display_message(
+                                    current_concierge_name,
                                     ai_reply
-                                    .replace("\n", "<br>")
-                                )
-
-                                st.markdown(
-                                    f"{current_concierge_name}:<br>{display_reply}",
-                                    unsafe_allow_html=True
                                 )
 
                                 st.stop()
@@ -6909,9 +6920,9 @@ with all_tabs[0]:
                                     "conversation"
                                 )
 
-                                st.markdown(
-                                    f"{current_concierge_name}: "
-                                    f"{ai_reply}"
+                                display_message(
+                                    current_concierge_name,
+                                    ai_reply
                                 )
 
                                 st.stop()
@@ -6982,9 +6993,9 @@ with all_tabs[0]:
                                 "conversation"
                             )
 
-                            st.markdown(
-                                f"{current_concierge_name}: "
-                                f"{ai_reply}"
+                            display_message(
+                                current_concierge_name,
+                                ai_reply
                             )
 
                             st.stop()
@@ -7180,9 +7191,9 @@ with all_tabs[0]:
                                         "analysis"
                                     )
 
-                                    st.markdown(
-                                        f"{current_concierge_name}: "
-                                        f"{create_error_reply}"
+                                    display_message(
+                                        current_concierge_name,
+                                        create_error_reply
                                     )
 
                                     st.stop()
@@ -7294,9 +7305,9 @@ with all_tabs[0]:
                                         "conversation"
                                     )
 
-                                    st.markdown(
-                                        f"{current_concierge_name}: "
-                                        f"{ai_reply}"
+                                    display_message(
+                                        current_concierge_name,
+                                        ai_reply
                                     )
 
                                     st.session_state.force_message_reload = True
@@ -7462,9 +7473,9 @@ with all_tabs[0]:
                                 save_message("user", user_input, current_msg_id, "analysis")
                                 save_message("assistant", retry_reply, current_msg_id, "analysis")
 
-                                st.markdown(
-                                    f"{current_concierge_name}: "
-                                    f"{retry_reply}"
+                                display_message(
+                                    current_concierge_name,
+                                    retry_reply
                                 )
 
                                 st.session_state.force_message_reload = True
@@ -8238,9 +8249,9 @@ with all_tabs[0]:
                                         + "\n\n".join(candidate_lines)
                                         + "\n\nどの案件を利用しますか？"
                                     )
-                                    st.markdown(
-                                        f"{current_concierge_name}: "
-                                        f"{ai_reply}"
+                                    display_message(
+                                        current_concierge_name,
+                                        ai_reply
                                     )
 
                                     save_message(
@@ -8339,7 +8350,10 @@ with all_tabs[0]:
 
                                 save_message("assistant", ai_reply, current_msg_id, response_mode)
 
-                                st.markdown(f"{current_concierge_name}: {ai_reply}")
+                                display_message(
+                                    current_concierge_name,
+                                    ai_reply
+                                )
 
                                 st.stop()
 
@@ -8585,15 +8599,9 @@ with all_tabs[0]:
                                 response_mode
                             )
 
-                            display_result = (
+                            display_message(
+                                current_concierge_name,
                                 formatted_result
-                                .replace("\n", "<br>")
-                            )
-
-                            st.markdown(
-                                f"{current_concierge_name}:<br>"
-                                f"{display_result}",
-                                unsafe_allow_html=True
                             )
 
                             st.stop()
@@ -9231,20 +9239,11 @@ with all_tabs[0]:
                 if msg["role"] == "user"
                 else current_concierge_name
             )
-            display_content = (
-                clean_bold_markdown(
-                    msg["content"]
-                )
-                .replace("\n", "<br>")
+            display_message = (
+                role_label,
+                msg["content"]
             )
-
-            st.markdown(
-                f"{role_label}:<br>{display_content}",
-                unsafe_allow_html=True
-            )
-            # st.markdown(
-            #     f"{role_label}: {clean_bold_markdown(msg['content'])}"
-            # )
+            
             if msg["role"] == "user":
                 st.markdown(
                     """
