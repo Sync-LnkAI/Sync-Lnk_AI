@@ -7521,19 +7521,34 @@ with all_tabs[0]:
                                 )
 
                                 if calculation_pending:
-                                    calculation_extraction_result[
-                                        "should_calculate"
-                                    ] = True
-
-                                    if (
+                                    should_calculate_now = bool(
                                         calculation_extraction_result.get(
-                                            "extraction_status"
+                                            "should_calculate",
+                                            False
                                         )
-                                        == "not_applicable"
-                                    ):
+                                    )
+
+                                    if should_calculate_now:
                                         calculation_extraction_result[
-                                            "extraction_status"
-                                        ] = "extracted"
+                                            "should_calculate"
+                                        ] = True
+
+                                        if (
+                                            calculation_extraction_result.get(
+                                                "extraction_status"
+                                            )
+                                            == "not_applicable"
+                                        ):
+                                            calculation_extraction_result[
+                                                "extraction_status"
+                                            ] = "extracted"
+
+                                    else:
+                                        # 計算と無関係な会話なので
+                                        # 計算モードだけ解除する
+                                        st.session_state[
+                                            "real_estate_calculation_pending"
+                                        ] = False
 
                                 active_calculation_case_id = (
                                     st.session_state.get(
@@ -7566,9 +7581,7 @@ with all_tabs[0]:
                                         or {}
                                     )
 
-                                    previous_arguments.update(
-                                        session_arguments
-                                    )
+                                    previous_arguments.update(session_arguments)
 
                                 elif calculation_pending:
                                     previous_arguments = dict(
