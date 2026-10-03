@@ -6867,6 +6867,22 @@ with all_tabs[0]:
                                         "案件名を変更できませんでした。"
                                         "案件情報を確認してください。"
                                     )
+                                
+                                all_messages.append({
+                                    "role": "user",
+                                    "content": user_input,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": ai_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
 
                                 save_message(
                                     "user",
@@ -6886,6 +6902,8 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     ai_reply
                                 )
+
+                                st.session_state.force_message_reload = True
 
                                 st.stop()
 
@@ -6907,6 +6925,22 @@ with all_tabs[0]:
                                     "計算案件が見つかりませんでした。"
                                 )
 
+                                all_messages.append({
+                                    "role": "user",
+                                    "content": user_input,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": ai_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
                                 save_message(
                                     "user",
                                     user_input,
@@ -6926,6 +6960,7 @@ with all_tabs[0]:
                                     ai_reply
                                 )
 
+                                st.session_state.force_message_reload = True
                                 st.stop()
 
                             # 案件選択待ちへ移行
@@ -6980,6 +7015,22 @@ with all_tabs[0]:
                                 + "\n\n番号または案件名で選択してください。"
                             )
 
+                            all_messages.append({
+                                "role": "user",
+                                "content": user_input,
+                                "message_id": current_msg_id,
+                                "response_mode": response_mode,
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": ai_reply,
+                                "message_id": current_msg_id,
+                                "response_mode": response_mode,
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+
                             save_message(
                                 "user",
                                 user_input,
@@ -6999,6 +7050,7 @@ with all_tabs[0]:
                                 ai_reply
                             )
 
+                            st.session_state.force_message_reload = True
                             st.stop()
                         
 
@@ -7178,6 +7230,22 @@ with all_tabs[0]:
                                         "入力内容を確認して、もう一度お試しください。"
                                     )
 
+                                    all_messages.append({
+                                        "role": "user",
+                                        "content": user_input,
+                                        "message_id": current_msg_id,
+                                        "response_mode": response_mode,
+                                        "created_at": datetime.now(JST).isoformat()
+                                    })
+
+                                    all_messages.append({
+                                        "role": "assistant",
+                                        "content": create_error_reply,
+                                        "message_id": current_msg_id,
+                                        "response_mode": response_mode,
+                                        "created_at": datetime.now(JST).isoformat()
+                                    })
+
                                     save_message(
                                         "user",
                                         user_input,
@@ -7197,6 +7265,7 @@ with all_tabs[0]:
                                         create_error_reply
                                     )
 
+                                    st.session_state.force_message_reload = True
                                     st.stop()
 
                                 new_case_id = create_result.get("case_id")
@@ -7292,6 +7361,22 @@ with all_tabs[0]:
                                         "pending_case_rename_name"
                                     ] = ""
 
+                                    all_messages.append({
+                                        "role": "user",
+                                        "content": user_input,
+                                        "message_id": current_msg_id,
+                                        "response_mode": response_mode,
+                                        "created_at": datetime.now(JST).isoformat()
+                                    })
+
+                                    all_messages.append({
+                                        "role": "assistant",
+                                        "content": ai_reply,
+                                        "message_id": current_msg_id,
+                                        "response_mode": response_mode,
+                                        "created_at": datetime.now(JST).isoformat()
+                                    })
+
                                     save_message(
                                         "user",
                                         user_input,
@@ -7312,7 +7397,6 @@ with all_tabs[0]:
                                     )
 
                                     st.session_state.force_message_reload = True
-
                                     st.stop()
 
                                 # ======================================
@@ -7471,6 +7555,22 @@ with all_tabs[0]:
                                     f"{candidate_names}"
                                 )
 
+                                all_messages.append({
+                                    "role": "user",
+                                    "content": user_input,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": retry_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
                                 save_message("user", user_input, current_msg_id, "analysis")
                                 save_message("assistant", retry_reply, current_msg_id, "analysis")
 
@@ -7583,6 +7683,7 @@ with all_tabs[0]:
                             "response_mode": response_mode,
                             "created_at": datetime.now(JST).isoformat()
                         })
+                        st.session_state.force_message_reload = True
                         
                         if past_logs_context:
                             logs_text = []
@@ -8250,10 +8351,14 @@ with all_tabs[0]:
                                         + "\n\n".join(candidate_lines)
                                         + "\n\nどの案件を利用しますか？"
                                     )
-                                    display_message(
-                                        current_concierge_name,
-                                        ai_reply
-                                    )
+
+                                    all_messages.append({
+                                        "role": "assistant",
+                                        "content": ai_reply,
+                                        "message_id": current_msg_id,
+                                        "response_mode": response_mode,
+                                        "created_at": datetime.now(JST).isoformat()
+                                    })
 
                                     save_message(
                                         "assistant",
@@ -8262,6 +8367,12 @@ with all_tabs[0]:
                                         response_mode
                                     )
 
+                                    display_message(
+                                        current_concierge_name,
+                                        ai_reply
+                                    )
+
+                                    st.session_state.force_message_reload = True
                                     st.stop()
                                     
                             elif (
@@ -8347,6 +8458,14 @@ with all_tabs[0]:
                                     )
                                 )
 
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": ai_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": response_mode,
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
                                 save_message("assistant", ai_reply, current_msg_id, response_mode)
 
                                 display_message(
@@ -8354,6 +8473,7 @@ with all_tabs[0]:
                                     ai_reply
                                 )
 
+                                st.session_state.force_message_reload = True
                                 st.stop()
 
                             if calculation_status == "missing_fields":
@@ -8591,6 +8711,14 @@ with all_tabs[0]:
                                 )
                             )
 
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": formatted_result,
+                                "message_id": current_msg_id,
+                                "response_mode": response_mode,
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+
                             save_message(
                                 "assistant",
                                 formatted_result,
@@ -8603,6 +8731,7 @@ with all_tabs[0]:
                                 formatted_result
                             )
 
+                            st.session_state.force_message_reload = True
                             st.stop()
 
                             if (
