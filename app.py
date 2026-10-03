@@ -6455,6 +6455,7 @@ with all_tabs[0]:
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         # 案件名称変更検出と変更処理
+                        case_name_change = extract_case_name_change(user_input)
                         if case_name_change:
                             active_case_id = (
                                 st.session_state.get(
