@@ -3580,8 +3580,10 @@ def extract_case_name_change(user_input: str):
         r"計算メモを(.+?)へ変更",
     ]
 
-    for pattern in patterns: match = re.search(pattern, user_input)
-        if match: new_name = (match.group(1).strip())
+    for pattern in patterns:
+        match = re.search(pattern, user_input)
+        if match:
+            new_name = (match.group(1).strip())
 
             # 念のため不要な末尾を除去
             new_name = re.sub(r"(に変更|へ変更|にして)$", "", new_name).strip()
