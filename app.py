@@ -8423,6 +8423,8 @@ with all_tabs[0]:
                                 )
                             )
 
+                            formatted_result = None
+
                             if calculation_status == "missing_fields":
                                 missing_fields = (
                                     calculation_execution_result.get(
@@ -8554,11 +8556,10 @@ with all_tabs[0]:
                                 except Exception:
                                     pass
 
-                                if "DEBUG saved_arguments" in locals():
-                                    debug_json(
-                                        "DEBUG saved_arguments",
-                                        saved_arguments
-                                    )
+                                debug_json(
+                                    "DEBUG saved_arguments",
+                                    saved_arguments
+                                )
 
                                 st.session_state[
                                     "real_estate_calculation_arguments"
@@ -8568,10 +8569,18 @@ with all_tabs[0]:
                                     "real_estate_calculation_pending"
                                 ] = False
 
-                                result = (
+                                result = dict(
                                     calculation_execution_result.get(
                                         "result",
                                         {}
+                                    )
+                                    or {}
+                                )
+
+                                # 成功時だけ固定表示を生成
+                                formatted_result = (
+                                    format_real_estate_result(
+                                        result
                                     )
                                 )
 
@@ -8705,34 +8714,49 @@ with all_tabs[0]:
                                 )
                             )
 
-                            formatted_result = (
-                                format_real_estate_result(
-                                    result
+                            if formatted_result is not None:
+                                save_message(
+                                    "user",
+                                    user_input,
+                                    current_msg_id,
+                                    "conversation"
                                 )
-                            )
 
-                            all_messages.append({
-                                "role": "assistant",
-                                "content": formatted_result,
-                                "message_id": current_msg_id,
-                                "response_mode": response_mode,
-                                "created_at": datetime.now(JST).isoformat()
-                            })
+                                save_message(
+                                    "assistant",
+                                    formatted_result,
+                                    current_msg_id,
+                                    "conversation"
+                                )
 
-                            save_message(
-                                "assistant",
-                                formatted_result,
-                                current_msg_id,
-                                response_mode
-                            )
+                                all_messages.append({
+                                        "role": "user",
+                                        "content": user_input,
+                                        "message_id": current_msg_id,
+                                        "response_mode": "conversation",
+                                        "created_at": datetime.now(
+                                            JST
+                                        ).isoformat()
+                                })
 
-                            display_message(
-                                current_concierge_name,
-                                formatted_result
-                            )
+                                all_messages.append({
+                                        "role": "assistant",
+                                        "content": formatted_result,
+                                        "message_id": current_msg_id,
+                                        "response_mode": "conversation",
+                                        "created_at": datetime.now(
+                                            JST
+                                        ).isoformat()
+                                })
 
-                            st.session_state.force_message_reload = True
-                            st.stop()
+                                st.session_state["force_message_reload"] = True
+
+                                display_message(
+                                    current_concierge_name,
+                                    formatted_result
+                                )
+
+                                st.stop()
 
                             if (
                                 extraction_in_tokens > 0
