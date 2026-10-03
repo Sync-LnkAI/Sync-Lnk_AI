@@ -9231,9 +9231,20 @@ with all_tabs[0]:
                 if msg["role"] == "user"
                 else current_concierge_name
             )
-            st.markdown(
-                f"{role_label}: {clean_bold_markdown(msg['content'])}"
+            display_content = (
+                clean_bold_markdown(
+                    msg["content"]
+                )
+                .replace("\n", "<br>")
             )
+
+            st.markdown(
+                f"{role_label}:<br>{display_content}",
+                unsafe_allow_html=True
+            )
+            # st.markdown(
+            #     f"{role_label}: {clean_bold_markdown(msg['content'])}"
+            # )
             if msg["role"] == "user":
                 st.markdown(
                     """
