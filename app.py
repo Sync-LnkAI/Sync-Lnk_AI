@@ -5360,55 +5360,55 @@ def execute_real_estate_sale_calculation(
         )
 
         if "depreciation_debug" in locals():
-        debug_json(
-            "depreciation_debug",
-            {
-                "acquisition_related_costs":
-                    normalized_arguments.get(
-                        "acquisition_related_costs"
-                    ),
+            debug_json(
+                "depreciation_debug",
+                {
+                    "acquisition_related_costs":
+                        normalized_arguments.get(
+                            "acquisition_related_costs"
+                        ),
 
-                "acquisition_related_costs_confirmed":
-                    normalized_arguments.get(
-                        "acquisition_related_costs_confirmed"
-                    ),
+                    "acquisition_related_costs_confirmed":
+                        normalized_arguments.get(
+                            "acquisition_related_costs_confirmed"
+                        ),
 
-                "building_original_cost":
-                    normalized_arguments.get(
-                        "building_original_cost"
-                    ),
+                    "building_original_cost":
+                        normalized_arguments.get(
+                            "building_original_cost"
+                        ),
 
-                "building_acquisition_cost":
-                    normalized_arguments.get(
-                        "building_acquisition_cost"
-                    ),
+                    "building_acquisition_cost":
+                        normalized_arguments.get(
+                            "building_acquisition_cost"
+                        ),
 
-                "building_structure":
-                    normalized_arguments.get(
-                        "building_structure"
-                    ),
+                    "building_structure":
+                        normalized_arguments.get(
+                            "building_structure"
+                        ),
 
-                "building_acquisition_date":
-                    normalized_arguments.get(
-                        "building_acquisition_date"
-                    ),
+                    "building_acquisition_date":
+                        normalized_arguments.get(
+                            "building_acquisition_date"
+                        ),
 
-                "property_usage":
-                    normalized_arguments.get(
-                        "property_usage"
-                    ),
+                    "property_usage":
+                        normalized_arguments.get(
+                            "property_usage"
+                        ),
 
-                "accumulated_depreciation":
-                    normalized_arguments.get(
-                        "accumulated_depreciation"
-                    ),
+                    "accumulated_depreciation":
+                        normalized_arguments.get(
+                            "accumulated_depreciation"
+                        ),
 
-                "total_acquisition_cost":
-                    normalized_arguments.get(
-                        "total_acquisition_cost"
-                    )
-            }
-        )
+                    "total_acquisition_cost":
+                        normalized_arguments.get(
+                            "total_acquisition_cost"
+                        )
+                }
+            )
 
         missing_fields = (
             get_real_estate_sale_missing_fields(
