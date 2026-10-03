@@ -5742,7 +5742,7 @@ def format_real_estate_result(
         )
     ])
 
-    return "<br>".join(lines)
+    return "\n".join(lines)
 
 def build_real_estate_calculation_context(
     execution_result: dict
@@ -6865,8 +6865,13 @@ with all_tabs[0]:
                                     "conversation"
                                 )
 
+                                display_reply = (
+                                    ai_reply
+                                    .replace("\n", "<br>")
+                                )
+
                                 st.markdown(
-                                    f"{current_concierge_name}:<br>{ai_reply}",
+                                    f"{current_concierge_name}:<br>{display_reply}",
                                     unsafe_allow_html=True
                                 )
 
@@ -8397,17 +8402,30 @@ with all_tabs[0]:
 
                             elif calculation_status == "success":
                                 # 計算に使用した最新条件を、次回の再計算用に保持
+                                saved_arguments = dict(
+                                    merged_arguments
+                                )
+
                                 try:
-                                    # saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
-                                    
-                                    if "DEBUG saved_arguments" in locals():
-                                        debug_json(
-                                            "DEBUG saved_arguments",
-                                            saved_arguments
+                                    normalized_saved_arguments = (
+                                        normalize_real_estate_sale_arguments(
+                                            merged_arguments,
+                                            apply_defaults=False
+                                        )
+                                    )
+                                    if normalized_saved_arguments:
+                                        saved_arguments = (
+                                            normalized_saved_arguments
                                         )
 
                                 except Exception:
-                                    saved_arguments = dict(merged_arguments)
+                                    pass
+
+                                if "DEBUG saved_arguments" in locals():
+                                    debug_json(
+                                        "DEBUG saved_arguments",
+                                        saved_arguments
+                                    )
 
                                 st.session_state[
                                     "real_estate_calculation_arguments"
@@ -8567,9 +8585,14 @@ with all_tabs[0]:
                                 response_mode
                             )
 
+                            display_result = (
+                                formatted_result
+                                .replace("\n", "<br>")
+                            )
+
                             st.markdown(
                                 f"{current_concierge_name}:<br>"
-                                f"{formatted_result}",
+                                f"{display_result}",
                                 unsafe_allow_html=True
                             )
 
