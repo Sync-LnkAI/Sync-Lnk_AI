@@ -5743,10 +5743,11 @@ def format_real_estate_result(
             "実際の申告税額を確定するものではございません。"
         )
     ]
-    
+
     st.text("\n".join(lines))
 
-    return "\n".join(lines)
+    # return "\n".join(lines)
+    return "<br>".join(lines)
 
 def build_real_estate_calculation_context(
     execution_result: dict
@@ -6870,8 +6871,8 @@ with all_tabs[0]:
                                 )
 
                                 st.markdown(
-                                    f"{current_concierge_name}: "
-                                    f"{ai_reply}"
+                                    f"{current_concierge_name}:<br>{ai_reply}",
+                                    unsafe_allow_html=True
                                 )
 
                                 st.stop()
