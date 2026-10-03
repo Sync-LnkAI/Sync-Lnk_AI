@@ -225,6 +225,14 @@ if "pending_case_candidates" not in st.session_state:
 if "pending_case_selection" not in st.session_state:
     st.session_state["pending_case_selection"] = False
 
+# 案件名変更のための案件選択待ち状態
+if "pending_case_rename" not in st.session_state:
+    st.session_state["pending_case_rename"] = False
+
+# 変更後の案件名
+if "pending_case_rename_name" not in st.session_state:
+    st.session_state["pending_case_rename_name"] = ""
+
 if "active_calculation_case_id" not in st.session_state:
     st.session_state["active_calculation_case_id"] = None
 
@@ -6454,37 +6462,170 @@ with all_tabs[0]:
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
-                        # 案件名称変更検出と変更処理
-                        case_name_change = extract_case_name_change(user_input)
+                        # ==========================================
+                        # 案件名称変更の検出と変更処理
+                        # ==========================================
+                        case_name_change = extract_case_name_change(
+                            user_input
+                        )
+
                         if case_name_change:
+
                             active_case_id = (
                                 st.session_state.get(
                                     "active_calculation_case_id"
                                 )
                             )
 
+                            # ======================================
+                            # 現在選択中の案件がある場合
+                            # その案件名を直接変更
+                            # ======================================
                             if active_case_id:
-                                update_calculation_case(
+
+                                updated = update_calculation_case(
                                     case_id=active_case_id,
                                     case_name=case_name_change,
                                     new_case_data={}
                                 )
 
-                                st.session_state[
-                                    "active_calculation_case_name"
-                                ] = case_name_change
+                                if updated:
 
-                                ai_reply = (
-                                    f"案件名を"
-                                    f"「{case_name_change}」"
-                                    f"へ変更しました。"
+                                    st.session_state[
+                                        "active_calculation_case_name"
+                                    ] = case_name_change
+
+                                    ai_reply = (
+                                        f"案件名を"
+                                        f"「{case_name_change}」"
+                                        f"へ変更しました。"
+                                    )
+
+                                else:
+
+                                    ai_reply = (
+                                        "案件名を変更できませんでした。"
+                                        "案件情報を確認してください。"
+                                    )
+
+                                save_message(
+                                    "user",
+                                    user_input,
+                                    current_msg_id,
+                                    "conversation"
                                 )
 
-                            else:
-                                ai_reply = (
-                                    "現在選択中の案件がありません。"
-                                    "先に案件を選択してから案件名を変更してください。"
+                                save_message(
+                                    "assistant",
+                                    ai_reply,
+                                    current_msg_id,
+                                    "conversation"
                                 )
+
+                                st.markdown(
+                                    f"{current_concierge_name}: "
+                                    f"{ai_reply}"
+                                )
+
+                                st.stop()
+
+                            # ======================================
+                            # 現在選択中の案件がない場合
+                            # 名称変更対象の案件を選ばせる
+                            # ======================================
+                            rename_candidates = (
+                                get_calculation_case_candidates(
+                                    case_type="real_estate_sale",
+                                    user_input=""
+                                )
+                            )
+
+                            if not rename_candidates:
+
+                                ai_reply = (
+                                    "案件名を変更できる"
+                                    "計算案件が見つかりませんでした。"
+                                )
+
+                                save_message(
+                                    "user",
+                                    user_input,
+                                    current_msg_id,
+                                    "conversation"
+                                )
+
+                                save_message(
+                                    "assistant",
+                                    ai_reply,
+                                    current_msg_id,
+                                    "conversation"
+                                )
+
+                                st.markdown(
+                                    f"{current_concierge_name}: "
+                                    f"{ai_reply}"
+                                )
+
+                                st.stop()
+
+                            # 案件選択待ちへ移行
+                            st.session_state[
+                                "pending_case_selection"
+                            ] = True
+
+                            st.session_state[
+                                "pending_case_candidates"
+                            ] = rename_candidates
+
+                            # 通常の計算案件選択ではなく、
+                            # 案件名変更のための選択であることを記録
+                            st.session_state[
+                                "pending_case_rename"
+                            ] = True
+
+                            st.session_state[
+                                "pending_case_rename_name"
+                            ] = case_name_change
+
+                            # 計算条件は引き継がない
+                            st.session_state[
+                                "pending_case_arguments"
+                            ] = {}
+
+                            candidate_lines = []
+
+                            for index, case in enumerate(
+                                rename_candidates,
+                                start=1
+                            ):
+                                updated_at = (
+                                    str(
+                                        case.get(
+                                            "updated_at",
+                                            ""
+                                        )
+                                    )
+                                    .replace("T", " ")[:16]
+                                )
+
+                                candidate_lines.append(
+                                    f"{index}. "
+                                    f"{case.get('case_name', '案件名なし')}\n"
+                                    f"最終更新: {updated_at}"
+                                )
+
+                            ai_reply = (
+                                "どの案件の名称を変更しますか？\n\n"
+                                + "\n\n".join(candidate_lines)
+                                + "\n\n番号または案件名で選択してください。"
+                            )
+
+                            save_message(
+                                "user",
+                                user_input,
+                                current_msg_id,
+                                "conversation"
+                            )
 
                             save_message(
                                 "assistant",
@@ -6497,8 +6638,6 @@ with all_tabs[0]:
                                 f"{current_concierge_name}: "
                                 f"{ai_reply}"
                             )
-
-                            st.write("DEBUG rename_case_id",active_case_id)
 
                             st.stop()
                         
@@ -6564,6 +6703,9 @@ with all_tabs[0]:
                         selected_case_resume_arguments = None
                         if st.session_state.get("pending_case_selection", False):
                             candidates = st.session_state.get("pending_case_candidates", [])
+                            rename_selection_mode = bool(
+                                st.session_state.get("pending_case_rename",　False)
+                            )
                             normalized_input = (
                                 user_input
                                 .strip()
@@ -6580,11 +6722,14 @@ with all_tabs[0]:
                             create_new_case_requested = False
                             new_case_number = len(candidates) + 1
 
-                            if normalized_input in {
+                            if (
+                                not rename_selection_mode
+                                and normalized_input in {
                                 str(new_case_number),
                                 f"{new_case_number}番",
                                 f"{new_case_number}番目"
-                            }:
+                                }
+                            ):
                                 create_new_case_requested = True
                             else:
                                 for index, case in enumerate(candidates, start=1):
@@ -6719,6 +6864,117 @@ with all_tabs[0]:
                                 selected_case_confirmed = True
 
                             elif selected_case:
+                                # ======================================
+                                # 案件名変更のための選択だった場合
+                                # ======================================
+                                if rename_selection_mode:
+
+                                    selected_case_id = (
+                                        selected_case.get(
+                                            "case_id"
+                                        )
+                                    )
+
+                                    new_case_name = str(
+                                        st.session_state.get(
+                                            "pending_case_rename_name",
+                                            ""
+                                        )
+                                        or ""
+                                    ).strip()
+
+                                    updated = False
+
+                                    if (
+                                        selected_case_id
+                                        and new_case_name
+                                    ):
+                                        updated = update_calculation_case(
+                                            case_id=selected_case_id,
+                                            case_name=new_case_name,
+                                            new_case_data={}
+                                        )
+
+                                    if updated:
+
+                                        # 選択した案件をアクティブ案件にする
+                                        st.session_state[
+                                            "active_calculation_case_id"
+                                        ] = selected_case_id
+
+                                        st.session_state[
+                                            "active_calculation_case_name"
+                                        ] = new_case_name
+
+                                        ai_reply = (
+                                            f"案件名を"
+                                            f"「{new_case_name}」"
+                                            f"へ変更しました。"
+                                        )
+
+                                    else:
+
+                                        ai_reply = (
+                                            "案件名を変更できませんでした。"
+                                            "案件情報を確認してください。"
+                                        )
+
+                                    # 名称変更待ち状態を解除
+                                    st.session_state[
+                                        "pending_case_selection"
+                                    ] = False
+
+                                    st.session_state[
+                                        "pending_case_candidates"
+                                    ] = []
+
+                                    st.session_state[
+                                        "pending_case_arguments"
+                                    ] = {}
+
+                                    st.session_state[
+                                        "pending_case_rename"
+                                    ] = False
+
+                                    st.session_state[
+                                        "pending_case_rename_name"
+                                    ] = ""
+
+                                    save_message(
+                                        "user",
+                                        user_input,
+                                        current_msg_id,
+                                        "conversation"
+                                    )
+
+                                    save_message(
+                                        "assistant",
+                                        ai_reply,
+                                        current_msg_id,
+                                        "conversation"
+                                    )
+
+                                    st.markdown(
+                                        f"{current_concierge_name}: "
+                                        f"{ai_reply}"
+                                    )
+
+                                    st.session_state.force_message_reload = True
+
+                                    st.stop()
+
+                                # ======================================
+                                # ここから下は既存の通常案件選択処理
+                                # ======================================
+                                selected_case_id = selected_case[
+                                    "case_id"
+                                ]
+
+                                selected_case_name = selected_case[
+                                    "case_name"
+                                ]
+
+                                # 以下、既存処理をそのまま続ける
                                 selected_case_id = selected_case["case_id"]
                                 selected_case_name = selected_case["case_name"]
 
