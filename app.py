@@ -3567,24 +3567,37 @@ def extract_case_name_change(user_input: str):
         r"案件名を(.+?)に変更",
         r"案件名を(.+?)へ変更",
         r"案件名を(.+?)にして",
+        r"案件名は(.+?)に変更",
+        r"案件名は(.+?)へ変更",
+        r"案件名は(.+?)にして",
         
         # 計算案件
         r"計算案件を(.+?)に変更",
         r"計算案件を(.+?)へ変更",
+        r"計算案件は(.+?)に変更",
+        r"計算案件は(.+?)へ変更",
         
         # 計算メモ
         r"計算メモを(.+?)に変更",
         r"計算メモを(.+?)へ変更",
+        r"計算メモは(.+?)に変更",
+        r"計算メモは(.+?)へ変更",
         
         # 名称変更
         r"案件名を(.+?)に名称変更",
         r"案件名を(.+?)へ名称変更",
+        r"案件名は(.+?)に名称変更",
+        r"案件名は(.+?)へ名称変更",
         
         r"計算案件を(.+?)に名称変更",
         r"計算案件を(.+?)へ名称変更",
+        r"計算案件は(.+?)に名称変更",
+        r"計算案件は(.+?)へ名称変更",
         
         r"計算メモを(.+?)に名称変更",
         r"計算メモを(.+?)へ名称変更",
+        r"計算メモは(.+?)に名称変更",
+        r"計算メモは(.+?)へ名称変更",
     ]
 
     for pattern in patterns:
@@ -5932,6 +5945,235 @@ def build_real_estate_calculation_context(
     tax_calculation_status: {tax_status}
     """.strip()
 
+def build_case_rename_followup(
+    case_id: str,
+    new_case_name: str
+) -> str:
+    """
+    案件名変更後に案件データを読み込み、
+    条件不足なら不足項目を案内し、
+    条件が揃っていれば現在条件で再計算結果を返す。
+    """
+
+    case_record = get_calculation_case(
+        case_id
+    )
+
+    case_arguments = dict(
+        case_record.get(
+            "case_data",
+            {}
+        )
+        or {}
+    )
+
+    # 案件データが取得できなかった場合
+    if not case_arguments:
+        return (
+            f"案件名を"
+            f"「{new_case_name}」"
+            f"へ変更しました。\n\n"
+            "この案件にはまだ計算条件が登録されていません。"
+            "売却価格などの条件を入力してください。"
+        )
+
+    extraction_result = {
+        "should_calculate": True,
+        "arguments": case_arguments,
+        "extraction_status": "extracted",
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "cost": 0.0
+    }
+
+    execution_result = (
+        execute_real_estate_sale_calculation(
+            extraction_result
+        )
+    )
+
+    calculation_status = (
+        execution_result.get(
+            "status",
+            "calculation_error"
+        )
+    )
+
+    # ======================================
+    # 条件不足
+    # ======================================
+    if calculation_status == "missing_fields":
+
+        missing_fields = (
+            execution_result.get(
+                "missing_fields",
+                []
+            )
+            or []
+        )
+
+        missing_labels = [
+            REAL_ESTATE_FIELD_LABELS.get(
+                field,
+                field
+            )
+            for field in missing_fields
+        ]
+
+        missing_text = "\n".join(
+            f"・{label}"
+            for label in missing_labels
+        )
+
+        # 条件を保持して計算途中状態へ戻す
+        st.session_state[
+            "real_estate_calculation_arguments"
+        ] = normalize_real_estate_sale_arguments(
+            case_arguments,
+            apply_defaults=False
+        )
+
+        st.session_state[
+            "real_estate_calculation_pending"
+        ] = True
+
+        return (
+            f"案件名を"
+            f"「{new_case_name}」"
+            f"へ変更しました。\n\n"
+            "計算を続けるために、"
+            "次の項目を教えてください。\n\n"
+            f"{missing_text}"
+        )
+
+    # ======================================
+    # 計算成功
+    # ======================================
+    if calculation_status == "success":
+
+        result = dict(
+            execution_result.get(
+                "result",
+                {}
+            )
+            or {}
+        )
+
+        # 最新条件を保持
+        st.session_state[
+            "real_estate_calculation_arguments"
+        ] = normalize_real_estate_sale_arguments(
+            case_arguments,
+            apply_defaults=False
+        )
+
+        st.session_state[
+            "real_estate_calculation_pending"
+        ] = False
+
+        sale_price = int(
+            result.get(
+                "sale_price",
+                0
+            )
+            or 0
+        )
+
+        loan_balance = int(
+            result.get(
+                "loan_balance",
+                0
+            )
+            or 0
+        )
+
+        acquisition_basis = int(
+            result.get(
+                "applied_acquisition_basis",
+                0
+            )
+            or 0
+        )
+
+        estimated_tax = result.get(
+            "estimated_tax"
+        )
+
+        cash_before_tax = result.get(
+            "cash_before_tax"
+        )
+
+        cash_after_tax = result.get(
+            "cash_after_tax"
+        )
+
+        result_lines = [
+            f"案件名を「{new_case_name}」へ変更しました。",
+            "",
+            "現在保存されている条件で再計算しました。",
+            "",
+            f"・売却価格：{sale_price:,}円",
+            f"・ローン残債：{loan_balance:,}円",
+            f"・取得費：{acquisition_basis:,}円",
+        ]
+
+        if estimated_tax is not None:
+            result_lines.append(
+                f"・概算税額："
+                f"{int(estimated_tax):,}円"
+            )
+
+        if cash_before_tax is not None:
+            result_lines.append(
+                f"・税引前手残り："
+                f"{int(cash_before_tax):,}円"
+            )
+
+        if cash_after_tax is not None:
+            result_lines.append(
+                f"・税引後手残り："
+                f"{int(cash_after_tax):,}円"
+            )
+
+        return "\n".join(
+            result_lines
+        )
+
+    # ======================================
+    # 計算エラー
+    # ======================================
+    error_message = str(
+        execution_result.get(
+            "error",
+            ""
+        )
+        or ""
+    ).strip()
+
+    st.session_state[
+        "real_estate_calculation_arguments"
+    ] = case_arguments
+
+    st.session_state[
+        "real_estate_calculation_pending"
+    ] = True
+
+    if error_message:
+        return (
+            f"案件名を"
+            f"「{new_case_name}」"
+            f"へ変更しました。\n\n"
+            "保存されている条件を確認しましたが、"
+            "再計算できませんでした。\n"
+            f"確認内容：{error_message}"
+        )
+
+    return (
+        f"案件名を"
+        f"「{new_case_name}」"
+        f"へ変更しました。\n\n"
+        "保存されている計算条件を確認できませんでした。"
+    )
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -6509,10 +6751,9 @@ with all_tabs[0]:
                                         "active_calculation_case_name"
                                     ] = case_name_change
 
-                                    ai_reply = (
-                                        f"案件名を"
-                                        f"「{case_name_change}」"
-                                        f"へ変更しました。"
+                                    ai_reply = build_case_rename_followup(
+                                        case_id=active_case_id,
+                                        new_case_name=case_name_change
                                     )
 
                                 else:
@@ -6920,10 +7161,9 @@ with all_tabs[0]:
                                             "active_calculation_case_name"
                                         ] = new_case_name
 
-                                        ai_reply = (
-                                            f"案件名を"
-                                            f"「{new_case_name}」"
-                                            f"へ変更しました。"
+                                        ai_reply = build_case_rename_followup(
+                                            case_id=selected_case_id,
+                                            new_case_name=new_case_name
                                         )
 
                                     else:
