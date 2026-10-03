@@ -5743,6 +5743,8 @@ def format_real_estate_result(
             "実際の申告税額を確定するものではございません。"
         )
     ]
+    
+    st.text("\n".join(lines))
 
     return "\n".join(lines)
 
