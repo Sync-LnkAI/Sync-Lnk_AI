@@ -3302,6 +3302,46 @@ def make_json_safe(value):
 
     return value
 
+# ==========================================
+# DEBUG表示
+# ==========================================
+DEBUG_MODE = True
+# DEBUG_MODE = (
+#     CURRENT_USER_ID
+#     == ADMIN_USER_ID
+# )
+# 管理者：DEBUG表示あり
+# テスター：DEBUG表示なし
+# 一般ユーザー：DEBUG表示なし
+
+def debug_text(
+    title: str,
+    value
+):
+    if not DEBUG_MODE:
+        return
+
+    st.write(title, value)
+
+
+def debug_json(
+    title: str,
+    data
+):
+    if not DEBUG_MODE:
+        return
+
+    st.write(title)
+    st.code(
+        json.dumps(
+            make_json_safe(data),
+            ensure_ascii=False,
+            indent=2,
+            default=str
+        ),
+        language="json"
+    )
+
 # 計算メモの新規作成
 def create_calculation_case(
     case_type: str,
@@ -5396,20 +5436,18 @@ def execute_real_estate_sale_calculation(
         #     ),
         #     language="json"
         # )
-        st.write("real_estate_calculation_arguments")
-        st.code(
-            json.dumps(
-                make_json_safe(
-                    st.session_state.get(
-                        "real_estate_calculation_arguments",
-                        {}
-                    )
-                ),
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
+        if "merged_arguments" in locals():
+            debug_json(
+                "merged_arguments",
+                merged_arguments
+            )
+        
+        debug_json(
+            "real_estate_calculation_arguments",
+            st.session_state.get(
+                "real_estate_calculation_arguments",
+                {}
+            )
         )
 
         if missing_fields:
