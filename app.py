@@ -6704,7 +6704,7 @@ with all_tabs[0]:
                         if st.session_state.get("pending_case_selection", False):
                             candidates = st.session_state.get("pending_case_candidates", [])
                             rename_selection_mode = bool(
-                                st.session_state.get("pending_case_rename",　False)
+                                st.session_state.get("pending_case_rename", False)
                             )
                             normalized_input = (
                                 user_input
