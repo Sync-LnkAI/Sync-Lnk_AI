@@ -6759,8 +6759,8 @@ with all_tabs[0]:
                                 # 前に操作していた案件のセッション条件を破棄
                                 st.session_state["real_estate_calculation_arguments"] = {}
                                 st.session_state["real_estate_calculation_pending"] = False
-                                st.session_state["active_calculation_case_id"] = None
-                                st.session_state["active_calculation_case_name"] = ""
+                                # st.session_state["active_calculation_case_id"] = None
+                                # st.session_state["active_calculation_case_name"] = ""
                                 st.write(
                                     "DEBUG cleared_case_id",
                                     st.session_state["active_calculation_case_id"]
