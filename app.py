@@ -6724,6 +6724,16 @@ with all_tabs[0]:
 
                                 st.session_state["active_calculation_case_id"] = selected_case_id
                                 st.session_state["active_calculation_case_name"] = selected_case_name
+                                st.write(
+                                    "DEBUG selected_case_set_id",
+                                    st.session_state["active_calculation_case_id"]
+                                )
+
+                                st.write(
+                                    "DEBUG selected_case_set_name",
+                                    st.session_state["active_calculation_case_name"]
+                                )
+
                                 selected_case_data = (
                                     get_calculation_case(
                                         selected_case["case_id"]
@@ -6751,6 +6761,15 @@ with all_tabs[0]:
                                 st.session_state["real_estate_calculation_pending"] = False
                                 st.session_state["active_calculation_case_id"] = None
                                 st.session_state["active_calculation_case_name"] = ""
+                                st.write(
+                                    "DEBUG cleared_case_id",
+                                    st.session_state["active_calculation_case_id"]
+                                )
+
+                                st.write(
+                                    "DEBUG cleared_case_name",
+                                    st.session_state["active_calculation_case_name"]
+                                )
 
                                 # 選択した案件を基準にする
                                 merged_case_data = dict(restored_case_data)
