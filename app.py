@@ -5343,16 +5343,11 @@ def execute_real_estate_sale_calculation(
                     property_usage=property_usage
                 )
             
-            st.write("depreciation_result")
-            st.code(
-                json.dumps(
-                    depreciation_result,
-                    ensure_ascii=False,
-                    indent=2,
-                    default=str
-                ),
-                language="json"
-            )
+            if "depreciation_result" in locals():
+                debug_json(
+                    "depreciation_result",
+                    depreciation_result
+                )
 
             normalized_arguments["accumulated_depreciation"] = depreciation_result[
                     "accumulated_depreciation"
@@ -5363,59 +5358,56 @@ def execute_real_estate_sale_calculation(
             f"🏠 計算不足項目: "
             f"{missing_fields}"
         )
-        st.write("depreciation_debug")
-        st.code(
-            json.dumps(
-                {
-                    "acquisition_related_costs":
-                        normalized_arguments.get(
-                            "acquisition_related_costs"
-                        ),
-                    "acquisition_related_costs_confirmed":
-                        normalized_arguments.get(
-                            "acquisition_related_costs_confirmed"
-                        ),
-                    
-                    "building_original_cost":
-                        normalized_arguments.get(
-                            "building_original_cost"
-                        ),
 
-                    "building_acquisition_cost":
-                        normalized_arguments.get(
-                            "building_acquisition_cost"
-                        ),
+        if "depreciation_debug" in locals():
+        debug_json(
+            "depreciation_debug",
+            {
+                "acquisition_related_costs":
+                    normalized_arguments.get(
+                        "acquisition_related_costs"
+                    ),
 
-                    "building_structure":
-                        normalized_arguments.get(
-                            "building_structure"
-                        ),
+                "acquisition_related_costs_confirmed":
+                    normalized_arguments.get(
+                        "acquisition_related_costs_confirmed"
+                    ),
 
-                    "building_acquisition_date":
-                        normalized_arguments.get(
-                            "building_acquisition_date"
-                        ),
+                "building_original_cost":
+                    normalized_arguments.get(
+                        "building_original_cost"
+                    ),
 
-                    "property_usage":
-                        normalized_arguments.get(
-                            "property_usage"
-                        ),
+                "building_acquisition_cost":
+                    normalized_arguments.get(
+                        "building_acquisition_cost"
+                    ),
 
-                    "accumulated_depreciation":
-                        normalized_arguments.get(
-                            "accumulated_depreciation"
-                        ),
+                "building_structure":
+                    normalized_arguments.get(
+                        "building_structure"
+                    ),
 
-                    "total_acquisition_cost":
-                        normalized_arguments.get(
-                            "total_acquisition_cost"
-                        )
-                },
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
+                "building_acquisition_date":
+                    normalized_arguments.get(
+                        "building_acquisition_date"
+                    ),
+
+                "property_usage":
+                    normalized_arguments.get(
+                        "property_usage"
+                    ),
+
+                "accumulated_depreciation":
+                    normalized_arguments.get(
+                        "accumulated_depreciation"
+                    ),
+
+                "total_acquisition_cost":
+                    normalized_arguments.get(
+                        "total_acquisition_cost"
+                    )
+            }
         )
 
         missing_fields = (
@@ -5466,16 +5458,11 @@ def execute_real_estate_sale_calculation(
             )
         )
 
-        st.write("missing_fields")
-        st.code(
-            json.dumps(
-                missing_fields,
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
-        )
+        if "missing_fields" in locals():
+            debug_json(
+                "missing_fields",
+                missing_fields
+            )
 
     except Exception as missing_check_error:
         print(
@@ -7139,18 +7126,11 @@ with all_tabs[0]:
                                     )
                                 }
 
-                                st.write("DEBUG new_case_data")
-                                st.code(
-                                    json.dumps(
-                                        make_json_safe(
-                                            new_case_data
-                                        ),
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                if "DEBUG new_case_data" in locals():
+                                    debug_json(
+                                        "DEBUG new_case_data",
+                                        new_case_data
+                                    )
 
                                 property_usage = (
                                     new_case_data.get(
@@ -7335,12 +7315,13 @@ with all_tabs[0]:
 
                                 st.session_state["active_calculation_case_id"] = selected_case_id
                                 st.session_state["active_calculation_case_name"] = selected_case_name
-                                st.write(
+                                
+                                debug_text(
                                     "DEBUG selected_case_set_id",
                                     st.session_state["active_calculation_case_id"]
                                 )
 
-                                st.write(
+                                debug_text(
                                     "DEBUG selected_case_set_name",
                                     st.session_state["active_calculation_case_name"]
                                 )
@@ -7372,15 +7353,15 @@ with all_tabs[0]:
                                 st.session_state["real_estate_calculation_pending"] = False
                                 # st.session_state["active_calculation_case_id"] = None
                                 # st.session_state["active_calculation_case_name"] = ""
-                                st.write(
-                                    "DEBUG cleared_case_id",
-                                    st.session_state["active_calculation_case_id"]
-                                )
+                                # debug_text(
+                                #     "DEBUG cleared_case_id",
+                                #     st.session_state["active_calculation_case_id"]
+                                # )
 
-                                st.write(
-                                    "DEBUG cleared_case_name",
-                                    st.session_state["active_calculation_case_name"]
-                                )
+                                # debug_text(
+                                #     "DEBUG cleared_case_name",
+                                #     st.session_state["active_calculation_case_name"]
+                                # )
 
                                 # 選択した案件を基準にする
                                 merged_case_data = dict(restored_case_data)
@@ -7655,16 +7636,12 @@ with all_tabs[0]:
                         # 「1」を再判定せず不動産計算へ強制復帰する
                         if selected_case_resume_arguments is not None:
                             calculation_tool = "real_estate_sale"
-                        st.write("DEBUG selected_case_resume_arguments")
-                        st.code(
-                            json.dumps(
-                                make_json_safe(selected_case_resume_arguments),
-                                ensure_ascii=False,
-                                indent=2,
-                                default=str
-                            ),
-                            language="json"
-                        )
+                        
+                        if "DEBUG selected_case_resume_arguments" in locals():
+                            debug_json(
+                                "DEBUG selected_case_resume_arguments",
+                                selected_case_resume_arguments
+                            )
                         
                         if should_run_tool_router:
                             save_system_audit_log(
@@ -7801,24 +7778,25 @@ with all_tabs[0]:
                                 False
                             )
                         )
-                        st.write(
+                        debug_text(
                             "DEBUG active_calculation_case_id",
                             st.session_state.get(
                                 "active_calculation_case_id"
                             )
                         )
 
-                        st.write(
+                        debug_text(
                             "DEBUG active_calculation_case_name",
                             st.session_state.get(
                                 "active_calculation_case_name"
                             )
                         )
 
-                        st.write(
-                            "DEBUG calculation_pending",
-                            calculation_pending
-                        )
+                        if "DEBUG calculation_pending" in locals():
+                            debug_json(
+                                "DEBUG calculation_pending",
+                                calculation_pending
+                            )
 
                         is_calculation_candidate = (
                             calculation_tool
@@ -7843,18 +7821,12 @@ with all_tabs[0]:
                                 previous_arguments = {}
                                 current_arguments = dict(selected_case_resume_arguments)
 
-                                st.write("DEBUG selected_case_resume_arguments")
-                                st.code(
-                                    json.dumps(
-                                        make_json_safe(
-                                            selected_case_resume_arguments
-                                        ),
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                if "DEBUG selected_case_resume_arguments" in locals():
+                                    debug_json(
+                                        "DEBUG selected_case_resume_arguments",
+                                        selected_case_resume_arguments
+                                    )
+
                             else:
                                 calculation_extraction_result = extract_real_estate_sale_parameters(
                                     user_input=user_input,
@@ -7862,18 +7834,11 @@ with all_tabs[0]:
                                     calculation_pending=calculation_pending
                                 )
 
-                                st.write("DEBUG calculation_extraction_result")
-                                st.code(
-                                    json.dumps(
-                                        make_json_safe(
-                                            calculation_extraction_result
-                                        ),
-                                        ensure_ascii=False,
-                                        indent=2,
-                                        default=str
-                                    ),
-                                    language="json"
-                                )
+                                if "DEBUG calculation_extraction_result" in locals():
+                                    debug_json(
+                                        "DEBUG calculation_extraction_result",
+                                        calculation_extraction_result
+                                    )
 
                                 if calculation_pending:
                                     should_calculate_now = bool(
@@ -7969,17 +7934,12 @@ with all_tabs[0]:
                                 ] = current_arguments[
                                     "acquisition_date"
                                 ]
-                            
-                            st.write("DEBUG current_arguments")
-                            st.code(
-                                json.dumps(
-                                    make_json_safe(current_arguments),
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+
+                            if "DEBUG current_arguments" in locals():
+                                debug_json(
+                                    "DEBUG current_arguments",
+                                    current_arguments
+                                )
 
                             extraction_elapsed = (time.time() - calculation_start_time)
 
@@ -8010,18 +7970,12 @@ with all_tabs[0]:
                             if not total_cost_is_explicit:
                                 current_arguments.pop("total_acquisition_cost", None)
 
-                            st.write("DEBUG previous_arguments")
-                            st.code(
-                                json.dumps(
-                                    make_json_safe(
-                                        previous_arguments
-                                    ),
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            if "DEBUG previous_arguments" in locals():
+                                debug_json(
+                                    "DEBUG previous_arguments",
+                                    previous_arguments
+                                )
+
                             # 前回条件を今回条件で上書きする
                             # 同じ項目がある場合は最新発言を優先
                             merged_arguments = dict(previous_arguments)
@@ -8325,18 +8279,11 @@ with all_tabs[0]:
                                 )
                             )
 
-                            st.write("DEBUG calculation_execution_result")
-                            st.code(
-                                json.dumps(
-                                    make_json_safe(
-                                        calculation_execution_result
-                                    ),
-                                    ensure_ascii=False,
-                                    indent=2,
-                                    default=str
-                                ),
-                                language="json"
-                            )
+                            if "DEBUG calculation_execution_result" in locals():
+                                debug_json(
+                                    "DEBUG calculation_execution_result",
+                                    calculation_execution_result
+                                )
 
                             calculation_elapsed = (
                                 time.time()
@@ -8401,18 +8348,12 @@ with all_tabs[0]:
                                             apply_defaults=False
                                         )
                                     )
-                                    st.write("DEBUG missing_saved_arguments")
-                                    st.code(
-                                        json.dumps(
-                                            make_json_safe(
-                                                saved_arguments
-                                            ),
-                                            ensure_ascii=False,
-                                            indent=2,
-                                            default=str
-                                        ),
-                                        language="json"
-                                    )
+                                    
+                                    if "DEBUG missing_saved_arguments" in locals():
+                                        debug_json(
+                                            "DEBUG missing_saved_arguments",
+                                            saved_arguments
+                                        )
 
                                 except Exception:
                                     saved_arguments = (merged_arguments)
@@ -8459,19 +8400,11 @@ with all_tabs[0]:
                                 try:
                                     # saved_arguments = (normalize_real_estate_sale_arguments(merged_arguments, apply_defaults=False))
                                     
-
-                                    st.write("DEBUG saved_arguments")
-                                    st.code(
-                                        json.dumps(
-                                            make_json_safe(
-                                                saved_arguments
-                                            ),
-                                            ensure_ascii=False,
-                                            indent=2,
-                                            default=str
-                                        ),
-                                        language="json"
-                                    )
+                                    if "DEBUG saved_arguments" in locals():
+                                        debug_json(
+                                            "DEBUG saved_arguments",
+                                            saved_arguments
+                                        )
 
                                 except Exception:
                                     saved_arguments = dict(merged_arguments)
