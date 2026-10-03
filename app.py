@@ -8621,6 +8621,27 @@ with all_tabs[0]:
                                 )
                             )
 
+                            formatted_result = (
+                                format_real_estate_result(
+                                    result
+                                )
+                            )
+
+                            save_message(
+                                "assistant",
+                                formatted_result,
+                                current_msg_id,
+                                response_mode
+                            )
+
+                            st.markdown(
+                                f"{current_concierge_name}:<br>"
+                                f"{formatted_result}",
+                                unsafe_allow_html=True
+                            )
+
+                            st.stop()
+
                             if (
                                 extraction_in_tokens > 0
                                 or extraction_out_tokens > 0
