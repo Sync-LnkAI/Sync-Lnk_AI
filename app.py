@@ -9239,7 +9239,7 @@ with all_tabs[0]:
                 if msg["role"] == "user"
                 else current_concierge_name
             )
-            display_message = (
+            display_message(
                 role_label,
                 msg["content"]
             )
