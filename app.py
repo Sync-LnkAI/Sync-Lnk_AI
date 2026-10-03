@@ -3268,6 +3268,9 @@ def get_default_case_name(
 
         if property_usage == "owner_occupied":
             return "自宅売却"
+        
+        if property_usage == "investment":
+            return "投資用売却"
 
         return "その他売却"
 
@@ -3548,6 +3551,31 @@ def cleanup_expired_calculation_cases() -> int:
         )
 
         return 0
+
+# 計算案件の名称変更
+def extract_case_name_change(
+    user_input: str
+):
+    patterns = [
+        r"案件名を(.+?)に変更",
+        r"案件名を(.+?)へ変更",
+        r"案件名を(.+?)にして",
+        r"案件名は(.+)",
+    ]
+
+    for pattern in patterns:
+        match = re.search(
+            pattern,
+            user_input
+        )
+
+        if match:
+            return (
+                match.group(1)
+                .strip()
+            )
+
+    return None
 
 # ==========================================
 # 不動産売却計算 入力項目
@@ -6425,6 +6453,49 @@ with all_tabs[0]:
                         # メッセージIDの自動生成
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
+
+                        # 案件名称変更検出と変更処理
+                        case_name_change = extract_case_name_change(
+                            user_input
+                        )
+
+                        if (
+                            case_name_change
+                            and st.session_state.get(
+                                "active_calculation_case_id"
+                            )
+                        ):
+                            update_calculation_case(
+                                case_id=st.session_state[
+                                    "active_calculation_case_id"
+                                ],
+                                case_name=case_name_change,
+                                new_case_data={}
+                            )
+
+                            st.session_state[
+                                "active_calculation_case_name"
+                            ] = case_name_change
+
+                            ai_reply = (
+                                f"案件名を"
+                                f"「{case_name_change}」"
+                                f"へ変更しました。"
+                            )
+
+                            save_message(
+                                "assistant",
+                                ai_reply,
+                                current_msg_id,
+                                "conversation"
+                            )
+
+                            st.markdown(
+                                f"{current_concierge_name}: "
+                                f"{ai_reply}"
+                            )
+
+                            st.stop()
 
                         # ==========================================
                         # 新しい計算案件を開始する明示指示
