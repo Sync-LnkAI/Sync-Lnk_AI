@@ -6455,33 +6455,35 @@ with all_tabs[0]:
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
                         # 案件名称変更検出と変更処理
-                        case_name_change = extract_case_name_change(
-                            user_input
-                        )
-
-                        if (
-                            case_name_change
-                            and st.session_state.get(
-                                "active_calculation_case_id"
-                            )
-                        ):
-                            update_calculation_case(
-                                case_id=st.session_state[
+                        if case_name_change:
+                            active_case_id = (
+                                st.session_state.get(
                                     "active_calculation_case_id"
-                                ],
-                                case_name=case_name_change,
-                                new_case_data={}
+                                )
                             )
 
-                            st.session_state[
-                                "active_calculation_case_name"
-                            ] = case_name_change
+                            if active_case_id:
+                                update_calculation_case(
+                                    case_id=active_case_id,
+                                    case_name=case_name_change,
+                                    new_case_data={}
+                                )
 
-                            ai_reply = (
-                                f"案件名を"
-                                f"「{case_name_change}」"
-                                f"へ変更しました。"
-                            )
+                                st.session_state[
+                                    "active_calculation_case_name"
+                                ] = case_name_change
+
+                                ai_reply = (
+                                    f"案件名を"
+                                    f"「{case_name_change}」"
+                                    f"へ変更しました。"
+                                )
+
+                            else:
+                                ai_reply = (
+                                    "現在選択中の案件がありません。"
+                                    "先に案件を選択してから案件名を変更してください。"
+                                )
 
                             save_message(
                                 "assistant",
@@ -6495,7 +6497,10 @@ with all_tabs[0]:
                                 f"{ai_reply}"
                             )
 
+                            st.write("DEBUG rename_case_id",active_case_id)
+
                             st.stop()
+                        
 
                         # ==========================================
                         # 新しい計算案件を開始する明示指示
