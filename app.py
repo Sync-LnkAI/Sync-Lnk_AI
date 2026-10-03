@@ -5384,18 +5384,18 @@ def execute_real_estate_sale_calculation(
             )
         )
 
-        st.write("merged_arguments")
-        st.code(
-            json.dumps(
-                make_json_safe(
-                    merged_arguments
-                ),
-                ensure_ascii=False,
-                indent=2,
-                default=str
-            ),
-            language="json"
-        )
+        # st.write("merged_arguments")
+        # st.code(
+        #     json.dumps(
+        #         make_json_safe(
+        #             merged_arguments
+        #         ),
+        #         ensure_ascii=False,
+        #         indent=2,
+        #         default=str
+        #     ),
+        #     language="json"
+        # )
         st.write("real_estate_calculation_arguments")
         st.code(
             json.dumps(
