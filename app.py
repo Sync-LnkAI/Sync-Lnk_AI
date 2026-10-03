@@ -5699,6 +5699,13 @@ def format_real_estate_result(
         ) or 0
     )
 
+    building_tax_basis_warning = bool(
+        result.get(
+            "building_tax_basis_warning",
+            False
+        )
+    )
+
     ownership_label = (
         "個人"
         if owner_type == "individual"
@@ -5711,52 +5718,43 @@ def format_real_estate_result(
         else "短期譲渡所得"
     )
 
-    building_tax_basis_warning = bool(
-    result.get(
-        "building_tax_basis_warning",
-        False
-    )
-)
     lines = [
-
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
         f"・保有期間：{holding_label}",
         f"・売却価格：{sale_price:,}円",
         f"・ローン残債：{loan_balance:,}円",
         "",
-
         "【取得費の内訳】",
         f"・取得費：{acquisition_basis:,}円",
         "",
-        if building_tax_basis_warning:
-            lines.extend([
-                "⚠️ 建物未償却残高の確認",
-                "入力していただいた建物未償却残高と、",
-                "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
-                "",
-                "今回は入力していただいた未償却残高を採用して計算しています。"
-            ]),
+    ]
 
+    if building_tax_basis_warning:
+        lines.extend([
+            "⚠️ 建物未償却残高の確認",
+            "入力していただいた建物未償却残高と、",
+            "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
+            "",
+            "今回は入力していただいた未償却残高を採用して計算しています。",
+            ""
+        ])
+
+    lines.extend([
         "【税額】",
         f"・課税譲渡所得：{taxable_gain:,}円",
         f"・概算税額：{estimated_tax:,}円",
         "",
-
         "【最終手残り】",
         f"・税引前手残り：{cash_before_tax:,}円",
         f"・税引後手残り：{cash_after_tax:,}円",
         "",
-
         (
             "この結果は入力条件に基づく概算であり、"
             "実際の申告税額を確定するものではございません。"
         )
-    ]
+    ])
 
-    st.text("\n".join(lines))
-
-    # return "\n".join(lines)
     return "<br>".join(lines)
 
 def build_real_estate_calculation_context(
