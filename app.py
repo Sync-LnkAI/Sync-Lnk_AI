@@ -5744,8 +5744,8 @@ def execute_real_estate_sale_calculation(
     }
 
 def format_real_estate_result(
-    case_name: str,
-    result: dict
+    result: dict,
+    case_name: str = ""
 ) -> str:
 
     owner_type = result.get(
@@ -6375,11 +6375,11 @@ def build_case_rename_followup(
         ] = False
 
         formatted_result = format_real_estate_result(
+            result=result,
             case_name=st.session_state.get(
                 "active_calculation_case_name",
                 ""
-            ),
-            result
+            )
         )
 
         return (
@@ -8759,13 +8759,12 @@ with all_tabs[0]:
                                 )
 
                                 # 成功時だけ固定表示を生成
-                                formatted_result = (
-                                    format_real_estate_result(
+                                formatted_result = (format_real_estate_result(
+                                        result=result,
                                         case_name=st.session_state.get(
                                             "active_calculation_case_name",
                                             ""
-                                        ),
-                                        result
+                                        )
                                     )
                                 )
 
