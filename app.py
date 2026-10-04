@@ -5122,6 +5122,11 @@ def format_missing_fields_message(
     missing_fields: list
 ) -> str:
 
+    debug_json(
+        "DEBUG format_missing_fields_message_current_arguments",
+        current_arguments
+    )
+
     missing_labels = [
         REAL_ESTATE_FIELD_LABELS.get(
             field,
@@ -8247,8 +8252,17 @@ with all_tabs[0]:
                                 for expression in total_cost_expressions
                             )
 
-                            if not total_cost_is_explicit:
-                                current_arguments.pop("total_acquisition_cost", None)
+                            # 通常の発言抽出時だけ、
+                            # 「総取得費」と明示されていない値を除外する。
+                            # 案件復元時は保存済みの総取得費をそのまま維持する。
+                            if (
+                                selected_case_resume_arguments is None
+                                and not total_cost_is_explicit
+                            ):
+                                current_arguments.pop(
+                                    "total_acquisition_cost",
+                                    None
+                                )
 
                             if "DEBUG previous_arguments" in locals():
                                 debug_json(
@@ -8348,11 +8362,6 @@ with all_tabs[0]:
                                     "total_acquisition_cost"
                                 )
                             )
-
-                            if total_acquisition_cost_value is not None:
-                                merged_arguments[
-                                    "total_acquisition_cost"
-                                ] = total_acquisition_cost_value
 
                             # st.write("DEBUG merged_arguments")
                             # st.code(
