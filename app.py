@@ -5145,11 +5145,6 @@ def format_missing_fields_message(
         if key.endswith("_confirmed"):
             continue
 
-        debug_json(
-            "DEBUG current_arguments",
-            current_arguments
-        )
-
         label = REAL_ESTATE_FIELD_LABELS.get(
             key,
             key
@@ -5220,7 +5215,7 @@ def format_missing_fields_message(
     )
 
     return (
-        f"以下の確認が必要な項目について教えてください】\n\n"
+        f"以下の確認が必要な項目について教えてください\n\n"
         f"【案件情報】\n"
         f"案件名："
         f"{case_name or '未選択'}\n\n"
@@ -5749,6 +5744,7 @@ def execute_real_estate_sale_calculation(
     }
 
 def format_real_estate_result(
+    case_name: str,
     result: dict
 ) -> str:
 
@@ -5829,6 +5825,11 @@ def format_real_estate_result(
     )
 
     lines = [
+        f"計算結果は以下になりました",
+        f"【案件情報】",
+        f"案件名：",
+        f"{case_name or '未選択'}",
+        "",
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
         f"・保有期間：{holding_label}",
@@ -6275,8 +6276,8 @@ def build_case_rename_followup(
             f"案件名を"
             f"「{new_case_name}」"
             f"へ変更しました。\n\n"
-            "この案件にはまだ計算条件が登録されていません。"
-            "売却価格などの条件を入力してください。"
+            "この案件にはまだ計算に必要な条件が登録されていません。"
+            "計算に必要な各条件を教えてください。"
         )
 
     extraction_result = {
@@ -6374,6 +6375,10 @@ def build_case_rename_followup(
         ] = False
 
         formatted_result = format_real_estate_result(
+            case_name=st.session_state.get(
+                "active_calculation_case_name",
+                ""
+            ),
             result
         )
 
@@ -8363,6 +8368,17 @@ with all_tabs[0]:
                                 )
                             )
 
+                            if total_acquisition_cost_value is not None:
+                                merged_arguments[
+                                    "total_acquisition_cost"
+                                ] = total_acquisition_cost_value
+
+                            if "merged_arguments" in locals():
+                                debug_json(
+                                    "DEBUG merged_arguments",
+                                    merged_arguments
+                                )
+
                             # st.write("DEBUG merged_arguments")
                             # st.code(
                             #     json.dumps(
@@ -8373,24 +8389,6 @@ with all_tabs[0]:
                             #     ),
                             #     language="json"
                             # )
-
-
-                            if "merged_arguments" in locals():
-                                debug_json(
-                                    "DEBUG merged_arguments",
-                                    merged_arguments
-                                )
-
-                            total_acquisition_cost_value = (
-                                current_arguments.get(
-                                    "total_acquisition_cost"
-                                )
-                            )
-
-                            if total_acquisition_cost_value is not None:
-                                merged_arguments[
-                                    "total_acquisition_cost"
-                                ] = total_acquisition_cost_value
 
                             # st.write("previous_arguments")
                             # st.code(
@@ -8763,6 +8761,10 @@ with all_tabs[0]:
                                 # 成功時だけ固定表示を生成
                                 formatted_result = (
                                     format_real_estate_result(
+                                        case_name=st.session_state.get(
+                                            "active_calculation_case_name",
+                                            ""
+                                        ),
                                         result
                                     )
                                 )
