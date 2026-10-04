@@ -4944,6 +4944,10 @@ REAL_ESTATE_FIELD_LABELS = {
     "acquisition_basis":("税務上の取得費" "（土地・建物の取得価額など）"),
     "accumulated_depreciation":"建物の減価償却累計額",
     "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）")
+    "brokerage_fee": "仲介手数料",
+    "property_usage": "物件用途",
+    "transfer_expenses": "譲渡費用",
+    "use_deemed_acquisition_cost": "概算取得費を使用するか",
 }
 
 def get_real_estate_sale_missing_fields(
@@ -5155,7 +5159,30 @@ def format_missing_fields_message(
                 value = "長期譲渡所得"
 
             elif value == "short_term":
-                value = "短期譲渡所得"
+                value = "短期譲渡所得
+        
+        elif key == "property_usage":
+
+            if value == "investment":
+                value = "投資用"
+
+            elif value == "owner_occupied":
+                value = "自宅"
+        
+        elif key == "use_deemed_acquisition_cost":
+            value = (
+                "使用する"
+                if bool(value)
+                else "使用しない"
+            )
+        
+        elif key in REAL_ESTATE_NUMERIC_FIELDS:
+            try:
+                value = (
+                    f"{int(value):,}円"
+                )
+            except Exception:
+                pass
 
         elif isinstance(
             value,
@@ -5182,6 +5209,7 @@ def format_missing_fields_message(
     )
 
     return (
+        f"以下の確認が必要な項目について教えてください】\n\n"
         f"【案件情報】\n"
         f"案件名："
         f"{case_name or '未選択'}\n\n"
