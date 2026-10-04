@@ -4947,7 +4947,8 @@ REAL_ESTATE_FIELD_LABELS = {
     "brokerage_fee": "仲介手数料",
     "property_usage": "物件用途",
     "transfer_expenses": "譲渡費用",
-    "use_deemed_acquisition_cost": "概算取得費を使用するか"
+    "use_deemed_acquisition_cost": "概算取得費を使用するか",
+    "total_acquisition_cost": "総取得費",
 }
 
 def get_real_estate_sale_missing_fields(
@@ -5138,6 +5139,11 @@ def format_missing_fields_message(
 
         if key.endswith("_confirmed"):
             continue
+
+        debug_json(
+            "DEBUG current_arguments",
+            current_arguments
+        )
 
         label = REAL_ESTATE_FIELD_LABELS.get(
             key,
