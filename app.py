@@ -7659,6 +7659,11 @@ with all_tabs[0]:
                                 selected_case_resume_arguments = dict(
                                     merged_case_data
                                 )
+
+                                debug_json(
+                                    "DEBUG selected_case_resume_arguments_after_restore",
+                                    selected_case_resume_arguments
+                                )
                                 
                                 # st.write("restored_case_data")
                                 # st.code(
