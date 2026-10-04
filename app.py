@@ -5159,7 +5159,7 @@ def format_missing_fields_message(
                 value = "長期譲渡所得"
 
             elif value == "short_term":
-                value = "短期譲渡所得
+                value = "短期譲渡所得"
         
         elif key == "property_usage":
 
