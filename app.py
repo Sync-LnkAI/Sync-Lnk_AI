@@ -7593,6 +7593,11 @@ with all_tabs[0]:
                                     or {}
                                 )
 
+                                debug_json(
+                                    "DEBUG restored_case_data",
+                                    restored_case_data
+                                )
+
                                 pending_arguments = dict(
                                     st.session_state.get(
                                         "pending_case_arguments",
@@ -8603,6 +8608,14 @@ with all_tabs[0]:
                                     )
                                     for field in missing_fields
                                 ]
+
+                                debug_json(
+                                    "DEBUG missing_fields_current_arguments",
+                                    st.session_state.get(
+                                        "real_estate_calculation_arguments",
+                                        {}
+                                    )
+                                )
 
                                 ai_reply = format_missing_fields_message(
                                     case_name=st.session_state.get(
