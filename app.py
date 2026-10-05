@@ -5914,6 +5914,10 @@ def format_real_estate_result_standard(
         else "自動計算"
     )
 
+    brokerage_fee_method = result.get(
+        "brokerage_fee_method"
+    )
+
     lines = [
 
         "【案件情報】",
