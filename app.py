@@ -5743,10 +5743,142 @@ def execute_real_estate_sale_calculation(
         "error": None
     }
 
-def format_real_estate_result(
+# 無料会員用計算結果表示
+def format_real_estate_result_free(
     result: dict,
     case_name: str = ""
 ) -> str:
+
+    owner_type = result.get(
+        "owner_type"
+    )
+
+    holding_type = result.get(
+        "holding_type"
+    )
+
+    sale_price = int(
+        result.get(
+            "sale_price",
+            0
+        ) or 0
+    )
+
+    loan_balance = int(
+        result.get(
+            "loan_balance",
+            0
+        ) or 0
+    )
+
+    acquisition_basis = int(
+        result.get(
+            "applied_acquisition_basis",
+            0
+        ) or 0
+    )
+
+    taxable_gain = int(
+        result.get(
+            "taxable_gain",
+            0
+        ) or 0
+    )
+
+    estimated_tax = int(
+        result.get(
+            "estimated_tax",
+            0
+        ) or 0
+    )
+
+    cash_before_tax = int(
+        result.get(
+            "cash_before_tax",
+            0
+        ) or 0
+    )
+
+    cash_after_tax = int(
+        result.get(
+            "cash_after_tax",
+            0
+        ) or 0
+    )
+
+    building_tax_basis_warning = bool(
+        result.get(
+            "building_tax_basis_warning",
+            False
+        )
+    )
+
+    ownership_label = (
+        "個人"
+        if owner_type == "individual"
+        else "法人"
+    )
+
+    holding_label = (
+        "長期譲渡所得"
+        if holding_type == "long_term"
+        else "短期譲渡所得"
+    )
+
+    lines = [
+        f"計算結果は以下になりました",
+        f"【案件情報】",
+        f"案件名：",
+        f"{case_name or '未選択'}",
+        "",
+        "【適用条件】",
+        f"・所有者区分：{ownership_label}",
+        f"・保有期間：{holding_label}",
+        f"・売却価格：{sale_price:,}円",
+        f"・ローン残債：{loan_balance:,}円",
+        "",
+        "【取得費の内訳】",
+        f"・取得費：{acquisition_basis:,}円",
+        "",
+    ]
+
+    if building_tax_basis_warning:
+        lines.extend([
+            "⚠️ 建物未償却残高の確認",
+            "入力していただいた建物未償却残高と、",
+            "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
+            "",
+            "今回は入力していただいた未償却残高を採用して計算しています。",
+            ""
+        ])
+
+    lines.extend([
+        "【税額】",
+        f"・課税譲渡所得：{taxable_gain:,}円",
+        f"・概算税額：{estimated_tax:,}円",
+        "",
+        "【最終手残り】",
+        f"・税引前手残り：{cash_before_tax:,}円",
+        f"・税引後手残り：{cash_after_tax:,}円",
+        "",
+        (
+            "この結果は入力条件に基づく概算であり、"
+            "実際の申告税額を確定するものではございません。"
+        )
+    ])
+
+    return "\n".join(lines)
+
+# スタンダート会員用計算結果表示
+def format_real_estate_result_standard(
+    result: dict,
+    case_name: str = ""
+) -> str:
+
+    debug_json(
+        "DEBUG standard_result",
+        result
+    )
 
     owner_type = result.get(
         "owner_type"
@@ -6374,13 +6506,26 @@ def build_case_rename_followup(
             "real_estate_calculation_pending"
         ] = False
 
-        formatted_result = format_real_estate_result(
-            result=result,
-            case_name=st.session_state.get(
-                "active_calculation_case_name",
-                ""
+        if current_plan_type == "🆓 無料プラン":
+            formatted_result = (
+                format_real_estate_result_free(
+                    result=result,
+                    case_name=st.session_state.get(
+                        "active_calculation_case_name",
+                        ""
+                    )
+                )
             )
-        )
+        else:
+            formatted_result = (
+                format_real_estate_result_standard(
+                    result=result,
+                    case_name=st.session_state.get(
+                        "active_calculation_case_name",
+                        ""
+                    )
+                )
+            )
 
         return (
             f"案件名を"
