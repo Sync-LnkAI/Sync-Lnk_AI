@@ -7202,7 +7202,7 @@ with all_tabs[0]:
                                     "role": "user",
                                     "content": user_input,
                                     "message_id": current_msg_id,
-                                    "response_mode": conversation,
+                                    "response_mode": "conversation",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -7210,7 +7210,7 @@ with all_tabs[0]:
                                     "role": "assistant",
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
-                                    "response_mode": conversation,
+                                    "response_mode": "conversation",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
