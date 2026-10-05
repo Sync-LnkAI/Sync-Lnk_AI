@@ -6450,6 +6450,10 @@ def build_case_rename_followup(
         )
         or {}
     )
+    debug_json(
+        "DEBUG rename_case_arguments",
+        case_arguments
+    )
 
     # 案件データが取得できなかった場合
     if not case_arguments:
