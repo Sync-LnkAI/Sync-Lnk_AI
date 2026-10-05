@@ -3305,8 +3305,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -5852,12 +5852,8 @@ def format_real_estate_result_free(
         f"・保有期間：{holding_label}",
         f"・売却価格：{sale_price:,}円",
         f"・ローン残債：{loan_balance:,}円",
-        "",
-        "【取得費の内訳】",
         f"・取得費：{acquisition_basis:,}円",
-        "",
-        "【売却費用】",
-        f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
+        f"・売却時仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
     ]
     if (brokerage_fee_method == "statutory_max_estimate"):
         lines.append("・仲介手数料は法定上限額で自動計算")
@@ -5873,6 +5869,7 @@ def format_real_estate_result_free(
         ])
 
     lines.extend([
+        "",
         "【税額】",
         f"・課税譲渡所得：{taxable_gain:,}円",
         f"・概算税額：{estimated_tax:,}円",
