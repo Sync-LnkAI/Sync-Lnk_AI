@@ -8772,6 +8772,10 @@ with all_tabs[0]:
                                     "active_calculation_case_id"
                                 )
                             ):
+                                debug_json(
+                                    "DEBUG case_update_arguments",
+                                    merged_arguments
+                                )
                                 update_calculation_case(
                                     case_id=st.session_state["active_calculation_case_id"],
                                     case_name=st.session_state.get("active_calculation_case_name"),
