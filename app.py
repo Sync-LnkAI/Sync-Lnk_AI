@@ -5918,6 +5918,13 @@ def format_real_estate_result_standard(
         "brokerage_fee_method"
     )
 
+    building_tax_basis_warning = bool(
+        result.get(
+            "building_tax_basis_warning",
+            False
+        )
+    )
+
     lines = [
 
         "【案件情報】",
