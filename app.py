@@ -3431,6 +3431,14 @@ def update_calculation_case(
         merged_case_data = dict(existing_case_data)
         merged_case_data.update(new_case_data)
 
+        # brokerage_feeが存在しない場合は、
+        # 既存データの値も削除する
+        if "brokerage_fee" not in new_case_data:
+            merged_case_data.pop(
+                "brokerage_fee",
+                None
+            )
+
         debug_json(
             "DEBUG merged_case_data_before_update",
             merged_case_data
