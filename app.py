@@ -5875,73 +5875,12 @@ def format_real_estate_result_standard(
     case_name: str = ""
 ) -> str:
 
-    debug_json(
-        "DEBUG standard_result",
-        result
-    )
-
     owner_type = result.get(
         "owner_type"
     )
 
     holding_type = result.get(
         "holding_type"
-    )
-
-    sale_price = int(
-        result.get(
-            "sale_price",
-            0
-        ) or 0
-    )
-
-    loan_balance = int(
-        result.get(
-            "loan_balance",
-            0
-        ) or 0
-    )
-
-    acquisition_basis = int(
-        result.get(
-            "applied_acquisition_basis",
-            0
-        ) or 0
-    )
-
-    taxable_gain = int(
-        result.get(
-            "taxable_gain",
-            0
-        ) or 0
-    )
-
-    estimated_tax = int(
-        result.get(
-            "estimated_tax",
-            0
-        ) or 0
-    )
-
-    cash_before_tax = int(
-        result.get(
-            "cash_before_tax",
-            0
-        ) or 0
-    )
-
-    cash_after_tax = int(
-        result.get(
-            "cash_after_tax",
-            0
-        ) or 0
-    )
-
-    building_tax_basis_warning = bool(
-        result.get(
-            "building_tax_basis_warning",
-            False
-        )
     )
 
     ownership_label = (
@@ -5956,41 +5895,114 @@ def format_real_estate_result_standard(
         else "短期譲渡所得"
     )
 
+    building_tax_basis_source = (
+        result.get(
+            "building_tax_basis_source"
+        )
+    )
+
+    tax_rate = (
+        result.get(
+            "tax_rate"
+        )
+    )
+
+    building_tax_basis_label = (
+        "入力値"
+        if building_tax_basis_source
+        == "user_provided"
+        else "自動計算"
+    )
+
     lines = [
-        f"計算結果は以下になりました",
-        f"【案件情報】",
-        f"案件名：",
-        f"{case_name or '未選択'}",
+
+        "【案件情報】",
+        f"案件名：{case_name}",
         "",
+
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
         f"・保有期間：{holding_label}",
-        f"・売却価格：{sale_price:,}円",
-        f"・ローン残債：{loan_balance:,}円",
+        f"・売却価格：{int(result.get('sale_price',0)):,}円",
+        f"・ローン残債：{int(result.get('loan_balance',0)):,}円",
         "",
+
         "【取得費の内訳】",
-        f"・取得費：{acquisition_basis:,}円",
+        f"・土地取得費：{int(result.get('land_acquisition_cost',0)):,}円",
+        f"・建物取得価額：{int(result.get('building_acquisition_cost',0)):,}円",
+        (
+            f"・建物未償却残高："
+            f"{int(result.get('building_tax_basis',0)):,}円"
+            f"（{building_tax_basis_label}）"
+        ),
+        f"・購入時諸費用：{int(result.get('acquisition_related_costs',0)):,}円",
+        f"・計算採用取得費：{int(result.get('applied_acquisition_basis',0)):,}円",
         "",
+
+        "【売却費用】",
+        f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
+        (
+            "・仲介手数料区分："
+            + (
+                "法定上限額による自動計算"
+                if brokerage_fee_method
+                == "statutory_max_estimate"
+                else "入力値"
+            )
+        ),
+        f"・譲渡費用：{int(result.get('transfer_expenses',0)):,}円",
+        "",
+
+        "【譲渡所得】",
+        (
+            f"・特別控除前譲渡所得："
+            f"{int(result.get('capital_gain_before_deduction',0)):,}円"
+        ),
+        (
+            f"・特別控除："
+            f"{int(result.get('special_deduction',0)):,}円"
+        ),
+        (
+            f"・課税譲渡所得："
+            f"{int(result.get('taxable_gain',0)):,}円"
+        ),
+        "",
+
+        "【税額】",
+        (
+            f"・適用税率："
+            f"{tax_rate * 100:.3f}%"
+            if tax_rate is not None
+            else "・適用税率：未計算"
+        ),
+        (
+            f"・概算税額："
+            f"{int(result.get('estimated_tax',0)):,}円"
+        ),
+        "",
+
+        "【最終手残り】",
+        (
+            f"・税引前手残り："
+            f"{int(result.get('cash_before_tax',0)):,}円"
+        ),
+        (
+            f"・税引後手残り："
+            f"{int(result.get('cash_after_tax',0)):,}円"
+        ),
     ]
 
     if building_tax_basis_warning:
-        lines.extend([
-            "⚠️ 建物未償却残高の確認",
-            "入力していただいた建物未償却残高と、",
-            "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
-            "",
-            "今回は入力していただいた未償却残高を採用して計算しています。",
-            ""
-        ])
+            lines.extend([
+                "⚠️ 建物未償却残高の確認",
+                "入力していただいた建物未償却残高と、",
+                "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
+                "",
+                "今回は入力していただいた未償却残高を採用して計算しています。",
+                ""
+            ])
 
     lines.extend([
-        "【税額】",
-        f"・課税譲渡所得：{taxable_gain:,}円",
-        f"・概算税額：{estimated_tax:,}円",
-        "",
-        "【最終手残り】",
-        f"・税引前手残り：{cash_before_tax:,}円",
-        f"・税引後手残り：{cash_after_tax:,}円",
         "",
         (
             "この結果は入力条件に基づく概算であり、"
