@@ -7069,7 +7069,7 @@ with all_tabs[0]:
         response_length_prompt = ""
         # dialect_prompt = ""
 
-        current_plan_type = "スタンダード"
+        # current_plan_type = "スタンダード"
 
         if current_plan_type != "🆓 無料プラン":
             response_length_prompt = (
