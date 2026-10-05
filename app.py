@@ -5843,7 +5843,7 @@ def format_real_estate_result_free(
     )
 
     lines = [
-        f"計算結果は以下になりました",
+        f"計算結果は以下になりました。",
         f"【案件情報】",
         f"案件名：{case_name or '未選択'}",
         "",
@@ -6600,7 +6600,7 @@ def build_case_rename_followup(
             f"案件名を"
             f"「{new_case_name}」"
             f"へ変更しました。\n\n"
-            "現在保存されている条件で"
+            "現在保存されている条件での"
             f"{formatted_result}"
         )
 
