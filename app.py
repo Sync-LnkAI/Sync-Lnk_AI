@@ -9850,41 +9850,41 @@ with all_tabs[0]:
                     """,
                     unsafe_allow_html=True
                 )
-                # MODE_LABELS = {
-                #     "micro_chat": "挨拶",
-                #     "analysis": "分析",
-                #     "conversation": "会話",
-                #     "support": "相談",
-                #     "factual": "質問",
-                #     "short_chat": "雑談"
-                # }
-                # col_spacer, col_save, col_mode = st.columns([6, 2, 1])
-                # with col_save:
-                #     if current_plan_type == "🆓 無料プラン":
-                #         st.caption("☆ 会話を保存")
-                #         # st.button(
-                #         #     "☆ 会話を保存",
-                #         #     key=f"save_chat_{msg.get('message_id', '')}"
-                #         # ):
-                #         #     st.toast("💎 ライトプラン以上で利用できます")
-                #     else:
-                #         # st.button(
-                #         #     "☆",
-                #         #     key=f"save_chat_{msg.get('message_id', '')}"
-                #         # )
-                #         st.caption("☆ 会話を保存")
-                #         # st.button(
-                #         #     "☆ 会話を保存",
-                #         #     key=f"save_chat_{msg.get('message_id', '')}"
-                #         # )
+                MODE_LABELS = {
+                    "micro_chat": "挨拶",
+                    "analysis": "分析",
+                    "conversation": "会話",
+                    "support": "相談",
+                    "factual": "質問",
+                    "short_chat": "雑談"
+                }
+                col_spacer, col_save, col_mode = st.columns([6, 2, 1])
+                with col_save:
+                    if current_plan_type == "🆓 無料プラン":
+                        st.caption("☆ 会話を保存")
+                        # st.button(
+                        #     "☆ 会話を保存",
+                        #     key=f"save_chat_{msg.get('message_id', '')}"
+                        # ):
+                        #     st.toast("💎 ライトプラン以上で利用できます")
+                    else:
+                        # st.button(
+                        #     "☆",
+                        #     key=f"save_chat_{msg.get('message_id', '')}"
+                        # )
+                        st.caption("☆ 会話を保存")
+                        # st.button(
+                        #     "☆ 会話を保存",
+                        #     key=f"save_chat_{msg.get('message_id', '')}"
+                        # )
 
-                # saved_response_mode = msg.get("response_mode", "")
-                # with col_mode:
-                #     if saved_response_mode:
-                #         st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
-                #         # st.caption("🧠 会話モード")
-                #     else:
-                #         st.caption("🧠 不明")
+                saved_response_mode = msg.get("response_mode", "")
+                with col_mode:
+                    if saved_response_mode:
+                        st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
+                        # st.caption("🧠 会話モード")
+                    else:
+                        st.caption("🧠 不明")
 
                 st.write("")
 
