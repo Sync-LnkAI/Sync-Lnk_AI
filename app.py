@@ -5231,8 +5231,7 @@ def format_missing_fields_message(
     return (
         f"以下の確認が必要な項目について教えてください\n\n"
         f"【案件情報】\n"
-        f"案件名："
-        f"{case_name or '未選択'}\n\n"
+        f"案件名：{case_name or '未選択'}\n\n"
 
         f"【確認が必要な項目】\n"
         f"{missing_text}\n\n"
@@ -5778,6 +5777,10 @@ def format_real_estate_result_free(
         ) or 0
     )
 
+    brokerage_fee_method = result.get(
+        "brokerage_fee_method"
+    )
+
     loan_balance = int(
         result.get(
             "loan_balance",
@@ -5842,8 +5845,7 @@ def format_real_estate_result_free(
     lines = [
         f"計算結果は以下になりました",
         f"【案件情報】",
-        f"案件名：",
-        f"{case_name or '未選択'}",
+        f"案件名：{case_name or '未選択'}",
         "",
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
@@ -5854,7 +5856,11 @@ def format_real_estate_result_free(
         "【取得費の内訳】",
         f"・取得費：{acquisition_basis:,}円",
         "",
+        "【売却費用】",
+        f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
     ]
+    if (brokerage_fee_method == "statutory_max_estimate"):
+        lines.append("・仲介手数料は法定上限額で自動計算")
 
     if building_tax_basis_warning:
         lines.extend([
