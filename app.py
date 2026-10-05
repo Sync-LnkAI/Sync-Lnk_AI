@@ -4192,6 +4192,7 @@ def extract_real_estate_sale_parameters(
     ・ユーザーが仲介手数料の金額を明示していない場合は、brokerage_feeをnullにしてください。
     ・仲介手数料を自動計算する場合でも、AI側で計算してはいけません。nullのまま出力し、Python側の計算に任せてください。
     ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
+    ・ユーザーが「仲介手数料は自動計算」、「仲介手数料を自動で」、「仲介手数料は計算して」などと明示した場合は、brokerage_fee を null にしてください。
 
     【取得費】
     ・次の表現は total_acquisition_cost として扱ってください。
@@ -6619,6 +6620,30 @@ def build_case_rename_followup(
         "保存されている計算条件を確認できませんでした。"
     )
 
+# 仲介手数料を自動入力に変更判定関数
+def should_reset_brokerage_fee(
+    user_input: str
+) -> bool:
+
+    text = (
+        str(user_input)
+        .replace(" ", "")
+        .replace("　", "")
+    )
+
+    return (
+        "仲介手数料" in text
+        and any(
+            keyword in text
+            for keyword in [
+                "自動",
+                "計算",
+                "お任せ",
+                "元に戻"
+            ]
+        )
+    )
+
 # 改行表示変換関数
 def display_message(
     speaker: str,
@@ -8490,6 +8515,9 @@ with all_tabs[0]:
                                     continue
 
                                 merged_arguments[key] = value
+
+                                if should_reset_brokerage_fee(user_input):
+                                    merged_arguments.pop("brokerage_fee",None)
 
                                 if (
                                     "acquisition_related_costs" not in current_arguments
