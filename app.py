@@ -8904,14 +8904,27 @@ with all_tabs[0]:
                                 )
 
                                 # 成功時だけ固定表示を生成
-                                formatted_result = (format_real_estate_result(
-                                        result=result,
-                                        case_name=st.session_state.get(
-                                            "active_calculation_case_name",
-                                            ""
+                                case_name = st.session_state.get(
+                                    "active_calculation_case_name",
+                                    ""
+                                )
+
+                                if current_plan_type == "🆓 無料プラン":
+
+                                    formatted_result = (
+                                        format_real_estate_result_free(
+                                            result=result,
+                                            case_name=case_name
                                         )
                                     )
-                                )
+                                else:
+
+                                    formatted_result = (
+                                        format_real_estate_result_standard(
+                                            result=result,
+                                            case_name=case_name
+                                        )
+                                    )
 
                                 save_system_audit_log(
                                     user_id=CURRENT_USER_ID,
