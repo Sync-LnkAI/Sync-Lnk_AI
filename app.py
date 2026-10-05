@@ -5925,6 +5925,42 @@ def format_real_estate_result_standard(
         )
     )
 
+    building_acquisition_cost = int(
+        result.get(
+            "building_acquisition_cost",
+            0
+        ) or 0
+    )
+
+    acquisition_lines = [
+        "【取得費の内訳】",
+
+        f"・土地取得費："
+        f"{int(result.get('land_acquisition_cost',0)):,}円",
+    ]
+
+    if building_acquisition_cost > 0:
+        acquisition_lines.append(
+            f"・建物取得価額："
+            f"{building_acquisition_cost:,}円"
+        )
+    
+    acquisition_lines.extend([
+        (
+            f"・建物未償却残高："
+            f"{int(result.get('building_tax_basis',0)):,}円"
+            f"（{building_tax_basis_label}）"
+        ),
+
+        f"・購入時諸費用："
+        f"{int(result.get('acquisition_related_costs',0)):,}円",
+
+        f"・計算採用取得費："
+        f"{int(result.get('applied_acquisition_basis',0)):,}円",
+
+        ""
+    ])
+
     lines = [
 
         "【案件情報】",
@@ -5936,34 +5972,23 @@ def format_real_estate_result_standard(
         f"・保有期間：{holding_label}",
         f"・売却価格：{int(result.get('sale_price',0)):,}円",
         f"・ローン残債：{int(result.get('loan_balance',0)):,}円",
-        "",
+        ""
+    ]
 
-        "【取得費の内訳】",
-        f"・土地取得費：{int(result.get('land_acquisition_cost',0)):,}円",
-        f"・建物取得価額：{int(result.get('building_acquisition_cost',0)):,}円",
-        (
-            f"・建物未償却残高："
-            f"{int(result.get('building_tax_basis',0)):,}円"
-            f"（{building_tax_basis_label}）"
-        ),
-        f"・購入時諸費用：{int(result.get('acquisition_related_costs',0)):,}円",
-        f"・計算採用取得費：{int(result.get('applied_acquisition_basis',0)):,}円",
-        "",
-
+    lines.extend(acquisition_lines)
+            
+    lines.extend([
         "【売却費用】",
         f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
-        (
-            "・仲介手数料区分："
-            + (
-                "法定上限額による自動計算"
-                if brokerage_fee_method
-                == "statutory_max_estimate"
-                else "入力値"
-            )
-        ),
+    ])
+
+    if (brokerage_fee_method == "statutory_max_estimate"):
+        lines.append("・仲介手数料は法定上限額で自動計算")
+
+    lines.extend([
         f"・譲渡費用：{int(result.get('transfer_expenses',0)):,}円",
         "",
-
+    
         "【譲渡所得】",
         (
             f"・特別控除前譲渡所得："
@@ -6001,7 +6026,7 @@ def format_real_estate_result_standard(
             f"・税引後手残り："
             f"{int(result.get('cash_after_tax',0)):,}円"
         ),
-    ]
+    ])
 
     if building_tax_basis_warning:
             lines.extend([
