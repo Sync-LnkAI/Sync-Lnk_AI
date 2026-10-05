@@ -6600,7 +6600,7 @@ def build_case_rename_followup(
             f"案件名を"
             f"「{new_case_name}」"
             f"へ変更しました。\n\n"
-            "現在保存されている条件で再計算しました。\n\n"
+            "現在保存されている条件で"
             f"{formatted_result}"
         )
 
