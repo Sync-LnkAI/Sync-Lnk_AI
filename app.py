@@ -10201,8 +10201,8 @@ with all_tabs[1]:
                     # col_space, col_edit = st.columns([9, 1])
                     edit_key = (f"edit_memory_{block['title']}")
                     # with col_edit:
-                        if st.button("編集", key=edit_key):
-                            st.session_state[f"editing_{block['title']}"] = True
+                    if st.button("編集", key=edit_key):
+                        st.session_state[f"editing_{block['title']}"] = True
                     if st.session_state.get(f"editing_{block['title']}",False):
                         edited_text = st.text_area(
                             "内容を編集",
