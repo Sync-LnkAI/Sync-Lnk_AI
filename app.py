@@ -6682,7 +6682,7 @@ def display_message(
 ):
     if DEBUG_MODE:
         if st.session_state.get("real_estate_calculation_pending", False):
-        st.caption("🧮 DEBUG: 不動産計算モード")
+            st.caption("🧮 DEBUG: 不動産計算モード")
     
     display_content = (clean_bold_markdown(content).replace("\n", "<br>"))
 
