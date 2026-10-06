@@ -8128,16 +8128,26 @@ with all_tabs[0]:
                             else "none"
                         )
 
-                        should_run_tool_router = (
-                            pending_tool != "none"
-                            or response_mode in {
-                                "analysis",
-                                "factual",
-                                "default"
-                            }
-                        )
+                        # ==========================================
+                        # 計算ツール判定の実行制御
+                        # ==========================================
+                        # 不動産計算継続中
+                        if pending_tool == "real_estate_sale":
+                            calculation_tool = "real_estate_sale"
+                            should_run_tool_router = False
 
-                        if should_run_tool_router:
+                        # 検索系質問
+                        elif need_search:
+                            calculation_tool = "none"
+                            should_run_tool_router = False
+
+                        # 計算がありそうな会話だけ判定
+                        elif response_mode in {
+                            "analysis",
+                            "default"
+                        }:
+
+                            should_run_tool_router = True
                             tool_router_start_time = (time.time())
 
                             (
@@ -8148,17 +8158,16 @@ with all_tabs[0]:
                                 tool_router_cost
                             ) = classify_calculation_tool(
                                 user_input=user_input,
-                                recent_history_str=recent_history_for_router,
+                                recent_history_str=
+                                    recent_history_for_router,
                                 pending_tool=pending_tool
                             )
 
-                            tool_router_elapsed = (
-                                time.time()
-                                - tool_router_start_time
-                            )
+                            tool_router_elapsed = (time.time() - tool_router_start_time)
 
                         else:
                             calculation_tool = "none"
+                            should_run_tool_router = False
 
                         # 案件選択が成功した場合は、
                         # 「1」を再判定せず不動産計算へ強制復帰する
@@ -11121,13 +11130,23 @@ if is_admin:
                                     else 0
                                 )
 
-                            # 1会話単位の、全体の総実費合計コストと最大待機秒数の集計
+                            # 1会話単位の、全体の総実費合計コスト集計
                             merged_logs[msg_id]["total_yen"] += cost
-                            merged_logs[msg_id]["total_time"] = max(merged_logs[msg_id]["total_time"], log.get("total_processing_time", proc_time) if log.get("total_processing_time") is not None else proc_time)
-                        
+                            
                         # アコーディオンtyusu出力
                         for k, item in merged_logs.items():
                                 
+                            # 表示されている各処理時間を合計
+                            item["total_time"] = sum([
+                                float(item.get("judge_time",0.0) or 0.0),
+                                float(item.get("search_exec_time",0.0) or 0.0),
+                                float(item.get("chat_time",0.0) or 0.0),
+                                float(item.get("sum_time",0.0) or 0.0),
+                                float(item.get("search_time",0.0) or 0.0),
+                                float(item.get("tool_time",0.0) or 0.0),
+                                float(item.get("calc_time",0.0) or 0.0)
+                            ])
+
                             msg_res = (
                                 supabase
                                 .table("messages")
