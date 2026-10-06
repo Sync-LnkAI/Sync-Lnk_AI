@@ -10039,11 +10039,11 @@ with all_tabs[0]:
                     col_star, col_text = st.columns([1, 4])
                     with col_star:
                         if (current_plan_type == "🆓 無料プラン"):
-                            if st.button("☆", key=f"save_chat_user_{message_id}"):
+                            if st.button("☆", key=f"save_chat_free_{message_id}"):
                                 st.toast("💎 ライトプラン以上で利用できます")
                         else:
                             if (paired_user_message and paired_assistant_message):
-                                if st.button("☆", key=f"save_chat_user_{message_id}"):
+                                if st.button("☆", key=f"save_chat_paid_{message_id}"):
                                     save_saved_chat(
                                         title = create_saved_chat_title(paired_user_message),
                                         summary = str(paired_assistant_message)[:100],
