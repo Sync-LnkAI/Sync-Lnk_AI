@@ -10063,14 +10063,14 @@ with all_tabs[0]:
 
                 col_spacer, col_save, col_mode = (st.columns([6, 2, 1]))
                 with col_save:
-                    col_star, col_text = st.columns([1, 4])
+                    col_star, col_text = st.columns([2, 5])
                     with col_star:
                         if (current_plan_type == "🆓 無料プラン"):
-                            if st.button("☆", key=f"save_chat_free_{message_id}_{index}"):
+                            if st.button("⭐", key=f"save_chat_free_{message_id}_{index}"):
                                 st.toast("💎 ライトプラン以上で利用できます")
                         else:
                             if (paired_user_message and paired_assistant_message):
-                                if st.button("☆", key=f"save_chat_paid_{message_id}_{index}"):
+                                if st.button("⭐", key=f"save_chat_paid_{message_id}_{index}"):
                                     saved_chats_count = len(get_saved_chats())
 
                                     if "ライト" in current_plan_type:
