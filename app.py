@@ -10195,7 +10195,7 @@ with all_tabs[1]:
             memory_blocks = (parse_summary_memory_blocks(display_summary))
 
             for block in memory_blocks:
-                with st.expander(f"{block['title']}", expanded=False):
+                with st.expander(f"{block['title']}", expanded=True):
                     st.markdown(block["content"])
         else:
             st.caption("  まだ覚えている情報はありません。")
