@@ -10190,7 +10190,7 @@ with all_tabs[1]:
         if display_summary != "なし":
             #st.info(display_summary)
             #st.caption("  AIが長期記憶として覚えている内容です。")
-            st.markdown(display_summary.replace("\n"," \n"))
+            # st.markdown(display_summary.replace("\n"," \n"))
 
             memory_blocks = (parse_summary_memory_blocks(display_summary))
 
