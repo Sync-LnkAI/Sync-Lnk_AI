@@ -10197,6 +10197,27 @@ with all_tabs[1]:
             for block in memory_blocks:
                 with st.expander(f"{block['title']}", expanded=True):
                     st.markdown(block["content"])
+
+                    col_space, col_edit = st.columns([9, 1])
+                    edit_key = (f"edit_memory_{block['title']}")
+                    with col_edit:
+                        if st.button("編集", key=edit_key):
+                            st.session_state[f"editing_{block['title']}"] = True
+                    if st.session_state.get(f"editing_{block['title']}",False):
+                        edited_text = st.text_area(
+                            "内容を編集",
+                            value=block["content"],
+                            key=f"editor_{block['title']}"
+                        )
+
+                        col_save, col_cancel = st.columns([1, 1])
+                        with col_save:
+                            st.button("保存", key=f"save_memory_{block['title']}")
+                        with col_cancel:
+                            if st.button("キャンセル", key=f"cancel_memory_{block['title']}"):
+                                st.session_state[f"editing_{block['title']}"] = False
+                                st.rerun()
+                
         else:
             st.caption("  まだ覚えている情報はありません。")
         
