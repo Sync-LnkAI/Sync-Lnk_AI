@@ -3316,8 +3316,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -6706,18 +6706,30 @@ def save_saved_chat(
             "assistant_message": assistant_message,
             "original_message_id": original_message_id
         }
+        debug_json(
+            "DEBUG save_saved_chat_data",
+            data
+        )
 
-        (
+        result = (
             supabase
             .table("saved_chats")
             .insert(data)
             .execute()
         )
+            
+        debug_json(
+            "DEBUG save_saved_chat_result",
+            result.data
+        )
 
         return True
 
     except Exception as e:
-
+        st.error(
+            f"save_saved_chat error: "
+            f"{type(e).__name__}: {e}"
+        )
         print(
             "会話保存エラー: "
             f"{type(e).__name__}: {e}"
