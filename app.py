@@ -1106,6 +1106,34 @@ def delete_memory(memory_id: int) -> bool:
         print(f"❌ [DBメモリ削除エラー] {e}")
         return False
 
+# 要約の編集内容の保存関数
+def update_memory(memory_id: int, new_fact: str) -> bool:
+    try:
+        (
+            supabase
+            .table(DB_MEMORIES_TABLE)
+            .update({
+                "fact": new_fact,
+                "updated_at":
+                    datetime.now(JST).isoformat()
+            })
+            .eq(
+                "id",
+                memory_id
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+        print(
+            f"記憶更新エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return False
+
 # ==========================================
 # 旧設定保存関数
 # save_all_user_settings()移行後のため
@@ -10173,9 +10201,7 @@ with all_tabs[1]:
         # st.markdown("---")
 
         #　要約を取得・作成
-        summary_memories_setting = get_memories(
-            source="summary"
-        )
+        summary_memories_setting = get_memories(source="summary")
         summary_memory_context_setting = (
             "\n".join(
                 [m["fact"] for m in summary_memories_setting]
@@ -10184,6 +10210,10 @@ with all_tabs[1]:
             else "なし"
         )
         display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
+
+        summary_memory_id = None
+        if summary_memories_setting:
+            summary_memory_id = (summary_memories_setting[0].get("id"))
 
         #　要約を表示
         st.markdown("##### 🧠 現在AIが覚えている長期記憶")
@@ -10212,7 +10242,39 @@ with all_tabs[1]:
 
                         col_save, col_cancel, col_spacer = st.columns([1, 1, 6])
                         with col_save:
-                            st.button("保存", key=f"save_memory_{block['title']}")
+                            st.button("更新", key=f"save_memory_{block['title']}")
+                            
+                            updated_blocks = []
+                            for target_block in memory_blocks:
+                                if (target_block["title"] == block["title"]):
+                            
+                                    updated_blocks.append({
+                                    "title":
+                                    target_block["title"],
+                                    "content":
+                                    edited_text
+                                    })
+                                else:
+                                    updated_blocks.append(target_block)
+                            
+                            rebuilt_summary = ""
+                            for rebuilt_block in updated_blocks:
+                                rebuilt_summary += (
+                                    f"・{rebuilt_block['title']}:\n"
+                                    f"{rebuilt_block['content']}\n\n"
+                                )
+                            
+                            rebuilt_summary = (
+                                "【記憶の要約サマリー】\n"
+                                + rebuilt_summary.strip()
+                            )
+                            
+                            if summary_memory_id:
+                                if update_memory(summary_memory_id, rebuilt_summary):
+                                    st.toast("✅ 記憶を更新しました")
+                                    st.session_state[f"editing_{block['title']}"] = False
+                                    st.rerun()
+
                         with col_cancel:
                             if st.button("キャンセル", key=f"cancel_memory_{block['title']}"):
                                 st.session_state[f"editing_{block['title']}"] = False
