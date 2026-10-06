@@ -10129,75 +10129,80 @@ with all_tabs[0]:
             #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 with all_tabs[1]:
-    st.markdown("##### 🧠 長期記憶について")
-    st.caption("  AIは会話の中から、長期的に役立つ情報を整理して記憶しています。")
-    st.caption("  記憶量が増えるほど、過去の会話や好み、継続的な話題をより多く反映した会話が可能になります。")
-    st.write("")
-    st.caption(" 🆓 無料プラン：記憶量【小】、閲覧のみ")
-    st.write("")
-    st.caption(" 💎 ライトプラン：記憶量【中】、閲覧・編集可")
-    st.caption("  より多くの情報を長期記憶として保持")
-    st.write("")
-    st.caption(" 👑 スタンダードプラン：記憶量【大】、閲覧・編集可")
-    st.caption("  更に多くの情報を長期記憶として保持")
+    memory_tabs = st.tabs(["🧠 AIの長期記憶","💾 保存した会話"])
 
-    st.divider()
-    # st.markdown("---")
+    with memory_tabs[0]:
+        st.markdown("##### 🧠 長期記憶について")
+        st.caption("  AIは会話の中から、長期的に役立つ情報を整理して記憶しています。")
+        st.caption("  記憶量が増えるほど、過去の会話や好み、継続的な話題をより多く反映した会話が可能になります。")
+        st.write("")
+        st.caption(" 🆓 無料プラン：記憶量【小】、閲覧のみ")
+        st.write("")
+        st.caption(" 💎 ライトプラン：記憶量【中】、閲覧・編集可")
+        st.caption("  より多くの情報を長期記憶として保持")
+        st.write("")
+        st.caption(" 👑 スタンダードプラン：記憶量【大】、閲覧・編集可")
+        st.caption("  更に多くの情報を長期記憶として保持")
 
-    #　要約を取得・作成
-    summary_memories_setting = get_memories(
-        source="summary"
-    )
-    summary_memory_context_setting = (
-        "\n".join(
-            [m["fact"] for m in summary_memories_setting]
+        st.divider()
+        # st.markdown("---")
+
+        #　要約を取得・作成
+        summary_memories_setting = get_memories(
+            source="summary"
         )
-        if summary_memories_setting
-        else "なし"
-    )
-    display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
+        summary_memory_context_setting = (
+            "\n".join(
+                [m["fact"] for m in summary_memories_setting]
+            )
+            if summary_memories_setting
+            else "なし"
+        )
+        display_summary = summary_memory_context_setting.replace("【記憶の要約サマリー】","") 
 
-    #　要約を表示
-    st.markdown("##### 🧠 現在AIが覚えている長期記憶")
-    if display_summary != "なし":
-        #st.info(display_summary)
-        #st.caption("  AIが長期記憶として覚えている内容です。")
-        st.markdown(display_summary.replace("\n"," \n"))
-    else:
-        st.caption("  まだ覚えている情報はありません。")
-    
-    st.markdown("---")
+        #　要約を表示
+        st.markdown("##### 🧠 現在AIが覚えている長期記憶")
+        if display_summary != "なし":
+            #st.info(display_summary)
+            #st.caption("  AIが長期記憶として覚えている内容です。")
+            st.markdown(display_summary.replace("\n"," \n"))
+        else:
+            st.caption("  まだ覚えている情報はありません。")
+        
+        # st.markdown("---")
+        st.divider()
 
-    st.markdown("##### 💬 保存されている会話")
-    if current_plan_type == "🆓 無料プラン":
-        st.caption("ここで保存した会話を確認できます。")
-        st.caption(" 💎 ライトプラン以上で利用できます。")
-
-    else:
-        st.caption("ライトプランは最大5件まで、スタンダードプランは最大10件まで保存できます。")
-
-        saved_chats = get_saved_chats()
-
-        if not saved_chats:
-            st.caption("保存されている会話はありません")
+    with memory_tabs[1]:
+        st.markdown("##### 💬 保存されている会話")
+        if current_plan_type == "🆓 無料プラン":
+            st.caption("ここで保存した会話を確認できます。")
+            st.caption(" 💎 ライトプラン以上で利用できます。")
 
         else:
-            for chat in saved_chats:
-                title = str(chat.get("title", "保存した会話"))
-                summary = str(chat.get("summary", ""))
-                with st.expander(f" {title}"):
-                    # st.caption(summary)
-                    st.markdown(f"**{display_user_name}**")
-                    st.write(chat.get("user_message", ""))
-                    st.markdown(f"**{current_concierge_name}**")
-                    st.write(chat.get("assistant_message", ""))
+            st.caption("ライトプランは最大5件まで、スタンダードプランは最大10件まで保存できます。")
 
-                    if st.button("削除", key=f"delete_saved_chat_{chat['id']}"):
-                        if delete_saved_chat(chat["id"]):
-                            st.success("保存されている会話を削除しました")
-                            st.rerun()
+            saved_chats = get_saved_chats()
 
-    st.divider()
+            if not saved_chats:
+                st.caption("保存されている会話はありません")
+
+            else:
+                for chat in saved_chats:
+                    title = str(chat.get("title", "保存した会話"))
+                    summary = str(chat.get("summary", ""))
+                    with st.expander(f" {title}"):
+                        # st.caption(summary)
+                        st.markdown(f"**{display_user_name}**")
+                        st.write(chat.get("user_message", ""))
+                        st.markdown(f"**{current_concierge_name}**")
+                        st.write(chat.get("assistant_message", ""))
+
+                        if st.button("削除", key=f"delete_saved_chat_{chat['id']}"):
+                            if delete_saved_chat(chat["id"]):
+                                st.success("保存されている会話を削除しました")
+                                st.rerun()
+
+        st.divider()
 
 with all_tabs[2]:
     st.info("🚧 ただいま準備中です")
