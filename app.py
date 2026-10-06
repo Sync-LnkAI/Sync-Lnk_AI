@@ -7165,6 +7165,7 @@ with all_tabs[0]:
         # dialect_prompt = ""
 
         # current_plan_type = "スタンダード"
+        current_plan_type = "ライトプラン"
 
         if current_plan_type != "🆓 無料プラン":
             response_length_prompt = (
