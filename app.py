@@ -7256,7 +7256,7 @@ with all_tabs[0]:
         # dialect_prompt = ""
 
         # current_plan_type = "スタンダード"
-        current_plan_type = "ライトプラン"
+        # current_plan_type = "ライトプラン"
 
         if current_plan_type != "🆓 無料プラン":
             response_length_prompt = (
@@ -10231,8 +10231,14 @@ with all_tabs[1]:
                     # col_space, col_edit = st.columns([9, 1])
                     edit_key = (f"edit_memory_{block['title']}")
                     # with col_edit:
-                    if st.button("編集", key=edit_key):
-                        st.session_state[f"editing_{block['title']}"] = True
+                    # if st.button("編集", key=edit_key):
+                    #     st.session_state[f"editing_{block['title']}"] = True
+                    if current_plan_type == "🆓 無料プラン":
+                        if st.button("編集", key=edit_key):
+                            st.toast("💎 ライトプラン以上で利用できます")
+                    else:
+                        if st.button("編集", key=edit_key):
+                            st.session_state[f"editing_{block['title']}"] = True
                     if st.session_state.get(f"editing_{block['title']}",False):
                         edited_text = st.text_area(
                             "内容を編集",
