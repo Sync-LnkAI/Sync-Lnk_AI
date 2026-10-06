@@ -10210,7 +10210,7 @@ with all_tabs[1]:
                             key=f"editor_{block['title']}"
                         )
 
-                        col_save, col_cancel = st.columns([1, 1])
+                        col_save, col_cancel, col_spacer = st.columns([1, 1, 6])
                         with col_save:
                             st.button("保存", key=f"save_memory_{block['title']}")
                         with col_cancel:
