@@ -11060,7 +11060,7 @@ if is_admin:
                         .select("*")
                         .eq("user_id", selected_audit_user)
                         .order("created_at", desc=True)
-                        .limit(50)
+                        .limit(100)
                         .execute()
                     )
                 
