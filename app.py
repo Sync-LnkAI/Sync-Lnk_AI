@@ -10189,13 +10189,17 @@ with all_tabs[1]:
             else:
                 for chat in saved_chats:
                     title = str(chat.get("title", "保存した会話"))
-                    summary = str(chat.get("summary", ""))
-                    with st.expander(f" {title}"):
+                    created_at = str(chat.get("created_at", ""))
+                    created_label = (created_at.replace("T", " ")[:16])
+                    # summary = str(chat.get("summary", ""))
+                    with st.expander(f" {title}　｜　{created_label}"):
                         # st.caption(summary)
                         st.markdown(f"**{display_user_name}**")
-                        st.write(chat.get("user_message", ""))
+                        display_message(display_user_name, chat.get("user_message", ""))
+                        # st.write(chat.get("user_message", ""))
                         st.markdown(f"**{current_concierge_name}**")
-                        st.write(chat.get("assistant_message", ""))
+                        display_message(current_concierge_name, chat.get("assistant_message", ""))
+                        # st.write(chat.get("assistant_message", ""))
 
                         if st.button("削除", key=f"delete_saved_chat_{chat['id']}"):
                             if delete_saved_chat(chat["id"]):
