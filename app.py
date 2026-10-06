@@ -6810,6 +6810,31 @@ def delete_saved_chat(
 
         return False
 
+def parse_summary_memory_blocks(summary_text: str):
+
+    blocks = []
+
+    current_title = None
+    current_lines = []
+
+    for line in summary_text.split("\n"):
+        text = str(line).strip()
+        if not text:
+            continue
+        if text.startswith("・") and text.endswith(":"):
+            if current_title:
+                blocks.append({"title": current_title, "content": "\n".join(current_lines)})
+
+            current_title = (text.replace("・", "").replace(":", "").strip())
+            current_lines = []
+        else:
+            current_lines.append(text)
+
+    if current_title:
+        blocks.append({"title": current_title, "content": "\n".join(current_lines)})
+
+    return blocks
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -10166,10 +10191,15 @@ with all_tabs[1]:
             #st.info(display_summary)
             #st.caption("  AIが長期記憶として覚えている内容です。")
             st.markdown(display_summary.replace("\n"," \n"))
+
+            memory_blocks = (parse_summary_memory_blocks(display_summary))
+
+            for block in memory_blocks:
+                with st.expander(f"🧠 {block['title']}", expanded=True):
+                    st.markdown(block["content"])
         else:
             st.caption("  まだ覚えている情報はありません。")
         
-        # st.markdown("---")
         st.divider()
 
     with memory_tabs[1]:
