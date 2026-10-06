@@ -10137,21 +10137,25 @@ with all_tabs[1]:
             st.caption(" 💎 ライトプラン以上で利用できます。")
 
         else:
-            st.caption("保存した会話を表示します。")
-            mock_saved_chats = [
-                {
-                    "title":
-                        "2026/09/24 21:15 の会話",
-                    "content":
-                        "Sync-Lnkスタンダードの料金設計について相談しました。"
-                },
-                {
-                    "title":
-                        "2026/09/20 18:42 の会話",
-                    "content":
-                        "ポイント構想について検討しました。"
-                }
-                ]
+            st.caption("現在保存されている会話")
+
+            saved_chats = get_saved_chats()
+
+            if not saved_chats:
+                st.caption("保存されている会話はありません")
+
+            else:
+                for chat in saved_chats:
+                    title = str(chat.get("title", "保存した会話"))
+                    summary = str(chat.get("summary", ""))
+                    with st.expander(f"💾 {title}"):
+
+                        st.caption(summary)
+                        st.markdown("** ユーザー**")
+                        st.write(chat.get("user_message", ""))
+                        st.markdown("** AI**")
+                        st.write(chat.get("assistant_message", ""))
+
             # saved_chats = (
             #     supabase
             #     .table("saved_chats")
@@ -10167,22 +10171,22 @@ with all_tabs[1]:
             #     .execute()
             # )
 
-            if not mock_saved_chats:
-                st.caption("保存されたメモはありません。")
-            else:
-                for item in mock_saved_chats:
-                    with st.expander(
-                        f"📝 {item['title']}"
-                    ):
-                        st.write(item["content"])
-                        st.button(
-                            "削除",
-                            key=(
-                                f"delete_saved_"
-                                f"{item['title']}"
-                            ),
-                            disabled=True
-                        )
+            # if not mock_saved_chats:
+            #     st.caption("保存されたメモはありません。")
+            # else:
+            #     for item in mock_saved_chats:
+            #         with st.expander(
+            #             f"📝 {item['title']}"
+            #         ):
+            #             st.write(item["content"])
+            #             st.button(
+            #                 "削除",
+            #                 key=(
+            #                     f"delete_saved_"
+            #                     f"{item['title']}"
+            #                 ),
+            #                 disabled=True
+            #             )
 
     st.divider()
 
