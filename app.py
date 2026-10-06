@@ -3317,7 +3317,7 @@ def make_json_safe(value):
 # DEBUG表示
 # ==========================================
 # DEBUG_MODE = False
-DEBUG_MODE = True
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -6782,7 +6782,7 @@ def create_saved_chat_title(
     if not text:
         return "保存した会話"
 
-    return text[:10]
+    return text[:20]
 
 # 🎨グラデーションカラーパレット
 THEMES = {
