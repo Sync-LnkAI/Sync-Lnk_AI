@@ -10198,9 +10198,9 @@ with all_tabs[1]:
                 with st.expander(f"{block['title']}", expanded=True):
                     st.markdown(block["content"])
 
-                    col_space, col_edit = st.columns([9, 1])
+                    # col_space, col_edit = st.columns([9, 1])
                     edit_key = (f"edit_memory_{block['title']}")
-                    with col_edit:
+                    # with col_edit:
                         if st.button("編集", key=edit_key):
                             st.session_state[f"editing_{block['title']}"] = True
                     if st.session_state.get(f"editing_{block['title']}",False):
@@ -10210,7 +10210,7 @@ with all_tabs[1]:
                             key=f"editor_{block['title']}"
                         )
 
-                        col_left, col_save, col_cancel, col_right = (st.columns([4, 1, 1, 4]))
+                        col_save, col_cancel = st.columns([1, 1])
                         with col_save:
                             st.button("保存", key=f"save_memory_{block['title']}")
                         with col_cancel:
