@@ -6680,15 +6680,13 @@ def display_message(
     speaker: str,
     content: str
 ):
-    display_content = (
-        clean_bold_markdown(content)
-        .replace("\n", "<br>")
-    )
+    if DEBUG_MODE:
+        if st.session_state.get("real_estate_calculation_pending", False):
+        st.caption("🧮 DEBUG: 不動産計算モード")
+    
+    display_content = (clean_bold_markdown(content).replace("\n", "<br>"))
 
-    st.markdown(
-        f"{speaker}:<br>{display_content}",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"{speaker}:<br>{display_content}", unsafe_allow_html=True)
 
 
 # 🎨グラデーションカラーパレット
