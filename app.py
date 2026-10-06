@@ -11891,5 +11891,5 @@ if is_admin:
         except Exception as e:
             st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
     
-st.markdown("<br><br>", unsafe_allow_html=True)
+st.markdown("<br>", unsafe_allow_html=True)
 st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
