@@ -10192,7 +10192,7 @@ with all_tabs[1]:
                     st.markdown(f"**{current_concierge_name}**")
                     st.write(chat.get("assistant_message", ""))
 
-                    if st.button("🗑 削除", key=f"delete_saved_chat_{chat['id']}"):
+                    if st.button("削除", key=f"delete_saved_chat_{chat['id']}"):
                         if delete_saved_chat(chat["id"]):
                             st.success("保存されている会話を削除しました")
                             st.rerun()
