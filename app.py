@@ -10194,10 +10194,10 @@ with all_tabs[1]:
                     # summary = str(chat.get("summary", ""))
                     with st.expander(f" {title}　｜　{created_label}"):
                         # st.caption(summary)
-                        st.markdown(f"**{display_user_name}**")
+                        # st.markdown(f"**{display_user_name}**")
                         display_message(display_user_name, chat.get("user_message", ""))
                         # st.write(chat.get("user_message", ""))
-                        st.markdown(f"**{current_concierge_name}**")
+                        # st.markdown(f"**{current_concierge_name}**")
                         display_message(current_concierge_name, chat.get("assistant_message", ""))
                         # st.write(chat.get("assistant_message", ""))
 
