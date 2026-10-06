@@ -3305,8 +3305,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -7302,6 +7302,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     ai_reply
                                 )
+                                debug_text(
+                                    "DEBUG conversation_count_before",
+                                    st.session_state.conversation_count
+                                )
 
                                 st.session_state.force_message_reload = True
 
@@ -7358,6 +7362,10 @@ with all_tabs[0]:
                                 display_message(
                                     current_concierge_name,
                                     ai_reply
+                                )
+                                debug_text(
+                                    "DEBUG conversation_count_before",
+                                    st.session_state.conversation_count
                                 )
 
                                 st.session_state.force_message_reload = True
@@ -7448,6 +7456,10 @@ with all_tabs[0]:
                             display_message(
                                 current_concierge_name,
                                 ai_reply
+                            )
+                            debug_text(
+                                "DEBUG conversation_count_before",
+                                st.session_state.conversation_count
                             )
 
                             st.session_state.force_message_reload = True
@@ -7664,6 +7676,10 @@ with all_tabs[0]:
                                         current_concierge_name,
                                         create_error_reply
                                     )
+                                    debug_text(
+                                        "DEBUG conversation_count_before",
+                                        st.session_state.conversation_count
+                                    )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -7794,6 +7810,10 @@ with all_tabs[0]:
                                     display_message(
                                         current_concierge_name,
                                         ai_reply
+                                    )
+                                    debug_text(
+                                        "DEBUG conversation_count_before",
+                                        st.session_state.conversation_count
                                     )
 
                                     st.session_state.force_message_reload = True
@@ -7987,6 +8007,10 @@ with all_tabs[0]:
                                 display_message(
                                     current_concierge_name,
                                     retry_reply
+                                )
+                                debug_text(
+                                    "DEBUG conversation_count_before",
+                                    st.session_state.conversation_count
                                 )
 
                                 st.session_state.force_message_reload = True
@@ -8790,6 +8814,10 @@ with all_tabs[0]:
                                         current_concierge_name,
                                         ai_reply
                                     )
+                                    debug_text(
+                                        "DEBUG conversation_count_before",
+                                        st.session_state.conversation_count
+                                    )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -8908,6 +8936,10 @@ with all_tabs[0]:
                                 display_message(
                                     current_concierge_name,
                                     ai_reply
+                                )
+                                debug_text(
+                                    "DEBUG conversation_count_before",
+                                    st.session_state.conversation_count
                                 )
 
                                 st.session_state.force_message_reload = True
@@ -9205,6 +9237,10 @@ with all_tabs[0]:
                                 display_message(
                                     current_concierge_name,
                                     formatted_result
+                                )
+                                debug_text(
+                                    "DEBUG conversation_count_before",
+                                    st.session_state.conversation_count
                                 )
 
                                 st.stop()
