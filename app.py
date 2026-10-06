@@ -6700,7 +6700,7 @@ def save_saved_chat(
         data = {
             "user_id": CURRENT_USER_ID,
             "title": title,
-            "summary": summary,
+            "summary": "",
             "message_id": f"saved_{uuid.uuid4().hex[:8]}",
             "user_message": user_message,
             "assistant_message": assistant_message,
@@ -6783,6 +6783,32 @@ def create_saved_chat_title(
         return "保存した会話"
 
     return text[:20]
+
+# 保存されている会話の削除関数
+def delete_saved_chat(
+    chat_id: int
+) -> bool:
+    try:
+        (
+            supabase
+            .table("saved_chats")
+            .delete()
+            .eq(
+                "id",
+                chat_id
+            )
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+        print(
+            f"保存会話削除エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return False
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -10045,14 +10071,25 @@ with all_tabs[0]:
                         else:
                             if (paired_user_message and paired_assistant_message):
                                 if st.button("☆", key=f"save_chat_paid_{message_id}_{index}"):
-                                    save_saved_chat(
-                                        title = create_saved_chat_title(paired_user_message),
-                                        summary = str(paired_assistant_message)[:100],
-                                        user_message = paired_user_message,
-                                        assistant_message = paired_assistant_message,
-                                        original_message_id = message_id
-                                    )
-                                    st.toast("✅ 会話を保存しました")
+                                    saved_chats_count = len(get_saved_chats())
+
+                                    if "ライト" in current_plan_type:
+                                        save_limit = 5
+                                    else:
+                                        save_limit = 10
+
+                                    if saved_chats_count >= save_limit:
+                                        st.toast(f"保存上限（{save_limit}件）に達しています。不要な保存済の会話を削除してからやり直してください。")
+
+                                    else:
+                                        save_saved_chat(
+                                            title = create_saved_chat_title(paired_user_message),
+                                            summary = str(paired_assistant_message)[:100],
+                                            user_message = paired_user_message,
+                                            assistant_message = paired_assistant_message,
+                                            original_message_id = message_id
+                                        )
+                                        st.toast("✅ 会話を保存しました")
                     with col_text:
                         st.caption("会話保存")
 
@@ -10104,8 +10141,8 @@ with all_tabs[1]:
     st.caption(" 👑 スタンダードプラン：記憶量【大】、閲覧・編集可")
     st.caption("  更に多くの情報を長期記憶として保持")
 
-    # st.divider()
-    st.markdown("---")
+    st.divider()
+    # st.markdown("---")
 
     #　要約を取得・作成
     summary_memories_setting = get_memories(
@@ -10137,7 +10174,7 @@ with all_tabs[1]:
         st.caption(" 💎 ライトプラン以上で利用できます。")
 
     else:
-        st.caption("現在保存されている会話")
+        st.caption("ライトプランは最大5件まで、スタンダードプランは最大10件まで保存できます。")
 
         saved_chats = get_saved_chats()
 
@@ -10148,47 +10185,19 @@ with all_tabs[1]:
             for chat in saved_chats:
                 title = str(chat.get("title", "保存した会話"))
                 summary = str(chat.get("summary", ""))
-                with st.expander(f"💾 {title}"):
-
-                    st.caption(summary)
-                    st.markdown("** ユーザー**")
+                with st.expander(f" {title}"):
+                    # st.caption(summary)
+                    st.markdown(f"**{display_user_name}**")
                     st.write(chat.get("user_message", ""))
-                    st.markdown("** AI**")
+                    st.markdown(f"**{current_concierge_name}**")
                     st.write(chat.get("assistant_message", ""))
 
-        # saved_chats = (
-        #     supabase
-        #     .table("saved_chats")
-        #     .select("*")
-        #     .eq(
-        #         "user_id",
-        #         CURRENT_USER_ID
-        #     )
-        #     .order(
-        #         "created_at",
-        #         desc=True
-        #     )
-        #     .execute()
-        # )
+                    if st.button("🗑 削除", key=f"delete_saved_chat_{chat['id']}"):
+                        if delete_saved_chat(chat["id"]):
+                            st.success("保存されている会話を削除しました")
+                            st.rerun()
 
-        # if not mock_saved_chats:
-        #     st.caption("保存されたメモはありません。")
-        # else:
-        #     for item in mock_saved_chats:
-        #         with st.expander(
-        #             f"📝 {item['title']}"
-        #         ):
-        #             st.write(item["content"])
-        #             st.button(
-        #                 "削除",
-        #                 key=(
-        #                     f"delete_saved_"
-        #                     f"{item['title']}"
-        #                 ),
-        #                 disabled=True
-        #             )
-
-st.divider()
+    st.divider()
 
 with all_tabs[2]:
     st.info("🚧 ただいま準備中です")
