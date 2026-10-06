@@ -10242,43 +10242,43 @@ with all_tabs[1]:
 
                         col_save, col_cancel, col_spacer = st.columns([1, 1, 6])
                         with col_save:
-                            st.button("更新", key=f"save_memory_{block['title']}")
+                            if st.button("更新", key=f"save_memory_{block['title']}"):
                             
-                            updated_blocks = []
-                            for target_block in memory_blocks:
-                                if (target_block["title"] == block["title"]):
-                            
-                                    updated_blocks.append({
-                                    "title":
-                                    target_block["title"],
-                                    "content":
-                                    edited_text
-                                    })
-                                else:
-                                    updated_blocks.append(target_block)
-                            
-                            rebuilt_summary = ""
-                            for rebuilt_block in updated_blocks:
-                                rebuilt_summary += (
-                                    f"・{rebuilt_block['title']}:\n"
-                                    f"{rebuilt_block['content']}\n\n"
+                                updated_blocks = []
+                                for target_block in memory_blocks:
+                                    if (target_block["title"] == block["title"]):
+                                
+                                        updated_blocks.append({
+                                        "title":
+                                        target_block["title"],
+                                        "content":
+                                        edited_text
+                                        })
+                                    else:
+                                        updated_blocks.append(target_block)
+                                
+                                rebuilt_summary = ""
+                                for rebuilt_block in updated_blocks:
+                                    rebuilt_summary += (
+                                        f"・{rebuilt_block['title']}:\n"
+                                        f"{rebuilt_block['content']}\n\n"
+                                    )
+                                
+                                rebuilt_summary = (
+                                    "【記憶の要約サマリー】\n"
+                                    + rebuilt_summary.strip()
                                 )
-                            
-                            rebuilt_summary = (
-                                "【記憶の要約サマリー】\n"
-                                + rebuilt_summary.strip()
-                            )
-                            
-                            if summary_memory_id:
-                                if update_memory(summary_memory_id, rebuilt_summary):
-                                    st.toast("✅ 記憶を更新しました")
+                                
+                                if summary_memory_id:
+                                    if update_memory(summary_memory_id, rebuilt_summary):
+                                        st.toast("✅ 記憶を更新しました")
+                                        st.session_state[f"editing_{block['title']}"] = False
+                                        st.rerun()
+
+                            with col_cancel:
+                                if st.button("キャンセル", key=f"cancel_memory_{block['title']}"):
                                     st.session_state[f"editing_{block['title']}"] = False
                                     st.rerun()
-
-                        with col_cancel:
-                            if st.button("キャンセル", key=f"cancel_memory_{block['title']}"):
-                                st.session_state[f"editing_{block['title']}"] = False
-                                st.rerun()
                 
         else:
             st.caption("  まだ覚えている情報はありません。")
