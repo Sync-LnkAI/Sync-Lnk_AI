@@ -10196,7 +10196,7 @@ with all_tabs[1]:
 
             for block in memory_blocks:
                 with st.container():
-                    st.write( 🧠 {block['title']})
+                    st.write("🧠 {block['title']}")
                     st.write(block["content"])
                     col_edit, col_delete, col_blank = (st.columns([1, 1, 8]))
                     with col_edit:
