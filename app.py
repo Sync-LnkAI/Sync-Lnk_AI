@@ -6688,6 +6688,89 @@ def display_message(
 
     st.markdown(f"{speaker}:<br>{display_content}", unsafe_allow_html=True)
 
+# 会話保存関数
+def save_saved_chat(
+    title: str,
+    summary: str,
+    user_message: str,
+    assistant_message: str,
+    original_message_id: str
+) -> bool:
+    try:
+        data = {
+            "user_id": CURRENT_USER_ID,
+            "title": title,
+            "summary": summary,
+            "message_id": f"saved_{uuid.uuid4().hex[:8]}",
+            "user_message": user_message,
+            "assistant_message": assistant_message,
+            "original_message_id": original_message_id
+        }
+
+        (
+            supabase
+            .table("saved_chats")
+            .insert(data)
+            .execute()
+        )
+
+        return True
+
+    except Exception as e:
+
+        print(
+            "会話保存エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return False
+
+# 保存した会話の読み込み関数
+def get_saved_chats():
+    try:
+        response = (
+            supabase
+            .table("saved_chats")
+            .select("*")
+            .eq(
+                "user_id",
+                CURRENT_USER_ID
+            )
+            .order(
+                "created_at",
+                desc=True
+            )
+            .execute()
+        )
+
+        return (
+            response.data
+            if response.data
+            else []
+        )
+
+    except Exception as e:
+
+        print(
+            f"保存会話取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return []
+
+# 会話タイトル作成関数
+def create_saved_chat_title(
+    user_message: str
+) -> str:
+
+    text = str(
+        user_message or ""
+    ).strip()
+
+    if not text:
+        return "保存した会話"
+
+    return text[:10]
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -9894,16 +9977,27 @@ with all_tabs[0]:
         #     role_label = display_user_name if msg["role"] == "user" else current_concierge_name
         #     avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
         for msg in reversed(all_messages):
+            message_id = str(msg.get("message_id", ""))
+
+            paired_user_message = None
+            paired_assistant_message = None
+
+            if message_id:
+                for search_msg in all_messages:
+                    if (search_msg.get("message_id") == message_id):
+                        if (search_msg.get("role") == "user"):
+                            paired_user_message = (search_msg.get("content", ""))
+                        elif (search_msg.get("role") == "assistant"):
+                            paired_assistant_message = (search_msg.get("content", ""))
+
             role_label = (
                 display_user_name
                 if msg["role"] == "user"
                 else current_concierge_name
             )
-            display_message(
-                role_label,
-                msg["content"]
-            )
-            
+
+            display_message(role_label, msg["content"])
+
             if msg["role"] == "user":
                 st.markdown(
                     """
@@ -9916,6 +10010,7 @@ with all_tabs[0]:
                     """,
                     unsafe_allow_html=True
                 )
+
                 MODE_LABELS = {
                     "micro_chat": "挨拶",
                     "analysis": "分析",
@@ -9925,31 +10020,36 @@ with all_tabs[0]:
                     "short_chat": "雑談",
                     "default": "その他"
                 }
-                col_spacer, col_save, col_mode = st.columns([6, 2, 1])
+
+                col_spacer, col_save, col_mode = (st.columns([6, 2, 1]))
                 with col_save:
-                    if current_plan_type == "🆓 無料プラン":
-                        st.caption("☆ 会話を保存")
-                        # st.button(
-                        #     "☆ 会話を保存",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # ):
-                        #     st.toast("💎 ライトプラン以上で利用できます")
-                    else:
-                        # st.button(
-                        #     "☆",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # )
-                        st.caption("☆ 会話を保存")
-                        # st.button(
-                        #     "☆ 会話を保存",
-                        #     key=f"save_chat_{msg.get('message_id', '')}"
-                        # )
+                    col_star, col_text = st.columns([1, 4])
+                    with col_star:
+                        if (current_plan_type == "🆓 無料プラン"):
+                            if st.button("☆", key=f"save_chat_{message_id}"):
+                                st.toast("💎 ライトプラン以上で利用できます")
+                        else:
+                            if (paired_user_message and paired_assistant_message):
+                                if st.button("☆", key=f"save_chat_{message_id}"):
+                                    save_saved_chat(
+                                        title = create_saved_chat_title(paired_user_message),
+                                        summary = str(paired_assistant_message)[:100],
+                                        user_message = paired_user_message,
+                                        assistant_message = paired_assistant_message,
+                                        original_message_id = message_id
+                                    )
+                                    st.toast("✅ 会話を保存しました")
+                    with col_text:
+                        st.caption("会話保存")
 
                 saved_response_mode = msg.get("response_mode", "")
+
                 with col_mode:
                     if saved_response_mode:
-                        st.caption(f"🧠 {MODE_LABELS.get(saved_response_mode, saved_response_mode)}")
-                        # st.caption("🧠 会話モード")
+                        st.caption(
+                            f"🧠 "
+                            f"{MODE_LABELS.get(saved_response_mode, saved_response_mode)}"
+                        )
                     else:
                         st.caption("🧠 不明")
 
