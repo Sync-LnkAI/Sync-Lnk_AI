@@ -10195,8 +10195,14 @@ with all_tabs[1]:
             memory_blocks = (parse_summary_memory_blocks(display_summary))
 
             for block in memory_blocks:
-                st.markdown(f"##### 🧠 {block['title']}")
-                st.write(block["content"])
+                with st.container():
+                    st.write( 🧠 {block['title']})
+                    st.write(block["content"])
+                    col_edit, col_delete, col_blank = (st.columns([1, 1, 8]))
+                    with col_edit:
+                        st.button("編集",key=f"edit_memory_{block['title']}")
+                    with col_delete:
+                        st.button("削除",key=f"delete_memory_{block['title']}")
 
                 # with st.expander(f" {block['title']}", expanded=True):
                 #     st.markdown(block["content"])
