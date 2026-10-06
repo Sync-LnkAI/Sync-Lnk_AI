@@ -737,6 +737,17 @@ def save_message(role: str, content: str,message_id: str = "", response_mode: st
         
         return False
 
+# 会話回数カウント関数
+def increment_conversation_count():
+    st.session_state.conversation_count += 1
+
+    add_permanent_tokens(
+        CURRENT_USER_ID,
+        "chat_count",
+        1,
+        0
+    )
+
 def update_conversation_response_mode(
     message_id: str,
     response_mode: str
@@ -3305,8 +3316,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -4949,7 +4960,7 @@ REAL_ESTATE_FIELD_LABELS = {
     "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
     "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
     "building_tax_basis": "建物未償却残高または建物簿価",
-    "acquisition_related_costs": "購入時諸費用（ない場合は0円）",
+    "acquisition_related_costs": "購入時諸費用（仲介手数料・登記費用・不動産取得税など）",
     "building_structure": "建物構造",
     "building_acquisition_date": "建物取得年月",
     "acquisition_date": "取得日",
@@ -7297,6 +7308,7 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
+                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
@@ -7358,6 +7370,7 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
+                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
@@ -7452,6 +7465,7 @@ with all_tabs[0]:
                                 current_msg_id,
                                 "conversation"
                             )
+                            increment_conversation_count()
 
                             display_message(
                                 current_concierge_name,
@@ -7485,7 +7499,11 @@ with all_tabs[0]:
                                 "新しい案件",
                                 "新規作成",
                                 "別案件",
-                                "別の案件"
+                                "別の案件",
+                                "売却計算したい",
+                                "売却試算したい",
+                                "売却シミュレーションしたい",
+                                "不動産売却計算したい"
                             ]
                         )
                         if start_new_real_estate_case:
@@ -7671,6 +7689,7 @@ with all_tabs[0]:
                                         current_msg_id,
                                         "analysis"
                                     )
+                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
@@ -7806,6 +7825,7 @@ with all_tabs[0]:
                                         current_msg_id,
                                         "conversation"
                                     )
+                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
@@ -8003,6 +8023,7 @@ with all_tabs[0]:
 
                                 save_message("user", user_input, current_msg_id, "analysis")
                                 save_message("assistant", retry_reply, current_msg_id, "analysis")
+                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
@@ -8486,9 +8507,6 @@ with all_tabs[0]:
                                 and not current_arguments.get(
                                     "building_acquisition_date"
                                 )
-                                and previous_arguments.get(
-                                    "building_acquisition_cost"
-                                )
                             ):
                                 current_arguments[
                                     "building_acquisition_date"
@@ -8809,11 +8827,13 @@ with all_tabs[0]:
                                         current_msg_id,
                                         response_mode
                                     )
+                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
                                         ai_reply
                                     )
+
                                     debug_text(
                                         "DEBUG conversation_count_before",
                                         st.session_state.conversation_count
@@ -8932,6 +8952,7 @@ with all_tabs[0]:
                                 })
 
                                 save_message("assistant", ai_reply, current_msg_id, response_mode)
+                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
@@ -9211,6 +9232,7 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
+                                increment_conversation_count()
 
                                 all_messages.append({
                                         "role": "user",
@@ -9777,9 +9799,10 @@ with all_tabs[0]:
                             })
                             
                             save_message("assistant", ai_reply, current_msg_id, response_mode)
+                            increment_conversation_count()
                             st.session_state.force_message_reload = True
-                            st.session_state.conversation_count += 1
-                            add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
+                            # st.session_state.conversation_count += 1
+                            # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
 
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
