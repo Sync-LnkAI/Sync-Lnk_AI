@@ -10131,65 +10131,64 @@ with all_tabs[1]:
     
     st.markdown("---")
 
-    if False:
-        st.markdown("##### 💬 保存されている会話")
-        if current_plan_type == "🆓 無料プラン":
-            st.caption("ここで保存した会話を確認できます。")
-            st.caption(" 💎 ライトプラン以上で利用できます。")
+    st.markdown("##### 💬 保存されている会話")
+    if current_plan_type == "🆓 無料プラン":
+        st.caption("ここで保存した会話を確認できます。")
+        st.caption(" 💎 ライトプラン以上で利用できます。")
+
+    else:
+        st.caption("現在保存されている会話")
+
+        saved_chats = get_saved_chats()
+
+        if not saved_chats:
+            st.caption("保存されている会話はありません")
 
         else:
-            st.caption("現在保存されている会話")
+            for chat in saved_chats:
+                title = str(chat.get("title", "保存した会話"))
+                summary = str(chat.get("summary", ""))
+                with st.expander(f"💾 {title}"):
 
-            saved_chats = get_saved_chats()
+                    st.caption(summary)
+                    st.markdown("** ユーザー**")
+                    st.write(chat.get("user_message", ""))
+                    st.markdown("** AI**")
+                    st.write(chat.get("assistant_message", ""))
 
-            if not saved_chats:
-                st.caption("保存されている会話はありません")
+        # saved_chats = (
+        #     supabase
+        #     .table("saved_chats")
+        #     .select("*")
+        #     .eq(
+        #         "user_id",
+        #         CURRENT_USER_ID
+        #     )
+        #     .order(
+        #         "created_at",
+        #         desc=True
+        #     )
+        #     .execute()
+        # )
 
-            else:
-                for chat in saved_chats:
-                    title = str(chat.get("title", "保存した会話"))
-                    summary = str(chat.get("summary", ""))
-                    with st.expander(f"💾 {title}"):
+        # if not mock_saved_chats:
+        #     st.caption("保存されたメモはありません。")
+        # else:
+        #     for item in mock_saved_chats:
+        #         with st.expander(
+        #             f"📝 {item['title']}"
+        #         ):
+        #             st.write(item["content"])
+        #             st.button(
+        #                 "削除",
+        #                 key=(
+        #                     f"delete_saved_"
+        #                     f"{item['title']}"
+        #                 ),
+        #                 disabled=True
+        #             )
 
-                        st.caption(summary)
-                        st.markdown("** ユーザー**")
-                        st.write(chat.get("user_message", ""))
-                        st.markdown("** AI**")
-                        st.write(chat.get("assistant_message", ""))
-
-            # saved_chats = (
-            #     supabase
-            #     .table("saved_chats")
-            #     .select("*")
-            #     .eq(
-            #         "user_id",
-            #         CURRENT_USER_ID
-            #     )
-            #     .order(
-            #         "created_at",
-            #         desc=True
-            #     )
-            #     .execute()
-            # )
-
-            # if not mock_saved_chats:
-            #     st.caption("保存されたメモはありません。")
-            # else:
-            #     for item in mock_saved_chats:
-            #         with st.expander(
-            #             f"📝 {item['title']}"
-            #         ):
-            #             st.write(item["content"])
-            #             st.button(
-            #                 "削除",
-            #                 key=(
-            #                     f"delete_saved_"
-            #                     f"{item['title']}"
-            #                 ),
-            #                 disabled=True
-            #             )
-
-    st.divider()
+st.divider()
 
 with all_tabs[2]:
     st.info("🚧 ただいま準備中です")
