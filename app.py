@@ -3450,8 +3450,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -8529,6 +8529,9 @@ with all_tabs[0]:
                             keyword in str(user_input)
                             for keyword in calculation_hint_words
                         )
+
+                        debug_text("DEBUG contains_calculation_hint", contains_calculation_hint)
+                        debug_text("DEBUG user_input", user_input)
 
                         # ==========================================
                         # 計算ツール判定の実行制御
