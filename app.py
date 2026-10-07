@@ -9861,6 +9861,7 @@ with all_tabs[0]:
                             # )
 
                             # response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
+                            debug_text("DEBUG before_chat_generation", True)
                             chat_result = generate_ai_response(
                                 system_instruction=system_instruction,
                                 user_prompt=prompt,
