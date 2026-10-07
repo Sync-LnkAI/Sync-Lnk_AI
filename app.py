@@ -57,6 +57,7 @@ if AI_PROVIDER == "gemini":
     MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
     SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
     SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
+    GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
 
     chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
     memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
@@ -66,6 +67,7 @@ else:
     MEMORY_MODEL_NAME = "gpt-4o-mini"
     SUMMARY_MODEL_NAME = "gpt-4o-mini"
     SEARCH_MODEL_NAME = "gpt-4o-mini"
+    GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
 
     chat_model = None
     memory_model = None
@@ -1472,6 +1474,17 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             total_message_count
             - last_summarized_message_count
         )
+        st.write(
+            "SUMMARY DEBUG",
+            {
+                "total_message_count":
+                total_message_count,
+                "last_summarized_message_count":
+                last_summarized_message_count,
+                "messages_added_since_last_summary":
+                messages_added_since_last_summary
+            }
+        )
 
         # 初回以外は、前回要約から10件増えるまで何もしない
         if (
@@ -2420,7 +2433,7 @@ def google_search(query):
     )
 
     response = client.models.generate_content(
-        model=SEARCH_MODEL_NAME,
+        model=GOOGLE_MODEL_NAME,
         contents=query,
         config=types.GenerateContentConfig(
             tools=[grounding_tool]
