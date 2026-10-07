@@ -2290,14 +2290,20 @@ def generate_ai_response(
             "response_mime_type"
         ] = "application/json"
 
-    model = genai.GenerativeModel(
-        model_name=(
-            model_name
-            or CHAT_MODEL_NAME
-        ),
-        system_instruction=
-            system_instruction
-    )
+    # model = genai.GenerativeModel(
+    #     model_name=(
+    #         model_name
+    #         or CHAT_MODEL_NAME
+    #     ),
+    #     system_instruction=
+    #         system_instruction
+    # )
+    model_kwargs = {"model_name": (model_name or CHAT_MODEL_NAME)}
+
+    if (system_instruction and str(system_instruction).strip()):
+        model_kwargs["system_instruction"] = system_instruction
+
+    model = genai.GenerativeModel(**model_kwargs)
 
     response = model.generate_content(
         [
