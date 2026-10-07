@@ -8547,7 +8547,7 @@ with all_tabs[0]:
                         # 計算関連ワードがあれば優先
                         elif contains_calculation_hint:
                             debug_text("DEBUG entered_contains_calculation_hint", True)
-                            
+
                             should_run_tool_router = True
                      
                             tool_router_start_time = (time.time())
@@ -8564,6 +8564,8 @@ with all_tabs[0]:
                                     recent_history_for_router,
                                 pending_tool=pending_tool
                             )
+                            debug_text("DEBUG calculation_tool", calculation_tool)
+                            debug_text("DEBUG tool_route_confidence", tool_route_confidence)
 
                             tool_router_elapsed = (time.time() - tool_router_start_time)
 
