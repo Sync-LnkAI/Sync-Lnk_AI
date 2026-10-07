@@ -9864,13 +9864,13 @@ with all_tabs[0]:
                             debug_text("DEBUG before_chat_generation", True)
                             chat_result = generate_ai_response(
                                 system_instruction=system_instruction,
-                                user_prompt=prompt,
+                                user_prompt=user_input,
                                 model_name=CHAT_MODEL_NAME
                             )
                             debug_json("DEBUG chat_result", chat_result)
 
                             api_elapsed = (time.time() - api_start_time)
-                            
+
                         except Exception as e:
                             debug_text(
                                 "DEBUG chat_generation_error",
