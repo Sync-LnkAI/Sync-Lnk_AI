@@ -2667,6 +2667,7 @@ def classify_search_and_response_mode(
             response_format_json=True,
             model_name=SEARCH_MODEL_NAME
         )
+        debug_json("DEBUG judge_result", judge_result)
 
         raw_text = str(judge_result.get("text", "") or "").strip()
 
@@ -2713,6 +2714,15 @@ def classify_search_and_response_mode(
         )
 
     except Exception as judge_error:
+        error_text = (
+            f"検索・応答モード判定エラー: "
+            f"{type(judge_error).__name__}: "
+            f"{judge_error}"
+        )
+
+        print(error_text)
+        debug_text("DEBUG judge_error", error_text)
+
         print(
             f"⚠️ 検索・応答モード判定エラー: "
             f"{type(judge_error).__name__}: "
@@ -3413,8 +3423,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
