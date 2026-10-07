@@ -6803,6 +6803,37 @@ def display_message(
 
     st.markdown(f"{speaker}:<br>{display_content}", unsafe_allow_html=True)
 
+# 計算モード終了判定関数
+def should_exit_real_estate_calculation(
+    user_input: str
+) -> bool:
+
+    text = (
+        str(user_input or "")
+        .replace(" ", "")
+        .replace("　", "")
+        .strip()
+    )
+
+    exact_exit_phrases = {
+        "ありがとう",
+        "ありがとうございました",
+        "もう大丈夫",
+        "もういい",
+        "もういいです",
+        "計算はやめる",
+        "計算やめる",
+        "計算しなくていい",
+        "計算は不要",
+        "今回はやめる",
+        "別の話をしたい",
+        "別の話しよう",
+        "終了",
+        "終わり"
+    }
+
+    return text in exact_exit_phrases
+
 # 会話保存関数
 def save_saved_chat(
     title: str,
@@ -8615,11 +8646,19 @@ with all_tabs[0]:
                         }
 
                         calculation_pending = bool(
-                            st.session_state.get(
-                                "real_estate_calculation_pending",
-                                False
-                            )
+                            st.session_state.get("real_estate_calculation_pending", False)
                         )
+
+                        exit_calculation_mode = False
+                        if (
+                            calculation_pending
+                            and should_exit_real_estate_calculation(user_input)
+                        ):
+                            st.session_state["real_estate_calculation_pending"] = False
+                            calculation_pending = False
+                            calculation_tool = "none"
+                            exit_calculation_mode = True
+
                         debug_text(
                             "DEBUG active_calculation_case_id",
                             st.session_state.get(
@@ -8641,7 +8680,8 @@ with all_tabs[0]:
                             )
 
                         is_calculation_candidate = (
-                            calculation_tool
+                            not exit_calculation_mode
+                            and calculation_tool
                             == "real_estate_sale"
                         )
 
