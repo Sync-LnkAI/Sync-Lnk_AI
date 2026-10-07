@@ -8672,6 +8672,8 @@ with all_tabs[0]:
                             calculation_tool = "none"
                             exit_calculation_mode = True
 
+                            debug_text("DEBUG exit_calculation_mode", True)
+
                         debug_text(
                             "DEBUG active_calculation_case_id",
                             st.session_state.get(
