@@ -1398,7 +1398,6 @@ def add_permanent_tokens(
         )
         return False
 
-# def check_and_summarize_history(user_id_dummy: int, messages_list: list, message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
 def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【記憶の要約】
@@ -1616,28 +1615,43 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         で要約してください。
         """
 
-        contents_for_summary = [
-            {
-                "role": "user",
-                "parts": [
-                    f"[指示書]\n"
-                    f"{summary_instruction}\n\n"
-                    f"[現在保存されている要約]\n"
-                    f"{previous_summary}\n\n"
-                    f"[今回新しく要約へ統合する会話]\n"
-                    f"{conversation_text}"
-                ]
-            }
-        ]
+        # contents_for_summary = [
+        #     {
+        #         "role": "user",
+        #         "parts": [
+        #             f"[指示書]\n"
+        #             f"{summary_instruction}\n\n"
+        #             f"[現在保存されている要約]\n"
+        #             f"{previous_summary}\n\n"
+        #             f"[今回新しく要約へ統合する会話]\n"
+        #             f"{conversation_text}"
+        #         ]
+        #     }
+        # ]
+        contents_for_summary = (
+            f"[指示書]\n"
+            f"{summary_instruction}\n\n"
+            f"[現在保存されている要約]\n"
+            f"{previous_summary}\n\n"
+            f"[今回新しく要約へ統合する会話]\n"
+            f"{conversation_text}"
+        )
         
         # 🧠 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
-        response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
+        # response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
 
         # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
-        if hasattr(response, "candidates") and response.candidates:
-            new_summary = response.candidates[0].content.parts[0].text
-        else:
-            new_summary = response.text
+        # if hasattr(response, "candidates") and response.candidates:
+        #     new_summary = response.candidates[0].content.parts[0].text
+        # else:
+        #     new_summary = response.text
+        summary_result = generate_ai_response(
+            system_instruction="",
+            user_prompt=contents_for_summary,
+            model_name=SUMMARY_MODEL_NAME
+        )
+
+        new_summary = str(summary_result.get("text", "") or "").strip()
         
         if not new_summary:
             return False
@@ -1688,35 +1702,37 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
 
         # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」としてインサート
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            in_t = response.usage_metadata.prompt_token_count
-            out_t = response.usage_metadata.candidates_token_count
+        # if hasattr(response, "usage_metadata") and response.usage_metadata:
+        #     in_t = response.usage_metadata.prompt_token_count
+        #     out_t = response.usage_metadata.candidates_token_count
+        in_t = int(summary_result.get("in_tokens", 0) or 0)
+        out_t = int(summary_result.get("out_tokens", 0) or 0)
             
-            # 1. データベースの累計トークン金庫へ加算
-            add_permanent_tokens(target_user_id, "summary", in_t, out_t)
-            
-            # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
-            sum_in_cost = in_t * PRICE_BACKGROUND_IN
-            sum_out_cost = out_t * PRICE_BACKGROUND_OUT
-            sum_yen = sum_in_cost + sum_out_cost
+        # 1. データベースの累計トークン金庫へ加算
+        add_permanent_tokens(target_user_id, "summary", in_t, out_t)
+        
+        # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
+        sum_in_cost = in_t * PRICE_BACKGROUND_IN
+        sum_out_cost = out_t * PRICE_BACKGROUND_OUT
+        sum_yen = sum_in_cost + sum_out_cost
 
-            # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
-            save_system_audit_log(
-                user_id=target_user_id,
-                plan_type=current_plan_type,
-                event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
-                processing_time=float(summary_processing_seconds),
-                in_t=int(in_t),
-                out_t=int(out_t),
-                api_cost=float(sum_yen),
-                details=f"記憶の要約完了（独立ログ仕様）",
-                message_id=str(message_id)
-            )
+        # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
+        save_system_audit_log(
+            user_id=target_user_id,
+            plan_type=current_plan_type,
+            event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
+            processing_time=float(summary_processing_seconds),
+            in_t=int(in_t),
+            out_t=int(out_t),
+            api_cost=float(sum_yen),
+            details=f"記憶の要約完了（独立ログ仕様）",
+            message_id=str(message_id)
+        )
 
-            # 4. メインスレッドの監査ログ（タブ3）への保険用マージ変数代入
-            #st.session_state.summary_in_tokens = int(in_t)
-            #st.session_state.summary_out_tokens = int(out_t)
-            #st.session_state.summary_processing_time = float(summary_processing_seconds)
+        # 4. メインスレッドの監査ログ（タブ3）への保険用マージ変数代入
+        #st.session_state.summary_in_tokens = int(in_t)
+        #st.session_state.summary_out_tokens = int(out_t)
+        #st.session_state.summary_processing_time = float(summary_processing_seconds)
 
         save_debug_log(
             event_type="SUMMARY_END",
