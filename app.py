@@ -9870,6 +9870,14 @@ with all_tabs[0]:
                             debug_json("DEBUG chat_result", chat_result)
 
                             api_elapsed = (time.time() - api_start_time)
+                            
+                        except Exception as e:
+                            debug_text(
+                                "DEBUG chat_generation_error",
+                                f"{type(e).__name__}: {e}"
+                            )
+                            
+                            raise
 
                             # 通常のテキストをそのまま回答として使用
                             ai_reply = str(chat_result.get("text", "") or "").strip()
