@@ -2344,36 +2344,38 @@ def generate_ai_response(
             out_tokens
     }
 
-def get_ai_text_response(
-    *,
-    system_instruction: str,
-    user_prompt: str,
-    response_format_json: bool = False
-):
-    """
-    Gemini / GPT 共通レスポンス取得
+# 未使用
+# GPT移行完了後に削除候補
+# def get_ai_text_response(
+#     *,
+#     system_instruction: str,
+#     user_prompt: str,
+#     response_format_json: bool = False
+# ):
+#     """
+#     Gemini / GPT 共通レスポンス取得
 
-    戻り値
+#     戻り値
 
-    text
-    in_tokens
-    out_tokens
-    """
+#     text
+#     in_tokens
+#     out_tokens
+#     """
 
-    result = generate_ai_response(
-        system_instruction=
-            system_instruction,
-        user_prompt=
-            user_prompt,
-        response_format_json=
-            response_format_json
-    )
+#     result = generate_ai_response(
+#         system_instruction=
+#             system_instruction,
+#         user_prompt=
+#             user_prompt,
+#         response_format_json=
+#             response_format_json
+#     )
 
-    return (
-        result["text"],
-        result["in_tokens"],
-        result["out_tokens"]
-    )
+#     return (
+#         result["text"],
+#         result["in_tokens"],
+#         result["out_tokens"]
+#     )
 
 
 # 検索関数
@@ -2454,10 +2456,6 @@ def classify_search_and_response_mode(
     """
 
     try:
-        judge_model = genai.GenerativeModel(
-            model_name=SEARCH_MODEL_NAME
-        )
-
         judge_prompt = f"""
         あなたはAIチャットの振り分けシステムです。
 
@@ -2557,19 +2555,120 @@ def classify_search_and_response_mode(
             "confidence": 0.90
         }}
         """
+        # judge_model = genai.GenerativeModel(
+        #     model_name=SEARCH_MODEL_NAME
+        # )
+        # judge_response = judge_model.generate_content(
+        #     judge_prompt,
+        #     generation_config={
+        #         "temperature": 0,
+        #         "max_output_tokens": 60,
+        #         "response_mime_type": "application/json"
+        #     }
+        # )
+        
+    #     raw_text = (
+    #         judge_response.text or ""
+    #     ).strip()
 
-        judge_response = judge_model.generate_content(
-            judge_prompt,
-            generation_config={
-                "temperature": 0,
-                "max_output_tokens": 60,
-                "response_mime_type": "application/json"
-            }
+    #     clean_text = (
+    #         raw_text
+    #         .replace("```json", "")
+    #         .replace("```JSON", "")
+    #         .replace("```", "")
+    #         .strip()
+    #     )
+
+    #     judge_data = json.loads(clean_text)
+
+    #     need_search = bool(
+    #         judge_data.get("need_search", False)
+    #     )
+
+    #     response_mode = str(
+    #         judge_data.get("response_mode", "default")
+    #     ).strip().lower()
+
+    #     try:
+    #         confidence = float(
+    #             judge_data.get("confidence", 0.0)
+    #         )
+    #     except (TypeError, ValueError):
+    #         confidence = 0.0
+
+    #     # 想定外のモードはdefaultへ着地
+    #     if response_mode not in RESPONSE_MODES:
+    #         response_mode = "default"
+
+    #     # 信頼度を0.0から1.0に補正
+    #     confidence = max(
+    #         0.0,
+    #         min(confidence, 1.0)
+    #     )
+
+    #     # 低信頼度なら従来プロンプト相当のdefaultを使用
+    #     if confidence < 0.65:
+    #         response_mode = "default"
+
+    #     judge_in_t = 0
+    #     judge_out_t = 0
+
+    #     if (
+    #         hasattr(judge_response, "usage_metadata")
+    #         and judge_response.usage_metadata
+    #     ):
+    #         judge_in_t = (
+    #             judge_response
+    #             .usage_metadata
+    #             .prompt_token_count
+    #             or 0
+    #         )
+
+    #         judge_out_t = (
+    #             judge_response
+    #             .usage_metadata
+    #             .candidates_token_count
+    #             or 0
+    #         )
+
+    #     judge_cost = (
+    #         judge_in_t * PRICE_BACKGROUND_IN
+    #         + judge_out_t * PRICE_BACKGROUND_OUT
+    #     )
+
+    #     return (
+    #         need_search,
+    #         response_mode,
+    #         confidence,
+    #         judge_in_t,
+    #         judge_out_t,
+    #         judge_cost
+    #     )
+
+    # except Exception as judge_error:
+    #     print(
+    #         f"⚠️ 検索・応答モード判定エラー: "
+    #         f"{type(judge_error).__name__}: "
+    #         f"{judge_error}"
+    #     )
+
+    #     # 判定失敗時は検索せず、従来のフルプロンプトへ着地
+    #     return (
+    #         False,
+    #         "default",
+    #         0.0,
+    #         0,
+    #         0,
+    #         0.0
+    #     )
+        judge_result = generate_ai_response(
+            system_instruction="",
+            user_prompt=judge_prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
         )
 
-        raw_text = (
-            judge_response.text or ""
-        ).strip()
+        raw_text = str(judge_result.get("text", "") or "").strip()
 
         clean_text = (
             raw_text
@@ -2580,19 +2679,11 @@ def classify_search_and_response_mode(
         )
 
         judge_data = json.loads(clean_text)
-
-        need_search = bool(
-            judge_data.get("need_search", False)
-        )
-
-        response_mode = str(
-            judge_data.get("response_mode", "default")
-        ).strip().lower()
+        need_search = bool(judge_data.get("need_search", False))
+        response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
 
         try:
-            confidence = float(
-                judge_data.get("confidence", 0.0)
-            )
+            confidence = float(judge_data.get("confidence", 0.0))
         except (TypeError, ValueError):
             confidence = 0.0
 
@@ -2601,40 +2692,16 @@ def classify_search_and_response_mode(
             response_mode = "default"
 
         # 信頼度を0.0から1.0に補正
-        confidence = max(
-            0.0,
-            min(confidence, 1.0)
-        )
+        confidence = max(0.0, min(confidence, 1.0))
 
         # 低信頼度なら従来プロンプト相当のdefaultを使用
         if confidence < 0.65:
             response_mode = "default"
 
-        judge_in_t = 0
-        judge_out_t = 0
-
-        if (
-            hasattr(judge_response, "usage_metadata")
-            and judge_response.usage_metadata
-        ):
-            judge_in_t = (
-                judge_response
-                .usage_metadata
-                .prompt_token_count
-                or 0
-            )
-
-            judge_out_t = (
-                judge_response
-                .usage_metadata
-                .candidates_token_count
-                or 0
-            )
-
-        judge_cost = (
-            judge_in_t * PRICE_BACKGROUND_IN
-            + judge_out_t * PRICE_BACKGROUND_OUT
-        )
+        # 共通関数が返したトークン数を取得
+        judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
+        judge_out_t = int(judge_result.get("out_tokens", 0) or 0)
+        judge_cost = (judge_in_t * PRICE_BACKGROUND_IN + judge_out_t * PRICE_BACKGROUND_OUT)
 
         return (
             need_search,
@@ -2645,22 +2712,23 @@ def classify_search_and_response_mode(
             judge_cost
         )
 
-    except Exception as judge_error:
-        print(
-            f"⚠️ 検索・応答モード判定エラー: "
-            f"{type(judge_error).__name__}: "
-            f"{judge_error}"
-        )
+        except Exception as judge_error:
+            print(
+                f"⚠️ 検索・応答モード判定エラー: "
+                f"{type(judge_error).__name__}: "
+                f"{judge_error}"
+            )
 
-        # 判定失敗時は検索せず、従来のフルプロンプトへ着地
-        return (
-            False,
-            "default",
-            0.0,
-            0,
-            0,
-            0.0
-        )
+            # 判定失敗時は検索せず、
+            # 従来のフルプロンプトへ着地
+            return (
+                False,
+                "default",
+                0.0,
+                0,
+                0,
+                0.0
+            )
 
 def classify_calculation_tool(
     user_input: str,
@@ -2698,10 +2766,6 @@ def classify_calculation_tool(
             not in CALCULATION_TOOLS
         ):
             normalized_pending_tool = "none"
-
-        tool_model = genai.GenerativeModel(
-            model_name=SEARCH_MODEL_NAME
-        )
 
         tool_prompt = f"""
         あなたは、Python計算ツールの利用要否を判定するシステムです。
@@ -2819,21 +2883,31 @@ def classify_calculation_tool(
         }}
         """
 
-        tool_response = (
-            tool_model.generate_content(
-                tool_prompt,
-                generation_config={
-                    "temperature": 0,
-                    "max_output_tokens": 50,
-                    "response_mime_type":
-                        "application/json"
-                }
-            )
+        tool_result = generate_ai_response(
+            system_instruction="",
+            user_prompt=tool_prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
         )
+        # tool_model = genai.GenerativeModel(
+        #     model_name=SEARCH_MODEL_NAME
+        # )
+        # tool_response = (
+        #     tool_model.generate_content(
+        #         tool_prompt,
+        #         generation_config={
+        #             "temperature": 0,
+        #             "max_output_tokens": 50,
+        #             "response_mime_type":
+        #                 "application/json"
+        #         }
+        #     )
+        # )
 
-        raw_text = str(
-            tool_response.text or ""
-        ).strip()
+        # raw_text = str(
+        #     tool_response.text or ""
+        # ).strip()
+        raw_text = str(tool_result.get("text", "") or "").strip()
 
         clean_text = (
             raw_text
@@ -2901,37 +2975,32 @@ def classify_calculation_tool(
         ):
             calculation_tool = "none"
 
-        in_tokens = 0
-        out_tokens = 0
+        # in_tokens = 0
+        # out_tokens = 0
 
-        if (
-            hasattr(
-                tool_response,
-                "usage_metadata"
-            )
-            and tool_response.usage_metadata
-        ):
-            in_tokens = int(
-                tool_response
-                .usage_metadata
-                .prompt_token_count
-                or 0
-            )
+        # if (
+        #     hasattr(
+        #         tool_response,
+        #         "usage_metadata"
+        #     )
+        #     and tool_response.usage_metadata
+        # ):
+        #     in_tokens = int(
+        #         tool_response
+        #         .usage_metadata
+        #         .prompt_token_count
+        #         or 0
+        #     )
 
-            out_tokens = int(
-                tool_response
-                .usage_metadata
-                .candidates_token_count
-                or 0
-            )
-
-        api_cost = (
-            in_tokens
-            * PRICE_BACKGROUND_IN
-            +
-            out_tokens
-            * PRICE_BACKGROUND_OUT
-        )
+        #     out_tokens = int(
+        #         tool_response
+        #         .usage_metadata
+        #         .candidates_token_count
+        #         or 0
+        #     )
+        in_tokens = int(tool_result.get("in_tokens", 0) or 0)
+        out_tokens = int(tool_result.get("out_tokens", 0) or 0)
+        api_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
 
         return (
             calculation_tool,
