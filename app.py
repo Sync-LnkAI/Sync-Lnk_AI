@@ -6828,26 +6828,40 @@ def should_exit_real_estate_calculation(
         .strip()
     )
 
-    exact_exit_phrases = {
-        "ありがとう",
-        "ありがとうございました",
-        "計算終了",
-        "計算終了して",
-        "計算を終了して",
-        "計算はやめる",
-        "計算やめる",
-        "計算しなくていい",
-        "計算は不要",
-        "もう大丈夫",
-        "もういい",
-        "もういいです",
-        "終了",
-        "終わり",
-        "今回はやめる",
-        "別の話をしたい",
-        "別の話しよう"
+    return any(
+        keyword in text
+        for keyword in [
+            "計算終了",
+            "計算を終了",
+            "計算やめる",
+            "計算はやめる",
+            "計算しなくていい",
+            "別の話",
+            "もう大丈夫",
+            "もういい"
+        ]
+    )
+
+    # exact_exit_phrases = {
+    #     "ありがとう",
+    #     "ありがとうございました",
+    #     "計算終了",
+    #     "計算終了して",
+    #     "計算を終了して",
+    #     "計算はやめる",
+    #     "計算やめる",
+    #     "計算しなくていい",
+    #     "計算は不要",
+    #     "もう大丈夫",
+    #     "もういい",
+    #     "もういいです",
+    #     "終了",
+    #     "終わり",
+    #     "今回はやめる",
+    #     "別の話をしたい",
+    #     "別の話しよう"
         
-    }
+    # }
 
     return text in exact_exit_phrases
 
@@ -8664,6 +8678,10 @@ with all_tabs[0]:
 
                         calculation_pending = bool(
                             st.session_state.get("real_estate_calculation_pending", False)
+                        )
+                        debug_text(
+                            "DEBUG exit_calculation_check",
+                            should_exit_real_estate_calculation(user_input)
                         )
 
                         exit_calculation_mode = False
