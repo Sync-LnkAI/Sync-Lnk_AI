@@ -6605,6 +6605,15 @@ def build_case_rename_followup(
             f"へ変更しました。\n\n"
             "この案件にはまだ計算に必要な条件が登録されていません。"
             "計算に必要な各条件を教えてください。"
+            f"\n"
+            f"【案件情報】\n"
+            f"案件名：{case_name or '未選択'}\n\n"
+
+            f"【確認が必要な項目】\n"
+            f"{missing_text}\n\n"
+
+            f"【入力済条件】\n"
+            f"{entered_text}"
         )
 
     extraction_result = {
@@ -6671,9 +6680,17 @@ def build_case_rename_followup(
             f"案件名を"
             f"「{new_case_name}」"
             f"へ変更しました。\n\n"
-            "計算を続けるために、"
-            "次の項目を教えてください。\n\n"
-            f"{missing_text}"
+            "この案件にはまだ計算に必要な条件が登録されていません。"
+            "計算に必要な各条件を教えてください。"
+            f"\n"
+            f"【案件情報】\n"
+            f"案件名：{case_name or '未選択'}\n\n"
+
+            f"【確認が必要な項目】\n"
+            f"{missing_text}\n\n"
+
+            f"【入力済条件】\n"
+            f"{entered_text}"
         )
 
     # ======================================
