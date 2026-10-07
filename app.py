@@ -9855,21 +9855,25 @@ with all_tabs[0]:
                             # ==========================================
                             api_start_time = time.time()
 
-                            response_model = genai.GenerativeModel(
-                                model_name=CHAT_MODEL_NAME,
-                                system_instruction=system_instruction
-                            )
+                            # response_model = genai.GenerativeModel(
+                            #     model_name=CHAT_MODEL_NAME,
+                            #     system_instruction=system_instruction
+                            # )
 
-                            response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
+                            # response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
+                            chat_result = generate_ai_response(
+                                system_instruction=system_instruction,
+                                user_prompt=prompt,
+                                model_name=CHAT_MODEL_NAME
+                            )
 
                             api_elapsed = (time.time() - api_start_time)
 
+                            # 通常のテキストをそのまま回答として使用
+                            ai_reply = str(chat_result.get("text", "") or "").strip()
+
                             # AIサーバーとの通信結果を確認
-                            if (
-                                not response
-                                or not hasattr(response, "text")
-                                or not response.text
-                            ):
+                            if not ai_reply:
                                 st.error(
                                     "【システム通信エラー】"
                                     "AIサーバーとの接続が一時的に遮断されました。"
@@ -9878,48 +9882,15 @@ with all_tabs[0]:
                                 )
                                 st.stop()
 
-                            # 通常のテキストをそのまま回答として使用
-                            ai_reply = str(
-                                response.text
-                                or ""
-                            ).strip()
-
-                            if not ai_reply:
-                                raise ValueError("AIの回答が空です")
-
                             # トークン数を取得して保存
-                            in_t = 0
-                            out_t = 0
+                            in_t = int(chat_result.get("in_tokens", 0) or 0)
+                            out_t = int(chat_result.get("out_tokens", 0) or 0)
+                            add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
 
-                            if (
-                                hasattr(response, "usage_metadata")
-                                and response.usage_metadata
-                            ):
-                                in_t = int(
-                                    response
-                                    .usage_metadata
-                                    .prompt_token_count
-                                    or 0
-                                )
-
-                                out_t = int(
-                                    response
-                                    .usage_metadata
-                                    .candidates_token_count
-                                    or 0
-                                )
-
-                                add_permanent_tokens(
-                                    CURRENT_USER_ID,
-                                    "chat",
-                                    in_t,
-                                    out_t
-                                )
-
-                                st.session_state.last_in_tokens = (in_t)
-                                st.session_state.last_out_tokens = (out_t)
-                                st.session_state.total_in_tokens += (in_t)
-                                st.session_state.total_out_tokens += (out_t)
+                            st.session_state.last_in_tokens = (in_t)
+                            st.session_state.last_out_tokens = (out_t)
+                            st.session_state.total_in_tokens += (in_t)
+                            st.session_state.total_out_tokens += (out_t)
 
                             print("📡 AIテキスト応答確認: "f"{ai_reply[:15]}...")
 
