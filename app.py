@@ -2712,23 +2712,23 @@ def classify_search_and_response_mode(
             judge_cost
         )
 
-        except Exception as judge_error:
-            print(
-                f"⚠️ 検索・応答モード判定エラー: "
-                f"{type(judge_error).__name__}: "
-                f"{judge_error}"
-            )
+    except Exception as judge_error:
+        print(
+            f"⚠️ 検索・応答モード判定エラー: "
+            f"{type(judge_error).__name__}: "
+            f"{judge_error}"
+        )
 
-            # 判定失敗時は検索せず、
-            # 従来のフルプロンプトへ着地
-            return (
-                False,
-                "default",
-                0.0,
-                0,
-                0,
-                0.0
-            )
+        # 判定失敗時は検索せず、
+        # 従来のフルプロンプトへ着地
+        return (
+            False,
+            "default",
+            0.0,
+            0,
+            0,
+            0.0
+        )
 
 def classify_calculation_tool(
     user_input: str,
