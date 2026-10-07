@@ -9866,11 +9866,13 @@ with all_tabs[0]:
                                 user_prompt=prompt,
                                 model_name=CHAT_MODEL_NAME
                             )
+                            debug_json("DEBUG chat_result", chat_result)
 
                             api_elapsed = (time.time() - api_start_time)
 
                             # 通常のテキストをそのまま回答として使用
                             ai_reply = str(chat_result.get("text", "") or "").strip()
+                            debug_text("DEBUG ai_reply", ai_reply)
 
                             # AIサーバーとの通信結果を確認
                             if not ai_reply:
