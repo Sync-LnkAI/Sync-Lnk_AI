@@ -34,8 +34,8 @@ except Exception:
 # AIプロバイダー設定
 # ==========================================
 
-# AI_PROVIDER = "gemini"
-AI_PROVIDER = "gpt"
+AI_PROVIDER = "gemini"
+# AI_PROVIDER = "gpt"
 
 if AI_PROVIDER == "gpt":
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
