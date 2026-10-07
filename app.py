@@ -4526,26 +4526,33 @@ def extract_real_estate_sale_parameters(
     """
 
     try:
-        extraction_model = genai.GenerativeModel(
+        # extraction_model = genai.GenerativeModel(
+        #     model_name=SEARCH_MODEL_NAME
+        # )
+
+        # extraction_response = (
+        #     extraction_model.generate_content(
+        #         extraction_prompt,
+        #         generation_config={
+        #             "temperature": 0,
+        #             "max_output_tokens": 500,
+        #             "response_mime_type":
+        #                 "application/json"
+        #         }
+        #     )
+        # )
+        extraction_result = generate_ai_response(
+            system_instruction="",
+            user_prompt=extraction_prompt,
+            response_format_json=True,
             model_name=SEARCH_MODEL_NAME
         )
 
-        extraction_response = (
-            extraction_model.generate_content(
-                extraction_prompt,
-                generation_config={
-                    "temperature": 0,
-                    "max_output_tokens": 500,
-                    "response_mime_type":
-                        "application/json"
-                }
-            )
-        )
-
-        raw_text = str(
-            extraction_response.text
-            or ""
-        ).strip()
+        # raw_text = str(
+        #     extraction_response.text
+        #     or ""
+        # ).strip()
+        raw_text = str(extraction_result.get("text", "") or "").strip()
 
         if not raw_text:
             raise ValueError(
@@ -4593,38 +4600,33 @@ def extract_real_estate_sale_parameters(
         ):
             raw_arguments = {}
 
-        in_tokens = 0
-        out_tokens = 0
+        # in_tokens = 0
+        # out_tokens = 0
 
-        if (
-            hasattr(
-                extraction_response,
-                "usage_metadata"
-            )
-            and
-            extraction_response.usage_metadata
-        ):
-            in_tokens = int(
-                extraction_response
-                .usage_metadata
-                .prompt_token_count
-                or 0
-            )
+        # if (
+        #     hasattr(
+        #         extraction_response,
+        #         "usage_metadata"
+        #     )
+        #     and
+        #     extraction_response.usage_metadata
+        # ):
+        #     in_tokens = int(
+        #         extraction_response
+        #         .usage_metadata
+        #         .prompt_token_count
+        #         or 0
+        #     )
 
-            out_tokens = int(
-                extraction_response
-                .usage_metadata
-                .candidates_token_count
-                or 0
-            )
-
-        extraction_cost = (
-            in_tokens
-            * PRICE_BACKGROUND_IN
-            +
-            out_tokens
-            * PRICE_BACKGROUND_OUT
-        )
+        #     out_tokens = int(
+        #         extraction_response
+        #         .usage_metadata
+        #         .candidates_token_count
+        #         or 0
+        #     )
+        in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
+        out_tokens = int(extraction_result.get("out_tokens", 0) or 0)
+        extraction_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
 
         if not should_calculate:
             return {
