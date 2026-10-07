@@ -8958,6 +8958,42 @@ with all_tabs[0]:
                                 ):
                                     merged_arguments.pop("acquisition_related_costs", None)
                             
+                            # 取得日から長期・短期を自動判定
+                            if (
+                                not merged_arguments.get("holding_period_type")
+                                and merged_arguments.get("acquisition_date")
+                            ):
+
+                                try:
+                                    acquisition_date = (
+                                        merged_arguments.get(
+                                            "acquisition_date"
+                                        )
+                                    )
+
+                                    sale_date = (
+                                        merged_arguments.get(
+                                            "sale_date"
+                                        )
+                                        or datetime.now(JST).date().isoformat()
+                                    )
+                                    
+                                    holding_period_type = (
+                                        determine_individual_holding_type(
+                                            acquisition_date,
+                                            sale_date
+                                        )
+                                    )
+
+                                    if holding_period_type:
+
+                                        merged_arguments[
+                                            "holding_period_type"
+                                        ] = holding_period_type
+
+                                except Exception:
+                                    pass
+                            
                             for field in CONFIRMABLE_FIELDS:
                                 if (
                                     field in current_arguments
