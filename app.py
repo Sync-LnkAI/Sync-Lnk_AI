@@ -6600,7 +6600,7 @@ def build_case_rename_followup(
     # 案件データが取得できなかった場合
     if not case_arguments:
         return (
-            f"案件名を"「{new_case_name}」へ変更しました。\n\n"
+            f"案件名を「{new_case_name}」へ変更しました。\n\n"
             "この案件にはまだ計算に必要な条件が登録されていません。"
             "計算に必要な各条件を教えてください。"
         )
