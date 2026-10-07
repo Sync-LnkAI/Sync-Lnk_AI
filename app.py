@@ -6607,7 +6607,7 @@ def build_case_rename_followup(
             "計算に必要な各条件を教えてください。"
             f"\n"
             f"【案件情報】\n"
-            f"案件名：{case_name or '未選択'}\n\n"
+            f"案件名：{new_case_name}\n\n"
 
             f"【確認が必要な項目】\n"
             f"{missing_text}\n\n"
@@ -6684,7 +6684,7 @@ def build_case_rename_followup(
             "計算に必要な各条件を教えてください。"
             f"\n"
             f"【案件情報】\n"
-            f"案件名：{case_name or '未選択'}\n\n"
+            f"案件名：{new_case_name}\n\n"
 
             f"【確認が必要な項目】\n"
             f"{missing_text}\n\n"
