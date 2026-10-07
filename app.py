@@ -2092,13 +2092,18 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
         )
 
         # ⚡ 100t前後の超爆安単発通信（Gemini Flash-Lite駆動）
-        import google.generativeai as genai
-        model = genai.GenerativeModel(model_name=SEARCH_MODEL_NAME)
-        # model = genai.GenerativeModel("models/gemini-1.5-flash-lite")
-        response = model.generate_content(prompt)
-        clean_reply = response.text.strip() if response.text else raw_system_text
-        
-        return f"【{concierge_name}】: {clean_reply}"
+        generation_result = generate_ai_response(
+            system_instruction="",
+            user_prompt=prompt,
+            model_name=SEARCH_MODEL_NAME
+        )
+        reply_text = str(generation_result.get("text", "") or "").strip()
+        clean_reply = (reply_text if reply_text else raw_system_text)
+
+        return (
+            f"【{concierge_name}】: "
+            f"{clean_reply}"
+        )
 
     except Exception as e:
         # 万が一Gemini側が混雑等で落ちた場合の安全フォールバック（防衛線）
