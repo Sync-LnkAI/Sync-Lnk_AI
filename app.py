@@ -8516,6 +8516,20 @@ with all_tabs[0]:
                             else "none"
                         )
 
+                        calculation_hint_words = [
+                            "計算",
+                            "試算",
+                            "シミュレーション",
+                            "売却",
+                            "利回り",
+                            "ローン"
+                        ]
+
+                        contains_calculation_hint = any(
+                            keyword in str(user_input)
+                            for keyword in calculation_hint_words
+                        )
+
                         # ==========================================
                         # 計算ツール判定の実行制御
                         # ==========================================
@@ -8523,19 +8537,40 @@ with all_tabs[0]:
                         if pending_tool == "real_estate_sale":
                             calculation_tool = "real_estate_sale"
                             should_run_tool_router = False
+                        
+                        # 計算関連ワードがあれば優先
+                        elif contains_calculation_hint:
+                            should_run_tool_router = True
+                     
+                            tool_router_start_time = (time.time())
+
+                            (
+                                calculation_tool,
+                                tool_route_confidence,
+                                tool_router_in_t,
+                                tool_router_out_t,
+                                tool_router_cost
+                            ) = classify_calculation_tool(
+                                user_input=user_input,
+                                recent_history_str=
+                                    recent_history_for_router,
+                                pending_tool=pending_tool
+                            )
+
+                            tool_router_elapsed = (time.time() - tool_router_start_time)
 
                         # 検索系質問
                         elif need_search:
                             calculation_tool = "none"
                             should_run_tool_router = False
-
+                        
                         # 計算がありそうな会話だけ判定
                         elif response_mode in {
                             "analysis",
                             "default"
                         }:
-
                             should_run_tool_router = True
+                     
                             tool_router_start_time = (time.time())
 
                             (
