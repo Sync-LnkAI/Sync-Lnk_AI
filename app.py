@@ -8532,6 +8532,9 @@ with all_tabs[0]:
 
                         debug_text("DEBUG contains_calculation_hint", contains_calculation_hint)
                         debug_text("DEBUG user_input", user_input)
+                        debug_text("DEBUG need_search", need_search)
+                        debug_text("DEBUG response_mode", response_mode)
+                        debug_text("DEBUG contains_calculation_hint", contains_calculation_hint)
 
                         # ==========================================
                         # 計算ツール判定の実行制御
@@ -8543,6 +8546,8 @@ with all_tabs[0]:
                         
                         # 計算関連ワードがあれば優先
                         elif contains_calculation_hint:
+                            debug_text("DEBUG entered_contains_calculation_hint", True)
+                            
                             should_run_tool_router = True
                      
                             tool_router_start_time = (time.time())
