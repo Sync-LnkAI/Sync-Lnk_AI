@@ -6600,20 +6600,9 @@ def build_case_rename_followup(
     # 案件データが取得できなかった場合
     if not case_arguments:
         return (
-            f"案件名を"
-            f"「{new_case_name}」"
-            f"へ変更しました。\n\n"
+            f"案件名を"「{new_case_name}」へ変更しました。\n\n"
             "この案件にはまだ計算に必要な条件が登録されていません。"
             "計算に必要な各条件を教えてください。"
-            f"\n"
-            f"【案件情報】\n"
-            f"案件名：{new_case_name}\n\n"
-
-            f"【確認が必要な項目】\n"
-            f"{missing_text}\n\n"
-
-            f"【入力済条件】\n"
-            f"{entered_text}"
         )
 
     extraction_result = {
@@ -6643,13 +6632,7 @@ def build_case_rename_followup(
     # ======================================
     if calculation_status == "missing_fields":
 
-        missing_fields = (
-            execution_result.get(
-                "missing_fields",
-                []
-            )
-            or []
-        )
+        missing_fields = (execution_result.get("missing_fields", []) or [])
 
         missing_labels = [
             REAL_ESTATE_FIELD_LABELS.get(
@@ -6672,26 +6655,39 @@ def build_case_rename_followup(
             apply_defaults=False
         )
 
-        st.session_state[
-            "real_estate_calculation_pending"
-        ] = True
+        st.session_state["real_estate_calculation_pending"] = True
+
+        missing_message = format_missing_fields_message(
+            case_name=new_case_name,
+            current_arguments=st.session_state.get(
+                "real_estate_calculation_arguments",
+                {}
+            ),
+            missing_fields=missing_fields
+        )
 
         return (
             f"案件名を"
             f"「{new_case_name}」"
             f"へ変更しました。\n\n"
-            "この案件にはまだ計算に必要な条件が登録されていません。"
-            "計算に必要な各条件を教えてください。"
-            f"\n"
-            f"【案件情報】\n"
-            f"案件名：{new_case_name}\n\n"
-
-            f"【確認が必要な項目】\n"
-            f"{missing_text}\n\n"
-
-            f"【入力済条件】\n"
-            f"{entered_text}"
+            f"{missing_message}"
         )
+        # return (
+        #     f"案件名を"
+        #     f"「{new_case_name}」"
+        #     f"へ変更しました。\n\n"
+        #     "この案件にはまだ計算に必要な条件が登録されていません。"
+        #     "計算に必要な各条件を教えてください。"
+        #     f"\n"
+        #     f"【案件情報】\n"
+        #     f"案件名：{new_case_name}\n\n"
+
+        #     f"【確認が必要な項目】\n"
+        #     f"{missing_text}\n\n"
+
+        #     f"【入力済条件】\n"
+        #     f"{entered_text}"
+        # )
 
     # ======================================
     # 計算成功
