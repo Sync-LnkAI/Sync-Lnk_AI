@@ -2336,6 +2336,7 @@ def generate_gpt_response(
     """
 
     selected_model=model_name or "gpt-4o-mini"
+    debug_text("DEBUG GPT CALLED", selected_model)
 
     if openai_client is None:
         raise RuntimeError(
@@ -2413,6 +2414,8 @@ def generate_ai_response(
     }
     """
 
+    selected_provider = str(provider or "").strip().lower()
+
     debug_text("DEBUG selected_provider", selected_provider)
     debug_text("DEBUG model_name", model_name)
 
@@ -2427,6 +2430,11 @@ def generate_ai_response(
             model_name=model_name
         )
         debug_text("DEBUG GPT CALLED", model_name)
+    
+    if selected_provider != "gemini":
+        raise ValueError(
+            f"未対応のAIプロバイダーです: {provider}"
+        )
 
     # Gemini
     generation_config = {}
@@ -2458,18 +2466,14 @@ def generate_ai_response(
                 "parts": [user_prompt]
             }
         ],
-        generation_config=
-            generation_config
+        generation_config=generation_config
     )
 
     in_tokens = 0
     out_tokens = 0
 
     if (
-        hasattr(
-            response,
-            "usage_metadata"
-        )
+        hasattr(response, "usage_metadata")
         and response.usage_metadata
     ):
 
