@@ -2413,6 +2413,9 @@ def generate_ai_response(
     }
     """
 
+    debug_text("DEBUG selected_provider", selected_provider)
+    debug_text("DEBUG model_name", model_name)
+
     selected_provider = str(provider or "").strip().lower()
 
     if selected_provider == "gpt":
@@ -2423,6 +2426,7 @@ def generate_ai_response(
             response_format_json=response_format_json,
             model_name=model_name
         )
+        debug_text("DEBUG GPT CALLED", model_name)
 
     # Gemini
     generation_config = {}
