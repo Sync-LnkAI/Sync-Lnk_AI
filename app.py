@@ -8049,6 +8049,44 @@ with all_tabs[0]:
                         # 計算案件の選択待ち処理
                         selected_case_resume_arguments = None
                         if st.session_state.get("pending_case_selection", False):
+
+                            if should_exit_real_estate_calculation(user_input):
+                                st.session_state["pending_case_selection"] = False
+                                st.session_state["pending_case_candidates"] = []
+                                st.session_state["pending_case_arguments"] = {}
+                                st.session_state["pending_case_rename"] = False
+                                st.session_state["pending_case_rename_name"] = ""
+                                st.session_state["real_estate_calculation_pending"] = False
+                                st.session_state["active_calculation_case_id"] = None
+                                st.session_state["active_calculation_case_name"] = ""
+                                
+                                ai_reply = ("不動産計算を終了しました。")
+
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": ai_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": "conversation",
+                                    "created_at":
+                                        datetime.now(JST).isoformat()
+                                })
+
+                                save_message(
+                                    "assistant",
+                                    ai_reply,
+                                    current_msg_id,
+                                    "conversation"
+                                )
+                                increment_conversation_count()
+
+                                display_message(
+                                    current_concierge_name,
+                                    ai_reply
+                                )
+
+                                st.session_state.force_message_reload = True
+                                st.stop()
+                           
                             candidates = st.session_state.get("pending_case_candidates", [])
                             rename_selection_mode = bool(
                                 st.session_state.get("pending_case_rename", False)
@@ -8509,7 +8547,7 @@ with all_tabs[0]:
                                     f"「番号」または「案件名」で選んでください。\n\n"
                                     f"{candidate_names}"
                                 )
-                                
+
                                 if "response_mode" not in locals():
                                     response_mode = "conversation"
 
