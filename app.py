@@ -11938,7 +11938,7 @@ if is_admin:
                                 st.markdown(f"""
 
                                 | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |🤖 Provider |
-                                | :--- | :---: | :---: | :---: |:---: |
+                                | :--- | :---: | :---: | :---: |:---: |:---: |
                                 | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
                                 | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
                                 | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
