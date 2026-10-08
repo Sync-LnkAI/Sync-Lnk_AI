@@ -8,6 +8,7 @@ import threading
 from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
+from openai import OpenAI
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -25,21 +26,10 @@ SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY_PRO"]
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 
-try:
-    from openai import OpenAI
-except Exception:
-    OpenAI = None
-
-# ==========================================
-# AIプロバイダー設定
-# ==========================================
-
-# AI_PROVIDER = "gemini"
-AI_PROVIDER = "gpt"
-
-if AI_PROVIDER == "gpt":
-    openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
+# try:
+#     from openai import OpenAI
+# except Exception:
+#     OpenAI = None
 
 @st.cache_resource
 def init_supabase() -> Client:
@@ -48,30 +38,82 @@ def init_supabase() -> Client:
 supabase = init_supabase()
 
 genai.configure(api_key=GEMINI_API_KEY)
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+# # ==========================================
+# # AIモデル設定
+# # ==========================================
+# if AI_PROVIDER == "gemini":
+#     CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+#     MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
+#     SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
+#     SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
+#     GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
+
+#     chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
+#     memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
+#     summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
+# else:
+#     CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+#     MEMORY_MODEL_NAME = "gpt-4o-mini"
+#     SUMMARY_MODEL_NAME = "gpt-4o-mini"
+#     SEARCH_MODEL_NAME = "gpt-4o-mini"
+#     GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
+
+#     chat_model = None
+#     memory_model = None
+#     summary_model = None
+
 
 # ==========================================
-# AIモデル設定
+# AI構成
 # ==========================================
-if AI_PROVIDER == "gemini":
+AI_CONFIGURATION = "hybrid"
+# AI_CONFIGURATION = "gemini"
+# AI_CONFIGURATION = "gpt"
+
+# ==========================================
+# モデル・プロバイダー設定
+# ==========================================
+if AI_CONFIGURATION == "gemini":
+
+    CHAT_PROVIDER = "gemini"
+    BACKGROUND_PROVIDER = "gemini"
+    SUMMARY_PROVIDER = "gemini"
+    PERSONALITY_PROVIDER = "gemini"
+
     CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
-    MEMORY_MODEL_NAME = "gemini-3.1-flash-lite"
-    SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
     SEARCH_MODEL_NAME = "gemini-3.1-flash-lite"
-    GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
+    SUMMARY_MODEL_NAME = "gemini-3.1-flash-lite"
+    PERSONALITY_MODEL_NAME = "gemini-3.1-flash-lite"
 
-    chat_model = genai.GenerativeModel(CHAT_MODEL_NAME)
-    memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
-    summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
-else:
-    CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
-    MEMORY_MODEL_NAME = "gpt-4o-mini"
-    SUMMARY_MODEL_NAME = "gpt-4o-mini"
+elif AI_CONFIGURATION == "gpt":
+
+    CHAT_PROVIDER = "gpt"
+    BACKGROUND_PROVIDER = "gpt"
+    SUMMARY_PROVIDER = "gpt"
+    PERSONALITY_PROVIDER = "gpt"
+
+    CHAT_MODEL_NAME = "gpt-4o-mini"
     SEARCH_MODEL_NAME = "gpt-4o-mini"
-    GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
+    SUMMARY_MODEL_NAME = "gpt-4o-mini"
+    PERSONALITY_MODEL_NAME = "gpt-4o-mini"
 
-    chat_model = None
-    memory_model = None
-    summary_model = None
+else:
+    # ハイブリッド
+    CHAT_PROVIDER = "gemini"
+    BACKGROUND_PROVIDER = "gpt"
+    SUMMARY_PROVIDER = "gpt"
+    PERSONALITY_PROVIDER = "gpt"
+
+    CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
+    SEARCH_MODEL_NAME = "gpt-4o-mini"
+    SUMMARY_MODEL_NAME = "gpt-4o-mini"
+    PERSONALITY_MODEL_NAME = "gpt-4o-mini"
+
+# Google検索は常にGemini
+GOOGLE_SEARCH_PROVIDER = "gemini"
+GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
 
 USD_TO_JPY = 160 # （1ドル160円換算）
 
@@ -91,21 +133,57 @@ BACKGROUND_OUTPUT_PRICE_PER_MILLION = 1.50
 GPT4O_MINI_INPUT_PRICE_PER_MILLION = 0.15
 GPT4O_MINI_OUTPUT_PRICE_PER_MILLION = 0.60
 
+
+# ==========================================
+# Gemini 3.5 Flash-Lite
+# ==========================================
+PRICE_GEMINI_CHAT_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+PRICE_GEMINI_CHAT_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+
+# ==========================================
+# Gemini 3.1 Flash-Lite
+# ==========================================
+PRICE_GEMINI_BACKGROUND_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+PRICE_GEMINI_BACKGROUND_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+
+# ==========================================
+# GPT-4o-mini
+# ==========================================
+PRICE_GPT_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+PRICE_GPT_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+
+def calculate_ai_cost(
+    provider: str,
+    in_tokens: int,
+    out_tokens: int,
+    is_chat: bool = False
+) -> float:
+
+    provider = str(provider).lower()
+
+    if provider == "gpt":
+        return (in_tokens * PRICE_GPT_IN + out_tokens * PRICE_GPT_OUT)
+
+    if is_chat:
+        return (in_tokens * PRICE_GEMINI_CHAT_IN + out_tokens * PRICE_GEMINI_CHAT_OUT)
+
+    return (in_tokens * PRICE_GEMINI_BACKGROUND_IN + out_tokens * PRICE_GEMINI_BACKGROUND_OUT)
+
 # AIモデル毎に単価計算変数を切り替え
-if AI_PROVIDER == "gemini":
-    PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_BACKGROUND_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_BACKGROUND_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-else:
-    PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_BACKGROUND_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_BACKGROUND_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+# if AI_PROVIDER == "gemini":
+#     PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_BACKGROUND_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_BACKGROUND_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+# else:
+#     PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_BACKGROUND_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_BACKGROUND_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+#     PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -1663,6 +1741,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # else:
         #     new_summary = response.text
         summary_result = generate_ai_response(
+            provider=SUMMARY_PROVIDER,
             system_instruction="",
             user_prompt=contents_for_summary,
             model_name=SUMMARY_MODEL_NAME
@@ -1729,9 +1808,14 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         add_permanent_tokens(target_user_id, "summary", in_t, out_t)
         
         # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
-        sum_in_cost = in_t * PRICE_BACKGROUND_IN
-        sum_out_cost = out_t * PRICE_BACKGROUND_OUT
-        sum_yen = sum_in_cost + sum_out_cost
+        # sum_in_cost = in_t * PRICE_BACKGROUND_IN
+        # sum_out_cost = out_t * PRICE_BACKGROUND_OUT
+        # sum_yen = sum_in_cost + sum_out_cost
+        sum_yen = calculate_ai_cost(
+            provider=SUMMARY_PROVIDER,
+            in_tokens=in_t,
+            out_tokens=out_t
+        )
 
         # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
         save_system_audit_log(
@@ -1742,7 +1826,12 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             in_t=int(in_t),
             out_t=int(out_t),
             api_cost=float(sum_yen),
-            details=f"記憶の要約完了（独立ログ仕様）",
+            # details=f"記憶の要約完了（独立ログ仕様）",
+            details=(
+                f"provider={SUMMARY_PROVIDER}"
+                f" | model={SUMMARY_MODEL_NAME}"
+                f" | 記憶要約完了"
+            ),
             message_id=str(message_id)
         )
 
@@ -1849,8 +1938,16 @@ def generate_personality_error_msg(error_reason_text: str, current_instruction: 
         「〇〇だから、今回はできないんだ、ごめんね💦」という内容を、愛らしくスマートに伝える返答セリフを【1文だけ（3行以内）】で作成してください。
         プログラムやシステムという冷たい単語は一切使わず、{ai_name}自身のセリフとして出力すること。
         """
-        response = memory_model.generate_content(prompt)
-        return response.text.strip()
+        # response = memory_model.generate_content(prompt)
+        # return response.text.strip()
+        result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=prompt,
+            model_name=SUMMARY_MODEL_NAME
+        )
+        return str(result.get("text", "") or "").strip()
+
     except Exception:
         return "ごめんね💦 今ちょっと接続が不安定みたい。少しだけ時間を空けてみてね。"
 
@@ -2126,9 +2223,10 @@ def generate_personality_msg(raw_system_text: str, concierge_name: str, user_ins
 
         # ⚡ 100t前後の超爆安単発通信（Gemini Flash-Lite駆動）
         generation_result = generate_ai_response(
+            provider=PERSONALITY_PROVIDER,
             system_instruction="",
             user_prompt=prompt,
-            model_name=SEARCH_MODEL_NAME
+            model_name=PERSONALITY_MODEL_NAME
         )
         reply_text = str(generation_result.get("text", "") or "").strip()
         clean_reply = (reply_text if reply_text else raw_system_text)
@@ -2230,11 +2328,14 @@ def generate_gpt_response(
     *,
     system_instruction: str,
     user_prompt: str,
-    response_format_json: bool = False
+    response_format_json: bool = False,
+    model_name: str | None = None
 ):
     """
     GPT-4o mini 呼び出し共通関数
     """
+
+    selected_model=model_name or "gpt-4o-mini"
 
     if openai_client is None:
         raise RuntimeError(
@@ -2243,7 +2344,7 @@ def generate_gpt_response(
 
     response = (
         openai_client.chat.completions.create(
-            model=CHAT_MODEL_NAME,
+            model=selected_model,
             messages=[
                 {
                     "role": "system",
@@ -2287,11 +2388,14 @@ def generate_gpt_response(
     return {
         "text": content,
         "in_tokens": in_tokens,
-        "out_tokens": out_tokens
+        "out_tokens": out_tokens,
+        "provider": "gpt",
+        "model_name": selected_model
     }
 
 def generate_ai_response(
     *,
+    provider: str,
     system_instruction: str,
     user_prompt: str,
     response_format_json: bool = False,
@@ -2309,15 +2413,15 @@ def generate_ai_response(
     }
     """
 
-    if AI_PROVIDER == "gpt":
+    selected_provider = str(provider or "").strip().lower()
+
+    if selected_provider == "gpt":
 
         return generate_gpt_response(
-            system_instruction=
-                system_instruction,
-            user_prompt=
-                user_prompt,
-            response_format_json=
-                response_format_json
+            system_instruction=system_instruction,
+            user_prompt=user_prompt,
+            response_format_json=response_format_json,
+            model_name=model_name
         )
 
     # Gemini
@@ -2380,13 +2484,21 @@ def generate_ai_response(
         )
 
     return {
-        "text":
-            response.text or "",
-        "in_tokens":
-            in_tokens,
-        "out_tokens":
-            out_tokens
+        "text":response.text or "",
+        "in_tokens": in_tokens,
+        "out_tokens": out_tokens,
+        "provider": "gemini",
+        "model_name":(model_name or CHAT_MODEL_NAME)
     }
+
+    # return {
+    #     "text":
+    #         response.text or "",
+    #     "in_tokens":
+    #         in_tokens,
+    #     "out_tokens":
+    #         out_tokens
+    # }
 
 # 未使用
 # GPT移行完了後に削除候補
@@ -2706,6 +2818,7 @@ def classify_search_and_response_mode(
     #         0.0
     #     )
         judge_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
             system_instruction="",
             user_prompt=judge_prompt,
             response_format_json=True,
@@ -2746,7 +2859,12 @@ def classify_search_and_response_mode(
         # 共通関数が返したトークン数を取得
         judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
         judge_out_t = int(judge_result.get("out_tokens", 0) or 0)
-        judge_cost = (judge_in_t * PRICE_BACKGROUND_IN + judge_out_t * PRICE_BACKGROUND_OUT)
+        # judge_cost = (judge_in_t * PRICE_BACKGROUND_IN + judge_out_t * PRICE_BACKGROUND_OUT)
+        judge_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=judge_in_t,
+            out_tokens=judge_out_t
+        )
 
         return (
             need_search,
@@ -2953,6 +3071,7 @@ def classify_calculation_tool(
         """
 
         tool_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
             system_instruction="",
             user_prompt=tool_prompt,
             response_format_json=True,
@@ -3069,7 +3188,12 @@ def classify_calculation_tool(
         #     )
         in_tokens = int(tool_result.get("in_tokens", 0) or 0)
         out_tokens = int(tool_result.get("out_tokens", 0) or 0)
-        api_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
+        # api_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
+        api_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
 
         return (
             calculation_tool,
@@ -4595,6 +4719,7 @@ def extract_real_estate_sale_parameters(
         #     )
         # )
         extraction_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
             system_instruction="",
             user_prompt=extraction_prompt,
             response_format_json=True,
@@ -4679,7 +4804,12 @@ def extract_real_estate_sale_parameters(
         #     )
         in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
         out_tokens = int(extraction_result.get("out_tokens", 0) or 0)
-        extraction_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
+        # extraction_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
+        extraction_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
 
         if not should_calculate:
             return {
@@ -8665,10 +8795,15 @@ with all_tabs[0]:
                                     tool_router_cost
                                 ),
                                 details=(
-                                    f"ツール: {calculation_tool}"
-                                    f" | 継続中: {pending_tool}"
-                                    f" | 信頼度: "
-                                    f"{tool_route_confidence:.2f}"
+                                    f"provider={BACKGROUND_PROVIDER}"
+                                    f" | model={SEARCH_MODEL_NAME}"
+                                    f" | tool={calculation_tool}"
+                                    f" | pending={pending_tool}"
+                                    f" | confidence={tool_route_confidence:.2f}"
+                                    # f"ツール: {calculation_tool}"
+                                    # f" | 継続中: {pending_tool}"
+                                    # f" | 信頼度: "
+                                    # f"{tool_route_confidence:.2f}"
                                 ),
                                 message_id=str(
                                     current_msg_id
@@ -8695,6 +8830,8 @@ with all_tabs[0]:
                             out_t=search_judge_out_t,
                             api_cost=search_judge_cost,
                             details=(
+                                f"provider={BACKGROUND_PROVIDER}"
+                                f" | model={SEARCH_MODEL_NAME}"
                                 f"検索要否: "
                                 f"{'YES' if need_search else 'NO'}"
                                 f" | 回答モード: {response_mode}"
@@ -8721,7 +8858,12 @@ with all_tabs[0]:
                             search_result = (search_response.get("text", "なし"))
                             search_in_tokens = int(search_response.get("in_tokens", 0))
                             search_out_tokens = int(search_response.get("out_tokens", 0))
-                            search_cost = (search_in_tokens * PRICE_GOOGLESEARCH_IN + search_out_tokens * PRICE_GOOGLESEARCH_OUT)
+                            # search_cost = (search_in_tokens * PRICE_GOOGLESEARCH_IN + search_out_tokens * PRICE_GOOGLESEARCH_OUT)
+                            search_cost = calculate_ai_cost(
+                                provider=GOOGLE_SEARCH_PROVIDER,
+                                in_tokens=search_in_tokens,
+                                out_tokens=search_out_tokens
+                            )
 
                             save_system_audit_log(
                                 user_id=CURRENT_USER_ID,
@@ -8731,7 +8873,12 @@ with all_tabs[0]:
                                 in_t=search_in_tokens,
                                 out_t=search_out_tokens,
                                 api_cost=search_cost,
-                                details="Google Search Grounding",
+                                # details="Google Search Grounding",
+                                details=(
+                                    f"provider={GOOGLE_SEARCH_PROVIDER}"
+                                    f" | model={GOOGLE_MODEL_NAME}"
+                                    f" | Google Search Grounding"
+                                ),
                                 message_id=str(current_msg_id)
                             )
 
@@ -9609,9 +9756,7 @@ with all_tabs[0]:
                                 save_system_audit_log(
                                     user_id=CURRENT_USER_ID,
                                     plan_type=current_plan_type,
-                                    event_type=(
-                                        "CALCULATION_ERROR"
-                                    ),
+                                    event_type=("CALCULATION_ERROR"),
                                     processing_time=0.0,
                                     in_t=0,
                                     out_t=0,
@@ -9620,9 +9765,7 @@ with all_tabs[0]:
                                         "tool=real_estate_sale"
                                         f" | error={calculation_execution_result.get('error', '')}"
                                     )[:500],
-                                    message_id=str(
-                                        current_msg_id
-                                    )
+                                    message_id=str(current_msg_id)
                                 )
 
                             elif calculation_status == (
@@ -9682,7 +9825,10 @@ with all_tabs[0]:
                                 api_cost=
                                     extraction_cost,
                                 details=(
-                                    "tool=real_estate_sale"
+                                    f"provider={BACKGROUND_PROVIDER}"
+                                    f" | model={SEARCH_MODEL_NAME}"
+                                    f" | tool=real_estate_sale"
+                                    # "tool=real_estate_sale"
                                 ),
                                 message_id=str(
                                     current_msg_id
@@ -9976,6 +10122,7 @@ with all_tabs[0]:
                             # response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
                             debug_text("DEBUG before_chat_generation", True)
                             chat_result = generate_ai_response(
+                                provider=CHAT_PROVIDER,
                                 system_instruction=system_instruction,
                                 user_prompt=user_input,
                                 model_name=CHAT_MODEL_NAME
@@ -10248,7 +10395,13 @@ with all_tabs[0]:
                             st.session_state.force_message_reload = True
                             # st.session_state.conversation_count += 1
                             # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
-                            current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                            # current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
+                            current_通_cost = calculate_ai_cost(
+                                provider=CHAT_PROVIDER,
+                                in_tokens=in_t,
+                                out_tokens=out_t,
+                                is_chat=True
+                            )
 
                             if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
                                 
@@ -10313,7 +10466,12 @@ with all_tabs[0]:
                                 in_t=in_t, 
                                 out_t=out_t, 
                                 api_cost=current_通_cost, 
-                                details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
+                                # details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
+                                details=(
+                                    f"provider={CHAT_PROVIDER}"
+                                    f" | model={CHAT_MODEL_NAME}"
+                                    f" | 検索時間={search_elapsed:.2f}秒"
+                                ),
                                 message_id=str(current_msg_id),
                                 search_time=float(search_elapsed)
                             )
