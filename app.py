@@ -11779,6 +11779,8 @@ if is_admin:
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
                                     "total_yen": 0.0, "total_time": 0.0,
+                                    "judge_details": "", "chat_details": "", "summary_details": "",
+                                    "tool_details": "", "calc_details": "", "search_exec_details": "",
                                     "calculation_result": ""
                                 }
                             
@@ -11794,6 +11796,9 @@ if is_admin:
                                 merged_logs[msg_id]["sum_in"] = in_t
                                 merged_logs[msg_id]["sum_out"] = out_t
                                 merged_logs[msg_id]["sum_cost"] = cost
+                                merged_logs[msg_id]["summary_details"] = (
+                                    log.get("details", "")
+                                )
 
                             elif action == "RESPONSE_ROUTER":
                                 merged_logs[msg_id]["judge_time"] = proc_time
@@ -11803,18 +11808,27 @@ if is_admin:
                                 merged_logs[msg_id]["judge_result"] = (
                                     log.get("details", "")
                                 )
+                                merged_logs[msg_id]["judge_details"] = (
+                                    log.get("details", "")
+                                )
                             
                             elif action == "CALCULATION_TOOL_ROUTER":
                                 merged_logs[msg_id]["tool_time"] = proc_time
                                 merged_logs[msg_id]["tool_in"] = in_t
                                 merged_logs[msg_id]["tool_out"] = out_t
                                 merged_logs[msg_id]["tool_cost"] = cost
+                                merged_logs[msg_id]["tool_details"] = (
+                                    log.get("details", "")
+                                )
 
                             elif action == "CALCULATION_EXTRACTION":
                                 merged_logs[msg_id]["calc_time"] = proc_time
                                 merged_logs[msg_id]["calc_in"] = in_t
                                 merged_logs[msg_id]["calc_out"] = out_t
                                 merged_logs[msg_id]["calc_cost"] = cost
+                                merged_logs[msg_id]["calc_details"] = (
+                                    log.get("details", "")
+                                )
                             
                             elif action == "CALCULATION_SUCCESS":
                                 merged_logs[msg_id]["calculation_result"] = log.get("details", "")
@@ -11830,6 +11844,9 @@ if is_admin:
                                 merged_logs[msg_id]["search_exec_out"] = out_t
                                 merged_logs[msg_id]["search_exec_cost"] = cost
                                 merged_logs[msg_id]["search_exec_time"] = proc_time
+                                merged_logs[msg_id]["search_exec_details"] = (
+                                    log.get("details", "")
+                                )
 
                             elif action == "CHAT_SUCCESS":
                                 # st.write(
@@ -11841,37 +11858,34 @@ if is_admin:
                                     if log.get("chat_processing_time") is not None
                                     else proc_time
                                 )
-
                                 merged_logs[msg_id]["chat_in"] = (
                                     log.get("chat_in_tokens", in_t)
                                     if log.get("chat_in_tokens") is not None
                                     else in_t
                                 )
-
                                 merged_logs[msg_id]["chat_out"] = (
                                     log.get("chat_out_tokens", out_t)
                                     if log.get("chat_out_tokens") is not None
                                     else out_t
                                 )
-
                                 merged_logs[msg_id]["chat_cost"] = (cost)
-
                                 merged_logs[msg_id]["search_time"] = (
                                     log.get("search_processing_time", 0.0)
                                     if log.get("search_processing_time") is not None
                                     else 0.0
                                 )
-
                                 merged_logs[msg_id]["search_in"] = (
                                     log.get("search_in_tokens", 0)
                                     if log.get("search_in_tokens") is not None
                                     else 0
                                 )
-
                                 merged_logs[msg_id]["search_out"] = (
                                     log.get("search_out_tokens", 0)
                                     if log.get("search_out_tokens") is not None
                                     else 0
+                                )
+                                merged_logs[msg_id]["chat_details"] = (
+                                    log.get("details", "")
                                 )
 
                             # 1会話単位の、全体の総実費合計コスト集計
@@ -11923,15 +11937,15 @@ if is_admin:
                             with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                                 st.markdown(f"""
 
-                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |
+                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)トークン | 🪙 出力(Out)トークン |💰 原価 |🤖 Provider |
                                 | :--- | :---: | :---: | :---: |:---: |
-                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} |
-                                | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} |
-                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} |
-                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} |
-                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 |
-                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} |
-                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} |
+                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
+                                | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']}
+                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']}
+                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']}
+                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
+                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']}
+                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']}
 
                                 🔎 **【検索判定結果】** {item['judge_result']}
 
