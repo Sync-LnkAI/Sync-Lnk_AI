@@ -34,8 +34,8 @@ except Exception:
 # AIプロバイダー設定
 # ==========================================
 
-AI_PROVIDER = "gemini"
-# AI_PROVIDER = "gpt"
+# AI_PROVIDER = "gemini"
+AI_PROVIDER = "gpt"
 
 if AI_PROVIDER == "gpt":
     openai_client = OpenAI(api_key=OPENAI_API_KEY)
@@ -63,7 +63,7 @@ if AI_PROVIDER == "gemini":
     memory_model = genai.GenerativeModel(MEMORY_MODEL_NAME)
     summary_model = genai.GenerativeModel(SUMMARY_MODEL_NAME)
 else:
-    CHAT_MODEL_NAME = "gpt-4o-mini"
+    CHAT_MODEL_NAME = "gemini-3.5-flash-lite"
     MEMORY_MODEL_NAME = "gpt-4o-mini"
     SUMMARY_MODEL_NAME = "gpt-4o-mini"
     SEARCH_MODEL_NAME = "gpt-4o-mini"
@@ -97,11 +97,15 @@ if AI_PROVIDER == "gemini":
     PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
     PRICE_BACKGROUND_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
     PRICE_BACKGROUND_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 else:
-    PRICE_LITE_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
-    PRICE_LITE_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_LITE_IN = (LITE_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_LITE_OUT = (LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
     PRICE_BACKGROUND_IN = (GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
     PRICE_BACKGROUND_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+    PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -8717,7 +8721,7 @@ with all_tabs[0]:
                             search_result = (search_response.get("text", "なし"))
                             search_in_tokens = int(search_response.get("in_tokens", 0))
                             search_out_tokens = int(search_response.get("out_tokens", 0))
-                            search_cost = (search_in_tokens * PRICE_BACKGROUND_IN + search_out_tokens * PRICE_BACKGROUND_OUT)
+                            search_cost = (search_in_tokens * PRICE_GOOGLESEARCH_IN + search_out_tokens * PRICE_GOOGLESEARCH_OUT)
 
                             save_system_audit_log(
                                 user_id=CURRENT_USER_ID,
