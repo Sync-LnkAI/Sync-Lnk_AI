@@ -1507,9 +1507,18 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             )
 
             total_message_count = int(count_res.count or 0)
+            # save_debug_log(
+            #     event_type="SUMMARY_START",
+            #     details=f"messages={total_message_count}"
+            # )
             save_debug_log(
                 event_type="SUMMARY_START",
-                details=f"messages={total_message_count}"
+                details=(
+                    f"messages={total_message_count}"
+                    f" | conversation_count={st.session_state.conversation_count}"
+                    f" | last_summary={last_summarized_message_count}"
+                    f" | added={messages_added_since_last_summary}"
+                )
             )
 
         except Exception as db_err:
@@ -1556,17 +1565,28 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             total_message_count
             - last_summarized_message_count
         )
-        st.write(
-            "SUMMARY DEBUG",
-            {
-                "total_message_count":
-                total_message_count,
-                "last_summarized_message_count":
-                last_summarized_message_count,
-                "messages_added_since_last_summary":
-                messages_added_since_last_summary
-            }
+        # st.write(
+        #     "SUMMARY DEBUG",
+        #     {
+        #         "total_message_count":
+        #         total_message_count,
+        #         "last_summarized_message_count":
+        #         last_summarized_message_count,
+        #         "messages_added_since_last_summary":
+        #         messages_added_since_last_summary
+        #     }
+        # )
+
+        # 最新100件より前のmicro_chatを削除
+        deleted_count = cleanup_old_micro_chats()
+        print(
+            f"micro_chat整理実行: "
+            f"{deleted_count}件削除"
         )
+
+        # 期限切れ計算メモの削除
+        expired_case_count = (cleanup_expired_calculation_cases())
+
 
         # 初回以外は、前回要約から10件増えるまで何もしない
         if (
@@ -3606,8 +3626,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -10464,26 +10484,12 @@ with all_tabs[0]:
                                 is_chat=True
                             )
 
-                            if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
-                                
-                                # 最新100件より前のmicro_chatを削除
-                                deleted_count = cleanup_old_micro_chats()
-                                print(
-                                    f"micro_chat整理実行: "
-                                    f"{deleted_count}件削除"
-                                )
-
-                                # 期限切れ計算メモの削除
-                                expired_case_count = (cleanup_expired_calculation_cases())
-
-                                # 要約処理の実行（スレッド起動）
-                                async_thread = threading.Thread(
-                                    target=check_and_summarize_history,
-                                    args=(current_msg_id, current_plan_type)
-                                )
-                                async_thread.start()
-
-
+                            # 要約処理の実行（スレッド起動）
+                            async_thread = threading.Thread(
+                                target=check_and_summarize_history,
+                                args=(current_msg_id, current_plan_type)
+                            )
+                            async_thread.start()
 
                             # ==================================================================
                             # 🧠 記憶の自動要約マルチスレッド
@@ -10537,7 +10543,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
