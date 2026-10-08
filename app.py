@@ -3606,8 +3606,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -8676,6 +8676,26 @@ with all_tabs[0]:
                                 False
                             )
                             else "none"
+                        )
+                        debug_text(
+                            "DEBUG real_estate_calculation_pending",
+                            st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
+                        )
+
+                        debug_text(
+                            "DEBUG pending_tool",
+                            pending_tool
+                        )
+
+                        debug_json(
+                            "DEBUG calculation_arguments",
+                            st.session_state.get(
+                                "real_estate_calculation_arguments",
+                                {}
+                            )
                         )
 
                         calculation_hint_words = [
