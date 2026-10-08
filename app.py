@@ -8509,6 +8509,9 @@ with all_tabs[0]:
                                     f"「番号」または「案件名」で選んでください。\n\n"
                                     f"{candidate_names}"
                                 )
+                                
+                                if "response_mode" not in locals():
+                                    response_mode = "conversation"
 
                                 all_messages.append({
                                     "role": "user",
