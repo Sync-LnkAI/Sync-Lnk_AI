@@ -2336,7 +2336,6 @@ def generate_gpt_response(
     """
 
     selected_model=model_name or "gpt-4o-mini"
-    debug_text("DEBUG GPT CALLED", selected_model)
 
     if openai_client is None:
         raise RuntimeError(
@@ -2413,12 +2412,6 @@ def generate_ai_response(
         "out_tokens": 456
     }
     """
-
-    selected_provider = str(provider or "").strip().lower()
-
-    debug_text("DEBUG selected_provider", selected_provider)
-    debug_text("DEBUG model_name", model_name)
-
     selected_provider = str(provider or "").strip().lower()
 
     if selected_provider == "gpt":
@@ -2429,7 +2422,6 @@ def generate_ai_response(
             response_format_json=response_format_json,
             model_name=model_name
         )
-        debug_text("DEBUG GPT CALLED", model_name)
     
     if selected_provider != "gemini":
         raise ValueError(
@@ -3614,8 +3606,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
