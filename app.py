@@ -3213,8 +3213,6 @@ def classify_search_and_response_mode(
 
         if not memory_search_query:
             memory_search_query = str(user_input or "").strip()
-        if not memory_related_keywords:
-            memory_related_keywords = str(user_input or "").strip()
 
         try:
             confidence = float(judge_data.get("confidence", 0.0))
