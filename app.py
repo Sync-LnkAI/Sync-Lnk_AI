@@ -3016,7 +3016,6 @@ def classify_search_and_response_mode(
         【過去会話検索語】
         最新ユーザー発言から、過去会話検索に利用する話題やテーマを抽出してください。
         ただし、以下のような会話上の表現は除外してください。
-        除外例
         ・以前に
         ・前に
         ・話した
@@ -3026,8 +3025,10 @@ def classify_search_and_response_mode(
         ・どんな
         ・教えて
 
-        ・検索語は1個とは限りません。重要な話題や対象が複数ある場合は、空白区切りで複数抽出してください。
-        ・検索語は、過去会話を探すための話題や対象を表す短い語句にしてください。
+        検索語は1個とは限りません。
+        重要な話題や対象が複数ある場合は、空白区切りで複数抽出してください。
+        
+        検索語は、過去会話を探すための話題や対象を表す短い語句にしてください。
 
         例
         「以前に話した〇〇の話って覚えてる？」
@@ -3041,8 +3042,37 @@ def classify_search_and_response_mode(
 
         検索語が見つからない場合は、最新ユーザー発言をそのまま返してください。
 
+        【長期記憶との関連キーワード】
+        【過去会話検索語】と【記憶の要約】を確認し、
+        検索語と関連する話題、対象、作品名、人物名、プロジェクト名などが
+        【記憶の要約】に存在する場合は、補助検索キーワードとして抽出してください。
+        存在しない場合は空にしてください。
+
+        例
+        検索語:〇〇
+        記憶の要約:〇〇に関連する情報が存在
+        ↓
+        関連キーワード:△△
+
+        例
+        検索語:趣味
+        記憶の要約:趣味として複数の内容が記録されている
+        ↓
+        関連キーワード:趣味に関連する記憶の要約内の情報
+
+        例
+        検索語:仕事
+        記憶の要約:仕事に関連する内容が記録されている
+        ↓
+        関連キーワード:仕事に関連する記憶の要約内の情報
+
+        関連する内容が存在しない場合は空にしてください。
+
         【直近の会話】
         {recent_history_str}
+
+        【記憶の要約】
+        {summary_memory_context}
 
         【最新ユーザー発言】
         {user_input}
@@ -3052,7 +3082,8 @@ def classify_search_and_response_mode(
             "need_search": false,
             "response_mode": "conversation",
             "confidence": 0.90,
-            "memory_search_query": "〇〇"
+            "memory_search_query": "〇〇",
+            "memory_related_keywords": "△△"
         }}
         """
         # judge_model = genai.GenerativeModel(
@@ -3185,9 +3216,16 @@ def classify_search_and_response_mode(
         response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
 
         memory_search_query = str(judge_data.get("memory_search_query", "") or "").strip()
+        memory_related_keywords = str(judge_data.get("memory_related_keywords", "") or "").strip()
+        # enhanced_memory_search_query = (
+        #     f"{memory_search_query} "
+        #     f"{memory_related_keywords}"
+        # ).strip()
 
         if not memory_search_query:
             memory_search_query = str(user_input or "").strip()
+        if not memory_related_keywords:
+            memory_related_keywords = str(user_input or "").strip()
 
         try:
             confidence = float(judge_data.get("confidence", 0.0))
@@ -3222,7 +3260,8 @@ def classify_search_and_response_mode(
             judge_in_t,
             judge_out_t,
             judge_cost,
-            memory_search_query
+            memory_search_query,
+            memory_related_keywords
         )
 
     except Exception as judge_error:
@@ -3250,6 +3289,7 @@ def classify_search_and_response_mode(
             0,
             0,
             0.0,
+            str(user_input or "").strip(),
             str(user_input or "").strip()
         )
 
@@ -9020,8 +9060,13 @@ with all_tabs[0]:
 
                         search_start_time = time.time()
                         
+                        enhanced_memory_search_query = (
+                            f"{memory_search_query} "
+                            f"{memory_related_keywords}"
+                        ).strip()
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        past_logs_context = search_past_logs_hybrid(memory_search_query)
+                        past_logs_context = search_past_logs_hybrid(enhanced_memory_search_query)
+
                         debug_text("DEBUG memory_search_query", memory_search_query)
 
                         search_elapsed = time.time() - search_start_time
