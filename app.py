@@ -9,6 +9,8 @@ from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
 from openai import OpenAI
+import unicodedata
+from difflib import SequenceMatcher
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -184,6 +186,7 @@ def calculate_ai_cost(
 #     PRICE_BACKGROUND_OUT = (GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 #     PRICE_GOOGLESEARCH_IN = (BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
 #     PRICE_GOOGLESEARCH_OUT = (BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000) * USD_TO_JPY
+# ==========================================
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
@@ -216,6 +219,23 @@ is_dev_site = (
 )
 
 DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_tester"
+# ==========================================
+
+#過去会話の類似判定・集約関数用の定数定義
+PAST_LOG_FINAL_COUNT = 3
+
+# 重複排除前に取得する候補数
+PAST_LOG_CANDIDATE_COUNT = 12
+
+# 文章がこの値以上似ていれば同一グループ
+PAST_LOG_DUPLICATE_THRESHOLD = 0.82
+
+# 別の日に類似会話が存在する場合の加点
+PAST_LOG_REPEAT_BONUS_PER_DAY = 0.03
+
+# 頻度ボーナスの最大値
+PAST_LOG_REPEAT_BONUS_MAX = 0.12
+# ==========================================
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 if "tokens_loaded" not in st.session_state:
@@ -236,6 +256,7 @@ if "tokens_loaded" not in st.session_state:
         st.session_state.conversation_count = 0
         
     st.session_state["tokens_loaded"] = True
+# ==========================================
 
 # --- セッション状態の初期化 ---
 if "last_in_tokens" not in st.session_state:
@@ -924,6 +945,175 @@ def cleanup_old_micro_chats(
 
         return 0
 
+# 過去会話の集約処理のための文章正規化関数
+def normalize_past_log_text(value: str) -> str:
+
+    text = unicodedata.normalize("NFKC", str(value or ""))
+
+    text = text.lower()
+
+    # HTML改行を空白へ変換
+    text = re.sub(r"<br\s*/?>", " ", text, flags=re.IGNORECASE)
+
+    # よくある会話上の差異を除去
+    text = re.sub(
+        r"[\s、。！？!?,.:：；;「」『』"
+        r"（）()\[\]【】]+",
+        "",
+        text
+    )
+
+    return text
+
+# 過去会話の集約処理のための内容の類似度を計算する関数
+def calculate_past_log_similarity(text_a: str, text_b: str) -> float:
+
+    normalized_a = normalize_past_log_text(text_a)
+    normalized_b = normalize_past_log_text(text_b)
+
+    if not normalized_a or not normalized_b:
+        return 0.0
+
+    if normalized_a == normalized_b:
+        return 1.0
+
+    return SequenceMatcher(
+        None,
+        normalized_a,
+        normalized_b
+    ).ratio()
+
+# 過去会話の日付取得関数
+def get_past_log_date(item: dict) -> str:
+
+    created_at = str(item.get("created_at", "") or "").strip()
+    if not created_at:
+        return ""
+    try:
+        parsed_datetime = (datetime.fromisoformat(created_at.replace("Z", "+00:00")))
+        return parsed_datetime.date().isoformat()
+    except Exception:
+        # ISO形式なら通常、先頭10文字が日付
+        return created_at[:10]
+
+# 過去会話の類似した会話をグループ化する関数
+def group_similar_past_logs(
+    candidate_results: list,
+    duplicate_threshold: float = 0.82
+) -> list:
+
+    groups = []
+    for candidate in candidate_results:
+        candidate_content = str(candidate.get("content", "") or "").strip()
+
+        if not candidate_content:
+            continue
+
+        matched_group = None
+        matched_similarity = 0.0
+
+        for group in groups:
+            representative = group["representative"]
+            representative_content = str(representative.get("content", "") or "").strip()
+            similarity = (
+                calculate_past_log_similarity(candidate_content, representative_content)
+            )
+
+            if (similarity >= duplicate_threshold and similarity > matched_similarity):
+                matched_group = group
+                matched_similarity = similarity
+
+        if matched_group is None:
+            groups.append({
+                "representative": candidate,
+                "members": [candidate],
+                "dates": {
+                    get_past_log_date(
+                        candidate
+                    )
+                },
+                "highest_score": float(
+                    candidate.get(
+                        "final_score",
+                        0.0
+                    )
+                    or 0.0
+                )
+            })
+
+            continue
+
+        matched_group["members"].append(candidate)
+        candidate_date = get_past_log_date(candidate)
+
+        if candidate_date:
+            matched_group["dates"].add(candidate_date)
+
+        candidate_score = float(candidate.get("final_score", 0.0) or 0.0)
+
+        # 同一グループ内では、
+        # final_scoreが最も高い会話を代表にする
+        if (candidate_score > matched_group["highest_score"]):
+            matched_group["representative"] = candidate
+            matched_group["highest_score"] = candidate_score
+
+    return groups
+
+# 過去会話の別日に繰り返された回数でボーナスを付ける関数
+def score_past_log_groups(groups: list) -> list:
+
+    scored_groups = []
+    for group in groups:
+        representative = dict(group["representative"])
+
+        date_count = len(
+            {
+                date_value
+                for date_value in group["dates"]
+                if date_value
+            }
+        )
+
+        # 最初の1日は元のスコアに含まれるため、
+        # 2日目以降だけ継続性ボーナスを付ける
+        additional_date_count = max(0, date_count - 1)
+
+        repeat_bonus = min(
+            (
+                additional_date_count
+                * PAST_LOG_REPEAT_BONUS_PER_DAY
+            ),
+            PAST_LOG_REPEAT_BONUS_MAX
+        )
+
+        original_score = float(group.get("highest_score", 0.0) or 0.0)
+
+        aggregated_score = (original_score + repeat_bonus)
+
+        representative["original_final_score"] = original_score
+        representative["repeat_date_count"] = date_count
+        representative["repeat_message_count"] = len(group["members"])
+        representative["repeat_bonus"] = repeat_bonus
+        representative["aggregated_score"] = aggregated_score
+
+        scored_groups.append(representative)
+
+    scored_groups.sort(key=lambda item: item.get("aggregated_score", 0.0), reverse=True)
+
+    return scored_groups
+
+# 過去会話の検索候補から最終3件を選択する関数
+def select_grouped_past_logs(
+    candidate_results: list,
+    final_count: int = 3,
+    duplicate_threshold: float = 0.82
+) -> list:
+
+    groups = group_similar_past_logs(candidate_results, duplicate_threshold)
+    scored_groups = score_past_log_groups(groups)
+
+    return scored_groups[:final_count]
+
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
 # ==================================================================
@@ -952,7 +1142,7 @@ def search_past_logs_hybrid(query_text: str):
             {
                 "query_embedding": query_embedding,
                 "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
-                "match_count": 5,
+                "match_count": PAST_LOG_CANDIDATE_COUNT,
                 "filter_user_id": CURRENT_USER_ID
             }
         ).execute()
@@ -998,10 +1188,13 @@ def search_past_logs_hybrid(query_text: str):
             #     bonus += 0.05
             # item["final_score"] = score + bonus
 
-        results.sort(key=lambda x: x["final_score"], reverse=True)
+        results.sort(key=lambda item: item.get("final_score", 0.0), reverse=True)
 
-        # 関連度上位3件のユーザー発言
-        user_results = results[:3]
+        user_results = select_grouped_past_logs(
+            candidate_results=results,
+            final_count=PAST_LOG_FINAL_COUNT,
+            duplicate_threshold=(PAST_LOG_DUPLICATE_THRESHOLD)
+        )
 
         # message_idがある検索結果だけを抽出
         message_ids = list(
@@ -1064,6 +1257,19 @@ def search_past_logs_hybrid(query_text: str):
             for assistant_message in (assistant_by_message_id.get(user_message_id, [])):
                 combined_results.append(assistant_message)
         elapsed = time.time() - start_time
+
+        debug_selection = []
+        for item in user_results:
+            debug_selection.append({
+                "content":item.get("content", ""),
+                "original_final_score":item.get("original_final_score", item.get("final_score", 0.0)),
+                "repeat_message_count":item.get("repeat_message_count", 1),
+                "repeat_date_count":item.get("repeat_date_count", 1),
+                "repeat_bonus":item.get("repeat_bonus", 0.0),
+                "aggregated_score":item.get("aggregated_score",item.get("final_score", 0.0))
+            })
+
+        debug_json("DEBUG grouped_past_logs", debug_selection)
 
         return combined_results
 
