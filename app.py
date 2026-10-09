@@ -2916,7 +2916,8 @@ CALCULATION_TOOLS = {
 def classify_search_and_response_mode(
     user_input: str,
     recent_history_str: str = "",
-    calculation_pending: bool = False
+    calculation_pending: bool = False,
+    summary_memory_context: str = ""
 ):
     """
     検索要否と回答モードを1回のGemini呼び出しで判定する。
@@ -9031,8 +9032,23 @@ with all_tabs[0]:
 
                         router_start_time = time.time()
 
-                        if is_micro_chat(user_input):
+                        # ==========================================
+                        # ルーター用 長期記憶作成
+                        # ==========================================
+                        summary_memories_for_router = (get_memories(source="summary"))
 
+                        summary_memory_context_for_router = (
+                            "\n".join(
+                                [
+                                    m["fact"]
+                                    for m in summary_memories_for_router
+                                ]
+                            )
+                            if summary_memories_for_router
+                            else "なし"
+                        )
+
+                        if is_micro_chat(user_input):
                             response_mode = "micro_chat"
                             route_source = "micro_chat"
                             need_search = False
@@ -9054,6 +9070,8 @@ with all_tabs[0]:
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router,
+                                calculation_pending=calculation_pending,
+                                summary_memory_context=summary_memory_context_for_router
                             )
                             route_source = "llm_router"
 
