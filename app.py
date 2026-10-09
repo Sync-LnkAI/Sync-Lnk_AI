@@ -1258,18 +1258,16 @@ def search_past_logs_hybrid(query_text: str):
                 combined_results.append(assistant_message)
         elapsed = time.time() - start_time
 
-        debug_selection = []
-        for item in user_results:
-            debug_selection.append({
-                "content":item.get("content", ""),
-                "original_final_score":item.get("original_final_score", item.get("final_score", 0.0)),
-                "repeat_message_count":item.get("repeat_message_count", 1),
-                "repeat_date_count":item.get("repeat_date_count", 1),
-                "repeat_bonus":item.get("repeat_bonus", 0.0),
-                "aggregated_score":item.get("aggregated_score",item.get("final_score", 0.0))
-            })
+        debug_past_logs = []
+        for user_message in user_results:
+            row = {"user": user_message.get("content", "")}
+            user_message_id = str(user_message.get("message_id", "") or "")
+            assistant_messages = (assistant_by_message_id.get(user_message_id, []))
+            if assistant_messages:
+                row["assistant"] = (assistant_messages[0].get("content", ""))
+            debug_past_logs.append(row)
 
-        debug_json("DEBUG grouped_past_logs", debug_selection)
+        debug_json("DEBUG past_logs_with_assistant", debug_past_logs)
 
         return combined_results
 
