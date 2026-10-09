@@ -9049,7 +9049,8 @@ with all_tabs[0]:
                                 search_judge_in_t,
                                 search_judge_out_t,
                                 search_judge_cost,
-                                memory_search_query
+                                memory_search_query,
+                                memory_related_keywords
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router,
