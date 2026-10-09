@@ -9047,6 +9047,7 @@ with all_tabs[0]:
                             if summary_memories_for_router
                             else "なし"
                         )
+                        calculation_pending = bool(st.session_state.get("real_estate_calculation_pending", False))
 
                         if is_micro_chat(user_input):
                             response_mode = "micro_chat"
