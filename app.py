@@ -2976,6 +2976,7 @@ def classify_search_and_response_mode(
         【検索要否】
         ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
         ・一般知識、日常会話、悩み相談、感想、アイデア出し、文章内に十分な情報がある計算や分析なら need_search を false にしてください。
+        ・ただし、税制、投資制度、非課税制度、補助金、社会保障制度などの制度に関係する場合は true にしてください。
         ・直前の会話で検索を必要とする質問があり、最新発言が地域、条件、対象などを追加または訂正している場合は、前の質問を具体化する発言として判断してください。
         ・作品名、人物名、企業名、サービス名などの固有名詞について、その内容、概要、特徴、経歴、仕様、あらすじなどの説明を求めている場合は、need_search を true にしてください。
         ・作品名、人物名、企業名、サービス名などの固有名詞や、作品（映画、ドラマ、漫画、小説、アニメ等）の内容、登場人物、あらすじ、設定、組織、人間関係について説明や確認を求めている場合は、need_search を true にしてください。
@@ -9202,30 +9203,31 @@ with all_tabs[0]:
                             calculation_tool = "none"
                             should_run_tool_router = False
                         
-                        # 計算がありそうな会話だけ判定
-                        elif response_mode in {
-                            "analysis",
-                            "default"
-                        }:
-                            should_run_tool_router = True
+                        # # 計算がありそうな会話だけ判定
+                        # elif response_mode in {
+                        #     "analysis",
+                        #     "default"
+                        # }:
+                        #     should_run_tool_router = True
                      
-                            tool_router_start_time = (time.time())
+                        #     tool_router_start_time = (time.time())
 
-                            (
-                                calculation_tool,
-                                tool_route_confidence,
-                                tool_router_in_t,
-                                tool_router_out_t,
-                                tool_router_cost
-                            ) = classify_calculation_tool(
-                                user_input=user_input,
-                                recent_history_str=
-                                    recent_history_for_router,
-                                pending_tool=pending_tool
-                            )
+                        #     (
+                        #         calculation_tool,
+                        #         tool_route_confidence,
+                        #         tool_router_in_t,
+                        #         tool_router_out_t,
+                        #         tool_router_cost
+                        #     ) = classify_calculation_tool(
+                        #         user_input=user_input,
+                        #         recent_history_str=
+                        #             recent_history_for_router,
+                        #         pending_tool=pending_tool
+                        #     )
 
-                            tool_router_elapsed = (time.time() - tool_router_start_time)
+                        #     tool_router_elapsed = (time.time() - tool_router_start_time)
 
+                        # 計算ヒントがない通常会話・分析
                         else:
                             calculation_tool = "none"
                             should_run_tool_router = False
