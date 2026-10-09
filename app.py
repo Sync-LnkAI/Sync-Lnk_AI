@@ -2928,6 +2928,7 @@ def classify_search_and_response_mode(
         judge_in_t: int
         judge_out_t: int
         judge_cost: float
+        memory_search_query: str
     """
 
     try:
@@ -2969,19 +2970,14 @@ def classify_search_and_response_mode(
         ↓
         real_estate_sale
 
-        直近の会話と最新ユーザー発言を読み、次の2項目を判定してください。
+        直近の会話と最新ユーザー発言を読み、次の項目を判定してください。
 
         【検索要否】
-        最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、
-        上映情報、店舗情報、製品仕様などを正確に回答するために
-        インターネット検索が必要なら true にしてください。
-
-        一般知識、日常会話、悩み相談、感想、アイデア出し、
-        文章内に十分な情報がある計算や分析なら false にしてください。
-
-        直前の会話で検索を必要とする質問があり、
-        最新発言が地域、条件、対象などを追加または訂正している場合は、
-        前の質問を具体化する発言として判断してください。
+        ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
+        ・一般知識、日常会話、悩み相談、感想、アイデア出し、文章内に十分な情報がある計算や分析なら need_search を false にしてください。
+        ・直前の会話で検索を必要とする質問があり、最新発言が地域、条件、対象などを追加または訂正している場合は、前の質問を具体化する発言として判断してください。
+        ・作品名、人物名、企業名、サービス名などの固有名詞について、その内容、概要、特徴、経歴、仕様、あらすじなどの説明を求めている場合は、need_search を true にしてください。
+        ・ただし、ユーザー自身の過去の発言や記憶について確認している場合は、検索ではなく【記憶の要約】【直近の会話履歴】【関連する過去の会話】を優先してください。
 
         【回答モード】
         次のうち、今回の回答に最も適したものを1つ選んでください。
@@ -3017,6 +3013,34 @@ def classify_search_and_response_mode(
         ・最新情報や事実確認そのものが目的なら response_mode は factual にしてください。
         ・JSON以外の説明文は出力しないでください。
 
+        【過去会話検索語】
+        最新ユーザー発言から、過去会話検索に利用する話題やテーマを抽出してください。
+        ただし、以下のような会話上の表現は除外してください。
+        除外例
+        ・以前に
+        ・前に
+        ・話した
+        ・覚えてる
+        ・覚えていた
+        ・何だっけ
+        ・どんな
+        ・教えて
+
+        ・検索語は1個とは限りません。重要な話題や対象が複数ある場合は、空白区切りで複数抽出してください。
+        ・検索語は、過去会話を探すための話題や対象を表す短い語句にしてください。
+
+        例
+        「以前に話した〇〇の話って覚えてる？」
+        →「〇〇」
+
+        「△△の話ってしたっけ？」
+        →「△△」
+
+        「□□と△△について前に話した？」
+        →「□□ △△」
+
+        検索語が見つからない場合は、最新ユーザー発言をそのまま返してください。
+
         【直近の会話】
         {recent_history_str}
 
@@ -3027,7 +3051,8 @@ def classify_search_and_response_mode(
         {{
             "need_search": false,
             "response_mode": "conversation",
-            "confidence": 0.90
+            "confidence": 0.90,
+            "memory_search_query": "〇〇"
         }}
         """
         # judge_model = genai.GenerativeModel(
@@ -3159,6 +3184,11 @@ def classify_search_and_response_mode(
         need_search = bool(judge_data.get("need_search", False))
         response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
 
+        memory_search_query = str(judge_data.get("memory_search_query", "") or "").strip()
+
+        if not memory_search_query:
+            memory_search_query = str(user_input or "").strip()
+
         try:
             confidence = float(judge_data.get("confidence", 0.0))
         except (TypeError, ValueError):
@@ -3191,7 +3221,8 @@ def classify_search_and_response_mode(
             confidence,
             judge_in_t,
             judge_out_t,
-            judge_cost
+            judge_cost,
+            memory_search_query
         )
 
     except Exception as judge_error:
@@ -3218,7 +3249,8 @@ def classify_search_and_response_mode(
             0.0,
             0,
             0,
-            0.0
+            0.0,
+            str(user_input or "").strip()
         )
 
 def classify_calculation_tool(
@@ -8976,7 +9008,8 @@ with all_tabs[0]:
                                 route_confidence,
                                 search_judge_in_t,
                                 search_judge_out_t,
-                                search_judge_cost
+                                search_judge_cost,
+                                memory_search_query
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router,
@@ -8988,7 +9021,8 @@ with all_tabs[0]:
                         search_start_time = time.time()
                         
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        past_logs_context = search_past_logs_hybrid(user_input)
+                        past_logs_context = search_past_logs_hybrid(memory_search_query)
+                        debug_text("DEBUG memory_search_query", memory_search_query)
 
                         search_elapsed = time.time() - search_start_time
 
