@@ -228,7 +228,7 @@ PAST_LOG_FINAL_COUNT = 3
 PAST_LOG_CANDIDATE_COUNT = 12
 
 # 文章がこの値以上似ていれば同一グループ
-PAST_LOG_DUPLICATE_THRESHOLD = 0.82
+PAST_LOG_DUPLICATE_THRESHOLD = 0.76
 
 # 別の日に類似会話が存在する場合の加点
 PAST_LOG_REPEAT_BONUS_PER_DAY = 0.03
@@ -1003,56 +1003,54 @@ def group_similar_past_logs(
 ) -> list:
 
     groups = []
-    for candidate in candidate_results:
-        candidate_content = str(candidate.get("content", "") or "").strip()
 
-        if not candidate_content:
+    for candidate in candidate_results:
+
+        # ユーザー発言＋AI返答を含めた比較用テキスト
+        candidate_content = (build_past_log_comparison_text(candidate))
+
+        if not candidate_content.strip():
             continue
+
+        candidate_score = float(
+            candidate.get("final_score", 0.0) or 0.0)
+
+        candidate_date = get_past_log_date(candidate)
 
         matched_group = None
         matched_similarity = 0.0
 
         for group in groups:
-            representative = group["representative"]
-            representative_content = str(representative.get("content", "") or "").strip()
-            similarity = (
-                calculate_past_log_similarity(candidate_content, representative_content)
-            )
+            representative = (group["representative"])
+            representative_content = (build_past_log_comparison_text(representative))
+            similarity = (calculate_past_log_similarity(candidate_content,representative_content))
 
             if (similarity >= duplicate_threshold and similarity > matched_similarity):
                 matched_group = group
                 matched_similarity = similarity
 
+        # 新規グループ
         if matched_group is None:
+            dates = set()
+            if candidate_date:
+                dates.add(candidate_date)
+
             groups.append({
                 "representative": candidate,
                 "members": [candidate],
-                "dates": {
-                    get_past_log_date(
-                        candidate
-                    )
-                },
-                "highest_score": float(
-                    candidate.get(
-                        "final_score",
-                        0.0
-                    )
-                    or 0.0
-                )
+                "dates": dates,
+                "highest_score": candidate_score
             })
 
             continue
 
+        # 既存グループへ追加
         matched_group["members"].append(candidate)
-        candidate_date = get_past_log_date(candidate)
 
         if candidate_date:
             matched_group["dates"].add(candidate_date)
 
-        candidate_score = float(candidate.get("final_score", 0.0) or 0.0)
-
-        # 同一グループ内では、
-        # final_scoreが最も高い会話を代表にする
+        # スコアが高い方を代表にする
         if (candidate_score > matched_group["highest_score"]):
             matched_group["representative"] = candidate
             matched_group["highest_score"] = candidate_score
@@ -1113,6 +1111,126 @@ def select_grouped_past_logs(
     scored_groups = score_past_log_groups(groups)
 
     return scored_groups[:final_count]
+
+# 過去会話の検索候補assistant回答を付ける関数
+def attach_assistant_responses_to_candidates(
+    candidate_results: list
+) -> list:
+    """
+    検索候補となったユーザー発言へ、
+    同じmessage_idを持つassistant回答を付加する。
+    """
+
+    if not candidate_results:
+        return []
+
+    message_ids = list(
+        dict.fromkeys(
+            str(item.get("message_id", "") or "")
+            for item in candidate_results
+            if item.get("message_id")
+        )
+    )
+
+    assistant_by_message_id = {}
+
+    if message_ids:
+        try:
+            assistant_response = (
+                supabase
+                .table("messages")
+                .select(
+                    "id,"
+                    "role,"
+                    "content,"
+                    "message_id,"
+                    "created_at"
+                )
+                .eq("user_id", CURRENT_USER_ID)
+                .eq("role", "assistant")
+                .in_("message_id", message_ids)
+                .order("created_at", desc=False)
+                .execute()
+            )
+
+            for assistant_message in (assistant_response.data or []):
+                assistant_message_id = str(assistant_message.get("message_id", "") or "")
+
+                if not assistant_message_id:
+                    continue
+
+                assistant_by_message_id.setdefault(
+                    assistant_message_id,
+                    []
+                ).append(
+                    assistant_message
+                )
+
+        except Exception as fetch_error:
+            print(
+                "過去AI返答取得エラー: "
+                f"{type(fetch_error).__name__}: "
+                f"{fetch_error}"
+            )
+
+    enriched_results = []
+    for candidate in candidate_results:
+        enriched_candidate = dict(candidate)
+        message_id = str(candidate.get("message_id", "") or "")
+        assistant_messages = (assistant_by_message_id.get(message_id, []))
+        assistant_contents = [
+            str(message.get("content", "") or "").strip()
+            for message in assistant_messages
+            if str(
+                message.get(
+                    "content",
+                    ""
+                )
+                or ""
+            ).strip()
+        ]
+
+        enriched_candidate["assistant_messages"] = assistant_messages
+        enriched_candidate["assistant_content"] = "\n".join(assistant_contents)
+        enriched_results.append(enriched_candidate)
+
+    return enriched_results
+
+# 過去会話の比較用テキスト作成関数
+def build_past_log_comparison_text(
+    item: dict
+) -> str:
+    """
+    類似グループ判定に使用する文章を作る。
+
+    userだけでなくassistant回答も含める。
+    """
+
+    user_content = str(
+        item.get(
+            "content",
+            ""
+        )
+        or ""
+    ).strip()
+
+    assistant_content = str(
+        item.get(
+            "assistant_content",
+            ""
+        )
+        or ""
+    ).strip()
+
+    if assistant_content:
+        return (
+            f"ユーザー発言:\n"
+            f"{user_content}\n\n"
+            f"AI回答:\n"
+            f"{assistant_content}"
+        )
+
+    return user_content
 
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
@@ -1190,84 +1308,61 @@ def search_past_logs_hybrid(query_text: str):
 
         results.sort(key=lambda item: item.get("final_score", 0.0), reverse=True)
 
-        user_results = select_grouped_past_logs(
-            candidate_results=results,
-            final_count=PAST_LOG_FINAL_COUNT,
-            duplicate_threshold=(PAST_LOG_DUPLICATE_THRESHOLD)
-        )
+        # ==========================================
+        # グループ化前にassistant回答を取得
+        # ==========================================
+        enriched_candidates = (attach_assistant_responses_to_candidates(results))
 
-        # message_idがある検索結果だけを抽出
-        message_ids = list(
-            dict.fromkeys(
-                str(item.get("message_id"))
-                for item in user_results
-                if item.get("message_id")
+        # ==========================================
+        # user + assistantの会話単位でグループ化
+        # ==========================================
+        user_results = select_grouped_past_logs(
+            candidate_results=enriched_candidates,
+            final_count=PAST_LOG_FINAL_COUNT,
+            duplicate_threshold=(
+                PAST_LOG_DUPLICATE_THRESHOLD
             )
         )
-
-        assistant_by_message_id = {}
-
-        # 同じmessage_idのAI返答を1回の通信でまとめて取得
-        if message_ids:
-            try:
-                assistant_response = (
-                    supabase
-                    .table("messages")
-                    .select(
-                        "id,"
-                        "role,"
-                        "content,"
-                        "message_id,"
-                        "created_at"
-                    )
-                    .eq("user_id", CURRENT_USER_ID)
-                    .eq("role", "assistant")
-                    .in_("message_id", message_ids)
-                    .order("created_at", desc=False)
-                    .execute()
-                )
-
-                for assistant_message in (assistant_response.data or []):
-                    assistant_message_id = str(
-                        assistant_message.get("message_id", "") or ""
-                    )
-
-                    if not assistant_message_id:
-                        continue
-
-                    assistant_by_message_id.setdefault(assistant_message_id, []).append(assistant_message)
-
-            except Exception as assistant_fetch_error:
-                print(
-                    "過去AI返答取得エラー: "
-                    f"{type(assistant_fetch_error).__name__}: "
-                    f"{assistant_fetch_error}"
-                )
 
         # ユーザー発言の直後へ対応するAI返答を追加
         combined_results = []
 
         for user_message in user_results:
-            combined_results.append(user_message)
-            user_message_id = str(user_message.get("message_id", "") or "")
+            # Geminiへ渡すユーザー発言
+            clean_user_message = dict(user_message)
 
-            if not user_message_id:
-                continue
+            # 内部処理専用データは
+            # プロンプト表示用候補から除いてもよい
+            assistant_messages = (clean_user_message.pop("assistant_messages", []))
+            clean_user_message.pop("assistant_content", None)
+            combined_results.append(clean_user_message)
 
-            for assistant_message in (assistant_by_message_id.get(user_message_id, [])):
+            # 対応するassistant回答を追加
+            for assistant_message in (assistant_messages):
                 combined_results.append(assistant_message)
+
         elapsed = time.time() - start_time
 
-        debug_past_logs = []
-        for user_message in user_results:
-            row = {"user": user_message.get("content", "")}
-            user_message_id = str(user_message.get("message_id", "") or "")
-            assistant_messages = (assistant_by_message_id.get(user_message_id, []))
-            if assistant_messages:
-                row["assistant"] = (assistant_messages[0].get("content", ""))
-            debug_past_logs.append(row)
+        debug_grouped_conversations = []
+        for item in user_results:
+            debug_grouped_conversations.append({
+                "user":
+                    item.get("content", ""),
+                "assistant":
+                    item.get("assistant_content", ""),
+                "original_final_score":
+                    item.get("original_final_score", item.get("final_score", 0.0)),
+                "repeat_message_count":
+                    item.get("repeat_message_count", 1),
+                "repeat_date_count":
+                    item.get("repeat_date_count", 1),
+                "repeat_bonus":
+                    item.get("repeat_bonus", 0.0),
+                "aggregated_score":
+                    item.get("aggregated_score", item.get("final_score", 0.0))
+            })
 
-        debug_json("DEBUG past_logs_with_assistant", debug_past_logs)
+        debug_json("DEBUG grouped_conversations", debug_grouped_conversations)
 
         return combined_results
 
