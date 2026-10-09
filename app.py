@@ -2978,6 +2978,7 @@ def classify_search_and_response_mode(
         ・一般知識、日常会話、悩み相談、感想、アイデア出し、文章内に十分な情報がある計算や分析なら need_search を false にしてください。
         ・直前の会話で検索を必要とする質問があり、最新発言が地域、条件、対象などを追加または訂正している場合は、前の質問を具体化する発言として判断してください。
         ・作品名、人物名、企業名、サービス名などの固有名詞について、その内容、概要、特徴、経歴、仕様、あらすじなどの説明を求めている場合は、need_search を true にしてください。
+        ・作品名、人物名、企業名、サービス名などの固有名詞や、作品（映画、ドラマ、漫画、小説、アニメ等）の内容、登場人物、あらすじ、設定、組織、人間関係について説明や確認を求めている場合は、need_search を true にしてください。
         ・ただし、ユーザー自身の過去の発言や記憶について確認している場合は、検索ではなく【記憶の要約】【直近の会話履歴】【関連する過去の会話】を優先してください。
 
         【回答モード】
@@ -9088,6 +9089,7 @@ with all_tabs[0]:
                         past_logs_context = search_past_logs_hybrid(enhanced_memory_search_query)
 
                         debug_text("DEBUG memory_search_query", memory_search_query)
+                        debug_text("DEBUG memory_related_keywords",memory_related_keywords)
 
                         search_elapsed = time.time() - search_start_time
 
