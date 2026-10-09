@@ -10398,7 +10398,7 @@ with all_tabs[0]:
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
-                        st.code(system_instruction, language="text")
+                        # st.code(system_instruction, language="text")
                     
                         try:
                             # ==========================================
