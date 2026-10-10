@@ -1790,6 +1790,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
+        save_debug_log(
+            event_type="SUMMARY_ENTER",
+            details="entered"
+        )
         debug_text(
             "DEBUG summary_thread_started",
             True
