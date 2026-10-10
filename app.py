@@ -3805,6 +3805,36 @@ MODE_PROMPTS = {
 }
 
 # ==========================================
+# 不動産計算要否判定関数
+REAL_ESTATE_SALE_HINT_WORDS = {
+    "不動産売却",
+    "売却計算",
+    "売却試算",
+    "売却シミュレーション",
+    "譲渡所得",
+    "譲渡税",
+    "手残り",
+    "土地取得費",
+    "建物取得費",
+    "建物未償却残高",
+    "総取得費",
+    "取得費",
+    "仲介手数料"
+}
+
+def contains_real_estate_sale_hint(
+    user_input: str
+) -> bool:
+
+    text = str(user_input or "")
+
+    return any(
+        keyword in text
+        for keyword in REAL_ESTATE_SALE_HINT_WORDS
+    )
+# ==========================================
+
+# ==========================================
 # 🧮 Python計算関数群
 # ==========================================
 # ==========================================
@@ -9248,21 +9278,12 @@ with all_tabs[0]:
                         #     )
                         # )
 
-                        calculation_hint_words = [
-                            "計算",
-                            "試算",
-                            "シミュレーション",
-                            "売却",
-                            "利回り",
-                            "ローン"
-                        ]
-
-                        contains_calculation_hint = any(
-                            keyword in str(user_input)
-                            for keyword in calculation_hint_words
+                        #不動産計算キーワード有無判定
+                        contains_real_estate_hint = (
+                            contains_real_estate_sale_hint(user_input)
                         )
 
-                        debug_text("DEBUG contains_calculation_hint", contains_calculation_hint)
+                        debug_text("DEBUG contains_real_estate_hint", contains_real_estate_hint)
                         debug_text("DEBUG user_input", user_input)
                         debug_text("DEBUG need_search", need_search)
                         debug_text("DEBUG response_mode", response_mode)
@@ -9276,7 +9297,7 @@ with all_tabs[0]:
                             should_run_tool_router = False
                         
                         # 計算関連ワードがあれば優先
-                        elif contains_calculation_hint:
+                        elif contains_real_estate_hint:
                             # debug_text("DEBUG entered_contains_calculation_hint", True)
 
                             should_run_tool_router = True
