@@ -1871,19 +1871,13 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             - last_summarized_message_count
         )
 
-        debug_text(
-            "DEBUG total_message_count",
-            total_message_count
-        )
-
-        debug_text(
-            "DEBUG last_summarized_message_count",
-            last_summarized_message_count
-        )
-
-        debug_text(
-            "DEBUG messages_added_since_last_summary",
-            messages_added_since_last_summary
+        save_debug_log(
+            event_type="SUMMARY_DEBUG",
+            details=(
+                f"total={total_message_count}"
+                f" | last={last_summarized_message_count}"
+                f" | added={messages_added_since_last_summary}"
+            )
         )
 
         # st.write(
@@ -11012,6 +11006,12 @@ with all_tabs[0]:
                                 in_tokens=in_t,
                                 out_tokens=out_t,
                                 is_chat=True
+                            )
+
+                            save_debug_log(
+                                event_type="SUMMARY_THREAD_START",
+                                details=f"msg_id={current_msg_id}",
+                                message_id=current_msg_id
                             )
 
                             # 要約処理の実行（スレッド起動）
