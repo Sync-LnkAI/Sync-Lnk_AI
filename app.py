@@ -1790,7 +1790,11 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
+        debug_text(
+            "DEBUG summary_thread_started",
+            True
+        )
+                # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
         # 要約処理時間の計測開始
@@ -1866,6 +1870,22 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             total_message_count
             - last_summarized_message_count
         )
+
+        debug_text(
+            "DEBUG total_message_count",
+            total_message_count
+        )
+
+        debug_text(
+            "DEBUG last_summarized_message_count",
+            last_summarized_message_count
+        )
+
+        debug_text(
+            "DEBUG messages_added_since_last_summary",
+            messages_added_since_last_summary
+        )
+
         # st.write(
         #     "SUMMARY DEBUG",
         #     {
