@@ -240,24 +240,24 @@ PAST_LOG_REPEAT_BONUS_MAX = 0.12
 # ==========================================
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
-if "tokens_loaded" not in st.session_state:
-    import threading
-    if "db_lock" not in st.session_state:
-        st.session_state["db_lock"] = threading.Lock()
+# if "tokens_loaded" not in st.session_state:
+#     import threading
+#     if "db_lock" not in st.session_state:
+#         st.session_state["db_lock"] = threading.Lock()
         
-    try:
-        # user_token_stats テーブルから、現在のユーザーの chat_count の値をダイレクトに引っこ抜きます
-        res = supabase.table("user_token_stats").select("*").eq("user_id", CURRENT_USER_ID).eq("feature_type", "chat_count").execute()
-        if res.data and len(res.data) > 0:
-            # DBに保存されているリセット後の正しい累積回数を、一時メモリに完璧に復元！
-            st.session_state.conversation_count = int(res.data[0].get("in_tokens", 0))
-        else:
-            st.session_state.conversation_count = 0
-    except Exception as e:
-        print(f"⚠️ 起動時会話回数復元エラー: {e}")
-        st.session_state.conversation_count = 0
+#     try:
+#         # user_token_stats テーブルから、現在のユーザーの chat_count の値をダイレクトに引っこ抜きます
+#         res = supabase.table("user_token_stats").select("*").eq("user_id", CURRENT_USER_ID).eq("feature_type", "chat_count").execute()
+#         if res.data and len(res.data) > 0:
+#             # DBに保存されているリセット後の正しい累積回数を、一時メモリに完璧に復元！
+#             st.session_state.conversation_count = int(res.data[0].get("in_tokens", 0))
+#         else:
+#             st.session_state.conversation_count = 0
+#     except Exception as e:
+#         print(f"⚠️ 起動時会話回数復元エラー: {e}")
+#         st.session_state.conversation_count = 0
         
-    st.session_state["tokens_loaded"] = True
+#     st.session_state["tokens_loaded"] = True
 # ==========================================
 
 # --- セッション状態の初期化 ---
@@ -296,8 +296,8 @@ if "search_processing_time" not in st.session_state:
 
 if "debug_logs" not in st.session_state:
     st.session_state.debug_logs = []
-if "conversation_count" not in st.session_state:
-    st.session_state.conversation_count = 0
+# if "conversation_count" not in st.session_state:
+#     st.session_state.conversation_count = 0
 
 # 設定保存時のmsssages読み込みスキップ判定フラグ
 if "cached_messages" not in st.session_state:
@@ -845,15 +845,15 @@ def save_message(role: str, content: str,message_id: str = "", response_mode: st
         return False
 
 # 会話回数カウント関数
-def increment_conversation_count():
-    st.session_state.conversation_count += 1
+# def increment_conversation_count():
+#     st.session_state.conversation_count += 1
 
-    add_permanent_tokens(
-        CURRENT_USER_ID,
-        "chat_count",
-        1,
-        0
-    )
+#     add_permanent_tokens(
+#         CURRENT_USER_ID,
+#         "chat_count",
+#         1,
+#         0
+#     )
 
 def update_conversation_response_mode(
     message_id: str,
@@ -8298,16 +8298,11 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
-                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                # debug_text(
-                                #     "DEBUG conversation_count_before",
-                                #     st.session_state.conversation_count
-                                # )
 
                                 st.session_state.force_message_reload = True
 
@@ -8360,16 +8355,11 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
-                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                # debug_text(
-                                #     "DEBUG conversation_count_before",
-                                #     st.session_state.conversation_count
-                                # )
 
                                 st.session_state.force_message_reload = True
                                 st.stop()
@@ -8455,16 +8445,11 @@ with all_tabs[0]:
                                 current_msg_id,
                                 "conversation"
                             )
-                            increment_conversation_count()
 
                             display_message(
                                 current_concierge_name,
                                 ai_reply
                             )
-                            # debug_text(
-                            #     "DEBUG conversation_count_before",
-                            #     st.session_state.conversation_count
-                            # )
 
                             st.session_state.force_message_reload = True
                             st.stop()
@@ -8562,7 +8547,6 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
-                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
@@ -8717,16 +8701,11 @@ with all_tabs[0]:
                                         current_msg_id,
                                         "analysis"
                                     )
-                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
                                         create_error_reply
                                     )
-                                    # debug_text(
-                                    #     "DEBUG conversation_count_before",
-                                    #     st.session_state.conversation_count
-                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -8853,16 +8832,11 @@ with all_tabs[0]:
                                         current_msg_id,
                                         "conversation"
                                     )
-                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
                                         ai_reply
                                     )
-                                    # debug_text(
-                                    #     "DEBUG conversation_count_before",
-                                    #     st.session_state.conversation_count
-                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -9054,16 +9028,11 @@ with all_tabs[0]:
 
                                 # save_message("user", user_input, current_msg_id, "analysis")
                                 save_message("assistant", retry_reply, current_msg_id, "analysis")
-                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
                                     retry_reply
                                 )
-                                # debug_text(
-                                #     "DEBUG conversation_count_before",
-                                #     st.session_state.conversation_count
-                                # )
 
                                 st.session_state.force_message_reload = True
                                 st.stop()
@@ -10025,17 +9994,11 @@ with all_tabs[0]:
                                         current_msg_id,
                                         response_mode
                                     )
-                                    increment_conversation_count()
 
                                     display_message(
                                         current_concierge_name,
                                         ai_reply
                                     )
-
-                                    # debug_text(
-                                    #     "DEBUG conversation_count_before",
-                                    #     st.session_state.conversation_count
-                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -10150,17 +10113,11 @@ with all_tabs[0]:
                                 })
 
                                 save_message("assistant", ai_reply, current_msg_id, response_mode)
-                                increment_conversation_count()
 
                                 display_message(
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                # debug_text(
-                                #     "DEBUG conversation_count_before",
-                                #     st.session_state.conversation_count
-                                # )
-
                                 st.session_state.force_message_reload = True
                                 st.stop()
 
@@ -10429,7 +10386,6 @@ with all_tabs[0]:
                                     current_msg_id,
                                     "conversation"
                                 )
-                                increment_conversation_count()
 
                                 # all_messages.append({
                                 #         "role": "user",
@@ -10457,10 +10413,6 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     formatted_result
                                 )
-                                # debug_text(
-                                #     "DEBUG conversation_count_before",
-                                #     st.session_state.conversation_count
-                                # )
 
                                 st.stop()
 
@@ -10976,9 +10928,8 @@ with all_tabs[0]:
                             })
                             
                             save_message("assistant", ai_reply, current_msg_id, response_mode)
-                            increment_conversation_count()
                             st.session_state.force_message_reload = True
-                            # st.session_state.conversation_count += 1
+
                             # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
                             # current_通_cost = (in_t * PRICE_LITE_IN) + (out_t * PRICE_LITE_OUT)
                             current_通_cost = calculate_ai_cost(
