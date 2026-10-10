@@ -9079,7 +9079,6 @@ with all_tabs[0]:
                         # ルーター用 長期記憶作成
                         # ==========================================
                         summary_memories_for_router = (get_memories(source="summary"))
-
                         summary_memory_context_for_router = (
                             "\n".join(
                                 [
@@ -9090,6 +9089,7 @@ with all_tabs[0]:
                             if summary_memories_for_router
                             else "なし"
                         )
+
                         calculation_pending = bool(st.session_state.get("real_estate_calculation_pending", False))
 
                         if is_micro_chat(user_input):
@@ -9106,11 +9106,11 @@ with all_tabs[0]:
                             keywords = (build_memory_search_query(user_input))
                             matched_keywords = filter_keywords_by_memory(
                                     keywords,
-                                    summary_memory_context
+                                    summary_memory_context_for_router
                             )
                             related_keywords = extract_related_keywords_from_memory(
                                     matched_keywords,
-                                    summary_memory_context
+                                    summary_memory_context_for_router
                             )
                             debug_text("DEBUG keywords", keywords)
                             debug_text("DEBUG matched_keywords", matched_keywords)
