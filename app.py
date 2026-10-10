@@ -9104,12 +9104,12 @@ with all_tabs[0]:
                         else:
                             # 会話の中からキーワードを抽出
                             keywords = (build_memory_search_query(user_input))
-                            matched_keywords = 
+                            matched_keywords =
                                 filter_keywords_by_memory(
                                     keywords,
                                     summary_memory_context
                                 )
-                            related_keywords = 
+                            related_keywords =
                                 extract_related_keywords_from_memory(
                                     matched_keywords,
                                     summary_memory_context
