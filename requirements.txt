@@ -4,3 +4,4 @@ supabase
 websockets
 google-generativeai
 openai
+janome

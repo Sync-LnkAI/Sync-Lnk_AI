@@ -11,6 +11,8 @@ import pandas as pd
 from openai import OpenAI
 import unicodedata
 from difflib import SequenceMatcher
+from janome.tokenizer import Tokenizer
+
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -2912,6 +2914,60 @@ CALCULATION_TOOLS = {
 # analysis: 壁打ち、比較、企画、仕事、原因分析
 # factual: 事実質問、検索結果を使う回答
 # default: 判断困難、複数用途、従来ルールを使う場合
+
+
+#----------------------------------------
+# 会話から名刺を切り出す
+tokenizer = Tokenizer()
+
+MEMORY_SEARCH_STOP_WORDS = {
+    "前",
+    "以前",
+    "話",
+    "こと",
+    "内容",
+    "やつ",
+    "もの",
+    "記憶",
+    "会話"
+}
+
+def build_memory_search_query(
+    user_input: str
+) -> str:
+
+    text = str(
+        user_input or ""
+    ).strip()
+
+    keywords = []
+
+    for token in tokenizer.tokenize(text):
+
+        part_of_speech = (
+            token.part_of_speech.split(",")[0]
+        )
+
+        surface = token.surface.strip()
+
+        # 名詞だけ残す
+        if part_of_speech != "名詞":
+            continue
+
+        # 短すぎる単語は除外
+        if len(surface) <= 1:
+            continue
+
+        # 不要語除外
+        if surface in MEMORY_SEARCH_STOP_WORDS:
+            continue
+
+        keywords.append(surface)
+
+    return " ".join(
+        dict.fromkeys(keywords)
+    )
+
 
 def classify_search_and_response_mode(
     user_input: str,
@@ -7445,10 +7501,10 @@ def save_saved_chat(
             "assistant_message": assistant_message,
             "original_message_id": original_message_id
         }
-        debug_json(
-            "DEBUG save_saved_chat_data",
-            data
-        )
+        # debug_json(
+        #     "DEBUG save_saved_chat_data",
+        #     data
+        # )
 
         result = (
             supabase
@@ -8198,10 +8254,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                debug_text(
-                                    "DEBUG conversation_count_before",
-                                    st.session_state.conversation_count
-                                )
+                                # debug_text(
+                                #     "DEBUG conversation_count_before",
+                                #     st.session_state.conversation_count
+                                # )
 
                                 st.session_state.force_message_reload = True
 
@@ -8260,10 +8316,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                debug_text(
-                                    "DEBUG conversation_count_before",
-                                    st.session_state.conversation_count
-                                )
+                                # debug_text(
+                                #     "DEBUG conversation_count_before",
+                                #     st.session_state.conversation_count
+                                # )
 
                                 st.session_state.force_message_reload = True
                                 st.stop()
@@ -8355,10 +8411,10 @@ with all_tabs[0]:
                                 current_concierge_name,
                                 ai_reply
                             )
-                            debug_text(
-                                "DEBUG conversation_count_before",
-                                st.session_state.conversation_count
-                            )
+                            # debug_text(
+                            #     "DEBUG conversation_count_before",
+                            #     st.session_state.conversation_count
+                            # )
 
                             st.session_state.force_message_reload = True
                             st.stop()
@@ -8617,10 +8673,10 @@ with all_tabs[0]:
                                         current_concierge_name,
                                         create_error_reply
                                     )
-                                    debug_text(
-                                        "DEBUG conversation_count_before",
-                                        st.session_state.conversation_count
-                                    )
+                                    # debug_text(
+                                    #     "DEBUG conversation_count_before",
+                                    #     st.session_state.conversation_count
+                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -8753,10 +8809,10 @@ with all_tabs[0]:
                                         current_concierge_name,
                                         ai_reply
                                     )
-                                    debug_text(
-                                        "DEBUG conversation_count_before",
-                                        st.session_state.conversation_count
-                                    )
+                                    # debug_text(
+                                    #     "DEBUG conversation_count_before",
+                                    #     st.session_state.conversation_count
+                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -8779,15 +8835,15 @@ with all_tabs[0]:
                                 st.session_state["active_calculation_case_id"] = selected_case_id
                                 st.session_state["active_calculation_case_name"] = selected_case_name
                                 
-                                debug_text(
-                                    "DEBUG selected_case_set_id",
-                                    st.session_state["active_calculation_case_id"]
-                                )
+                                # debug_text(
+                                #     "DEBUG selected_case_set_id",
+                                #     st.session_state["active_calculation_case_id"]
+                                # )
 
-                                debug_text(
-                                    "DEBUG selected_case_set_name",
-                                    st.session_state["active_calculation_case_name"]
-                                )
+                                # debug_text(
+                                #     "DEBUG selected_case_set_name",
+                                #     st.session_state["active_calculation_case_name"]
+                                # )
 
                                 selected_case_data = (
                                     get_calculation_case(
@@ -8954,10 +9010,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     retry_reply
                                 )
-                                debug_text(
-                                    "DEBUG conversation_count_before",
-                                    st.session_state.conversation_count
-                                )
+                                # debug_text(
+                                #     "DEBUG conversation_count_before",
+                                #     st.session_state.conversation_count
+                                # )
 
                                 st.session_state.force_message_reload = True
                                 st.stop()
@@ -9046,6 +9102,10 @@ with all_tabs[0]:
                             search_judge_cost = 0
 
                         else:
+                            # 会話の中からキーワードを抽出
+                            memory_search_query_test = (build_memory_search_query(user_input))
+                            debug_text("DEBUG memory_search_query_test", memory_search_query_test)
+
                             (
                                 need_search,
                                 response_mode,
@@ -9124,26 +9184,26 @@ with all_tabs[0]:
                             )
                             else "none"
                         )
-                        debug_text(
-                            "DEBUG real_estate_calculation_pending",
-                            st.session_state.get(
-                                "real_estate_calculation_pending",
-                                False
-                            )
-                        )
+                        # debug_text(
+                        #     "DEBUG real_estate_calculation_pending",
+                        #     st.session_state.get(
+                        #         "real_estate_calculation_pending",
+                        #         False
+                        #     )
+                        # )
 
-                        debug_text(
-                            "DEBUG pending_tool",
-                            pending_tool
-                        )
+                        # debug_text(
+                        #     "DEBUG pending_tool",
+                        #     pending_tool
+                        # )
 
-                        debug_json(
-                            "DEBUG calculation_arguments",
-                            st.session_state.get(
-                                "real_estate_calculation_arguments",
-                                {}
-                            )
-                        )
+                        # debug_json(
+                        #     "DEBUG calculation_arguments",
+                        #     st.session_state.get(
+                        #         "real_estate_calculation_arguments",
+                        #         {}
+                        #     )
+                        # )
 
                         calculation_hint_words = [
                             "計算",
@@ -9163,7 +9223,6 @@ with all_tabs[0]:
                         debug_text("DEBUG user_input", user_input)
                         debug_text("DEBUG need_search", need_search)
                         debug_text("DEBUG response_mode", response_mode)
-                        debug_text("DEBUG contains_calculation_hint", contains_calculation_hint)
 
                         # ==========================================
                         # 計算ツール判定の実行制御
@@ -9175,7 +9234,7 @@ with all_tabs[0]:
                         
                         # 計算関連ワードがあれば優先
                         elif contains_calculation_hint:
-                            debug_text("DEBUG entered_contains_calculation_hint", True)
+                            # debug_text("DEBUG entered_contains_calculation_hint", True)
 
                             should_run_tool_router = True
                      
@@ -9920,10 +9979,10 @@ with all_tabs[0]:
                                         ai_reply
                                     )
 
-                                    debug_text(
-                                        "DEBUG conversation_count_before",
-                                        st.session_state.conversation_count
-                                    )
+                                    # debug_text(
+                                    #     "DEBUG conversation_count_before",
+                                    #     st.session_state.conversation_count
+                                    # )
 
                                     st.session_state.force_message_reload = True
                                     st.stop()
@@ -10044,10 +10103,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     ai_reply
                                 )
-                                debug_text(
-                                    "DEBUG conversation_count_before",
-                                    st.session_state.conversation_count
-                                )
+                                # debug_text(
+                                #     "DEBUG conversation_count_before",
+                                #     st.session_state.conversation_count
+                                # )
 
                                 st.session_state.force_message_reload = True
                                 st.stop()
@@ -10345,10 +10404,10 @@ with all_tabs[0]:
                                     current_concierge_name,
                                     formatted_result
                                 )
-                                debug_text(
-                                    "DEBUG conversation_count_before",
-                                    st.session_state.conversation_count
-                                )
+                                # debug_text(
+                                #     "DEBUG conversation_count_before",
+                                #     st.session_state.conversation_count
+                                # )
 
                                 st.stop()
 
@@ -10593,7 +10652,7 @@ with all_tabs[0]:
                             # )
 
                             # response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
-                            debug_text("DEBUG before_chat_generation", True)
+                            # debug_text("DEBUG before_chat_generation", True)
                             chat_result = generate_ai_response(
                                 provider=CHAT_PROVIDER,
                                 system_instruction=system_instruction,
@@ -10606,7 +10665,7 @@ with all_tabs[0]:
 
                             # 通常のテキストをそのまま回答として使用
                             ai_reply = str(chat_result.get("text", "") or "").strip()
-                            debug_text("DEBUG ai_reply", ai_reply)
+                            # debug_text("DEBUG ai_reply", ai_reply)
 
                             # AIサーバーとの通信結果を確認
                             if not ai_reply:
