@@ -1857,7 +1857,8 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             last_summarized_message_count = 0
             previous_summary = "既存の要約なし"
 
-        messages_added_since_last_summary = (
+        messages_added_since_last_summary = max(
+            0,
             total_message_count
             - last_summarized_message_count
         )
