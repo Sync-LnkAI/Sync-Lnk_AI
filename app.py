@@ -1827,10 +1827,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             # )
             save_debug_log(
                 event_type="SUMMARY_START",
-                details=(
-                    f"messages={total_message_count}"
-                    f" | conversation_count={st.session_state.conversation_count}"
-                )
+                details=f"messages={total_message_count}"
             )
 
         except Exception as db_err:
