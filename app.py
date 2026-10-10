@@ -1794,11 +1794,12 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             event_type="SUMMARY_ENTER",
             details="entered"
         )
-        debug_text(
-            "DEBUG summary_thread_started",
-            True
+        save_debug_log(
+            event_type="SUMMARY_ENTER_1",
+            details="before_count_query"
         )
-                # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
+        
+        # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
         # 要約処理時間の計測開始
@@ -1813,6 +1814,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 .eq("user_id", target_user_id)
                 .limit(1)
                 .execute()
+            )
+            save_debug_log(
+                event_type="SUMMARY_ENTER_2",
+                details=f"count={count_res.count}"
             )
 
             total_message_count = int(count_res.count or 0)
