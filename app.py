@@ -9283,6 +9283,7 @@ with all_tabs[0]:
                             contains_real_estate_sale_hint(user_input)
                         )
 
+
                         debug_text("DEBUG contains_real_estate_hint", contains_real_estate_hint)
                         debug_text("DEBUG user_input", user_input)
                         debug_text("DEBUG need_search", need_search)
