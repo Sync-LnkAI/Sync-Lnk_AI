@@ -1790,15 +1790,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
     次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
     """
     try:
-        save_debug_log(
-            event_type="SUMMARY_ENTER",
-            details="entered"
-        )
-        save_debug_log(
-            event_type="SUMMARY_ENTER_1",
-            details="before_count_query"
-        )
-        
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
@@ -1814,10 +1805,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 .eq("user_id", target_user_id)
                 .limit(1)
                 .execute()
-            )
-            save_debug_log(
-                event_type="SUMMARY_ENTER_2",
-                details=f"count={count_res.count}"
             )
 
             total_message_count = int(count_res.count or 0)
@@ -1841,11 +1828,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # 最新10件以内なら押し出された履歴がない
         if total_message_count <= MAX_CONTEXT_MESSAGES:
             return True
-        
-        save_debug_log(
-            event_type="SUMMARY_ENTER_3",
-            details="before_mem_check"
-        )
 
         # 現在保存されている要約と、前回要約時の件数を取得
         mem_check = (
@@ -1857,13 +1839,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             .order("id",desc=True)
             .limit(1)
             .execute()
-        )
-        save_debug_log(
-            event_type="SUMMARY_ENTER_4",
-            details=(
-                f"mem_rows="
-                f"{len(mem_check.data or [])}"
-            )
         )
 
         if mem_check.data:
@@ -1881,25 +1856,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             summary_row = None
             last_summarized_message_count = 0
             previous_summary = "既存の要約なし"
-        
-        save_debug_log(
-            event_type="SUMMARY_ENTER_5",
-            details=(
-                f"last={last_summarized_message_count}"
-            )
-        )
 
         messages_added_since_last_summary = (
             total_message_count
             - last_summarized_message_count
-        )
-        save_debug_log(
-            event_type="SUMMARY_ENTER_6",
-            details=(
-                f"total={total_message_count}"
-                f"|last={last_summarized_message_count}"
-                f"|added={messages_added_since_last_summary}"
-            )
         )
 
         save_debug_log(
@@ -1910,18 +1870,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 f" | added={messages_added_since_last_summary}"
             )
         )
-
-        # st.write(
-        #     "SUMMARY DEBUG",
-        #     {
-        #         "total_message_count":
-        #         total_message_count,
-        #         "last_summarized_message_count":
-        #         last_summarized_message_count,
-        #         "messages_added_since_last_summary":
-        #         messages_added_since_last_summary
-        #     }
-        # )
 
         # 最新100件より前のmicro_chatを削除
         deleted_count = cleanup_old_micro_chats()
@@ -11037,12 +10985,6 @@ with all_tabs[0]:
                                 in_tokens=in_t,
                                 out_tokens=out_t,
                                 is_chat=True
-                            )
-
-                            save_debug_log(
-                                event_type="SUMMARY_THREAD_START",
-                                details=f"msg_id={current_msg_id}",
-                                message_id=current_msg_id
                             )
 
                             # 要約処理の実行（スレッド起動）
