@@ -3004,21 +3004,17 @@ def extract_related_memory_lines(
     ]
 
     matched_lines = []
-
     for line in lines:
-        
-    parts = [
-        part.strip()
-        for part in line.split("、")
-        if part.strip()
-    ]
-
-    for part in parts:
-        for keyword in keywords:
-            if keyword in part:
-                matched_lines.append(part)
-
-                break
+        parts = [
+            part.strip()
+            for part in line.split("、")
+            if part.strip()
+        ]
+        for part in parts:
+            for keyword in keywords:
+                if keyword in part:
+                    matched_lines.append(part)
+                    break
 
     return list(
         dict.fromkeys(
