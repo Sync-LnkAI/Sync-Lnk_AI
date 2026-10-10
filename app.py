@@ -9112,8 +9112,14 @@ with all_tabs[0]:
                                     matched_keywords,
                                     summary_memory_context_for_router
                             )
+                            related_keywords_text = " ".join(related_keywords)
+
                             debug_text("DEBUG keywords", keywords)
                             debug_text("DEBUG matched_keywords", matched_keywords)
+                            debug_text(
+                                "DEBUG matched_keywords_type",
+                                str(type(matched_keywords))
+                            )
                             debug_text("DEBUG related_keywords", related_keywords)
 
                             (
@@ -9140,7 +9146,7 @@ with all_tabs[0]:
                         # ).strip()
                         enhanced_memory_search_query = []
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        past_logs_context = search_past_logs_hybrid(related_keywords)
+                        past_logs_context = search_past_logs_hybrid(related_keywords_text)
 
                         search_elapsed = time.time() - search_start_time
 
