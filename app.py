@@ -1830,8 +1830,6 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 details=(
                     f"messages={total_message_count}"
                     f" | conversation_count={st.session_state.conversation_count}"
-                    f" | last_summary={last_summarized_message_count}"
-                    f" | added={messages_added_since_last_summary}"
                 )
             )
 
@@ -1846,6 +1844,11 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # 最新10件以内なら押し出された履歴がない
         if total_message_count <= MAX_CONTEXT_MESSAGES:
             return True
+        
+        save_debug_log(
+            event_type="SUMMARY_ENTER_3",
+            details="before_mem_check"
+        )
 
         # 現在保存されている要約と、前回要約時の件数を取得
         mem_check = (
@@ -1857,6 +1860,13 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             .order("id",desc=True)
             .limit(1)
             .execute()
+        )
+        save_debug_log(
+            event_type="SUMMARY_ENTER_4",
+            details=(
+                f"mem_rows="
+                f"{len(mem_check.data or [])}"
+            )
         )
 
         if mem_check.data:
@@ -1875,9 +1885,24 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             last_summarized_message_count = 0
             previous_summary = "既存の要約なし"
         
+        save_debug_log(
+            event_type="SUMMARY_ENTER_5",
+            details=(
+                f"last={last_summarized_message_count}"
+            )
+        )
+
         messages_added_since_last_summary = (
             total_message_count
             - last_summarized_message_count
+        )
+        save_debug_log(
+            event_type="SUMMARY_ENTER_6",
+            details=(
+                f"total={total_message_count}"
+                f"|last={last_summarized_message_count}"
+                f"|added={messages_added_since_last_summary}"
+            )
         )
 
         save_debug_log(
