@@ -9105,7 +9105,7 @@ with all_tabs[0]:
                             # 会話の中からキーワードを抽出
                             keywords = (build_memory_search_query(user_input))
                             matched_keywords = filter_keywords_by_memory(
-                                    keywords,
+                                    keywords.split(),
                                     summary_memory_context_for_router
                             )
                             related_keywords = extract_related_keywords_from_memory(
