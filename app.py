@@ -2990,46 +2990,76 @@ def filter_keywords_by_memory(
         )
     )
 
-# 括弧内にあるキーワードを抽出
-def extract_related_keywords_from_memory(
+# キーワードと一致する文節を抽出する関数
+def extract_related_memory_lines(
     keywords: list,
     summary_memory_context: str
 ) -> list:
 
-    memory_text = str(
-        summary_memory_context or ""
-    )
+    lines = [
+        line.strip()
+        for line in
+        str(summary_memory_context).split("\n")
+        if line.strip()
+    ]
 
-    related_keywords = []
+    matched_lines = []
 
-    for keyword in keywords:
+    for line in lines:
 
-        pattern = (
-            rf"{re.escape(keyword)}[^（\n]*"
-            r"（([^）]+)）"
-        )
+        for keyword in keywords:
 
-        matches = re.findall(
-            pattern,
-            memory_text
-        )
+            if keyword in line:
 
-        for match in matches:
-
-            for item in match.split("、"):
-
-                item = item.strip()
-
-                if item:
-                    related_keywords.append(
-                        item
-                    )
+                matched_lines.append(line)
+                break
 
     return list(
         dict.fromkeys(
-            related_keywords
+            matched_lines
         )
     )
+
+# 括弧内にあるキーワードを抽出
+# def extract_related_keywords_from_memory(
+#     keywords: list,
+#     summary_memory_context: str
+# ) -> list:
+
+#     memory_text = str(
+#         summary_memory_context or ""
+#     )
+
+#     related_keywords = []
+
+#     for keyword in keywords:
+
+#         pattern = (
+#             rf"{re.escape(keyword)}[^（\n]*"
+#             r"（([^）]+)）"
+#         )
+
+#         matches = re.findall(
+#             pattern,
+#             memory_text
+#         )
+
+#         for match in matches:
+
+#             for item in match.split("、"):
+
+#                 item = item.strip()
+
+#                 if item:
+#                     related_keywords.append(
+#                         item
+#                     )
+
+#     return list(
+#         dict.fromkeys(
+#             related_keywords
+#         )
+#     )
 
 
 def classify_search_and_response_mode(
@@ -9108,7 +9138,7 @@ with all_tabs[0]:
                                     keywords.split(),
                                     summary_memory_context_for_router
                             )
-                            related_keywords = extract_related_keywords_from_memory(
+                            related_keywords = extract_related_memory_lines(
                                     matched_keywords,
                                     summary_memory_context_for_router
                             )
