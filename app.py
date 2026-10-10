@@ -2968,12 +2968,74 @@ def build_memory_search_query(
         dict.fromkeys(keywords)
     )
 
+# キーワードで長期記憶と一致する物を抽出
+def filter_keywords_by_memory(
+    keywords: list,
+    summary_memory_context: str
+) -> list:
+
+    memory_text = str(
+        summary_memory_context or ""
+    )
+
+    matched_keywords = []
+
+    for keyword in keywords:
+        if keyword in memory_text:
+            matched_keywords.append(keyword)
+
+    return list(
+        dict.fromkeys(
+            matched_keywords
+        )
+    )
+
+# 括弧内にあるキーワードを抽出
+def extract_related_keywords_from_memory(
+    keywords: list,
+    summary_memory_context: str
+) -> list:
+
+    memory_text = str(
+        summary_memory_context or ""
+    )
+
+    related_keywords = []
+
+    for keyword in keywords:
+
+        pattern = (
+            rf"{re.escape(keyword)}[^（\n]*"
+            r"（([^）]+)）"
+        )
+
+        matches = re.findall(
+            pattern,
+            memory_text
+        )
+
+        for match in matches:
+
+            for item in match.split("、"):
+
+                item = item.strip()
+
+                if item:
+                    related_keywords.append(
+                        item
+                    )
+
+    return list(
+        dict.fromkeys(
+            related_keywords
+        )
+    )
+
 
 def classify_search_and_response_mode(
     user_input: str,
     recent_history_str: str = "",
     calculation_pending: bool = False,
-    summary_memory_context: str = ""
 ):
     """
     検索要否と回答モードを1回のGemini呼び出しで判定する。
@@ -2985,7 +3047,6 @@ def classify_search_and_response_mode(
         judge_in_t: int
         judge_out_t: int
         judge_cost: float
-        memory_search_query: str
     """
 
     try:
@@ -3072,53 +3133,8 @@ def classify_search_and_response_mode(
         ・最新情報や事実確認そのものが目的なら response_mode は factual にしてください。
         ・JSON以外の説明文は出力しないでください。
 
-        【過去会話検索語】
-        最新ユーザー発言から、過去会話検索に利用する話題やテーマを抽出してください。
-        ただし、以下のような会話上の表現は除外してください。
-        ・以前に
-        ・前に
-        ・話した
-        ・覚えてる
-        ・覚えていた
-        ・何だっけ
-        ・どんな
-        ・教えて
-
-        検索語は1個とは限りません。
-        重要な話題や対象が複数ある場合は、空白区切りで複数抽出してください。
-        
-        検索語は、過去会話を探すための話題や対象を表す短い語句にしてください。
-
-        例
-        「以前に話した〇〇の話って覚えてる？」
-        →「〇〇」
-
-        「△△の話ってしたっけ？」
-        →「△△」
-
-        「□□と△△について前に話した？」
-        →「□□ △△」
-
-        検索語が見つからない場合は、最新ユーザー発言をそのまま返してください。
-
-        【長期記憶との関連キーワード】
-        【過去会話検索語】と【記憶の要約】を確認し、
-        検索語と関連する話題、対象、作品名、人物名、プロジェクト名などが
-        【記憶の要約】に存在する場合は、その中から検索対象として有効な固有名詞や具体的な話題を
-        関連キーワードとして抽出してください。
-        関連する内容が存在しない場合はmemory_related_keywordsは空にしてください。
-
-        例
-        検索語:〇〇
-        記憶の要約:〇〇に関連する△△が存在
-        ↓
-        関連キーワード:△△
-
         【直近の会話】
         {recent_history_str}
-
-        【記憶の要約】
-        {summary_memory_context}
 
         【最新ユーザー発言】
         {user_input}
@@ -3128,8 +3144,6 @@ def classify_search_and_response_mode(
             "need_search": false,
             "response_mode": "conversation",
             "confidence": 0.90,
-            "memory_search_query": "〇〇",
-            "memory_related_keywords": "△△"
         }}
         """
         # judge_model = genai.GenerativeModel(
@@ -3261,16 +3275,6 @@ def classify_search_and_response_mode(
         need_search = bool(judge_data.get("need_search", False))
         response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
 
-        memory_search_query = str(judge_data.get("memory_search_query", "") or "").strip()
-        memory_related_keywords = str(judge_data.get("memory_related_keywords", "") or "").strip()
-        # enhanced_memory_search_query = (
-        #     f"{memory_search_query} "
-        #     f"{memory_related_keywords}"
-        # ).strip()
-
-        if not memory_search_query:
-            memory_search_query = str(user_input or "").strip()
-
         try:
             confidence = float(judge_data.get("confidence", 0.0))
         except (TypeError, ValueError):
@@ -3303,9 +3307,7 @@ def classify_search_and_response_mode(
             confidence,
             judge_in_t,
             judge_out_t,
-            judge_cost,
-            memory_search_query,
-            memory_related_keywords
+            judge_cost
         )
 
     except Exception as judge_error:
@@ -3332,9 +3334,7 @@ def classify_search_and_response_mode(
             0.0,
             0,
             0,
-            0.0,
-            str(user_input or "").strip(),
-            str(user_input or "").strip()
+            0.0
         )
 
 def classify_calculation_tool(
@@ -9103,8 +9103,14 @@ with all_tabs[0]:
 
                         else:
                             # 会話の中からキーワードを抽出
-                            memory_search_query_test = (build_memory_search_query(user_input))
-                            debug_text("DEBUG memory_search_query_test", memory_search_query_test)
+                            keywords = (build_memory_search_query(user_input))
+                            matched_keywords = 
+                                filter_keywords_by_memory(keywords,summary_memory_context)
+                            related_keywords = 
+                                extract_related_keywords_from_memory(matched_keywords,summary_memory_context)
+                            debug_text("DEBUG keywords", keywords)
+                            debug_text("DEBUG matched_keywords", matched_keywords)
+                            debug_text("DEBUG related_keywords", related_keywords)
 
                             (
                                 need_search,
@@ -9112,14 +9118,11 @@ with all_tabs[0]:
                                 route_confidence,
                                 search_judge_in_t,
                                 search_judge_out_t,
-                                search_judge_cost,
-                                memory_search_query,
-                                memory_related_keywords
+                                search_judge_cost
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router,
                                 calculation_pending=calculation_pending,
-                                summary_memory_context=summary_memory_context_for_router
                             )
                             route_source = "llm_router"
 
@@ -9127,15 +9130,13 @@ with all_tabs[0]:
 
                         search_start_time = time.time()
                         
-                        enhanced_memory_search_query = (
-                            f"{memory_search_query} "
-                            f"{memory_related_keywords}"
-                        ).strip()
+                        # enhanced_memory_search_query = (
+                        #     f"{memory_search_query} "
+                        #     f"{memory_related_keywords}"
+                        # ).strip()
+                        enhanced_memory_search_query = []
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        past_logs_context = search_past_logs_hybrid(enhanced_memory_search_query)
-
-                        debug_text("DEBUG memory_search_query", memory_search_query)
-                        debug_text("DEBUG memory_related_keywords",memory_related_keywords)
+                        past_logs_context = search_past_logs_hybrid(related_keywords)
 
                         search_elapsed = time.time() - search_start_time
 
