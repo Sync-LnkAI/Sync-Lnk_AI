@@ -9332,17 +9332,17 @@ with all_tabs[0]:
 
                         router_elapsed = time.time() - router_start_time
 
-                        search_start_time = time.time()
+                        # search_start_time = time.time()
                         
                         # enhanced_memory_search_query = (
                         #     f"{memory_search_query} "
                         #     f"{memory_related_keywords}"
                         # ).strip()
-                        enhanced_memory_search_query = []
+                        # enhanced_memory_search_query = []
                         # past_logs_context = search_past_logs_hybrid(user_input)
-                        past_logs_context = search_past_logs_hybrid(related_keywords_text)
+                        # past_logs_context = search_past_logs_hybrid(related_keywords_text)
 
-                        search_elapsed = time.time() - search_start_time
+                        # search_elapsed = time.time() - search_start_time
 
                         # 判定済みのresponse_modeと一緒に
                         # ユーザー発言をDBへ保存
