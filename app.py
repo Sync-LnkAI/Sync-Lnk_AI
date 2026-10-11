@@ -761,7 +761,7 @@ def clean_bold_markdown(text: str) -> str:
 # 🧠 【統合仕様】 過去メッセージ履歴の一括取得関数
 # ==================================================================
 # 💡 引数を追加することで、URLから届いた本物のIDの鍵を関数内部へストレートに通電させます！
-def get_messages(target_id: str) -> list[dict]:
+def get_messages(target_id: str, chat_room: str = "talk") -> list[dict]:
     """
     💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
     ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
@@ -782,6 +782,7 @@ def get_messages(target_id: str) -> list[dict]:
             "created_at"
             )
             .eq("user_id", str(target_id))
+            .eq("chat_room", chat_room)
             .order("created_at", desc=True)
             .limit(100)
             .execute()
@@ -800,7 +801,13 @@ def get_messages(target_id: str) -> list[dict]:
         )
         return None
 
-def save_message(role: str, content: str,message_id: str = "", response_mode: str = "") -> bool:
+def save_message(
+    role: str,
+    content: str,
+    message_id: str = "",
+    response_mode: str = "",
+    chat_room: str = "talk"
+) -> bool:
     
     embedding_data = None
     
@@ -826,7 +833,8 @@ def save_message(role: str, content: str,message_id: str = "", response_mode: st
             "content": content,
             "embedding": embedding_data,
             "message_id": message_id,
-            "response_mode": (response_mode if response_mode else None)
+            "response_mode": (response_mode if response_mode else None),
+            "chat_room": chat_room
         }
 
         supabase.table("messages").insert(data).execute()
@@ -8298,7 +8306,7 @@ with all_tabs[0]:
         )
 
         if should_reload_messages:
-            loaded_messages = get_messages(CURRENT_USER_ID)
+            loaded_messages = get_messages(CURRENT_USER_ID, chat_room="talk")
 
             if loaded_messages is None:
                 db_available = False
@@ -8469,6 +8477,7 @@ with all_tabs[0]:
                                     "content": user_input,
                                     "message_id": current_msg_id,
                                     "response_mode": "conversation",
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -8477,6 +8486,7 @@ with all_tabs[0]:
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
                                     "response_mode": "conversation",
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -8491,7 +8501,8 @@ with all_tabs[0]:
                                     "assistant",
                                     ai_reply,
                                     current_msg_id,
-                                    "conversation"
+                                    "conversation",
+                                    "talk"
                                 )
 
                                 display_message(
@@ -8526,6 +8537,7 @@ with all_tabs[0]:
                                     "content": user_input,
                                     "message_id": current_msg_id,
                                     "response_mode": response_mode,
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -8534,6 +8546,7 @@ with all_tabs[0]:
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
                                     "response_mode": response_mode,
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -8548,7 +8561,8 @@ with all_tabs[0]:
                                     "assistant",
                                     ai_reply,
                                     current_msg_id,
-                                    "conversation"
+                                    "conversation",
+                                    "talk"
                                 )
 
                                 display_message(
@@ -8616,6 +8630,7 @@ with all_tabs[0]:
                                 "content": user_input,
                                 "message_id": current_msg_id,
                                 "response_mode": response_mode,
+                                "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
 
@@ -8624,6 +8639,7 @@ with all_tabs[0]:
                                 "content": ai_reply,
                                 "message_id": current_msg_id,
                                 "response_mode": response_mode,
+                                "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
 
@@ -8638,7 +8654,8 @@ with all_tabs[0]:
                                 "assistant",
                                 ai_reply,
                                 current_msg_id,
-                                "conversation"
+                                "conversation",
+                                "talk"
                             )
 
                             display_message(
@@ -8732,6 +8749,7 @@ with all_tabs[0]:
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
                                     "response_mode": "conversation",
+                                    "chat_room": "talk",
                                     "created_at":
                                         datetime.now(JST).isoformat()
                                 })
@@ -8740,7 +8758,8 @@ with all_tabs[0]:
                                     "assistant",
                                     ai_reply,
                                     current_msg_id,
-                                    "conversation"
+                                    "conversation",
+                                    "talk"
                                 )
 
                                 display_message(
@@ -8872,6 +8891,7 @@ with all_tabs[0]:
                                         "content": user_input,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
@@ -8880,6 +8900,7 @@ with all_tabs[0]:
                                         "content": create_error_reply,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
@@ -8894,7 +8915,8 @@ with all_tabs[0]:
                                         "assistant",
                                         create_error_reply,
                                         current_msg_id,
-                                        "analysis"
+                                        "analysis",
+                                        "talk"
                                     )
 
                                     display_message(
@@ -9003,6 +9025,7 @@ with all_tabs[0]:
                                         "content": user_input,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
@@ -9011,6 +9034,7 @@ with all_tabs[0]:
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
@@ -9025,7 +9049,8 @@ with all_tabs[0]:
                                         "assistant",
                                         ai_reply,
                                         current_msg_id,
-                                        "conversation"
+                                        "conversation",
+                                        "talk"
                                     )
 
                                     display_message(
@@ -9210,6 +9235,7 @@ with all_tabs[0]:
                                     "content": user_input,
                                     "message_id": current_msg_id,
                                     "response_mode": response_mode,
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
@@ -9218,11 +9244,12 @@ with all_tabs[0]:
                                     "content": retry_reply,
                                     "message_id": current_msg_id,
                                     "response_mode": response_mode,
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
                                 # save_message("user", user_input, current_msg_id, "analysis")
-                                save_message("assistant", retry_reply, current_msg_id, "analysis")
+                                save_message("assistant", retry_reply, current_msg_id, "analysis", "talk")
 
                                 display_message(
                                     current_concierge_name,
@@ -9390,13 +9417,14 @@ with all_tabs[0]:
 
                         # 判定済みのresponse_modeと一緒に
                         # ユーザー発言をDBへ保存
-                        if not save_message("user", user_input, current_msg_id, response_mode):
+                        if not save_message("user", user_input, current_msg_id, response_mode, chat_room="talk"):
                             st.stop()
                         
                         all_messages.append({
                             "role": "user",
                             "content": user_input,
                             "response_mode": response_mode,
+                            "chat_room": "talk",
                             "created_at": datetime.now(JST).isoformat()
                         })
                         st.session_state.force_message_reload = True
@@ -10204,6 +10232,7 @@ with all_tabs[0]:
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
@@ -10211,7 +10240,8 @@ with all_tabs[0]:
                                         "assistant",
                                         ai_reply,
                                         current_msg_id,
-                                        response_mode
+                                        response_mode,
+                                        "talk"
                                     )
 
                                     display_message(
@@ -10328,10 +10358,11 @@ with all_tabs[0]:
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
                                     "response_mode": response_mode,
+                                    "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
-                                save_message("assistant", ai_reply, current_msg_id, response_mode)
+                                save_message("assistant", ai_reply, current_msg_id, response_mode, "talk")
 
                                 display_message(
                                     current_concierge_name,
@@ -10603,7 +10634,8 @@ with all_tabs[0]:
                                     "assistant",
                                     formatted_result,
                                     current_msg_id,
-                                    "conversation"
+                                    "conversation",
+                                    "talk"
                                 )
 
                                 # all_messages.append({
@@ -10621,9 +10653,8 @@ with all_tabs[0]:
                                         "content": formatted_result,
                                         "message_id": current_msg_id,
                                         "response_mode": "conversation",
-                                        "created_at": datetime.now(
-                                            JST
-                                        ).isoformat()
+                                        "chat_room": "talk",
+                                        "created_at": datetime.now(JST).isoformat()
                                 })
 
                                 st.session_state["force_message_reload"] = True
@@ -11143,10 +11174,11 @@ with all_tabs[0]:
                                 "content": ai_reply,
                                 "message_id": current_msg_id,
                                 "response_mode": response_mode,
+                                "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
                             
-                            save_message("assistant", ai_reply, current_msg_id, response_mode)
+                            save_message("assistant", ai_reply, current_msg_id, response_mode, "talk")
                             st.session_state.force_message_reload = True
 
                             # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
