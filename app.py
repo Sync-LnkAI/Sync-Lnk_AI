@@ -1783,6 +1783,39 @@ def add_permanent_tokens(
             f"{type(e).__name__}: {e}"
         )
         return False
+#===================================================
+
+# 要約作成関数
+SUMMARY_MEMORY_CONFIG = {
+    "🆓 無料プラン": {
+        "max_chars": 250,
+        "detail_rule": """
+        ・重要な事実のみ保存してください。
+        ・作品名や固有名詞は必要最小限にしてください。
+        ・趣味や仕事は概要レベルでまとめてください。
+        ・詳細なエピソードや補足説明は省略してください。
+        """
+    },
+
+    "ライトプラン": {
+        "max_chars": 500,
+        "detail_rule": """
+        ・継続的な趣味や嗜好については代表的な固有名詞を保持してください。
+        ・家族情報や継続中のプロジェクトは具体的に保存してください。
+        ・ユーザー理解に有効な詳細情報は可能な限り維持してください。
+        """
+    },
+
+    "スタンダードプラン": {
+        "max_chars": 750,
+        "detail_rule": """
+        ・可能な限り具体的な固有名詞を保持してください。
+        ・作品名、プロジェクト名、家族情報、趣味の詳細を保持してください。
+        ・継続的な話題や長期的な目標は省略せず保存してください。
+        ・文字数上限内でできるだけ情報を失わないよう要約してください。
+        """
+    }
+}
 
 def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
@@ -1793,6 +1826,15 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
     try:
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
+        
+        summary_config = (
+            SUMMARY_MEMORY_CONFIG.get(
+                current_plan_type,
+                SUMMARY_MEMORY_CONFIG["🆓 無料プラン"]
+            )
+        )
+        summary_max_chars = (summary_config["max_chars"])
+        summary_detail_rule = (summary_config["detail_rule"])
 
         # 要約処理時間の計測開始
         start_summary_time = datetime.now(JST)
@@ -2018,9 +2060,10 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
 
         存在しない項目は省略して構いません。
 
+        {summary_detail_rule}
+
         【箇条書き】
-        【5項目以内】
-        【合計250文字以内】
+        【合計{summary_max_chars}文字以内】
         【事実のみ】
 
         で要約してください。
@@ -2166,6 +2209,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # メインスレッド側の稼働を阻害しないよう、エラーはログにエスケープして安全弁を閉じます
         print(f"⚠️ バックグラウンド自動要約処理エラー: {type(bg_err).__name__}: {bg_err}")
         return False
+#===================================================
 
 # ==================================================================
 # 📊 【新設】 ユーザー別＆全体システムログ（Telemetry）永続保存関数
