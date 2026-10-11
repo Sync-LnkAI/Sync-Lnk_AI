@@ -12456,6 +12456,9 @@ if is_admin:
                             t_yen = item["total_yen"]
                             t_time = item["total_time"]
 
+                            if (not user_msg and not ai_msg):
+                                continue
+
                             with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
                                 st.markdown(f"""
 
