@@ -7965,6 +7965,26 @@ def get_plan_project(project_name: str):
         return {}
 #================================================
 
+# プラン表示更新関数
+def update_plan_project(project_id: int, update_data: dict) -> bool:
+    try:
+        (
+            supabase
+            .table("plan_projects")
+            .update(update_data)
+            .eq("id", project_id)
+            .execute()
+        )
+        return True
+
+    except Exception as e:
+        print(
+            f"計画更新エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return False
+#================================================
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -11660,7 +11680,7 @@ with all_tabs[2]:
             active_projects = (get_plan_projects(status="active"))
 
             debug_json("DEBUG active_projects", active_projects)
-            
+
             project_names = [
                 project["project_name"]
                 for project
@@ -11671,6 +11691,11 @@ with all_tabs[2]:
             if (active_project != "選択してください"):
 
                 selected_project = (get_plan_project(active_project))
+            
+            if selected_project:
+                st.markdown("---")
+                st.markdown(f"### 📌 {selected_project['project_name']}")
+                st.info(selected_project.get("project_summary", ""))
 
             col1, col2, col3 = st.columns([1,1,6])
             with col1:
