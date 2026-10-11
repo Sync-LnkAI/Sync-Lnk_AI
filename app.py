@@ -1421,6 +1421,10 @@ def increment_error_analytics(error_type: str, plan_type: str):
             
     except Exception as e:
         print(f"⚠️ 匿名エラー分析ログ記録エラー: {e}")
+        # save_debug_log(
+        #     event_type="ERROR_ANALYTICS_ERROR",
+        #     details=str(e)
+        # )
 
 def get_memories(source="manual"):
     """
@@ -7883,6 +7887,60 @@ def parse_summary_memory_blocks(summary_text: str):
 
     return blocks
 
+# 計画ルーム用の計画一覧を取得する関数
+def get_plan_projects(status: str = "active"):
+    try:
+        response = (
+            supabase
+            .table("plan_projects")
+            .select("*")
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("project_status", status)
+            .order("updated_at", desc=True)
+            .execute()
+        )
+        return (
+            response.data
+            if response.data
+            else []
+        )
+
+    except Exception as e:
+        print(
+            f"計画取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
+#================================================
+
+# 計画の作成関数
+def create_plan_project(project_name: str):
+    try:
+        response = (
+            supabase
+            .table("plan_projects")
+            .insert({
+                "user_id":CURRENT_USER_ID,
+                "project_name": project_name,
+                "project_status": "active",
+                "project_summary": "",
+                "decision_items": [],
+                "considering_items": [],
+                "pending_items": [],
+                "next_actions": []
+            })
+            .execute()
+        )
+        return True
+
+    except Exception as e:
+        print(
+            f"計画作成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return False
+#================================================
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -11533,151 +11591,84 @@ with all_tabs[1]:
         st.divider()
 
 with all_tabs[2]:
-    st.info("🚧 ただいま準備中です")
-    plan_messages = get_messages(
-        CURRENT_USER_ID,
-        chat_room="plan"
-    )
+    # current_plan_type = "スタンダード"
+    st.markdown("##### 📁 計画ルーム")
+    if ("スタンダード" not in current_plan_type):
 
-    st.write(
-        f"計画ルーム履歴件数: "
-        f"{len(plan_messages)}"
-    )
+        st.info(
+            "💎 スタンダードプラン専用機能です。"
+        )
 
-st.code(plan_messages)
+        st.markdown(
+            """
+            AIと一緒に継続的なテーマを管理できます。
 
-if False:
-    with all_tabs[2]:
-        # current_plan_type = "スタンダード"
-        st.markdown("##### 📁 計画ルーム")
-        if (
-        "スタンダード"
-            not in current_plan_type
-        ):
+            ・決定事項
+            ・検討中
+            ・保留事項
+            ・次にやること
 
-            st.info(
-                "💎 スタンダードプラン専用機能です。"
-            )
+            を整理しながら進められます。
+            """
+        )
 
-            st.markdown(
-                """
-                AIと一緒に継続的なテーマを管理できます。
+    else:
+        st.caption("AIと一緒に計画を作り上げる専用ルームです。")
+        plan_view_mode = st.radio(
+            "",
+            [
+            "🚀 進行中の計画",
+            "✅ 完了済み計画"
+            ],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        st.markdown("---")
 
-                ・決定事項
-                ・検討中
-                ・保留事項
-                ・次にやること
+        new_project_name = st.text_input("新しい計画名")
 
-                を整理しながら進められます。
-                """
-            )
+        if st.button("➕ 計画作成"):
+            if new_project_name.strip():
+                create_plan_project(new_project_name.strip())
+                st.rerun()
 
+        if plan_view_mode == "🚀 進行中の計画":
+            active_projects = (get_plan_projects(status="active"))
+            project_names = [
+                project["project_name"]
+                for project
+                in active_projects
+            ]
+            active_project = st.selectbox("進行中", ["選択してください"] + project_names)
+
+
+            col1, col2, col3 = st.columns([1,1,6])
+            with col1:
+                active_show = st.button("計画表示", key="active_show")
+            with col2:
+                active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+            st.markdown("---")
         else:
+            completed_projects = get_plan_projects(status="completed")
+            completed_project_names = [
+                project["project_name"]
+                for project
+                in completed_projects
+            ]
+            completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
+            
+            col1, col2, col3 = st.columns([1,1,6])
+            with col1:
+                completed_show = st.button("計画表示", key="completed_show")
+            with col2:
+                completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
 
-            st.caption(
-                "AIと一緒に計画を作り上げる専用ルームです。"
-            )
+        st.markdown("---")
 
-            plan_view_mode = st.radio(
-                "",
-                [
-                "🚀 進行中の計画",
-                "✅ 完了済み計画"
-                ],
-                horizontal=True,
-                label_visibility="collapsed"
-            )
-            st.markdown("---")
+        st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
-            if plan_view_mode == "🚀 進行中の計画":
-                active_project = st.selectbox(
-                    "進行中",
-                    [
-                    "選択してください",
-                    "🚀 Sync-Lnk開発",
-                    "🏠 マイホーム計画"
-                    ]
-                )
+        st.markdown("#### 💬 会話履歴")
 
-                col1, col2, col3 = st.columns([1,1,6])
-                with col1:
-                    active_show = st.button("計画表示", key="active_show")
-                with col2:
-                    active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
-                st.markdown("---")
-            else:
-                completed_project = st.selectbox(
-                    "完了済みの計画",
-                    [
-                        "選択してください",
-                        "🎓 資格取得"
-                    ],
-                )
-                col1, col2, col3 = st.columns([1,1,6])
-                with col1:
-                    completed_show = st.button("計画表示", key="completed_show")
-                with col2:
-                    completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
-
-            st.markdown("---")
-
-            with st.expander(
-                "📌 計画タイトル（例）",
-                expanded=True
-            ):
-                st.markdown(
-                    """
-                    【計画概要】
-                    ※実際にはAIが内容に応じて整理します
-
-                    ---
-                    【✅ 決定事項】
-                    ・ライト480円
-                    ・スタンダード980円
-
-                    ---
-                    【🤔 検討中】
-                    ・ポイント設計
-
-                    ---
-                    【⏸ 保留事項】
-                    ・法人向けプラン
-
-                    ---
-                    【🚀 次にやること】
-                    ・会員基盤作成
-                    """
-                )
-
-            st.markdown("---")
-
-            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
-
-            st.markdown("#### 💬 会話履歴")
-
-            st.info(
-                "会話履歴（モック表示）"
-            )
-
-            st.markdown(
-                """
-                👤 スタンダードの料金どうしようかな？
-
-                🤖 980円でも十分成立しそうです。
-                """
-            )
-
-            st.markdown(
-                """
-                👤 記憶ルームと計画ルームは分けたい。
-
-                🤖 その方が役割が明確になります。
-                """
-            )
-
-            st.chat_input(
-                "計画ルームで会話..."
-            )
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
