@@ -11591,7 +11591,7 @@ with all_tabs[1]:
         st.divider()
 
 with all_tabs[2]:
-    # current_plan_type = "スタンダード"
+    current_plan_type = "スタンダード"
     st.markdown("##### 📁 計画ルーム")
     if ("スタンダード" not in current_plan_type):
 
