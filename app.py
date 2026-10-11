@@ -11534,6 +11534,17 @@ with all_tabs[1]:
 
 with all_tabs[2]:
     st.info("🚧 ただいま準備中です")
+    plan_messages = get_messages(
+        CURRENT_USER_ID,
+        chat_room="plan"
+    )
+
+    st.write(
+        f"計画ルーム履歴件数: "
+        f"{len(plan_messages)}"
+    )
+
+st.code(plan_messages)
 
 if False:
     with all_tabs[2]:
