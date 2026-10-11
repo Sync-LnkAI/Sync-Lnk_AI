@@ -7941,6 +7941,30 @@ def create_plan_project(project_name: str):
         return False
 #================================================
 
+# 表示用の計画取得関数
+def get_plan_project(project_name: str):
+    try:
+        response = (
+            supabase
+            .table("plan_projects")
+            .select("*")
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("project_name", project_name)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return response.data[0]
+        return {}
+
+    except Exception as e:
+        print(
+            f"計画取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return {}
+#================================================
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -11640,7 +11664,10 @@ with all_tabs[2]:
                 in active_projects
             ]
             active_project = st.selectbox("進行中", ["選択してください"] + project_names)
+            selected_project = {}
+            if (active_project != "選択してください"):
 
+                selected_project = (get_plan_project(active_project))
 
             col1, col2, col3 = st.columns([1,1,6])
             with col1:
@@ -11664,6 +11691,28 @@ with all_tabs[2]:
                 completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
 
         st.markdown("---")
+
+        if selected_project:
+            with st.expander(f"📌 {active_project}", expanded=True):
+                st.markdown("### 計画概要")
+                st.info(selected_project.get("project_summary", ""))
+                
+                st.markdown("### ✅ 決定事項")
+                for item in (selected_project.get("decision_items", [])):
+                    st.markdown(f"・{item}")
+                
+                st.markdown("### 🤔 検討中")
+                for item in (
+                    selected_project.get("considering_items", [])):
+                    st.markdown(f"・{item}")
+                
+                st.markdown("### ⏸ 保留")
+                for item in (selected_project.get("pending_items", [])):
+                    st.markdown(f"・{item}")
+
+                st.markdown("### 🚀 次にやること")
+                for item in (selected_project.get("next_actions", [])):
+                    st.markdown(f"・{item}")
 
         st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
