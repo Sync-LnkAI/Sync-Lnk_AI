@@ -11658,6 +11658,9 @@ with all_tabs[2]:
 
         if plan_view_mode == "🚀 進行中の計画":
             active_projects = (get_plan_projects(status="active"))
+
+            debug_json("DEBUG active_projects", active_projects)
+            
             project_names = [
                 project["project_name"]
                 for project
