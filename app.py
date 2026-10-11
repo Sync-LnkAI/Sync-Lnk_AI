@@ -12,6 +12,7 @@ from openai import OpenAI
 import unicodedata
 from difflib import SequenceMatcher
 from janome.tokenizer import Tokenizer
+from concurrent.futures import (ThreadPoolExecutor, as_completed)
 
 
 # 日本時間（UTC+9時間）
@@ -3016,46 +3017,196 @@ def extract_related_memory_lines(
         )
     )
 
-# 括弧内にあるキーワードを抽出
-# def extract_related_keywords_from_memory(
-#     keywords: list,
-#     summary_memory_context: str
-# ) -> list:
+# 複数語での過去会話検索用のリストを作る関数
+def build_past_log_search_queries(
+    original_keywords: str,
+    related_memory_lines: list,
+    max_queries: int = 4
+) -> list:
+    """
+    過去会話検索用の検索語を作る。
+    例: original_keywords:"ドラマ"
+        related_memory_lines:["ドラマ鑑賞（VIVANT）"]
+        戻り値:["ドラマ", "ドラマ鑑賞（VIVANT）"]
+    """
 
-#     memory_text = str(
-#         summary_memory_context or ""
-#     )
+    queries = []
 
-#     related_keywords = []
+    original_text = str(original_keywords or "").strip()
 
-#     for keyword in keywords:
+    if original_text:
+        queries.append(original_text)
 
-#         pattern = (
-#             rf"{re.escape(keyword)}[^（\n]*"
-#             r"（([^）]+)）"
-#         )
+    for memory_line in (related_memory_lines or []):
+        query_text = str(memory_line or "").strip()
 
-#         matches = re.findall(
-#             pattern,
-#             memory_text
-#         )
+        if not query_text:
+            continue
 
-#         for match in matches:
+        queries.append(query_text)
 
-#             for item in match.split("、"):
+    # 重複を除去して順番を維持
+    unique_queries = list(dict.fromkeys(queries))
 
-#                 item = item.strip()
+    # 検索数が増えすぎないよう制限
+    return unique_queries[:max_queries]
+#====================================
 
-#                 if item:
-#                     related_keywords.append(
-#                         item
-#                     )
+# 複数語での過去会話検索を並列実行する関数
+def search_past_logs_parallel(
+    search_queries: list,
+    max_workers: int = 3
+) -> list:
+    """
+    複数の検索語で過去会話検索を並列実行し、
+    全検索の完了を待って結果を返す。
+    """
 
-#     return list(
-#         dict.fromkeys(
-#             related_keywords
-#         )
-#     )
+    queries = [
+        str(query or "").strip()
+        for query in (search_queries or [])
+        if str(query or "").strip()
+    ]
+
+    queries = list(dict.fromkeys(queries))
+
+    if not queries:
+        return []
+
+    # 検索が1件だけならスレッドを作らない
+    if len(queries) == 1:
+        return [
+            {
+                "query": queries[0], 
+                "results": search_past_logs_hybrid(queries[0])
+            }
+        ]
+
+    worker_count = min(max_workers, len(queries))
+
+    search_results_by_query = {}
+
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        future_to_query = {
+            executor.submit(search_past_logs_hybrid, query): query
+            for query in queries
+        }
+
+        for future in as_completed(future_to_query):
+            query = future_to_query[future]
+
+            try:
+                search_results_by_query[query] = future.result() or []
+
+            except Exception as search_error:
+                print(
+                    "過去会話並列検索エラー: "
+                    f"query={query} | "
+                    f"{type(search_error).__name__}: "
+                    f"{search_error}"
+                )
+
+                search_results_by_query[query] = []
+
+    # as_completedは完了順になるため、
+    # 元の検索語順へ戻して返す
+    return [
+        {
+            "query": query,
+            "results": (search_results_by_query.get(query, []))
+        }
+        for query in queries
+    ]
+#====================================
+
+# 複数結果を会話単位で統合する関数
+def merge_parallel_past_log_results(
+    parallel_results: list,
+    final_conversation_count: int = 3
+) -> list:
+    """
+    複数検索の結果をmessage_id単位で統合する。
+    1つの検索語だけで3枠を占有しないように、各検索結果から1会話ずつ順番に取得する。
+    """
+
+    query_conversations = []
+
+    for search_item in (parallel_results or []):
+        raw_results = (search_item.get("results", []) or [])
+
+        conversations = []
+        conversation_by_key = {}
+
+        for item in raw_results:
+            message_id = str(item.get("message_id", "") or "").strip()
+
+            # message_idがない古い履歴への対応
+            if message_id:
+                conversation_key = message_id
+            else:
+                conversation_key = (
+                    f"{item.get('role', '')}:"
+                    f"{item.get('content', '')}"
+                )
+
+            if (
+                conversation_key not in conversation_by_key):
+                conversation_by_key[conversation_key] = []
+                conversations.append(conversation_by_key[conversation_key])
+
+            conversation_by_key[conversation_key].append(item)
+
+        query_conversations.append(conversations)
+
+    merged_results = []
+    used_conversation_keys = set()
+    selected_conversation_count = 0
+    result_index = 0
+
+    # ラウンドロビン方式
+    # 検索1の1位 → 検索2の1位 →
+    # 検索1の2位 → 検索2の2位
+    while (selected_conversation_count < final_conversation_count):
+        found_new_conversation = False
+
+        for conversations in query_conversations:
+            if result_index >= len(conversations):
+                continue
+
+            conversation = (conversations[result_index])
+
+            if not conversation:
+                continue
+
+            first_item = conversation[0]
+            message_id = str(first_item.get("message_id", "") or "").strip()
+
+            if message_id:
+                conversation_key = message_id
+            else:
+                conversation_key = (
+                    f"{first_item.get('role', '')}:"
+                    f"{first_item.get('content', '')}"
+                )
+
+            if (conversation_key in used_conversation_keys):
+                continue
+
+            used_conversation_keys.add(conversation_key)
+            merged_results.extend(conversation)
+            selected_conversation_count += 1
+            found_new_conversation = True
+
+            if (selected_conversation_count >= final_conversation_count):
+                break
+
+        if not found_new_conversation:
+            break
+
+        result_index += 1
+
+    return merged_results
+#====================================
 
 
 def classify_search_and_response_mode(
@@ -9131,15 +9282,39 @@ with all_tabs[0]:
                                     matched_keywords,
                                     summary_memory_context_for_router
                             )
-                            related_keywords_text = " ".join(related_keywords)
-
+                            # related_keywords_text = " ".join(related_keywords)
                             debug_text("DEBUG keywords", keywords)
                             debug_text("DEBUG matched_keywords", matched_keywords)
-                            debug_text(
-                                "DEBUG matched_keywords_type",
-                                str(type(matched_keywords))
-                            )
                             debug_text("DEBUG related_keywords", related_keywords)
+
+                            search_queries = (
+                                build_past_log_search_queries(
+                                    original_keywords=keywords,
+                                    related_memory_lines=related_keywords,
+                                    max_queries=3
+                                )
+                            )
+                            debug_json("DEBUG past_log_search_queries",search_queries)
+
+                            search_start_time = time.time()
+
+                            parallel_past_log_results = (
+                                search_past_logs_parallel(
+                                    search_queries=search_queries,
+                                    max_workers=3
+                                )
+                            )
+                            debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
+
+                            past_logs_context = (
+                                merge_parallel_past_log_results(
+                                    parallel_results=(parallel_past_log_results),
+                                    final_conversation_count=3
+                                )
+                            )
+                            debug_json("DEBUG past_logs_context", past_logs_context)
+
+                            search_elapsed = (time.time() - search_start_time)
 
                             (
                                 need_search,
