@@ -761,52 +761,105 @@ def clean_bold_markdown(text: str) -> str:
 # 🧠 【統合仕様】 過去メッセージ履歴の一括取得関数
 # ==================================================================
 # 💡 引数を追加することで、URLから届いた本物のIDの鍵を関数内部へストレートに通電させます！
-def get_messages(target_id: str, chat_room: str = "talk") -> list[dict]:
+def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) -> list[dict]:
     """
-    💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
-    ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
-    エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
+    ユーザーIDとチャットルームに基づいて会話履歴を取得します。
+
+    計画ルームの場合は、
+    plan_project_idによって計画別に履歴を分離します。
     """
+
     start_time = time.time()
+
     try:
-        # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
-        res = (
+        query = (
             supabase
             .table("messages")
             .select(
-            "id,"
-            "role,"
-            "content,"
-            "message_id,"
-            "response_mode,"
-            "created_at"
+                "id,"
+                "role,"
+                "content,"
+                "message_id,"
+                "response_mode,"
+                "chat_room,"
+                "plan_project_id,"
+                "created_at"
             )
             .eq("user_id", str(target_id))
             .eq("chat_room", chat_room)
-            .order("created_at", desc=True)
+        )
+
+        if (chat_room == "plan" and plan_project_id is not None):
+            query = query.eq("plan_project_id", plan_project_id)
+
+        res = (
+            query
+            .order(
+                "created_at",
+                desc=True
+            )
             .limit(100)
             .execute()
-        ) 
+        )
+
         messages = res.data or []
         messages.reverse()
-
-        elapsed = time.time() - start_time
-
+        elapsed = (time.time() - start_time)
         return messages
-  
+
     except Exception as e:
         st.error(
             f"get_messagesエラー: "
             f"{type(e).__name__}: {e}"
         )
-        return None
+        return []
+
+    # """
+    # 💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
+    # ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
+    # エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
+    # """
+    # start_time = time.time()
+    # try:
+    #     # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
+    #     res = (
+    #         supabase
+    #         .table("messages")
+    #         .select(
+    #         "id,"
+    #         "role,"
+    #         "content,"
+    #         "message_id,"
+    #         "response_mode,"
+    #         "created_at"
+    #         )
+    #         .eq("user_id", str(target_id))
+    #         .eq("chat_room", chat_room)
+    #         .order("created_at", desc=True)
+    #         .limit(100)
+    #         .execute()
+    #     ) 
+    #     messages = res.data or []
+    #     messages.reverse()
+
+    #     elapsed = time.time() - start_time
+
+    #     return messages
+  
+    # except Exception as e:
+    #     st.error(
+    #         f"get_messagesエラー: "
+    #         f"{type(e).__name__}: {e}"
+    #     )
+    #     return None
 
 def save_message(
     role: str,
     content: str,
     message_id: str = "",
     response_mode: str = "",
-    chat_room: str = "talk"
+    chat_room: str = "talk",
+    plan_project_id=None
 ) -> bool:
     
     embedding_data = None
@@ -834,7 +887,8 @@ def save_message(
             "embedding": embedding_data,
             "message_id": message_id,
             "response_mode": (response_mode if response_mode else None),
-            "chat_room": chat_room
+            "chat_room": chat_room,
+            "plan_project_id": plan_project_id
         }
 
         supabase.table("messages").insert(data).execute()
@@ -8574,7 +8628,6 @@ with all_tabs[0]:
                                     ai_reply,
                                     current_msg_id,
                                     "conversation",
-                                    "talk"
                                 )
 
                                 display_message(
@@ -8634,7 +8687,6 @@ with all_tabs[0]:
                                     ai_reply,
                                     current_msg_id,
                                     "conversation",
-                                    "talk"
                                 )
 
                                 display_message(
@@ -8727,7 +8779,6 @@ with all_tabs[0]:
                                 ai_reply,
                                 current_msg_id,
                                 "conversation",
-                                "talk"
                             )
 
                             display_message(
@@ -8831,7 +8882,6 @@ with all_tabs[0]:
                                     ai_reply,
                                     current_msg_id,
                                     "conversation",
-                                    "talk"
                                 )
 
                                 display_message(
@@ -8988,7 +9038,6 @@ with all_tabs[0]:
                                         create_error_reply,
                                         current_msg_id,
                                         "analysis",
-                                        "talk"
                                     )
 
                                     display_message(
@@ -9122,7 +9171,6 @@ with all_tabs[0]:
                                         ai_reply,
                                         current_msg_id,
                                         "conversation",
-                                        "talk"
                                     )
 
                                     display_message(
@@ -9321,7 +9369,7 @@ with all_tabs[0]:
                                 })
 
                                 # save_message("user", user_input, current_msg_id, "analysis")
-                                save_message("assistant", retry_reply, current_msg_id, "analysis", "talk")
+                                save_message("assistant", retry_reply, current_msg_id, "analysis")
 
                                 display_message(
                                     current_concierge_name,
@@ -9477,7 +9525,6 @@ with all_tabs[0]:
                         # debug_text("DEBUG requires_estimation", requires_estimation)
 
                         numeric_estimate_instruction = ""
-
                         if requires_estimation:
                             numeric_estimate_instruction = """
                             【数値試算のルール】
@@ -9507,7 +9554,7 @@ with all_tabs[0]:
 
                         # 判定済みのresponse_modeと一緒に
                         # ユーザー発言をDBへ保存
-                        if not save_message("user", user_input, current_msg_id, response_mode, chat_room="talk"):
+                        if not save_message("user", user_input, current_msg_id, response_mode):
                             st.stop()
                         
                         all_messages.append({
@@ -10331,7 +10378,6 @@ with all_tabs[0]:
                                         ai_reply,
                                         current_msg_id,
                                         response_mode,
-                                        "talk"
                                     )
 
                                     display_message(
@@ -10452,7 +10498,7 @@ with all_tabs[0]:
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
-                                save_message("assistant", ai_reply, current_msg_id, response_mode, "talk")
+                                save_message("assistant", ai_reply, current_msg_id, response_mode)
 
                                 display_message(
                                     current_concierge_name,
@@ -10725,7 +10771,6 @@ with all_tabs[0]:
                                     formatted_result,
                                     current_msg_id,
                                     "conversation",
-                                    "talk"
                                 )
 
                                 # all_messages.append({
@@ -11269,7 +11314,7 @@ with all_tabs[0]:
                                 "created_at": datetime.now(JST).isoformat()
                             })
                             
-                            save_message("assistant", ai_reply, current_msg_id, response_mode, "talk")
+                            save_message("assistant", ai_reply, current_msg_id, response_mode)
                             st.session_state.force_message_reload = True
 
                             # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
@@ -11746,6 +11791,32 @@ with all_tabs[2]:
         st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
         st.markdown("#### 💬 会話履歴")
+
+        if selected_project:
+            plan_messages = get_messages(
+                CURRENT_USER_ID,
+                chat_room="plan",
+                plan_project_id=selected_project["id"]
+            )
+
+            if not plan_messages:
+                st.info("この計画には、まだ会話履歴がありません。")
+
+            else:
+                for message in plan_messages:
+                    role = str(message.get("role", "") or "")
+                    content = str(message.get("content", "") or "")
+
+                    if not content:
+                        continue
+
+                    if role == "user":
+                        with st.chat_message("user"):
+                            st.markdown(content)
+
+                    elif role == "assistant":
+                        with st.chat_message("assistant"):
+                            st.markdown(content)
 
 
 # ------------------------------------------------------------------
