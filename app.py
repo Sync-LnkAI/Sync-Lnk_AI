@@ -12060,6 +12060,14 @@ with all_tabs[2]:
                         project_id=selected_project["id"],
                         last_reflected_at=selected_project.get("last_reflected_at")
                     )
+                    st.write(
+                        "PLAN REFLECT DEBUG",
+                        {
+                            "project_id": selected_project["id"],
+                            "last_reflected_at": selected_project.get("last_reflected_at"),
+                            "message_count": len(unreflected_messages)
+                        }
+                    )
 
                     if not unreflected_messages:
                         st.info("新しく計画へ反映する会話はありません。")
@@ -12092,7 +12100,7 @@ with all_tabs[2]:
 
                             if update_succeeded:
                                 st.success("計画書へ反映しました。")
-                                st.rerun()
+                                # st.rerun()
                             else:
                                 st.error("計画書の保存に失敗しました。")
 
@@ -12243,7 +12251,7 @@ with all_tabs[2]:
                     #         "計画情報の更新に失敗しました。"
                     #     )
 
-                    st.rerun()
+                    # st.rerun()
 
 
 # ------------------------------------------------------------------
