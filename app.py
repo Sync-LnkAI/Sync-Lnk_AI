@@ -3284,7 +3284,7 @@ def classify_search_and_response_mode(
     try:
         judge_prompt = f"""
         あなたはAIチャットの振り分けシステムです。
-        直近の会話と最新ユーザー発言を読み、検索要否と回答モードを判定してください。
+        直近の会話と最新ユーザー発言を読み、検索要否と回答モード、試算意図を判定してください。
 
         【検索要否】
         ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
@@ -3310,8 +3310,7 @@ def classify_search_and_response_mode(
 
         analysis:
         企画、壁打ち、比較、意思決定、原因分析、試算、見積もり、シミュレーション。
-        与えられた条件から、金額、収支、返済額、利益、返戻金、手残りなどの結果を計算・推定する質問は analysis にしてください。
-        「いくらになる」「どれくらい戻る」「どの程度増える」など、数値結果を求めている場合も、明示的に「試算」と書かれていなくても analysis を選択してください。
+        具体的な整理、推定、判断材料が必要な回答。
 
         factual:
         事実、最新情報、検索結果、制度、仕様、ルール、公開情報の確認。
@@ -3320,6 +3319,11 @@ def classify_search_and_response_mode(
 
         default:
         複数モードが混在する、意図が不明、または分類に自信がない場合。
+
+        【試算意図】
+        ユーザーが提示した条件から、まだ確定していない金額、数量、割合、期間、差額、収支、結果などを新しく計算または推定する必要がある場合は、requires_estimation を true にしてください。
+        既に公表または確定している数値を確認するだけの場合は false にしてください。
+        明示的に「試算」「計算」と書かれていなくても、回答するために新しい数値結果を算出する必要があれば requires_estimation を true にしてください。
 
         【重要】
         ・話題の種類ではなく、今回必要な回答方法で分類してください。
@@ -3340,6 +3344,7 @@ def classify_search_and_response_mode(
         {{
             "need_search": false,
             "response_mode": "conversation",
+            "requires_estimation": false,
             "confidence": 0.90
         }}
         """
@@ -3487,6 +3492,10 @@ def classify_search_and_response_mode(
         # 低信頼度なら従来プロンプト相当のdefaultを使用
         if confidence < 0.65:
             response_mode = "default"
+        
+        requires_estimation = bool(judge_data.get("requires_estimation", False))
+        if requires_estimation:
+            response_mode = "analysis"
 
         # 共通関数が返したトークン数を取得
         judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
@@ -3504,7 +3513,8 @@ def classify_search_and_response_mode(
             confidence,
             judge_in_t,
             judge_out_t,
-            judge_cost
+            judge_cost,
+            requires_estimation
         )
 
     except Exception as judge_error:
@@ -3531,7 +3541,8 @@ def classify_search_and_response_mode(
             0.0,
             0,
             0,
-            0.0
+            0.0,
+            False
         )
 
 def classify_calculation_tool(
@@ -9454,7 +9465,8 @@ with all_tabs[0]:
                                 route_confidence,
                                 search_judge_in_t,
                                 search_judge_out_t,
-                                search_judge_cost
+                                search_judge_cost,
+                                requires_estimation
                             ) = classify_search_and_response_mode(
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router
@@ -9462,6 +9474,26 @@ with all_tabs[0]:
                             route_source = "llm_router"
 
                         router_elapsed = time.time() - router_start_time
+                        debug_text("DEBUG requires_estimation", requires_estimation)
+
+                        numeric_estimate_instruction = ""
+
+                        if requires_estimation:
+                            numeric_estimate_instruction = """
+                            【数値試算の必須ルール】
+
+                            ・ユーザーは数値の目安を求めています。
+                            ・合理的な単純計算が可能な場合は、回答の冒頭で具体的な概算値を提示してください。
+                            ・正確な料率や商品固有の条件が不明でも、ユーザーが提示した数値と期間から再現可能な単純計算ができる場合は、その計算による参考値を提示してください。
+                            ・確認できない料率や係数を事実のように作ってはいけません。
+                            ・正式な金額を確定できないことだけを理由に、概算値の提示を省略してはいけません。
+
+                            回答順:
+                            1. 概算結果
+                            2. 計算方法と前提
+                            3. 実際の金額と差が生じる理由
+                            4. 正確な確認方法
+                            """
 
                         # search_start_time = time.time()
                         
@@ -10949,6 +10981,7 @@ with all_tabs[0]:
                             ・太字装飾記号は使用しない
 
                             {selected_mode_prompt}
+                            {numeric_estimate_instruction}
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
