@@ -11803,20 +11803,25 @@ with all_tabs[2]:
                 st.info("この計画には、まだ会話履歴がありません。")
 
             else:
-                for message in plan_messages:
+                for message in reversed(plan_messages):
                     role = str(message.get("role", "") or "")
                     content = str(message.get("content", "") or "")
 
                     if not content:
                         continue
 
-                    if role == "user":
-                        with st.chat_message("user"):
-                            st.markdown(content)
+                    role_label = (
+                        display_user_name
+                        if role == "user"
+                        else current_concierge_name
+                    )
 
-                    elif role == "assistant":
-                        with st.chat_message("assistant"):
-                            st.markdown(content)
+                    display_message(role_label,content)
+
+                    if role == "user":
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        st.markdown("---")
+                        st.markdown("<br>", unsafe_allow_html=True)
             
             if selected_project:
                 plan_user_input = st.chat_input("この計画について会話...")
