@@ -11824,10 +11824,23 @@ with all_tabs[2]:
                         st.markdown("<br>", unsafe_allow_html=True)
             
             if selected_project:
-                plan_user_input = st.chat_input("この計画について会話...")
+                plan_user_input = st.chat_input("この計画についての会話を入力してください")
 
                 if plan_user_input:
                     plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
+
+                    save_message(
+                        role="user",
+                        content=plan_user_input,
+                        message_id=plan_message_id,
+                        response_mode="analysis",
+                        chat_room="plan",
+                        plan_project_id=selected_project["id"]
+                    )
+                    if not user_saved:
+                        st.error("計画ルームのユーザー発言を保存できませんでした。")
+                        st.stop()
+
                     plan_history_lines = []
                     for message in plan_messages[-10:]:
                         role_name = (
