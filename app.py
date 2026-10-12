@@ -8269,22 +8269,27 @@ def generate_merged_plan_document(
 def get_unreflected_plan_messages(project_id: int, last_reflected_at=None) -> list[dict]:
     """前回の計画反映後に追加された会話を、古い順で取得する。"""
     try:
-        query = (
-            supabase.table("messages")
-            .select("id,role,content,messageat")
-            .eq("user_id", CURRENT_USER_ID)
-            .eq("chat_room", "plan")
-            .eq("plan_project_id", project_id)
+        all_plan_messages = get_messages(
+            CURRENT_USER_ID,
+            chat_room="plan",
+            plan_project_id=project_id
         )
 
-        if last_reflected_at:
-            query = query.gt("created_at", str(last_reflected_at))
+        if not last_reflected_at:
+            return all_plan_messages
 
-        response = query.order("created_at", desc=False).limit(500).execute()
-        return response.data or []
+        return [
+            message
+            for message in all_plan_messages
+            if str(message.get("created_at", "") or "")
+            > str(last_reflected_at)
+        ]
 
     except Exception as e:
-        print(f"未反映会話取得エラー: {type(e).__name__}: {e}")
+        st.error(
+            "未反映会話取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
         return []
 #================================================
 
