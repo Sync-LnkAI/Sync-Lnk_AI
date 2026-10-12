@@ -11703,7 +11703,7 @@ with all_tabs[2]:
         )
         st.markdown("---")
 
-        new_project_name = st.text_input("新しい計画名")
+        new_project_name = st.text_input("**新しい計画名**")
 
         if st.button("➕ 計画作成"):
             if new_project_name.strip():
@@ -11722,7 +11722,7 @@ with all_tabs[2]:
                 for project
                 in active_projects
             ]
-            active_project = st.selectbox("進行中", ["選択してください"] + project_names)
+            active_project = st.selectbox("**進行中**", ["選択してください"] + project_names)
             selected_project = {}
             if (active_project != "選択してください"):
 
