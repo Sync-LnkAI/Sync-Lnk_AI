@@ -11670,7 +11670,7 @@ with all_tabs[1]:
 
 with all_tabs[2]:
     current_plan_type = "スタンダード"
-    st.markdown("##### 📁 計画ルーム")
+    # st.markdown("##### 📁 計画ルーム")
     if ("スタンダード" not in current_plan_type):
 
         st.info(
@@ -11691,7 +11691,7 @@ with all_tabs[2]:
         )
 
     else:
-        st.caption("AIと一緒に計画を作り上げる専用ルームです。")
+        st.caption("AIと一緒に継続的な計画を作成して管理することができる専用ルームです。")
         plan_view_mode = st.radio(
             "",
             [
@@ -11730,7 +11730,7 @@ with all_tabs[2]:
             
             if selected_project:
                 st.markdown("---")
-                st.markdown(f"### 📌 {selected_project['project_name']}")
+                st.markdown(f"##### 📌 {selected_project['project_name']}")
 
                 project_summary = (selected_project.get("project_summary") or "")
                 if project_summary:
@@ -11761,7 +11761,7 @@ with all_tabs[2]:
 
         if selected_project:
             with st.expander(f"📌 {active_project}", expanded=True):
-                st.markdown("### 計画概要")
+                st.markdown("##### 計画概要")
                 project_summary = (
                     selected_project.get(
                         "project_summary"
@@ -11771,26 +11771,26 @@ with all_tabs[2]:
                 if project_summary:
                     st.info(project_summary)
                 
-                st.markdown("### ✅ 決定事項")
+                st.markdown("##### ✅ 決定事項")
                 for item in (selected_project.get("decision_items", [])):
                     st.markdown(f"・{item}")
                 
-                st.markdown("### 🤔 検討中")
+                st.markdown("##### 🤔 検討中")
                 for item in (
                     selected_project.get("considering_items", [])):
                     st.markdown(f"・{item}")
                 
-                st.markdown("### ⏸ 保留")
+                st.markdown("##### ⏸ 保留")
                 for item in (selected_project.get("pending_items", [])):
                     st.markdown(f"・{item}")
 
-                st.markdown("### 🚀 次にやること")
+                st.markdown("##### 🚀 次にやること")
                 for item in (selected_project.get("next_actions", [])):
                     st.markdown(f"・{item}")
 
         st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
-        st.markdown("#### 💬 会話履歴")
+        st.markdown("##### 💬 会話履歴")
 
         if selected_project:
             plan_messages = get_messages(
