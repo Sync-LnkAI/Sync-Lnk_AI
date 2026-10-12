@@ -11715,7 +11715,7 @@ with all_tabs[2]:
         if plan_view_mode == "🚀 進行中の計画":
             active_projects = (get_plan_projects(status="active"))
 
-            debug_json("DEBUG active_projects", active_projects)
+            # debug_json("DEBUG active_projects", active_projects)
 
             project_names = [
                 project["project_name"]
@@ -11761,7 +11761,7 @@ with all_tabs[2]:
 
         if selected_project:
             with st.expander(f"📌 {active_project}", expanded=True):
-                st.markdown("**計画概要】**")
+                st.markdown("**【計画概要】**")
                 project_summary = (
                     selected_project.get(
                         "project_summary"
