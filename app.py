@@ -11829,7 +11829,7 @@ with all_tabs[2]:
                 if plan_user_input:
                     plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
 
-                    save_message(
+                    user_saved = save_message(
                         role="user",
                         content=plan_user_input,
                         message_id=plan_message_id,
