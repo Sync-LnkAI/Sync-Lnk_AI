@@ -11819,7 +11819,7 @@ with all_tabs[2]:
                     display_message(role_label,content)
 
                     if role == "user":
-                        st.markdown("<br>", unsafe_allow_html=True)
+                        # st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown("---")
                         st.markdown("<br>", unsafe_allow_html=True)
             
