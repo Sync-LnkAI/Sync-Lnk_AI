@@ -8157,7 +8157,138 @@ def extract_plan_project_updates(
         )
 
         return empty_result
+#================================================
 
+# 既存の計画書と未反映の会話をマージして、新しい計画書全文を作る関数
+def generate_merged_plan_document(
+    selected_project: dict,
+    unreflected_messages: list
+) -> str:
+    """
+    既存の計画書と未反映の会話を統合し、
+    最新の計画書全文を生成する。
+    """
+    existing_document = str(selected_project.get("plan_document", "") or "").strip()
+
+    conversation_lines = []
+    for message in unreflected_messages:
+        role = str(message.get("role", "") or "")
+        content = str(message.get("content", "") or "").strip()
+
+        if not content:
+            continue
+
+        role_label = (
+            "ユーザー"
+            if role == "user"
+            else "AIコンシェルジュ"
+        )
+
+        conversation_lines.append(f"{role_label}: {content}")
+
+    conversation_text = (
+        "\n\n".join(conversation_lines)
+        if conversation_lines
+        else "新しく反映する会話はありません。"
+    )
+
+    merge_prompt = f"""
+    あなたは、会話内容をもとに計画書、設計書、仕様書、検討レポートなどを編集する専門家です。
+    既存の計画書と、今回新しく追加された会話を統合し、現時点での最新の計画書全文を作成してください。
+
+    【計画名】
+    {selected_project.get("project_name", "")}
+
+    【既存の計画書】
+    {existing_document or "まだ計画書はありません。"}
+
+    【今回新しく反映する会話】
+    {conversation_text}
+
+    【編集ルール】
+    ・計画の種類や会話内容に合わせて、必要な項目名を自由に判断してください。
+    ・「決定事項」「検討中」「保留」などの固定された項目へ無理に分類してはいけません。
+    ・既存の計画書に有効な内容がある場合は維持してください。
+    ・今回の会話で内容が変更された場合は、新しい内容へ更新してください。
+    ・同じ内容が複数ある場合は重複を整理してください。
+    ・単純な追記ではなく、計画書全体が自然につながるように再編集してください。
+    ・ユーザーが明示していない内容を、決定済みの事実として追加してはいけません。
+    ・AIコンシェルジュが提案しただけの内容は、ユーザーが同意していない限り、決定済みとして扱ってはいけません。
+    ・会話そのものをそのまま書き写さず、計画書として分かりやすく整理してください。
+    ・古い内容と新しい内容が矛盾する場合は、ユーザーの最新発言を優先してください。
+    ・説明文、前置き、更新報告は不要です。更新後の計画書本文だけを出力してください。
+
+    【出力形式】
+    ・タイトルと各項目名は、必ず次の形式にしてください。 **【項目名】**
+    ・各項目の内容は、必ず次の形式にしてください。
+    ・内容
+    ・項目名の前後には空行を入れてください。
+    ・内容が複数ある場合は、1項目につき1行の箇条書きにしてください。
+    ・「#」「##」「###」などのMarkdown見出しは使用しないでください。
+    ・番号付きリストは、手順や優先順位を表す必要がある場合だけ使用してください。
+    ・存在しない情報を埋めるために、「未定」「なし」などを大量に並べてはいけません。
+
+    【出力例】
+    **【計画概要】**
+    ・計画の目的や全体像
+
+    **【現在の設計方針】**
+    ・設計方針の内容
+    ・設計方針の内容
+
+    **【今後の作業】**
+    ・次に実施する作業
+    """
+
+    try:
+        merge_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=merge_prompt,
+            response_format_json=False,
+            model_name=SUMMARY_MODEL_NAME
+        )
+
+        merged_document = str(merge_result.get("text", "") or "").strip()
+
+        if not merged_document:
+            return existing_document
+
+        return merged_document
+
+    except Exception as e:
+        print(
+            "計画書マージ生成エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return existing_document
+#================================================
+
+# 前回の反映後に追加された計画ルームの会話だけを取得する関数
+def get_unreflected_plan_messages(project_id: int, last_reflected_at=None) -> list[dict]:
+    """前回の計画反映後に追加された会話を、古い順で取得する。"""
+    try:
+        query = (
+            supabase.table("messages")
+            .select("id,role,content,messageat")
+            .eq("user_id", CURRENT_USER_ID)
+            .eq("chat_room", "plan")
+            .eq("plan_project_id", project_id)
+        )
+
+        if last_reflected_at:
+            query = query.gt("created_at", str(last_reflected_at))
+
+        response = query.order("created_at", desc=False).limit(500).execute()
+        return response.data or []
+
+    except Exception as e:
+        print(f"未反映会話取得エラー: {type(e).__name__}: {e}")
+        return []
+#================================================
+
+# 
 #================================================
 
 # 🎨グラデーションカラーパレット
@@ -11912,32 +12043,58 @@ with all_tabs[2]:
 
         if selected_project:
             with st.expander(f"📌 {active_project}", expanded=True):
-                st.markdown("**【計画概要】**")
-                project_summary = (
-                    selected_project.get(
-                        "project_summary"
-                    )
-                    or ""
-                )
-                if project_summary:
-                    st.info(project_summary)
-                
-                st.markdown("**✅ 決定事項**")
-                for item in (selected_project.get("decision_items", [])):
-                    st.markdown(f"・{item}")
-                
-                st.markdown("**🤔 検討中**")
-                for item in (
-                    selected_project.get("considering_items", [])):
-                    st.markdown(f"・{item}")
-                
-                st.markdown("**⏸ 保留**")
-                for item in (selected_project.get("pending_items", [])):
-                    st.markdown(f"・{item}")
+                plan_document = str(selected_project.get("plan_document", "") or "").strip()
+                if plan_document:
+                    st.markdown(plan_document)
 
-                st.markdown("**🚀 次にやること**")
-                for item in (selected_project.get("next_actions", [])):
-                    st.markdown(f"・{item}")
+                else:
+                    st.info(
+                        "まだ計画書は作成されていません。\n\n"
+                        "計画について会話した後、"
+                        "「計画に反映」を実行すると、"
+                        "ここに計画書が表示されます。"
+                    )
+                
+                if st.button("📝 計画に反映", key=f"reflect_plan_{selected_project['id']}"):
+                    unreflected_messages = get_unreflected_plan_messages(
+                        project_id=selected_project["id"],
+                        last_reflected_at=selected_project.get("last_reflected_at")
+                    )
+
+                    if not unreflected_messages:
+                        st.info("新しく計画へ反映する会話はありません。")
+
+                    else:
+                        with st.spinner("会話内容を計画書へ反映しています..."):
+                            merged_document = generate_merged_plan_document(
+                                selected_project=selected_project,
+                                unreflected_messages=unreflected_messages
+                            )
+
+                            if not merged_document:
+                                st.error("計画書を作成できませんでした。")
+                                st.stop()
+
+                            reflected_at = max(
+                                str(message.get("created_at", "") or "")
+                                for message in unreflected_messages
+                                if message.get("created_at")
+                            )
+
+                            update_succeeded = update_plan_project(
+                                project_id=selected_project["id"],
+                                update_data={
+                                    "plan_document": merged_document,
+                                    "last_reflected_at": reflected_at,
+                                    "updated_at": datetime.now(JST).isoformat()
+                                }
+                            )
+
+                            if update_succeeded:
+                                st.success("計画書へ反映しました。")
+                                st.rerun()
+                            else:
+                                st.error("計画書の保存に失敗しました。")
 
         st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
 
@@ -12069,22 +12226,22 @@ with all_tabs[2]:
                         st.error("AIの回答を保存できませんでした。")
                         st.stop()
 
-                    project_updates = extract_plan_project_updates(
-                        selected_project=selected_project,
-                        user_message=plan_user_input,
-                        assistant_message=plan_ai_reply
-                    )
+                    # project_updates = extract_plan_project_updates(
+                    #     selected_project=selected_project,
+                    #     user_message=plan_user_input,
+                    #     assistant_message=plan_ai_reply
+                    # )
 
-                    project_updated = update_plan_project(
-                        project_id=selected_project["id"],
-                        update_data=project_updates
-                    )
+                    # project_updated = update_plan_project(
+                    #     project_id=selected_project["id"],
+                    #     update_data=project_updates
+                    # )
 
-                    if not project_updated:
-                        st.warning(
-                            "会話は保存されましたが、"
-                            "計画情報の更新に失敗しました。"
-                        )
+                    # if not project_updated:
+                    #     st.warning(
+                    #         "会話は保存されましたが、"
+                    #         "計画情報の更新に失敗しました。"
+                    #     )
 
                     st.rerun()
 
