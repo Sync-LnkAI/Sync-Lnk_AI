@@ -11761,7 +11761,7 @@ with all_tabs[2]:
 
         if selected_project:
             with st.expander(f"📌 {active_project}", expanded=True):
-                st.markdown("##### 計画概要")
+                st.markdown("** 計画概要**")
                 project_summary = (
                     selected_project.get(
                         "project_summary"
@@ -11771,20 +11771,20 @@ with all_tabs[2]:
                 if project_summary:
                     st.info(project_summary)
                 
-                st.markdown("##### ✅ 決定事項")
+                st.markdown("** ✅ 決定事項**")
                 for item in (selected_project.get("decision_items", [])):
                     st.markdown(f"・{item}")
                 
-                st.markdown("##### 🤔 検討中")
+                st.markdown("** 🤔 検討中**")
                 for item in (
                     selected_project.get("considering_items", [])):
                     st.markdown(f"・{item}")
                 
-                st.markdown("##### ⏸ 保留")
+                st.markdown("** ⏸ 保留**")
                 for item in (selected_project.get("pending_items", [])):
                     st.markdown(f"・{item}")
 
-                st.markdown("##### 🚀 次にやること")
+                st.markdown("** 🚀 次にやること**")
                 for item in (selected_project.get("next_actions", [])):
                     st.markdown(f"・{item}")
 
