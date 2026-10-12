@@ -3348,11 +3348,17 @@ def classify_search_and_response_mode(
 
         analysis:
         企画、壁打ち、比較、仕事、技術、事業、意思決定、原因分析。
-        具体的な整理、選択肢、利点と欠点、次の行動が必要。
+        また、保険、ローン、投資、不動産、税金などについて、
+        将来の結果、収支、返済額、利回り、手残り、
+        解約返戻金などの試算や見積もりを求める質問もanalysis にしてください。
+        合理的な前提や一般的な条件で概算試算を行うことが回答の目的である場合は、
+        factual より analysis を優先してください。
+        具体的な整理、試算、選択肢、利点と欠点、次の行動が必要な回答に適しています。
 
         factual:
-        事実質問、最新情報、検索結果、数値や仕様の確認。
-        正確性と根拠を重視する回答が必要。
+        事実質問、最新情報、検索結果、制度内容、商品仕様、人物情報、作品情報など。
+        正確性と根拠を重視する回答が必要です。
+        制度、仕様、法律、ルール、商品内容、公開情報そのものを確認することが目的の場合はfactual にしてください。
 
         default:
         複数モードが混在する、意図が不明、または分類に自信がない場合。
@@ -11675,6 +11681,8 @@ with all_tabs[2]:
             if new_project_name.strip():
                 create_plan_project(new_project_name.strip())
                 st.rerun()
+        
+        selected_project = {}
 
         if plan_view_mode == "🚀 進行中の計画":
             active_projects = (get_plan_projects(status="active"))
@@ -11695,7 +11703,10 @@ with all_tabs[2]:
             if selected_project:
                 st.markdown("---")
                 st.markdown(f"### 📌 {selected_project['project_name']}")
-                st.info(selected_project.get("project_summary", ""))
+
+                project_summary = (selected_project.get("project_summary") or "")
+                if project_summary:
+                    st.info(project_summary)
 
             col1, col2, col3 = st.columns([1,1,6])
             with col1:
@@ -11723,7 +11734,14 @@ with all_tabs[2]:
         if selected_project:
             with st.expander(f"📌 {active_project}", expanded=True):
                 st.markdown("### 計画概要")
-                st.info(selected_project.get("project_summary", ""))
+                project_summary = (
+                    selected_project.get(
+                        "project_summary"
+                    )
+                    or ""
+                )
+                if project_summary:
+                    st.info(project_summary)
                 
                 st.markdown("### ✅ 決定事項")
                 for item in (selected_project.get("decision_items", [])):
