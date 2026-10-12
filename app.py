@@ -11828,19 +11828,74 @@ with all_tabs[2]:
 
                 if plan_user_input:
                     plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
+                    plan_history_lines = []
+                    for message in plan_messages[-10:]:
+                        role_name = (
+                            display_user_name
+                            if message.get("role") == "user"
+                            else current_concierge_name
+                        )
+                        plan_history_lines.append(
+                            f"{role_name}: "
+                            f"{message.get('content', '')}"
+                        )
 
-                    save_message(
-                        role="user",
-                        content=plan_user_input,
-                        message_id=plan_message_id,
-                        response_mode="analysis",
-                        chat_room="plan",
-                        plan_project_id=selected_project["id"]
+                    plan_history_lines.append(f"{display_user_name}: {plan_user_input}")
+                    plan_history_text = (
+                        "\n".join(plan_history_lines)
+                        if plan_history_lines
+                        else "会話履歴なし"
                     )
+
+                    plan_ai_instruction = f"""
+                    あなたはAIコンシェルジュ「{current_concierge_name}」です。
+                    計画ルームでは、選択中の計画について継続的に会話します。
+
+                    【選択中の計画】
+                    計画名:{selected_project.get("project_name", "")}
+
+                    計画概要:{selected_project.get("project_summary", "") or "未設定"}
+
+                    決定事項:{selected_project.get("decision_items", []) or []}
+
+                    検討中:{selected_project.get("considering_items", []) or []}
+
+                    保留事項:{selected_project.get("pending_items", []) or []}
+
+                    次にやること:{selected_project.get("next_actions", []) or []}
+
+                    【回答ルール】
+                    ・選択中の計画を前提に回答してください。
+                    ・計画の目的、現在の状況、課題、次の行動を整理しながら回答してください。
+                    ・まだ決まっていない内容を、決定事項として断定してはいけません。
+                    ・ユーザーが明示していない内容を事実として追加してはいけません。
+                    ・通常のトークルームの話題と混同しないでください。
+
+                    【話し方】
+                    {STYLE_PRESETS.get(current_style_preset, "")}
+
+                    【回答の長さ】
+                    {response_length_prompt}
+                    """
+
+                    plan_ai_result = generate_ai_response(
+                        provider=CHAT_PROVIDER,
+                        system_instruction=plan_ai_instruction,
+                        user_prompt=plan_history_text,
+                        model_name=CHAT_MODEL_NAME
+                    )
+
+                    plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
+
+                    if not plan_ai_reply:
+                        plan_ai_reply = (
+                            "うまく回答を作成できませんでした。"
+                            "もう一度送ってみてください。"
+                        )
 
                     save_message(
                         role="assistant",
-                        content="計画ルームのテスト返信です。",
+                        content=plan_ai_reply,
                         message_id=plan_message_id,
                         response_mode="analysis",
                         chat_room="plan",
