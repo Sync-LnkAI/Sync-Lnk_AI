@@ -11817,6 +11817,32 @@ with all_tabs[2]:
                     elif role == "assistant":
                         with st.chat_message("assistant"):
                             st.markdown(content)
+            
+            if selected_project:
+                plan_user_input = st.chat_input("この計画について会話...")
+
+                if plan_user_input:
+                    plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
+
+                    save_message(
+                        role="user",
+                        content=plan_user_input,
+                        message_id=plan_message_id,
+                        response_mode="analysis",
+                        chat_room="plan",
+                        plan_project_id=selected_project["id"]
+                    )
+
+                    save_message(
+                        role="assistant",
+                        content="計画ルームのテスト返信です。",
+                        message_id=plan_message_id,
+                        response_mode="analysis",
+                        chat_room="plan",
+                        plan_project_id=selected_project["id"]
+                    )
+
+                    st.rerun()
 
 
 # ------------------------------------------------------------------
