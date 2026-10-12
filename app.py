@@ -1373,7 +1373,7 @@ def search_past_logs_hybrid(query_text: str):
                     item.get("aggregated_score", item.get("final_score", 0.0))
             })
 
-        debug_json("DEBUG grouped_conversations", debug_grouped_conversations)
+        # debug_json("DEBUG grouped_conversations", debug_grouped_conversations)
 
         return combined_results
 
@@ -4402,10 +4402,10 @@ def update_calculation_case(
                 None
             )
 
-        debug_json(
-            "DEBUG merged_case_data_before_update",
-            merged_case_data
-        )
+        # debug_json(
+        #     "DEBUG merged_case_data_before_update",
+        #     merged_case_data
+        # )
 
         update_data = {
             "case_data": make_json_safe(merged_case_data),
@@ -6107,10 +6107,10 @@ def format_missing_fields_message(
     missing_fields: list
 ) -> str:
 
-    debug_json(
-        "DEBUG format_missing_fields_message_current_arguments",
-        current_arguments
-    )
+    # debug_json(
+    #     "DEBUG format_missing_fields_message_current_arguments",
+    #     current_arguments
+    # )
 
     missing_labels = [
         REAL_ESTATE_FIELD_LABELS.get(
@@ -9437,7 +9437,7 @@ with all_tabs[0]:
                                     max_queries=3
                                 )
                             )
-                            debug_json("DEBUG past_log_search_queries",search_queries)
+                            # debug_json("DEBUG past_log_search_queries",search_queries)
 
                             search_start_time = time.time()
 
@@ -9447,7 +9447,7 @@ with all_tabs[0]:
                                     max_workers=3
                                 )
                             )
-                            debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
+                            # debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
                             past_logs_context = (
                                 merge_parallel_past_log_results(
@@ -9455,7 +9455,7 @@ with all_tabs[0]:
                                     final_conversation_count=3
                                 )
                             )
-                            debug_json("DEBUG past_logs_context", past_logs_context)
+                            # debug_json("DEBUG past_logs_context", past_logs_context)
 
                             search_elapsed = (time.time() - search_start_time)
 
@@ -9474,7 +9474,7 @@ with all_tabs[0]:
                             route_source = "llm_router"
 
                         router_elapsed = time.time() - router_start_time
-                        debug_text("DEBUG requires_estimation", requires_estimation)
+                        # debug_text("DEBUG requires_estimation", requires_estimation)
 
                         numeric_estimate_instruction = ""
 
