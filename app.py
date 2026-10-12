@@ -8009,6 +8009,157 @@ def update_plan_project(project_id: int, update_data: dict) -> bool:
         return False
 #================================================
 
+# 計画ルームの会話から必要事項を抽出する関数
+def extract_plan_project_updates(
+    selected_project: dict,
+    user_message: str,
+    assistant_message: str
+) -> dict:
+    """
+    計画ルームの1会話から、
+    計画概要・決定事項・検討中・保留事項・
+    次にやることの最新状態を抽出する。
+    """
+    empty_result = {
+        "project_summary": (selected_project.get("project_summary") or ""),
+        "decision_items": (selected_project.get("decision_items") or []),
+        "considering_items": (selected_project.get("considering_items") or []),
+        "pending_items": (selected_project.get("pending_items") or []),
+        "next_actions": (selected_project.get("next_actions") or [])
+    }
+
+    try:
+        extraction_prompt = f"""
+        あなたは計画情報を整理するシステムです。
+        既存の計画情報と今回の会話を読み、計画の最新状態をJSONで出力してください。
+
+        【重要】
+        ・ユーザーが明示した内容を優先してください。
+        ・AIが提案しただけの内容を、決定事項にしてはいけません。
+        ・決定したことだけをdecision_itemsへ入れてください。
+        ・まだ検討している内容はconsidering_itemsへ入れてください。
+        ・当面判断しない内容はpending_itemsへ入れてください。
+        ・具体的に実行する作業はnext_actionsへ入れてください。
+        ・既存情報は、今回の会話で変更・削除されない限り維持してください。
+        ・同じ内容を重複して追加してはいけません。
+        ・該当する更新がない項目は、既存内容をそのまま返してください。
+        ・ユーザーが明示していない事実を追加してはいけません。
+        ・JSON以外の文章は出力しないでください。
+
+        【計画名】
+        {selected_project.get("project_name", "")}
+
+        【現在の計画概要】
+        {empty_result["project_summary"]}
+
+        【現在の決定事項】
+        {json.dumps(empty_result["decision_items"], ensure_ascii=False)}
+
+        【現在の検討中】
+        {json.dumps(empty_result["considering_items"], ensure_ascii=False)}
+
+        【現在の保留事項】
+        {json.dumps(empty_result["pending_items"], ensure_ascii=False)}
+
+        【現在の次にやること】
+        {json.dumps(empty_result["next_actions"], ensure_ascii=False)}
+
+        【今回のユーザー発言】
+        {user_message}
+
+        【今回のAI回答】
+        {assistant_message}
+
+        【出力形式】
+        {{
+            "project_summary": "",
+            "decision_items": [],
+            "considering_items": [],
+            "pending_items": [],
+            "next_actions": []
+        }}
+        """
+
+        extraction_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=extraction_prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        raw_text = str(extraction_result.get("text", "") or "").strip()
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+        extracted_data = json.loads(clean_text)
+        if not isinstance(extracted_data, dict):
+            return empty_result
+
+        return {
+            "project_summary": (
+                str(
+                    extracted_data.get(
+                        "project_summary",
+                        empty_result[
+                            "project_summary"
+                        ]
+                    )
+                    or ""
+                ).strip()
+            ),
+            "decision_items": (
+                extracted_data.get(
+                    "decision_items",
+                    empty_result[
+                        "decision_items"
+                    ]
+                )
+                or []
+            ),
+            "considering_items": (
+                extracted_data.get(
+                    "considering_items",
+                    empty_result[
+                        "considering_items"
+                    ]
+                )
+                or []
+            ),
+            "pending_items": (
+                extracted_data.get(
+                    "pending_items",
+                    empty_result[
+                        "pending_items"
+                    ]
+                )
+                or []
+            ),
+            "next_actions": (
+                extracted_data.get(
+                    "next_actions",
+                    empty_result[
+                        "next_actions"
+                    ]
+                )
+                or []
+            )
+        }
+
+    except Exception as e:
+        print(
+            "計画情報抽出エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return empty_result
+
+#================================================
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -11906,7 +12057,7 @@ with all_tabs[2]:
                             "もう一度送ってみてください。"
                         )
 
-                    save_message(
+                    assistant_saved = save_message(
                         role="assistant",
                         content=plan_ai_reply,
                         message_id=plan_message_id,
@@ -11914,6 +12065,26 @@ with all_tabs[2]:
                         chat_room="plan",
                         plan_project_id=selected_project["id"]
                     )
+                    if not assistant_saved:
+                        st.error("AIの回答を保存できませんでした。")
+                        st.stop()
+
+                    project_updates = extract_plan_project_updates(
+                        selected_project=selected_project,
+                        user_message=plan_user_input,
+                        assistant_message=plan_ai_reply
+                    )
+
+                    project_updated = update_plan_project(
+                        project_id=selected_project["id"],
+                        update_data=project_updates
+                    )
+
+                    if not project_updated:
+                        st.warning(
+                            "会話は保存されましたが、"
+                            "計画情報の更新に失敗しました。"
+                        )
 
                     st.rerun()
 
