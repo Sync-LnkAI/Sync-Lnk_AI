@@ -7966,6 +7966,35 @@ def create_plan_project(project_name: str):
         return False
 #================================================
 
+# 新規の計画作成ポップアップ関数
+@st.dialog("新しい計画を作成")
+def show_create_plan_dialog():
+    new_project_name = st.text_input(
+        "計画名",
+        placeholder="計画名を入力してください",
+        key="dialog_new_project_name"
+    )
+
+    create_plan = st.button(
+        "計画を作成",
+        type="primary",
+        use_container_width=True
+    )
+
+    if create_plan:
+        project_name = new_project_name.strip()
+
+        if not project_name:
+            st.warning("計画名を入力してください。")
+            return
+
+        if create_plan_project(project_name):
+            st.session_state["newly_created_plan_name"] = project_name
+            st.rerun()
+        else:
+            st.error("計画を作成できませんでした。")
+#================================================
+
 # 表示用の計画取得関数
 def get_plan_project(project_name: str):
     try:
@@ -12062,12 +12091,12 @@ with all_tabs[2]:
         )
         st.markdown("---")
 
-        new_project_name = st.text_input("**新しい計画名**")
+        # new_project_name = st.text_input("**新しい計画名**")
 
-        if st.button("➕ 計画作成"):
-            if new_project_name.strip():
-                create_plan_project(new_project_name.strip())
-                st.rerun()
+        # if st.button("➕ 計画作成"):
+        #     if new_project_name.strip():
+        #         create_plan_project(new_project_name.strip())
+        #         st.rerun()
         
         selected_project = {}
 
@@ -12082,13 +12111,33 @@ with all_tabs[2]:
                 in active_projects
             ]
             st.markdown("---")
+            # if st.session_state.pop("reset_active_plan_project", False):
+            #     st.session_state["active_plan_project"] = "選択してください"
+            # active_project = st.selectbox(
+            #     "**進行中**",
+            #     ["選択してください"] + project_names,
+            #     key="active_plan_project"
+            # )
             if st.session_state.pop("reset_active_plan_project", False):
                 st.session_state["active_plan_project"] = "選択してください"
+
+            newly_created_plan_name = st.session_state.pop(
+                "newly_created_plan_name",
+                None
+            )
+
+            if newly_created_plan_name in project_names:
+                st.session_state["active_plan_project"] = newly_created_plan_name
+
             active_project = st.selectbox(
                 "**進行中**",
                 ["選択してください"] + project_names,
                 key="active_plan_project"
             )
+
+            if st.button("➕ 新しい計画を作成", key="open_create_plan_dialog"):
+                show_create_plan_dialog()
+
             selected_project = {}
             if (active_project != "選択してください"):
 
