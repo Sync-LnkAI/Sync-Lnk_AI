@@ -12107,16 +12107,130 @@ with all_tabs[2]:
                             else:
                                 st.error("計画書の保存に失敗しました。")
 
-        st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
-
-        st.markdown("##### 💬 会話履歴")
-
         if selected_project:
             plan_messages = get_messages(
                 CURRENT_USER_ID,
                 chat_room="plan",
                 plan_project_id=selected_project["id"]
             )
+            
+            plan_user_input = st.chat_input("この計画についての会話を入力してください")
+
+            if plan_user_input:
+                plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
+
+                user_saved = save_message(
+                    role="user",
+                    content=plan_user_input,
+                    message_id=plan_message_id,
+                    response_mode="analysis",
+                    chat_room="plan",
+                    plan_project_id=selected_project["id"]
+                )
+                if not user_saved:
+                    st.error("計画ルームのユーザー発言を保存できませんでした。")
+                    st.stop()
+
+                plan_history_lines = []
+                for message in plan_messages[-10:]:
+                    role_name = (
+                        display_user_name
+                        if message.get("role") == "user"
+                        else current_concierge_name
+                    )
+                    plan_history_lines.append(
+                        f"{role_name}: "
+                        f"{message.get('content', '')}"
+                    )
+
+                plan_history_lines.append(f"{display_user_name}: {plan_user_input}")
+                plan_history_text = (
+                    "\n".join(plan_history_lines)
+                    if plan_history_lines
+                    else "会話履歴なし"
+                )
+
+                plan_ai_instruction = f"""
+                あなたはAIコンシェルジュ「{current_concierge_name}」です。
+                計画ルームでは、選択中の計画について継続的に会話します。
+
+                【選択中の計画】
+                計画名:{selected_project.get("project_name", "")}
+
+                計画概要:{selected_project.get("project_summary", "") or "未設定"}
+
+                決定事項:{selected_project.get("decision_items", []) or []}
+
+                検討中:{selected_project.get("considering_items", []) or []}
+
+                保留事項:{selected_project.get("pending_items", []) or []}
+
+                次にやること:{selected_project.get("next_actions", []) or []}
+
+                【回答ルール】
+                ・選択中の計画を前提に回答してください。
+                ・計画の目的、現在の状況、課題、次の行動を整理しながら回答してください。
+                ・まだ決まっていない内容を、決定事項として断定してはいけません。
+                ・ユーザーが明示していない内容を事実として追加してはいけません。
+                ・通常のトークルームの話題と混同しないでください。
+
+                【話し方】
+                {STYLE_PRESETS.get(current_style_preset, "")}
+
+                【回答の長さ】
+                {response_length_prompt}
+                """
+
+                with st.spinner(f"{current_concierge_name}が考え中..."):
+                    plan_ai_result = generate_ai_response(
+                        provider=CHAT_PROVIDER,
+                        system_instruction=plan_ai_instruction,
+                        user_prompt=plan_history_text,
+                        model_name=CHAT_MODEL_NAME
+                    )
+
+                plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
+
+                if not plan_ai_reply:
+                    plan_ai_reply = (
+                        "うまく回答を作成できませんでした。"
+                        "もう一度送ってみてください。"
+                    )
+
+                assistant_saved = save_message(
+                    role="assistant",
+                    content=plan_ai_reply,
+                    message_id=plan_message_id,
+                    response_mode="analysis",
+                    chat_room="plan",
+                    plan_project_id=selected_project["id"]
+                )
+                if not assistant_saved:
+                    st.error("AIの回答を保存できませんでした。")
+                    st.stop()
+
+                # project_updates = extract_plan_project_updates(
+                #     selected_project=selected_project,
+                #     user_message=plan_user_input,
+                #     assistant_message=plan_ai_reply
+                # )
+
+                # project_updated = update_plan_project(
+                #     project_id=selected_project["id"],
+                #     update_data=project_updates
+                # )
+
+                # if not project_updated:
+                #     st.warning(
+                #         "会話は保存されましたが、"
+                #         "計画情報の更新に失敗しました。"
+                #     )
+
+                st.rerun()
+            
+            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+
+            st.markdown("##### 💬 会話履歴")
 
             if not plan_messages:
                 st.info("この計画には、まだ会話履歴がありません。")
@@ -12140,122 +12254,7 @@ with all_tabs[2]:
                     if role == "user":
                         # st.markdown("<br>", unsafe_allow_html=True)
                         st.markdown("---")
-                        st.markdown("<br>", unsafe_allow_html=True)
-            
-            if selected_project:
-                plan_user_input = st.chat_input("この計画についての会話を入力してください")
-
-                if plan_user_input:
-                    plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
-
-                    user_saved = save_message(
-                        role="user",
-                        content=plan_user_input,
-                        message_id=plan_message_id,
-                        response_mode="analysis",
-                        chat_room="plan",
-                        plan_project_id=selected_project["id"]
-                    )
-                    if not user_saved:
-                        st.error("計画ルームのユーザー発言を保存できませんでした。")
-                        st.stop()
-
-                    plan_history_lines = []
-                    for message in plan_messages[-10:]:
-                        role_name = (
-                            display_user_name
-                            if message.get("role") == "user"
-                            else current_concierge_name
-                        )
-                        plan_history_lines.append(
-                            f"{role_name}: "
-                            f"{message.get('content', '')}"
-                        )
-
-                    plan_history_lines.append(f"{display_user_name}: {plan_user_input}")
-                    plan_history_text = (
-                        "\n".join(plan_history_lines)
-                        if plan_history_lines
-                        else "会話履歴なし"
-                    )
-
-                    plan_ai_instruction = f"""
-                    あなたはAIコンシェルジュ「{current_concierge_name}」です。
-                    計画ルームでは、選択中の計画について継続的に会話します。
-
-                    【選択中の計画】
-                    計画名:{selected_project.get("project_name", "")}
-
-                    計画概要:{selected_project.get("project_summary", "") or "未設定"}
-
-                    決定事項:{selected_project.get("decision_items", []) or []}
-
-                    検討中:{selected_project.get("considering_items", []) or []}
-
-                    保留事項:{selected_project.get("pending_items", []) or []}
-
-                    次にやること:{selected_project.get("next_actions", []) or []}
-
-                    【回答ルール】
-                    ・選択中の計画を前提に回答してください。
-                    ・計画の目的、現在の状況、課題、次の行動を整理しながら回答してください。
-                    ・まだ決まっていない内容を、決定事項として断定してはいけません。
-                    ・ユーザーが明示していない内容を事実として追加してはいけません。
-                    ・通常のトークルームの話題と混同しないでください。
-
-                    【話し方】
-                    {STYLE_PRESETS.get(current_style_preset, "")}
-
-                    【回答の長さ】
-                    {response_length_prompt}
-                    """
-
-                    plan_ai_result = generate_ai_response(
-                        provider=CHAT_PROVIDER,
-                        system_instruction=plan_ai_instruction,
-                        user_prompt=plan_history_text,
-                        model_name=CHAT_MODEL_NAME
-                    )
-
-                    plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
-
-                    if not plan_ai_reply:
-                        plan_ai_reply = (
-                            "うまく回答を作成できませんでした。"
-                            "もう一度送ってみてください。"
-                        )
-
-                    assistant_saved = save_message(
-                        role="assistant",
-                        content=plan_ai_reply,
-                        message_id=plan_message_id,
-                        response_mode="analysis",
-                        chat_room="plan",
-                        plan_project_id=selected_project["id"]
-                    )
-                    if not assistant_saved:
-                        st.error("AIの回答を保存できませんでした。")
-                        st.stop()
-
-                    # project_updates = extract_plan_project_updates(
-                    #     selected_project=selected_project,
-                    #     user_message=plan_user_input,
-                    #     assistant_message=plan_ai_reply
-                    # )
-
-                    # project_updated = update_plan_project(
-                    #     project_id=selected_project["id"],
-                    #     update_data=project_updates
-                    # )
-
-                    # if not project_updated:
-                    #     st.warning(
-                    #         "会話は保存されましたが、"
-                    #         "計画情報の更新に失敗しました。"
-                    #     )
-
-                    st.rerun()
-
+                        st.markdown("<br>", unsafe_allow_html=True)            
 
 # ------------------------------------------------------------------
 # 🎨 【タブ2】 話し方・見た目設定
