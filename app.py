@@ -12047,11 +12047,12 @@ with all_tabs[2]:
                 if project_summary:
                     st.info(project_summary)
 
-            col1, col2, col3 = st.columns([1,1,6])
-            with col1:
-                active_show = st.button("計画表示", key="active_show")
-            with col2:
-                active_delete = st.button("計画削除", key="active_delete", disabled=(active_project == "選択してください"))
+            active_delete = st.button(
+                "計画削除",
+                key="active_delete",
+                disabled=(active_project == "選択してください")
+            )
+
         else:
             completed_projects = get_plan_projects(status="completed")
             completed_project_names = [
