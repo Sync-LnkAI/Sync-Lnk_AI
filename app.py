@@ -8221,6 +8221,8 @@ def generate_merged_plan_document(
 
     【出力形式】
     ・タイトルと各項目名は、必ず次の形式にしてください。 **【項目名】**
+    ・HTMLタグは使用しないでください。「<strong>」「<br>」なども出力しないでください。
+    ・既存の計画書にHTMLタグが含まれている場合は、タグを除去してMarkdown形式へ修正してください。
     ・各項目の内容は、必ず次の形式にしてください。
     ・内容
     ・項目名の前には空行を入れてください。
@@ -8256,6 +8258,17 @@ def generate_merged_plan_document(
         )
 
         merged_document = str(merge_result.get("text", "") or "").strip()
+
+        merged_document = re.sub(
+            r"<br\s*/?>",
+            "\n",
+            merged_document,
+            flags=re.IGNORECASE
+        )
+        merged_document = re.sub(
+            r"<[^>]+>",
+            "",
+            merged_document)
 
         if not merged_document:
             return existing_document
