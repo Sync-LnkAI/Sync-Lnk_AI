@@ -12276,6 +12276,7 @@ with all_tabs[2]:
                     out_t=plan_out_tokens,
                     api_cost=plan_api_cost,
                     details=(
+                        f"chat_room=plan"
                         f"provider={CHAT_PROVIDER}"
                         f" | model={CHAT_MODEL_NAME}"
                         f" | project_id={selected_project['id']}"
