@@ -13466,7 +13466,18 @@ if is_admin:
             st.subheader("📈 アプリ全体アクティビティ ＆ 機能統計（匿名集計）")
             with st.spinner("システムログからプラン別データを高度に集計中..."):
                 try:
-                    audit_res = supabase.table("system_audit_logs").select("user_id, user_plan, event_type, total_yen_cost, created_at").execute()
+                    # audit_res = supabase.table("system_audit_logs").select("user_id, user_plan, event_type, total_yen_cost, created_at").execute()
+                    audit_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select(
+                            "user_id, user_plan, event_type, "
+                            "total_yen_cost, created_at"
+                        )
+                        .order("created_at", desc=True)
+                        .limit(5000)
+                        .execute()
+                    )
                     audit_data = audit_res.data if audit_res.data else []
                     total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
                     event_types = [
