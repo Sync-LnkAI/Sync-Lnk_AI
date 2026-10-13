@@ -7977,8 +7977,7 @@ def show_create_plan_dialog():
 
     create_plan = st.button(
         "計画を作成",
-        type="primary",
-        use_container_width=True
+        # use_container_width=True
     )
 
     if create_plan:
@@ -8074,8 +8073,7 @@ def show_plan_delete_dialog(project_id: int, project_name: str):
         if st.button(
             "削除を確定",
             key=f"confirm_delete_{project_id}",
-            type="primary",
-            use_container_width=True
+            # use_container_width=True
         ):
             if delete_plan_project(project_id):
                 st.session_state["reset_active_plan_project"] = True
@@ -8087,7 +8085,7 @@ def show_plan_delete_dialog(project_id: int, project_name: str):
         if st.button(
             "キャンセル",
             key=f"cancel_delete_{project_id}",
-            use_container_width=True
+            # use_container_width=True
         ):
             st.rerun()
 #================================================
@@ -12090,13 +12088,6 @@ with all_tabs[2]:
             label_visibility="collapsed"
         )
         st.markdown("---")
-
-        # new_project_name = st.text_input("**新しい計画名**")
-
-        # if st.button("➕ 計画作成"):
-        #     if new_project_name.strip():
-        #         create_plan_project(new_project_name.strip())
-        #         st.rerun()
         
         selected_project = {}
 
@@ -12110,14 +12101,7 @@ with all_tabs[2]:
                 for project
                 in active_projects
             ]
-            # st.markdown("---")
-            # if st.session_state.pop("reset_active_plan_project", False):
-            #     st.session_state["active_plan_project"] = "選択してください"
-            # active_project = st.selectbox(
-            #     "**進行中**",
-            #     ["選択してください"] + project_names,
-            #     key="active_plan_project"
-            # )
+
             if st.session_state.pop("reset_active_plan_project", False):
                 st.session_state["active_plan_project"] = "選択してください"
 
@@ -12297,44 +12281,6 @@ with all_tabs[2]:
                         selected_project["project_name"]
                     )
                 
-                # if active_delete:
-                #     st.session_state["confirm_plan_delete"] = True
-
-                # if st.session_state.get("confirm_plan_delete", False):
-                #     st.warning(
-                #         f"「{selected_project['project_name']}」を削除します。"
-                #         "削除した計画は元に戻せません。"
-                #     )
-
-                #     confirm_col, cancel_col = st.columns(2)
-
-                #     with confirm_col:
-                #         confirm_delete = st.button(
-                #             "削除を確定",
-                #             key=f"confirm_delete_{selected_project['id']}",
-                #             type="primary",
-                #             # use_container_width=True
-                #         )
-
-                #     with cancel_col:
-                #         cancel_delete = st.button(
-                #             "キャンセル",
-                #             key=f"cancel_delete_{selected_project['id']}",
-                #             # use_container_width=True
-                #         )
-
-                #     if confirm_delete:
-                #         if delete_plan_project(selected_project["id"]):
-                #             st.session_state["confirm_plan_delete"] = False
-                #             st.session_state["reset_active_plan_project"] = True
-                #             st.rerun()
-                #         else:
-                #             st.error("計画の削除に失敗しました。")
-
-                #     if cancel_delete:
-                #         st.session_state["confirm_plan_delete"] = False
-                #         st.rerun()
-
             if reflect_plan:          
                 unreflected_messages = get_unreflected_plan_messages(
                     project_id=selected_project["id"],
