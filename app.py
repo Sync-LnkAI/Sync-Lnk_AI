@@ -12061,11 +12061,11 @@ with all_tabs[2]:
             ]
             completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
             
-            col1, col2, col3 = st.columns([1,1,6])
-            with col1:
-                completed_show = st.button("計画表示", key="completed_show")
-            with col2:
-                completed_show = st.button("計画削除", disabled=(completed_project == "選択してください"))
+            active_delete = st.button(
+                "計画削除",
+                key="active_delete",
+                disabled=(active_project == "選択してください")
+            )
 
         st.markdown("---")
 
@@ -12082,47 +12082,6 @@ with all_tabs[2]:
                         "「計画に反映」を実行すると、"
                         "ここに計画書が表示されます。"
                     )
-                
-                if st.button("📝 計画に反映", key=f"reflect_plan_{selected_project['id']}"):
-                    unreflected_messages = get_unreflected_plan_messages(
-                        project_id=selected_project["id"],
-                        last_reflected_at=selected_project.get("last_reflected_at")
-                    )
-
-                    if not unreflected_messages:
-                        st.info("新しく計画へ反映する会話はありません。")
-
-                    else:
-                        with st.spinner("会話内容を計画書へ反映しています..."):
-                            merged_document = generate_merged_plan_document(
-                                selected_project=selected_project,
-                                unreflected_messages=unreflected_messages
-                            )
-
-                            if not merged_document:
-                                st.error("計画書を作成できませんでした。")
-                                st.stop()
-
-                            reflected_at = max(
-                                str(message.get("created_at", "") or "")
-                                for message in unreflected_messages
-                                if message.get("created_at")
-                            )
-
-                            update_succeeded = update_plan_project(
-                                project_id=selected_project["id"],
-                                update_data={
-                                    "plan_document": merged_document,
-                                    "last_reflected_at": reflected_at,
-                                    "updated_at": datetime.now(JST).isoformat()
-                                }
-                            )
-
-                            if update_succeeded:
-                                st.success("計画書へ反映しました。")
-                                st.rerun()
-                            else:
-                                st.error("計画書の保存に失敗しました。")
 
         if selected_project:
             plan_messages = get_messages(
@@ -12245,9 +12204,62 @@ with all_tabs[2]:
 
                 st.rerun()
             
-            st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+            # st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
+            st.markdown("")
+            history_title_col, reflect_button_col = st.columns([5, 1])
 
-            st.markdown("##### 💬 会話履歴")
+            with history_title_col:
+                st.markdown("##### 💬 会話履歴")
+
+            with reflect_button_col:
+                reflect_plan = st.button(
+                    "📝 計画に反映",
+                    key=f"reflect_plan_{selected_project['id']}",
+                    use_container_width=True
+                )
+            # if st.button("📝 計画に反映", key=f"reflect_plan_{selected_project['id']}"):
+            
+            if reflect_plan:          
+                unreflected_messages = get_unreflected_plan_messages(
+                    project_id=selected_project["id"],
+                    last_reflected_at=selected_project.get("last_reflected_at")
+                )
+
+                if not unreflected_messages:
+                    st.info("新しく計画へ反映する会話はありません。")
+
+                else:
+                    with st.spinner("会話内容を計画書へ反映しています..."):
+                        merged_document = generate_merged_plan_document(
+                            selected_project=selected_project,
+                            unreflected_messages=unreflected_messages
+                        )
+
+                        if not merged_document:
+                            st.error("計画書を作成できませんでした。")
+                            st.stop()
+
+                        reflected_at = max(
+                            str(message.get("created_at", "") or "")
+                            for message in unreflected_messages
+                            if message.get("created_at")
+                        )
+
+                        update_succeeded = update_plan_project(
+                            project_id=selected_project["id"],
+                            update_data={
+                                "plan_document": merged_document,
+                                "last_reflected_at": reflected_at,
+                                "updated_at": datetime.now(JST).isoformat()
+                            }
+                        )
+
+                        if update_succeeded:
+                            st.success("計画書へ反映しました。")
+                            st.rerun()
+                        else:
+                            st.error("計画書の保存に失敗しました。")
+
 
             if not plan_messages:
                 st.info("この計画には、まだ会話履歴がありません。")
