@@ -8010,6 +8010,27 @@ def update_plan_project(project_id: int, update_data: dict) -> bool:
         return False
 #================================================
 
+# 計画を削除する関数
+def delete_plan_project(project_id: int) -> bool:
+    try:
+        (
+            supabase
+            .table("plan_projects")
+            .delete()
+            .eq("id", project_id)
+            .eq("user_id", CURRENT_USER_ID)
+            .execute()
+        )
+        return True
+
+    except Exception as e:
+        print(
+            "計画削除エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return False
+#================================================
+
 # 計画ルームの会話から必要事項を抽出する関数
 def extract_plan_project_updates(
     selected_project: dict,
@@ -12038,20 +12059,6 @@ with all_tabs[2]:
             if (active_project != "選択してください"):
 
                 selected_project = (get_plan_project(active_project))
-            
-            if selected_project:
-                st.markdown("---")
-                st.markdown(f"##### 📌 {selected_project['project_name']}")
-
-                project_summary = (selected_project.get("project_summary") or "")
-                if project_summary:
-                    st.info(project_summary)
-
-            active_delete = st.button(
-                "計画削除",
-                key="active_delete",
-                disabled=(active_project == "選択してください")
-            )
 
         else:
             completed_projects = get_plan_projects(status="completed")
@@ -12061,12 +12068,6 @@ with all_tabs[2]:
                 in completed_projects
             ]
             completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
-            
-            active_delete = st.button(
-                "計画削除",
-                key="active_delete",
-                disabled=(active_project == "選択してください")
-            )
 
         st.markdown("---")
 
@@ -12185,29 +12186,11 @@ with all_tabs[2]:
                 if not assistant_saved:
                     st.error("AIの回答を保存できませんでした。")
                     st.stop()
-
-                # project_updates = extract_plan_project_updates(
-                #     selected_project=selected_project,
-                #     user_message=plan_user_input,
-                #     assistant_message=plan_ai_reply
-                # )
-
-                # project_updated = update_plan_project(
-                #     project_id=selected_project["id"],
-                #     update_data=project_updates
-                # )
-
-                # if not project_updated:
-                #     st.warning(
-                #         "会話は保存されましたが、"
-                #         "計画情報の更新に失敗しました。"
-                #     )
-
                 st.rerun()
             
             # st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
             st.markdown("")
-            history_title_col, reflect_button_col = st.columns([5, 1])
+            history_title_col, reflect_button_col, delete_button_col = st.columns([4, 1, 1])
 
             with history_title_col:
                 st.markdown("##### 💬 会話履歴")
@@ -12218,8 +12201,52 @@ with all_tabs[2]:
                     key=f"reflect_plan_{selected_project['id']}",
                     # use_container_width=True
                 )
-            # if st.button("📝 計画に反映", key=f"reflect_plan_{selected_project['id']}"):
-            
+
+            with delete_button_col:
+                active_delete = st.button(
+                    "計画削除",
+                    key=f"active_delete_{selected_project['id']}",
+                    # use_container_width=True
+                )
+                if active_delete:
+                    st.session_state["confirm_plan_delete"] = True
+
+                if st.session_state.get("confirm_plan_delete", False):
+                    st.warning(
+                        f"「{selected_project['project_name']}」を削除します。"
+                        "削除した計画は元に戻せません。"
+                    )
+
+                    confirm_col, cancel_col = st.columns(2)
+
+                    with confirm_col:
+                        confirm_delete = st.button(
+                            "削除を確定",
+                            key=f"confirm_delete_{selected_project['id']}",
+                            type="primary",
+                            use_container_width=True
+                        )
+
+                    with cancel_col:
+                        cancel_delete = st.button(
+                            "キャンセル",
+                            key=f"cancel_delete_{selected_project['id']}",
+                            use_container_width=True
+                        )
+
+                    if confirm_delete:
+                        if delete_plan_project(selected_project["id"]):
+                            st.session_state["confirm_plan_delete"] = False
+                            st.session_state["active_plan_project"] = "選択してください"
+                            st.success("計画を削除しました。")
+                            st.rerun()
+                        else:
+                            st.error("計画の削除に失敗しました。")
+
+                    if cancel_delete:
+                        st.session_state["confirm_plan_delete"] = False
+                        st.rerun()
+
             if reflect_plan:          
                 unreflected_messages = get_unreflected_plan_messages(
                     project_id=selected_project["id"],
