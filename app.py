@@ -12016,7 +12016,11 @@ with all_tabs[2]:
                 in active_projects
             ]
             st.markdown("---")
-            active_project = st.selectbox("**進行中**", ["選択してください"] + project_names)
+            active_project = st.selectbox(
+                "**進行中**",
+                ["選択してください"] + project_names,
+                key="active_plan_project"
+            )
             selected_project = {}
             if (active_project != "選択してください"):
 
