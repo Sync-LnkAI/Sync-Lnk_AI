@@ -12242,9 +12242,9 @@ with all_tabs[2]:
                 plan_out_tokens = int(plan_ai_result.get("out_tokens", 0) or 0)
                 plan_api_cost = calculate_ai_cost(
                     provider=CHAT_PROVIDER,
-                    model_name=CHAT_MODEL_NAME,
                     in_tokens=plan_in_tokens,
-                    out_tokens=plan_out_tokens
+                    out_tokens=plan_out_tokens,
+                    is_chat=True
                 )
 
                 plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
