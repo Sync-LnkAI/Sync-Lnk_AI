@@ -12231,7 +12231,7 @@ with all_tabs[2]:
 
             with reflect_button_col:
                 reflect_plan = st.button(
-                    "📝 計画に反映",
+                    "計画に反映",
                     key=f"reflect_plan_{selected_project['id']}",
                     # use_container_width=True
                 )
