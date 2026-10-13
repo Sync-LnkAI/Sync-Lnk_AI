@@ -12214,7 +12214,10 @@ with all_tabs[2]:
 
                 【回答ルール】
                 ・選択中の計画を前提に回答してください。
-                ・計画の目的、現在の状況、課題、次の行動を整理しながら回答してください。
+                ・ユーザーの最新の発言や質問へ直接回答してください。
+                ・通常の回答では、計画全体の総括や整理を毎回行わないでください。
+                ・「ここまでの内容を整理すると」などの前置きから回答を始めないでください。
+                ・計画全体を整理するのは、ユーザーが明示的に要約や整理を求めた場合だけにする。
                 ・まだ決まっていない内容を、決定事項として断定してはいけません。
                 ・ユーザーが明示していない内容を事実として追加してはいけません。
                 ・通常のトークルームの話題と混同しないでください。
@@ -12226,6 +12229,7 @@ with all_tabs[2]:
                 {response_length_prompt}
                 """
 
+                plan_ai_start_time = time.time()
                 with st.spinner(f"{current_concierge_name}が考え中..."):
                     plan_ai_result = generate_ai_response(
                         provider=CHAT_PROVIDER,
@@ -12233,6 +12237,15 @@ with all_tabs[2]:
                         user_prompt=plan_history_text,
                         model_name=CHAT_MODEL_NAME
                     )
+                plan_ai_processing_time = time.time() - plan_ai_start_time
+                plan_in_tokens = int(plan_ai_result.get("in_tokens", 0) or 0)
+                plan_out_tokens = int(plan_ai_result.get("out_tokens", 0) or 0)
+                plan_api_cost = calculate_ai_cost(
+                    provider=CHAT_PROVIDER,
+                    model_name=CHAT_MODEL_NAME,
+                    in_tokens=plan_in_tokens,
+                    out_tokens=plan_out_tokens
+                )
 
                 plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
 
@@ -12253,6 +12266,23 @@ with all_tabs[2]:
                 if not assistant_saved:
                     st.error("AIの回答を保存できませんでした。")
                     st.stop()
+                
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="PLAN_CHAT_SUCCESS",
+                    processing_time=plan_ai_processing_time,
+                    in_t=plan_in_tokens,
+                    out_t=plan_out_tokens,
+                    api_cost=plan_api_cost,
+                    details=(
+                        f"provider={CHAT_PROVIDER}"
+                        f" | model={CHAT_MODEL_NAME}"
+                        f" | project_id={selected_project['id']}"
+                        f" | project_name={selected_project['project_name']}"
+                    ),
+                    message_id=str(plan_message_id)
+                )
                 st.rerun()
             
             # st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
@@ -13300,7 +13330,7 @@ if is_admin:
                                     log.get("details", "")
                                 )
 
-                            elif action == "CHAT_SUCCESS":
+                            elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
                                 # st.write(
                                 #     f"DEBUG CHAT_SUCCESS cost={cost} "
                                 #     f"in={in_t} out={out_t}"
@@ -13441,6 +13471,7 @@ if is_admin:
                     
                     stats_matrix = {
                         "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "standard": 0},
+                        "📋 計画ルーム会話数": {"free": 0, "light": 0, "standard": 0},
                         "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "standard": 0},
                         "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "standard": 0},
                         "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "standard": 0},
@@ -13465,6 +13496,8 @@ if is_admin:
                         if action == "CHAT_SUCCESS":
                             stats_matrix["💬 総会話往復数（送信回数）"][p_key] += 1
                             total_app_chats += 1
+                        elif action == "PLAN_CHAT_SUCCESS":
+                            stats_matrix["📋 計画ルーム会話数"][p_key] += 1
                         elif action == "DAILY_LIMIT_EXCEEDED": 
                             stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += 1
                         elif action == "SETTING_UPDATE_SUCCESS": 
