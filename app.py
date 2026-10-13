@@ -12215,7 +12215,7 @@ with all_tabs[2]:
                 reflect_plan = st.button(
                     "📝 計画に反映",
                     key=f"reflect_plan_{selected_project['id']}",
-                    use_container_width=True
+                    # use_container_width=True
                 )
             # if st.button("📝 計画に反映", key=f"reflect_plan_{selected_project['id']}"):
             
