@@ -13474,8 +13474,8 @@ if is_admin:
                             "user_id, user_plan, event_type, "
                             "total_yen_cost, created_at"
                         )
-                        .order("created_at", desc=True)
-                        .limit(5000)
+                        # .order("created_at", desc=True)
+                        # .limit(5000)
                         .execute()
                     )
                     audit_data = audit_res.data if audit_res.data else []
