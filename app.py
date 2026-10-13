@@ -12110,7 +12110,7 @@ with all_tabs[2]:
                 for project
                 in active_projects
             ]
-            st.markdown("---")
+            # st.markdown("---")
             # if st.session_state.pop("reset_active_plan_project", False):
             #     st.session_state["active_plan_project"] = "選択してください"
             # active_project = st.selectbox(
