@@ -13321,6 +13321,18 @@ if is_admin:
                         .limit(100)
                         .execute()
                     )
+
+                    def compact_provider_details(details):
+                        parts = [
+                            part.strip()
+                            for part in str(details or "").split("|")
+                        ]
+
+                        return " / ".join(
+                            part
+                            for part in parts
+                            if part.startswith(("provider=", "model="))
+                        )
                 
                     if log_res.data:
                         # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
@@ -13442,8 +13454,10 @@ if is_admin:
                                 )
                                 merged_logs[msg_id]["reflection_cost"] = cost
                                 merged_logs[msg_id]["reflection_details"] = (
-                                    log.get("details", "") or ""
-                                ).replace("|", " / ")
+                                    compact_provider_details(
+                                        log.get("details", "")
+                                    )
+                                )
 
                             elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
                                 merged_logs[msg_id]["event_type"] = action
@@ -13479,8 +13493,10 @@ if is_admin:
                                     else 0
                                 )
                                 merged_logs[msg_id]["chat_details"] = (
-                                    log.get("details", "") or ""
-                                ).replace("|", " / ")
+                                    compact_provider_details(
+                                        log.get("details", "")
+                                    )
+                                )
 
                             # 1会話単位の、全体の総実費合計コスト集計
                             merged_logs[msg_id]["total_yen"] += cost
