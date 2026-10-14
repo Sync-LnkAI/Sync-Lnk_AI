@@ -8244,7 +8244,7 @@ def extract_plan_project_updates(
 def generate_merged_plan_document(
     selected_project: dict,
     unreflected_messages: list
-) -> str:
+) -> dict:
     """
     既存の計画書と未反映の会話を統合し、
     最新の計画書全文を生成する。
@@ -8329,12 +8329,23 @@ def generate_merged_plan_document(
     """
 
     try:
+        merge_start_time = time.time()
         merge_result = generate_ai_response(
             provider=BACKGROUND_PROVIDER,
             system_instruction="",
             user_prompt=merge_prompt,
             response_format_json=False,
             model_name=SUMMARY_MODEL_NAME
+        )
+        merge_processing_time = time.time() - merge_start_time
+
+        merge_in_tokens = int(merge_result.get("in_tokens", 0) or 0)
+        merge_out_tokens = int(merge_result.get("out_tokens", 0) or 0)
+        merge_api_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=merge_in_tokens,
+            out_tokens=merge_out_tokens,
+            is_chat=False
         )
 
         merged_document = str(merge_result.get("text", "") or "").strip()
@@ -8351,9 +8362,15 @@ def generate_merged_plan_document(
             merged_document)
 
         if not merged_document:
-            return existing_document
+            merged_document = existing_document
 
-        return merged_document
+        return {
+            "document": merged_document,
+            "processing_time": merge_processing_time,
+            "in_tokens": merge_in_tokens,
+            "out_tokens": merge_out_tokens,
+            "api_cost": merge_api_cost
+        }
 
     except Exception as e:
         print(
@@ -8361,7 +8378,13 @@ def generate_merged_plan_document(
             f"{type(e).__name__}: {e}"
         )
 
-        return existing_document
+        return {
+            "document": existing_document,
+            "processing_time": 0.0,
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "api_cost": 0.0
+        }
 #================================================
 
 # 前回の反映後に追加された計画ルームの会話だけを取得する関数
@@ -12327,6 +12350,7 @@ with all_tabs[2]:
                             selected_project=selected_project,
                             unreflected_messages=unreflected_messages
                         )
+                        merged_document = str(merge_data.get("document", "") or "").strip()
 
                         if not merged_document:
                             st.error("計画書を作成できませんでした。")
@@ -12348,6 +12372,37 @@ with all_tabs[2]:
                         )
 
                         if update_succeeded:
+                            reflection_message_id = str(
+                                unreflected_messages[-1].get("message_id", "") or ""
+                            )
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type="PLAN_REFLECTION_SUCCESS",
+                                processing_time=float(
+                                    merge_data.get("processing_time", 0.0) or 0.0
+                                ),
+                                in_t=int(
+                                    merge_data.get("in_tokens", 0) or 0
+                                ),
+                                out_t=int(
+                                    merge_data.get("out_tokens", 0) or 0
+                                ),
+                                api_cost=float(
+                                    merge_data.get("api_cost", 0.0) or 0.0
+                                ),
+                                details=(
+                                    f"chat_room=plan"
+                                    f" | operation=plan_reflection"
+                                    f" | provider={BACKGROUND_PROVIDER}"
+                                    f" | model={SUMMARY_MODEL_NAME}"
+                                    f" | project_id={selected_project['id']}"
+                                    f" | project_name={selected_project['project_name']}"
+                                ),
+                                message_id=reflection_message_id
+                            )
+
                             st.success("計画書へ反映しました。")
                             st.rerun()
                         else:
@@ -12794,19 +12849,34 @@ if is_admin:
 
             normal_chat_count = int(user_summary.get("normal_chat_count", 0) or 0)
             plan_chat_count = int(user_summary.get("plan_chat_count", 0) or 0)
+            plan_reflection_count = int(user_summary.get("plan_reflection_count", 0) or 0)
+
             total_active_days = int(user_summary.get("active_day_count", 0) or 0)
             total_cost_jpy = float(user_summary.get("total_cost", 0.0) or 0.0)
             
             normal_chat_cost = float(user_summary.get("normal_chat_cost", 0.0) or 0.0)
             plan_chat_cost = float(user_summary.get("plan_chat_cost", 0.0) or 0.0)
+            plan_reflection_cost = float(user_summary.get("plan_reflection_cost", 0.0) or 0.0)
 
             normal_in_tokens = int(user_summary.get("normal_in_tokens", 0) or 0)
             normal_out_tokens = int(user_summary.get("normal_out_tokens", 0) or 0)
             plan_in_tokens = int(user_summary.get("plan_in_tokens", 0) or 0)
             plan_out_tokens = int(user_summary.get("plan_out_tokens", 0) or 0)
+            plan_reflection_in_tokens = int(
+                user_summary.get("plan_reflection_in_tokens", 0) or 0
+            )
+            plan_reflection_out_tokens = int(
+                user_summary.get("plan_reflection_out_tokens", 0) or 0
+            )
 
             normal_processing_time = float(user_summary.get("normal_processing_time", 0.0) or 0.0)
             plan_processing_time = float(user_summary.get("plan_processing_time", 0.0) or 0.0)
+            plan_reflection_processing_time = float(
+                user_summary.get(
+                    "plan_reflection_processing_time",
+                    0.0
+                ) or 0.0
+            )
             
             st.markdown("---")
             
@@ -13107,6 +13177,7 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総会話回数：</b> {total_chats} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク：</b> {normal_chat_count} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム：</b> {plan_chat_count} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画反映：</b> {plan_reflection_count} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>正式運用開始日：</b> {start_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>最終会話日時：</b> {last_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総システム稼働日数：</b> {total_active_days} 日間</p>"
@@ -13117,12 +13188,16 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {total_cost_jpy:.4f} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク原価：</b> {normal_chat_cost:.4f} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム原価：</b> {plan_chat_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画反映原価：</b> {plan_reflection_cost:.4f} 円</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク入力：</b> {normal_in_tokens:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク出力：</b> {normal_out_tokens:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム入力：</b> {plan_in_tokens:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム出力：</b> {plan_out_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画反映入力：</b> {plan_reflection_in_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画反映出力：</b> {plan_reflection_out_tokens:,} t</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク処理時間：</b> {normal_processing_time:.2f} 秒</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム処理時間：</b> {plan_processing_time:.2f} 秒</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画反映処理時間：</b> {plan_reflection_processing_time:.2f} 秒</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat:.4f} 円/通</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
                     f"・<b>検索判定回数：</b> {search_judge_count} 回</p>"
@@ -13272,6 +13347,8 @@ if is_admin:
                                     "user_message": "",
                                     "ai_message": "",
                                     "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
+                                    "reflection_time": 0.0, "reflection_in": 0, "reflection_out": 0,
+                                    "reflection_cost": 0.0, "reflection_details": "",
                                     "sum_time": 0.0, "sum_in": 0, "sum_out": 0, "sum_cost": 0.0,
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
@@ -13347,6 +13424,26 @@ if is_admin:
                                 merged_logs[msg_id]["search_exec_details"] = (
                                     log.get("details", "")
                                 )
+                            elif action == "PLAN_REFLECTION_SUCCESS":
+                                merged_logs[msg_id]["reflection_time"] = (
+                                    log.get("processing_time", proc_time)
+                                    if log.get("processing_time") is not None
+                                    else proc_time
+                                )
+                                merged_logs[msg_id]["reflection_in"] = (
+                                    log.get("in_tokens", in_t)
+                                    if log.get("in_tokens") is not None
+                                    else in_t
+                                )
+                                merged_logs[msg_id]["reflection_out"] = (
+                                    log.get("out_tokens", out_t)
+                                    if log.get("out_tokens") is not None
+                                    else out_t
+                                )
+                                merged_logs[msg_id]["reflection_cost"] = cost
+                                merged_logs[msg_id]["reflection_details"] = (
+                                    log.get("details", "")
+                                )
 
                             elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
                                 merged_logs[msg_id]["event_type"] = action
@@ -13396,6 +13493,7 @@ if is_admin:
                                 float(item.get("judge_time",0.0) or 0.0),
                                 float(item.get("search_exec_time",0.0) or 0.0),
                                 float(item.get("chat_time",0.0) or 0.0),
+                                float(item.get("reflection_time", 0.0) or 0.0),
                                 float(item.get("sum_time",0.0) or 0.0),
                                 float(item.get("search_time",0.0) or 0.0),
                                 float(item.get("tool_time",0.0) or 0.0),
@@ -13447,6 +13545,7 @@ if is_admin:
                                 | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
                                 | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
                                 | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
+                                | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
                                 | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
@@ -13508,6 +13607,7 @@ if is_admin:
                     stats_matrix = {
                         "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "standard": 0},
                         "📋 計画ルーム会話数": {"free": 0, "light": 0, "standard": 0},
+                        "📝 計画反映回数": {"free": 0, "light": 0, "standard": 0},
                         "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "standard": 0},
                         "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "standard": 0},
                         "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "standard": 0},
@@ -13534,6 +13634,8 @@ if is_admin:
                             total_app_chats += event_count
                         elif action == "PLAN_CHAT_SUCCESS":
                             stats_matrix["📋 計画ルーム会話数"][p_key] += event_count
+                        elif action == "PLAN_REFLECTION_SUCCESS":
+                            stats_matrix["📝 計画反映回数"][p_key] += event_count
                         elif action == "DAILY_LIMIT_EXCEEDED":
                             stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += event_count
                         elif action == "SETTING_UPDATE_SUCCESS":
