@@ -13323,16 +13323,22 @@ if is_admin:
                     )
 
                     def compact_provider_details(details):
-                        parts = [
-                            part.strip()
-                            for part in str(details or "").split("|")
-                        ]
-
-                        return " / ".join(
-                            part
-                            for part in parts
-                            if part.startswith(("provider=", "model="))
+                        text = str(details or "")
+                        provider_match = re.search(r"provider=([^|/\s]+)", text)
+                        model_match = re.search(r"model=([^|/\s]+)", text)
+                        provider = (
+                            provider_match.group(1)
+                            if provider_match
+                            else ""
                         )
+                        model = (
+                            model_match.group(1)
+                            if model_match
+                            else ""
+                        )
+                        if provider and model:
+                            return f"{provider} / {model}"
+                        return provider or model
                 
                     if log_res.data:
                         # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
