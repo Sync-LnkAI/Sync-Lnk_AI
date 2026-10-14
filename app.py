@@ -13546,7 +13546,7 @@ if is_admin:
 
 
                     col_m1, col_m2, col_m3 = st.columns(3)
-                    col_m1.metric("総稼働ユーザー数", f"{total_users_count} 名")
+                    col_m1.metric("総稼働ユーザー数", f"{total_user_count} 名")
                     col_m2.metric("全ユーザー総会話回数", f"{total_app_chats} 回")
                     col_m3.metric("総サーバー代実費 (全期間)", f"{total_app_cost:.4f} 円")
                     st.markdown("---")
