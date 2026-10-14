@@ -12346,7 +12346,7 @@ with all_tabs[2]:
 
                 else:
                     with st.spinner("会話内容を計画書へ反映しています..."):
-                        merged_document = generate_merged_plan_document(
+                        merge_data = generate_merged_plan_document(
                             selected_project=selected_project,
                             unreflected_messages=unreflected_messages
                         )
