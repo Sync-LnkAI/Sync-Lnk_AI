@@ -13469,26 +13469,22 @@ if is_admin:
                     # audit_res = supabase.table("system_audit_logs").select("user_id, user_plan, event_type, total_yen_cost, created_at").execute()
                     audit_res = (
                         supabase
-                        .table("system_audit_logs")
-                        .select(
-                            "user_id, user_plan, event_type, "
-                            "total_yen_cost, created_at"
-                        )
-                        # .order("created_at", desc=True)
-                        # .limit(5000)
+                        .rpc("get_system_audit_summary")
                         .execute()
                     )
-                    audit_data = audit_res.data if audit_res.data else []
-                    total_users_set, total_app_cost, total_app_chats = set(), 0.0, 0
-                    event_types = [
-                        str(log.get("event_type", "") or "")
-                        for log in audit_data
-                    ]
 
-                    st.write(
-                        "PLAN_CHAT_SUCCESS件数:",
-                        event_types.count("PLAN_CHAT_SUCCESS")
+                    activity_res = (
+                        supabase
+                        .rpc("get_system_audit_activity_summary")
+                        .execute()
                     )
+
+                    audit_data = audit_res.data if audit_res.data else []
+                    activity_data = activity_res.data if activity_res.data else []
+
+                    total_user_count = 0
+                    total_app_cost = 0.0
+                    total_app_chats = 0
                     
                     stats_matrix = {
                         "💬 総会話往復数（送信回数）": {"free": 0, "light": 0, "standard": 0},
@@ -13501,45 +13497,56 @@ if is_admin:
                     user_active_dates = {}
                     
                     for log in audit_data:
-                        u_id = log.get("user_id", "unknown")
-                        plan = log.get("user_plan", "🆓 無料プラン")
-                        action = log.get("event_type", log.get("action", ""))
-                        cost = log.get("total_yen_cost", 0.0) # 最新の実費カラムに完全シンク！
-                        c_at_str = log.get("created_at", "")
-                        
-                        total_users_set.add(u_id)
-                        total_app_cost += cost
-                        
+                        plan = str(log.get("user_plan", "") or "")
+                        action = str(log.get("event_type", "") or "")
+                        event_count = int(log.get("event_count", 0) or 0)
+                        total_cost = float(log.get("total_cost", 0.0) or 0.0)
+
+                        total_app_cost += total_cost
+
                         p_key = "free"
-                        if "ライト" in plan: p_key = "light"
-                        elif "スタンダード" in plan: p_key = "standard"
+                        if "ライト" in plan:
+                            p_key = "light"
+                        elif "スタンダード" in plan:
+                            p_key = "standard"
 
                         if action == "CHAT_SUCCESS":
-                            stats_matrix["💬 総会話往復数（送信回数）"][p_key] += 1
-                            total_app_chats += 1
+                            stats_matrix["💬 総会話往復数（送信回数）"][p_key] += event_count
+                            total_app_chats += event_count
                         elif action == "PLAN_CHAT_SUCCESS":
-                            stats_matrix["📋 計画ルーム会話数"][p_key] += 1
-                        elif action == "DAILY_LIMIT_EXCEEDED": 
-                            stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += 1
-                        elif action == "SETTING_UPDATE_SUCCESS": 
-                            stats_matrix["🎨 キャラクター・口調変更の実行回数"][p_key] += 1
-                        elif action == "PROMPT_BLOCKED_SEARCH": 
-                            stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += 1
+                            stats_matrix["📋 計画ルーム会話数"][p_key] += event_count
+                        elif action == "DAILY_LIMIT_EXCEEDED":
+                            stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += event_count
+                        elif action == "SETTING_UPDATE_SUCCESS":
+                            stats_matrix["🎨 キャラクター・口調変更の実行回数"][p_key] += event_count
+                        elif action == "PROMPT_BLOCKED_SEARCH":
+                            stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += event_count
 
-                        if c_at_str:
-                            try:
-                                dt_jst = datetime.fromisoformat(c_at_str.replace("Z", "+00:00")).astimezone(JST)
-                                if u_id not in user_active_dates: 
-                                    user_active_dates[u_id] = {"p_key": p_key, "dates": set()}
-                                user_active_dates[u_id]["dates"].add(dt_jst.date().isoformat())
-                            except Exception: 
-                                pass
+                    # for u_id, date_info in user_active_dates.items():
+                    #     stats_matrix["📅 総アクティブ稼働日数"][date_info["p_key"]] += len(date_info["dates"])
 
-                    for u_id, date_info in user_active_dates.items():
-                        stats_matrix["📅 総アクティブ稼働日数"][date_info["p_key"]] += len(date_info["dates"])
+                    for activity in activity_data:
+                        plan = str(activity.get("user_plan", "") or "")
+                        unique_users = int(activity.get("unique_user_count", 0) or 0)
+                        active_days = int(activity.get("active_day_count", 0) or 0)
+
+                        if plan == "__ALL__":
+                            total_user_count = unique_users
+                            continue
+
+                        p_key = "free"
+
+                        if "ライト" in plan:
+                            p_key = "light"
+                        elif "スタンダード" in plan:
+                            p_key = "standard"
+
+                        stats_matrix["📅 総アクティブ稼働日数"][p_key] += active_days
+
+
 
                     col_m1, col_m2, col_m3 = st.columns(3)
-                    col_m1.metric("総稼働ユーザー数", f"{len(total_users_set)} 名")
+                    col_m1.metric("総稼働ユーザー数", f"{total_users_count} 名")
                     col_m2.metric("全ユーザー総会話回数", f"{total_app_chats} 回")
                     col_m3.metric("総サーバー代実費 (全期間)", f"{total_app_cost:.4f} 円")
                     st.markdown("---")
