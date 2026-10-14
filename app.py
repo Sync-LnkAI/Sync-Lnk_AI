@@ -13553,12 +13553,13 @@ if is_admin:
 
                     analytics_rows = []
                     for item_name, plans in stats_matrix.items():
+                        unit = "日" if "稼働日数" in item_name else "回"
                         analytics_rows.append({
                             "📋 分析項目（ユーザー需要のファクト）": item_name,
-                            "🆓 無料プラン": f"{plans['free']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['free']:,} 日",
-                            "💸 ライトプラン": f"{plans['light']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['light']:,} 日",
-                            "👑 スタンダードプラン": f"{plans['standard']:,} 回" if "数" in item_name or "回" in item_name else f"{plans['standard']:,} 日"
-                        })
+                            "🆓 無料プラン": f"{plans['free']:,} {unit}",
+                            "💸 ライトプラン": f"{plans['light']:,} {unit}",
+                            "👑 スタンダードプラン": f"{plans['standard']:,} {unit}"
+                        })                     
                     import pandas as pd
                     st.dataframe(pd.DataFrame(analytics_rows), hide_index=True, use_container_width=True)
                 except Exception as ana_err: 
