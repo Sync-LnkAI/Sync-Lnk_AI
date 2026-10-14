@@ -12775,7 +12775,39 @@ if is_admin:
             except Exception: 
                 pass
 
-            selected_audit_user = st.selectbox("🔍 対象のユーザーIDを選択してください：", all_users)
+            selected_audit_user = st.selectbox(
+                "🔍 対象のユーザーIDを選択してください：",
+                all_users
+            )
+
+            user_summary_res = (
+                supabase
+                .rpc("get_user_audit_summary", {"p_user_id": str(selected_audit_user)})
+                .execute()
+            )
+
+            user_summary = (
+                user_summary_res.data[0]
+                if user_summary_res.data
+                else {}
+            )
+
+            normal_chat_count = int(user_summary.get("normal_chat_count", 0) or 0)
+            plan_chat_count = int(user_summary.get("plan_chat_count", 0) or 0)
+            total_active_days = int(user_summary.get("active_day_count", 0) or 0)
+            total_cost_jpy = float(user_summary.get("total_cost", 0.0) or 0.0)
+            
+            normal_chat_cost = float(user_summary.get("normal_chat_cost", 0.0) or 0.0)
+            plan_chat_cost = float(user_summary.get("plan_chat_cost", 0.0) or 0.0)
+
+            normal_in_tokens = int(user_summary.get("normal_in_tokens", 0) or 0)
+            normal_out_tokens = int(user_summary.get("normal_out_tokens", 0) or 0)
+            plan_in_tokens = int(user_summary.get("plan_in_tokens", 0) or 0)
+            plan_out_tokens = int(user_summary.get("plan_out_tokens", 0) or 0)
+
+            normal_processing_time = float(user_summary.get("normal_processing_time", 0.0) or 0.0)
+            plan_processing_time = float(user_summary.get("plan_processing_time", 0.0) or 0.0)
+            
             st.markdown("---")
             
             st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
@@ -12816,24 +12848,22 @@ if is_admin:
                 pass
 
             audit_real_instruction = "設定データなし"
-            # try:
-            #     # 🧠 すでに上でロード済みの u_memories.data から「応答方針:」のセルを安全にサルベージします
-            #     if u_memories and u_memories.data:
-            #         for m in u_memories.data:
-            #             fact_text = m.get("fact", "")
-            #             if m.get("source") == "manual" and fact_text.startswith("応答方針:"):
-            #                 audit_real_instruction = fact_text
-            # except Exception:
-            #     pass
 
             # リアルタイムKPI自動計算            
-            total_chats = 0
+            total_chats = normal_chat_count + plan_chat_count
             start_date = "データなし"
             last_date = "データなし"
-            total_active_days = 0
-            avg_chats_per_day = 0
-            total_cost_jpy = 0.0
-            avg_cost_per_chat = 0.0
+            avg_chats_per_day = (
+                round(total_chats / total_active_days, 1)
+                if total_active_days > 0
+                else 0
+            )
+            avg_cost_per_chat = (
+                round(total_cost_jpy / total_chats, 2)
+                if total_chats > 0
+                else 0.0
+            )
+
             search_judge_count = 0
             search_judge_total_cost = 0.0
             search_judge_total_in = 0
@@ -12859,9 +12889,6 @@ if is_admin:
                 )
                 
                 if user_logs:
-                    # ユーザーからの送信回数（会話回数）
-                    total_chats = len([m for m in user_logs if m.get("role") == "user"])
-                    
                     # 使用開始日・最終会話日・総稼働日数を計算
                     timestamps = [
                         datetime.fromisoformat(
@@ -12873,20 +12900,6 @@ if is_admin:
                     if timestamps:
                         start_date = min(timestamps).strftime("%Y/%m/%d")
                         last_date = max(timestamps).strftime("%Y/%m/%d")
-                        active_days_set = {t.date() for t in timestamps}
-                        total_active_days = len(active_days_set)
-                        
-                        # 1日あたりの平均会話通数の算出
-                        avg_chats_per_day = round(total_chats / total_active_days, 1) if total_active_days > 0 else 0
-
-                    # system_audit_logsから実際の原価を集計
-                    cost_logs = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("api_cost")
-                        .eq("user_id", selected_audit_user)
-                        .execute()
-                    )
 
                     # system_audit_logsから検索コストを集計
                     judge_cost_res = (
@@ -13055,13 +13068,6 @@ if is_admin:
                         )
                     )
 
-
-                    if cost_logs.data:
-                        total_cost_jpy = round(sum(float(log.get("api_cost", 0) or 0) for log in cost_logs.data), 2)
-                    else:
-                        total_cost_jpy = 0.0
-                    avg_cost_per_chat = round(total_cost_jpy / total_chats, 2) if total_chats > 0 else 0.0
-
             except Exception as e:
                 print(
                     f"統計取得エラー: "
@@ -13099,6 +13105,8 @@ if is_admin:
                     "<div style='background-color: rgba(16, 185, 129, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #10b981;'>"
                     "<h5 style='margin-top:0; color:#10b981; font-weight:bold;'>📈 【アクティビティ・統計KPI】</h5>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総会話回数：</b> {total_chats} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク：</b> {normal_chat_count} 回</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム：</b> {plan_chat_count} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>正式運用開始日：</b> {start_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>最終会話日時：</b> {last_date}</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>総システム稼働日数：</b> {total_active_days} 日間</p>"
@@ -13106,8 +13114,16 @@ if is_admin:
                     f"<p style='margin: 6px 0; font-size:14px;'>・<b>検索回数：** {search_count} 回</p>"
                     "<br>"
                     "<h5 style='color:#10b981; font-weight:bold;'>💰 【インフラ原価・サーバーコスト】</h5>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {round(total_cost_jpy, 2)} 円</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat} 円/通</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>累計消費コスト：</b> {total_cost_jpy:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク原価：</b> {normal_chat_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム原価：</b> {plan_chat_cost:.4f} 円</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク入力：</b> {normal_in_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク出力：</b> {normal_out_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム入力：</b> {plan_in_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム出力：</b> {plan_out_tokens:,} t</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>通常トーク処理時間：</b> {normal_processing_time:.2f} 秒</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>計画ルーム処理時間：</b> {plan_processing_time:.2f} 秒</p>"
+                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>1会話あたりの平均原価：</b> {avg_cost_per_chat:.4f} 円/通</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
                     f"・<b>検索判定回数：</b> {search_judge_count} 回</p>"
                     f"<p style='margin: 6px 0; font-size:14px;'>"
