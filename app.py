@@ -13442,8 +13442,8 @@ if is_admin:
                                 )
                                 merged_logs[msg_id]["reflection_cost"] = cost
                                 merged_logs[msg_id]["reflection_details"] = (
-                                    log.get("details", "")
-                                )
+                                    log.get("details", "") or ""
+                                ).replace("|", " / ")
 
                             elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
                                 merged_logs[msg_id]["event_type"] = action
@@ -13479,8 +13479,8 @@ if is_admin:
                                     else 0
                                 )
                                 merged_logs[msg_id]["chat_details"] = (
-                                    log.get("details", "")
-                                )
+                                    log.get("details", "") or ""
+                                ).replace("|", " / ")
 
                             # 1会話単位の、全体の総実費合計コスト集計
                             merged_logs[msg_id]["total_yen"] += cost
