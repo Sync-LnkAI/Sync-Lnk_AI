@@ -13485,93 +13485,139 @@ if is_admin:
                             # 1会話単位の、全体の総実費合計コスト集計
                             merged_logs[msg_id]["total_yen"] += cost
                             
-                        # アコーディオンtyusu出力
-                        for k, item in merged_logs.items():
+                        st.markdown(
+                            """
+                            <style>
+                            .st-key-compact_audit_logs table {
+                                font-size: 0.82rem;
+                                line-height: 1.2;
+                            }
+
+                            .st-key-compact_audit_logs table th,
+                            .st-key-compact_audit_logs table td {
+                                padding: 0.25rem 0.4rem !important;
+                                vertical-align: middle;
+                            }
+
+                            .st-key-compact_audit_logs table p {
+                                margin: 0 !important;
+                                font-size: inherit;
+                                line-height: 1.2;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stAlert"] {
+                                padding: 0.45rem 0.75rem !important;
+                                margin: 0.25rem 0 0.6rem 0 !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stAlert"] p {
+                                margin: 0 !important;
+                                font-size: 0.9rem !important;
+                                line-height: 1.4 !important;
+                            }
+
+                            </style>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                        # 詳細ログ専用コンテナ
+                        with st.container(key="compact_audit_logs"):
+                            # アコーディオン出力
+                            for k, item in merged_logs.items():
                                 
-                            # 表示されている各処理時間を合計
-                            item["total_time"] = sum([
-                                float(item.get("judge_time",0.0) or 0.0),
-                                float(item.get("search_exec_time",0.0) or 0.0),
-                                float(item.get("chat_time",0.0) or 0.0),
-                                float(item.get("reflection_time", 0.0) or 0.0),
-                                float(item.get("sum_time",0.0) or 0.0),
-                                float(item.get("search_time",0.0) or 0.0),
-                                float(item.get("tool_time",0.0) or 0.0),
-                                float(item.get("calc_time",0.0) or 0.0)
-                            ])
+                                # 表示されている各処理時間を合計
+                                item["total_time"] = sum([
+                                    float(item.get("judge_time",0.0) or 0.0),
+                                    float(item.get("search_exec_time",0.0) or 0.0),
+                                    float(item.get("chat_time",0.0) or 0.0),
+                                    float(item.get("reflection_time", 0.0) or 0.0),
+                                    float(item.get("sum_time",0.0) or 0.0),
+                                    float(item.get("search_time",0.0) or 0.0),
+                                    float(item.get("tool_time",0.0) or 0.0),
+                                    float(item.get("calc_time",0.0) or 0.0)
+                                ])
 
-                            msg_res = (
-                                supabase
-                                .table("messages")
-                                .select(
-                                    "role,"
-                                    "content,"
-                                    "created_at,"
-                                    "message_id,"
-                                    "response_mode"
+                                msg_res = (
+                                    supabase
+                                    .table("messages")
+                                    .select(
+                                        "role,"
+                                        "content,"
+                                        "created_at,"
+                                        "message_id,"
+                                        "response_mode"
+                                    )
+                                    .eq("user_id", selected_audit_user)
+                                    .eq("message_id", item["id"])
+                                    .order("created_at", desc=False)
+                                    .execute()
                                 )
-                                .eq("user_id", selected_audit_user)
-                                .eq("message_id", item["id"])
-                                .order("created_at", desc=False)
-                                .execute()
-                            )
 
-                            user_msg = ""
-                            ai_msg = ""
+                                user_msg = ""
+                                ai_msg = ""
 
-                            for row in (msg_res.data or []):
-                                if row.get("role") == "user":
-                                    user_msg = row.get("content", "")
-                                elif row.get("role") == "assistant":
-                                    ai_msg = row.get("content", "")
-                            
-                            c_plan = item["user_plan"]
-                            t_yen = item["total_yen"]
-                            t_time = item["total_time"]
-                            chat_component_name = (
-                                "📋 計画ルーム対話返答"
-                                if item.get("event_type") == "PLAN_CHAT_SUCCESS"
-                                else "💬 メインチャット対話返答"
-                            )
+                                for row in (msg_res.data or []):
+                                    if row.get("role") == "user":
+                                        user_msg = row.get("content", "")
+                                    elif row.get("role") == "assistant":
+                                        ai_msg = row.get("content", "")
+                                
+                                c_plan = item["user_plan"]
+                                t_yen = item["total_yen"]
+                                t_time = item["total_time"]
+                                chat_component_name = (
+                                    "📋 計画ルーム対話返答"
+                                    if item.get("event_type") == "PLAN_CHAT_SUCCESS"
+                                    else "💬 メインチャット対話返答"
+                                )
 
-                            if (not user_msg and not ai_msg):
-                                continue
+                                if (not user_msg and not ai_msg):
+                                    continue
 
-                            with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
-                                st.markdown(f"""
+                                with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                    st.markdown(
+                                        '<div class="compact-audit-log">',
+                                        unsafe_allow_html=True
+                                    )
+                                    st.markdown(f"""
 
-                                | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)token | 🪙 出力(Out)token |💰 原価 |🤖 Provider |
-                                | :--- | :---: | :---: | :---: |:---: |:---: |
-                                | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
-                                | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
-                                | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
-                                | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
-                                | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
-                                | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
-                                | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
-                                | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
+                                    | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)token | 🪙 出力(Out)token |💰 原価 |🤖 Provider |
+                                    | :--- | :---: | :---: | :---: |:---: |:---: |
+                                    | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
+                                    | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
+                                    | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
+                                    | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
+                                    | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
+                                    | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
+                                    | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
+                                    | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
 
-                                🔎 **【検索判定結果】** {item['judge_result']}
+                                    🔎 **【検索判定結果】** {item['judge_result']}
 
-                                👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                                """)
-                                st.markdown("---")
+                                    👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                                    """)
+                                    st.markdown(
+                                        "</div>",
+                                        unsafe_allow_html=True
+                                    )
+                                    st.markdown("---")
 
-                                st.markdown("##### 👤 ユーザー発言")
-                                st.info(user_msg)
-                                if item.get(
-                                    "calculation_result"
-                                ):
-                                    # st.warning(
-                                    #     "🏠 不動産計算結果\n\n"
-                                    #     + item[
-                                    #         "calculation_result"
-                                    #     ]
-                                    # )
-                                    st.code(item["calculation_result"])
+                                    st.markdown("**👤 ユーザー発言**")
+                                    st.info(user_msg)
+                                    if item.get(
+                                        "calculation_result"
+                                    ):
+                                        # st.warning(
+                                        #     "🏠 不動産計算結果\n\n"
+                                        #     + item[
+                                        #         "calculation_result"
+                                        #     ]
+                                        # )
+                                        st.code(item["calculation_result"])
 
-                                st.markdown("##### 🧠 AI返答")
-                                st.success(ai_msg)
+                                    st.markdown("**🧠 AI返答**")
+                                    st.success(ai_msg)
                     else: 
                         st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
             except Exception as log_err:
