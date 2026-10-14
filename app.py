@@ -13532,6 +13532,26 @@ if is_admin:
                                 line-height: 1.4 !important;
                             }
 
+                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] {
+                                margin-top: 0 !important;
+                                margin-bottom: 0 !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] p {
+                                margin-top: 0.2rem !important;
+                                margin-bottom: 0.2rem !important;
+                            }
+
+                            .st-key-compact_audit_logs hr {
+                                margin-top: 0.6rem !important;
+                                margin-bottom: 0.6rem !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
+                                padding-top: 0.4rem !important;
+                                padding-bottom: 0.4rem !important;
+                            }
+
                             </style>
                             """,
                             unsafe_allow_html=True
