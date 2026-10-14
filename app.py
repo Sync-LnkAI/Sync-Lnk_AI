@@ -13314,11 +13314,13 @@ if is_admin:
                 if show_timeline_logs:
                     log_res = (
                         supabase
-                        .table("system_audit_logs")
-                        .select("*")
-                        .eq("user_id", selected_audit_user)
-                        .order("created_at", desc=True)
-                        .limit(100)
+                        .rpc(
+                            "get_user_recent_audit_logs",
+                            {
+                                "p_user_id": str(selected_audit_user),
+                                "p_message_limit": 50
+                            }
+                        )
                         .execute()
                     )
 
