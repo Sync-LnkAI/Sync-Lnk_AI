@@ -13268,6 +13268,7 @@ if is_admin:
                                     "id": msg_id,
                                     "time": time_display,
                                     "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                    "event_type": "",
                                     "user_message": "",
                                     "ai_message": "",
                                     "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
@@ -13348,10 +13349,7 @@ if is_admin:
                                 )
 
                             elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
-                                # st.write(
-                                #     f"DEBUG CHAT_SUCCESS cost={cost} "
-                                #     f"in={in_t} out={out_t}"
-                                # )
+                                merged_logs[msg_id]["event_type"] = action
                                 merged_logs[msg_id]["chat_time"] = (
                                     log.get("chat_processing_time", proc_time)
                                     if log.get("chat_processing_time") is not None
@@ -13432,6 +13430,11 @@ if is_admin:
                             c_plan = item["user_plan"]
                             t_yen = item["total_yen"]
                             t_time = item["total_time"]
+                            chat_component_name = (
+                                "📋 計画ルーム対話返答"
+                                if item.get("event_type") == "PLAN_CHAT_SUCCESS"
+                                else "💬 メインチャット対話返答"
+                            )
 
                             if (not user_msg and not ai_msg):
                                 continue
@@ -13443,7 +13446,7 @@ if is_admin:
                                 | :--- | :---: | :---: | :---: |:---: |:---: |
                                 | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
                                 | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
-                                | 💬 **メインチャット対話返答** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
+                                | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
                                 | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
                                 | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
                                 | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
