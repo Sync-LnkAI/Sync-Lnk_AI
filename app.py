@@ -13522,9 +13522,6 @@ if is_admin:
                         elif action == "PROMPT_BLOCKED_SEARCH":
                             stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += event_count
 
-                    # for u_id, date_info in user_active_dates.items():
-                    #     stats_matrix["📅 総アクティブ稼働日数"][date_info["p_key"]] += len(date_info["dates"])
-
                     for activity in activity_data:
                         plan = str(activity.get("user_plan", "") or "")
                         unique_users = int(activity.get("unique_user_count", 0) or 0)
@@ -13543,11 +13540,9 @@ if is_admin:
 
                         stats_matrix["📅 総アクティブ稼働日数"][p_key] += active_days
 
-
-
                     col_m1, col_m2, col_m3 = st.columns(3)
                     col_m1.metric("総稼働ユーザー数", f"{total_user_count} 名")
-                    col_m2.metric("全ユーザー総会話回数", f"{total_app_chats} 回")
+                    col_m2.metric("全ユーザー総通常会話回数", f"{total_app_chats} 回")
                     col_m3.metric("総サーバー代実費 (全期間)", f"{total_app_cost:.4f} 円")
                     st.markdown("---")
 
