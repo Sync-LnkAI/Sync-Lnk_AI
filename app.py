@@ -13552,6 +13552,30 @@ if is_admin:
                                 padding-bottom: 0.4rem !important;
                             }
 
+                            .st-key-compact_audit_logs div[data-testid="stVerticalBlock"] {
+                                gap: 0.35rem !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > p {
+                                margin: 0.1rem 0 !important;
+                                font-size: 0.82rem !important;
+                                line-height: 1.2 !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > hr {
+                                margin: 0.35rem 0 !important;
+                            }
+
+                            .st-key-compact_audit_logs table {
+                                margin-top: 0 !important;
+                                margin-bottom: 0.25rem !important;
+                            }
+
+                            .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
+                                padding-top: 0.25rem !important;
+                                padding-bottom: 0.25rem !important;
+                            }
+
                             </style>
                             """,
                             unsafe_allow_html=True
