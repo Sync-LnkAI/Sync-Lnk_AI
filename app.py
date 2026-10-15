@@ -8090,6 +8090,81 @@ def show_plan_delete_dialog(project_id: int, project_name: str):
             st.rerun()
 #================================================
 
+# 計画を完了にする関数
+@st.dialog("計画を完了にする")
+def show_plan_complete_dialog(project_id: int, project_name: str):
+    st.info(
+        f"「{project_name}」を完了済み計画へ移動します。\n\n"
+        "完了後も、進行中の計画へ戻すことができます。"
+    )
+
+    complete_col, cancel_col = st.columns(2)
+
+    with complete_col:
+        if st.button(
+            "完了にする",
+            key=f"confirm_complete_{project_id}",
+            use_container_width=True
+        ):
+            update_succeeded = update_plan_project(
+                project_id=project_id,
+                update_data={
+                    "project_status": "completed",
+                    "updated_at": datetime.now(JST).isoformat()
+                }
+            )
+
+            if update_succeeded:
+                st.session_state["reset_active_plan_project"] = True
+                st.rerun()
+            else:
+                st.error("計画を完了済みに移動できませんでした。")
+
+    with cancel_col:
+        if st.button(
+            "キャンセル",
+            key=f"cancel_complete_{project_id}",
+            use_container_width=True
+        ):
+            st.rerun()
+#================================================
+
+# 計画ルームの会話から必要事項を抽出する関数
+@st.dialog("計画を進行中へ戻す")
+def show_plan_restore_dialog(project_id: int, project_name: str):
+    st.info(f"「{project_name}」を進行中の計画へ戻します。")
+
+    restore_col, cancel_col = st.columns(2)
+
+    with restore_col:
+        if st.button(
+            "進行中へ戻す",
+            key=f"confirm_restore_{project_id}",
+            use_container_width=True
+        ):
+            update_succeeded = update_plan_project(
+                project_id=project_id,
+                update_data={
+                    "project_status": "active",
+                    "updated_at": datetime.now(JST).isoformat()
+                }
+            )
+
+            if update_succeeded:
+                st.session_state["reset_completed_plan_project"] = True
+                st.rerun()
+            else:
+                st.error("計画を進行中へ戻せませんでした。")
+
+    with cancel_col:
+        if st.button(
+            "キャンセル",
+            key=f"cancel_restore_{project_id}",
+            use_container_width=True
+        ):
+            st.rerun()
+#================================================
+
 # 計画ルームの会話から必要事項を抽出する関数
 def extract_plan_project_updates(
     selected_project: dict,
@@ -12157,7 +12232,18 @@ with all_tabs[2]:
                 for project
                 in completed_projects
             ]
-            completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
+            if st.session_state.pop("reset_completed_plan_project", False):
+                st.session_state["completed_plan_project"] = "選択してください"
+            
+            # completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
+            completed_project = st.selectbox(
+                "完了済みの計画",
+                ["選択してください"] + completed_project_names,
+                key="completed_plan_project"
+            )
+
+            if completed_project != "選択してください":
+                selected_project = get_plan_project(completed_project)
 
         st.markdown("---")
 
@@ -12311,16 +12397,45 @@ with all_tabs[2]:
             
             # st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
             st.markdown("")
-            history_title_col, reflect_button_col, delete_button_col = st.columns([4, 1, 1])
+            history_title_col, reflect_button_col, complete_button_col, delete_button_col = (
+                st.columns([3, 1, 1, 1])
+            )
 
             with history_title_col:
                 st.markdown("##### 💬 会話履歴")
 
             with reflect_button_col:
                 reflect_plan = st.button(
-                    "計画に反映",
+                    "📝 計画に反映",
                     key=f"reflect_plan_{selected_project['id']}",
                     # use_container_width=True
+                )
+
+            with complete_button_col:
+                if plan_view_mode == "🚀 進行中の計画":
+                    complete_plan = st.button(
+                        "✅ 完了にする",
+                        key=f"complete_plan_{selected_project['id']}",
+                        use_container_width=True
+                    )
+                    restore_plan = False
+                else:
+                    restore_plan = st.button(
+                        "↩️ 進行中へ戻す",
+                        key=f"restore_plan_{selected_project['id']}",
+                        use_container_width=True
+                    )
+                    complete_plan = False
+
+            if complete_plan:
+                show_plan_complete_dialog(
+                    selected_project["id"],
+                    selected_project["project_name"]
+                )
+            if restore_plan:
+                show_plan_restore_dialog(
+                    selected_project["id"],
+                    selected_project["project_name"]
                 )
 
             with delete_button_col:
