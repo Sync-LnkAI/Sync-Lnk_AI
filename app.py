@@ -240,6 +240,11 @@ PAST_LOG_REPEAT_BONUS_PER_DAY = 0.03
 PAST_LOG_REPEAT_BONUS_MAX = 0.12
 # ==========================================
 
+# 計画作成可能件数の定義
+MAX_ACTIVE_PLAN_PROJECTS = 5
+MAX_COMPLETED_PLAN_PROJECTS = 10
+# ==========================================
+
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 # if "tokens_loaded" not in st.session_state:
 #     import threading
@@ -7938,6 +7943,30 @@ def get_plan_projects(status: str = "active"):
         return []
 #================================================
 
+# 計画の作成済件数取得関数
+def get_plan_project_count(status: str) -> int:
+    try:
+        response = (
+            supabase
+            .rpc(
+                "get_plan_project_count",
+                {
+                    "p_user_id": str(CURRENT_USER_ID),
+                    "p_status": status
+                }
+            )
+            .execute()
+        )
+        return int(response.data or 0)
+
+    except Exception as e:
+        print(
+            "計画件数取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return 0
+#================================================
+
 # 計画の作成関数
 def create_plan_project(project_name: str):
     try:
@@ -7981,6 +8010,21 @@ def show_create_plan_dialog():
     )
 
     if create_plan:
+        if create_plan:
+            active_plan_count = get_plan_project_count("active")
+
+            if active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS:
+                st.warning(
+                    f"進行中の計画は最大"
+                    f"{MAX_ACTIVE_PLAN_PROJECTS}件まで登録できます。\n\n"
+                    "既存の計画を完了済みに移動するか、削除してから、"
+                    "新しい計画を作成してください。"
+                )
+                return
+
+            project_name = new_project_name.strip()
+
+
         project_name = new_project_name.strip()
 
         if not project_name:
@@ -8106,6 +8150,16 @@ def show_plan_complete_dialog(project_id: int, project_name: str):
             key=f"confirm_complete_{project_id}",
             use_container_width=True
         ):
+            completed_plan_count = get_plan_project_count("completed")
+
+            if completed_plan_count >= MAX_COMPLETED_PLAN_PROJECTS:
+                st.warning(
+                    f"完了済みの計画は最大"
+                    f"{MAX_COMPLETED_PLAN_PROJECTS}件まで保存できます。\n\n"
+                    "不要な完了済み計画を削除してから、"
+                    "この計画を完了済みに移動してください。"
+                )
+                return
             update_succeeded = update_plan_project(
                 project_id=project_id,
                 update_data={
@@ -8143,6 +8197,17 @@ def show_plan_restore_dialog(project_id: int, project_name: str):
             key=f"confirm_restore_{project_id}",
             use_container_width=True
         ):
+            active_plan_count = get_plan_project_count("active")
+
+            if active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS:
+                st.warning(
+                    f"進行中の計画は最大"
+                    f"{MAX_ACTIVE_PLAN_PROJECTS}件まで登録できます。\n\n"
+                    "既存の進行中計画を完了済みにするか、削除してから、"
+                    "この計画を進行中へ戻してください。"
+                )
+                return
+
             update_succeeded = update_plan_project(
                 project_id=project_id,
                 update_data={
@@ -12287,8 +12352,27 @@ with all_tabs[2]:
                 label_visibility="collapsed"
             )
 
-            if st.button("➕ 新しい計画を作成", key="open_create_plan_dialog"):
+            active_plan_count = get_plan_project_count("active")
+            active_plan_limit_reached = (active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS)
+
+            st.caption(
+                f"進行中の計画："
+                f"{active_plan_count} / {MAX_ACTIVE_PLAN_PROJECTS}件"
+            )
+
+            if st.button(
+                "➕ 新しい計画を作成",
+                key="open_create_plan_dialog",
+                disabled=active_plan_limit_reached
+            ):
                 show_create_plan_dialog()
+
+            if active_plan_limit_reached:
+                st.info(
+                    "進行中の計画が上限に達しています。"
+                    "新しい計画を作成するには、"
+                    "既存の計画を完了済みにするか、削除してください。"
+                )
 
             selected_project = {}
             if (active_project != "選択してください"):
@@ -12299,9 +12383,15 @@ with all_tabs[2]:
             completed_projects = get_plan_projects(status="completed")
             completed_project_names = [
                 project["project_name"]
-                for project
-                in completed_projects
+                for project in completed_projects
             ]
+
+            completed_plan_count = get_plan_project_count("completed")
+            st.caption(
+                f"完了済みの計画："
+                f"{completed_plan_count} / {MAX_COMPLETED_PLAN_PROJECTS}件"
+            )
+
             if st.session_state.pop("reset_completed_plan_project", False):
                 st.session_state["completed_plan_project"] = "選択してください"
             
