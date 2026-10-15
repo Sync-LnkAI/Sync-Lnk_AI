@@ -8116,6 +8116,7 @@ def show_plan_complete_dialog(project_id: int, project_name: str):
 
             if update_succeeded:
                 st.session_state["reset_active_plan_project"] = True
+                st.toast("完了済み計画へ移動しています...")
                 st.rerun()
             else:
                 st.error("計画を完了済みに移動できませんでした。")
@@ -8152,6 +8153,7 @@ def show_plan_restore_dialog(project_id: int, project_name: str):
 
             if update_succeeded:
                 st.session_state["reset_completed_plan_project"] = True
+                st.toast("進行中の計画へ戻しています...")
                 st.rerun()
             else:
                 st.error("計画を進行中へ戻せませんでした。")
