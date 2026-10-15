@@ -12248,7 +12248,7 @@ with all_tabs[2]:
         st.markdown("---")
 
         if selected_project:
-            with st.expander(f"📌 {active_project}", expanded=True):
+            with st.expander(f"📌 {selected_project['project_name']}", expanded=True):
                 plan_document = str(selected_project.get("plan_document", "") or "").strip()
                 if plan_document:
                     st.markdown(plan_document)
