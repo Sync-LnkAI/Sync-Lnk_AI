@@ -13285,6 +13285,10 @@ if is_admin:
             search_judge_total_in = 0
             search_judge_total_out = 0
             search_count = 0
+            search_exec_count = 0
+            search_exec_total_cost = 0.0
+            search_exec_total_in = 0
+            search_exec_total_out = 0
             calc_total = 0
             calc_success = 0
             calc_missing = 0
