@@ -10137,7 +10137,7 @@ with all_tabs[0]:
                                     final_conversation_count=3
                                 )
                             )
-                            # debug_json("DEBUG past_logs_context", past_logs_context)
+                            debug_json("DEBUG past_logs_context", past_logs_context)
 
                             search_elapsed = (time.time() - search_start_time)
 
