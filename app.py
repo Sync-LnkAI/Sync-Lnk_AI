@@ -8114,9 +8114,25 @@ def show_plan_complete_dialog(project_id: int, project_name: str):
                 }
             )
 
+            # if update_succeeded:
+            #     st.session_state["reset_active_plan_project"] = True
+            #     st.rerun()
+            # else:
+            #     st.error("計画を完了済みに移動できませんでした。")
             if update_succeeded:
                 st.session_state["reset_active_plan_project"] = True
-                st.rerun()
+
+                st.success(
+                    f"DB更新完了: "
+                    f"{st.session_state['plan_complete_db_time']:.2f}秒"
+                )
+
+                if st.button(
+                    "画面を更新",
+                    key=f"refresh_after_complete_{project_id}",
+                    use_container_width=True
+                ):
+                    st.rerun()
             else:
                 st.error("計画を完了済みに移動できませんでした。")
 
@@ -12176,18 +12192,6 @@ with all_tabs[2]:
 
     else:
         st.caption("AIと一緒に継続的な計画を作成して管理することができる専用ルームです。")
-        
-        plan_complete_db_time = st.session_state.pop(
-            "plan_complete_db_time",
-            None
-        )
-
-        if plan_complete_db_time is not None:
-            st.info(
-                f"計画完了のDB更新時間: "
-                f"{plan_complete_db_time:.2f}秒"
-            )
-
         plan_view_mode = st.radio(
             "",
             [
