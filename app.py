@@ -8038,6 +8038,30 @@ def update_plan_project(project_id: int, update_data: dict) -> bool:
         return False
 #================================================
 
+# 計画名変更の会話整形関数
+def extract_requested_plan_name(user_message: str):
+    text = str(user_message or "").strip()
+
+    patterns = [
+        r"計画名を[「『\"](.+?)[」』\"]に変更",
+        r"計画名を[「『\"](.+?)[」』\"]に変えて",
+        r"計画名を[「『\"](.+?)[」』\"]にして",
+        r"計画名は[「『\"](.+?)[」』\"]に変更",
+        r"計画名は[「『\"](.+?)[」』\"]にして"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text)
+
+        if match:
+            new_project_name = match.group(1).strip()
+
+            if new_project_name:
+                return new_project_name
+
+    return None
+#================================================
+
 # 計画を削除する関数
 def delete_plan_project(project_id: int) -> bool:
     try:
@@ -8162,6 +8186,62 @@ def show_plan_restore_dialog(project_id: int, project_name: str):
         if st.button(
             "キャンセル",
             key=f"cancel_restore_{project_id}",
+            use_container_width=True
+        ):
+            st.rerun()
+#================================================
+
+# 計画名を変更する関数
+@st.dialog("計画名を変更")
+def show_plan_rename_dialog(
+    project_id: int,
+    current_project_name: str
+):
+    new_project_name = st.text_input(
+        "新しい計画名",
+        value=current_project_name,
+        key=f"rename_project_name_{project_id}"
+    )
+
+    rename_col, cancel_col = st.columns(2)
+
+    with rename_col:
+        if st.button(
+            "変更する",
+            key=f"confirm_rename_{project_id}",
+            use_container_width=True
+        ):
+            renamed_project_name = new_project_name.strip()
+
+            if not renamed_project_name:
+                st.warning("計画名を入力してください。")
+                return
+
+            if renamed_project_name == current_project_name:
+                st.info("計画名は変更されていません。")
+                return
+
+            update_succeeded = update_plan_project(
+                project_id=project_id,
+                update_data={
+                    "project_name": renamed_project_name,
+                    "updated_at": datetime.now(JST).isoformat()
+                }
+            )
+
+            if update_succeeded:
+                st.session_state["renamed_plan_name"] = (
+                    renamed_project_name
+                )
+                st.toast("計画名を変更しています...")
+                st.rerun()
+            else:
+                st.error("計画名を変更できませんでした。")
+
+    with cancel_col:
+        if st.button(
+            "キャンセル",
+            key=f"cancel_rename_{project_id}",
             use_container_width=True
         ):
             st.rerun()
@@ -8375,6 +8455,8 @@ def generate_merged_plan_document(
     ・会話そのものをそのまま書き写さず、計画書として分かりやすく整理してください。
     ・古い内容と新しい内容が矛盾する場合は、ユーザーの最新発言を優先してください。
     ・説明文、前置き、更新報告は不要です。更新後の計画書本文だけを出力してください。
+    ・計画書内の【計画名】には、必ず「{selected_project.get("project_name", "")}」を使用してください。
+    ・既存の計画書に別の計画名が記載されている場合は、現在の正式な計画名へ更新してください。
 
     【出力形式】
     ・タイトルと各項目名は、必ず次の形式にしてください。 **【項目名】**
@@ -12212,6 +12294,14 @@ with all_tabs[2]:
 
             if newly_created_plan_name in project_names:
                 st.session_state["active_plan_project"] = newly_created_plan_name
+            
+            renamed_plan_name = st.session_state.pop(
+                "renamed_plan_name",
+                None
+            )
+
+            if renamed_plan_name in project_names:
+                st.session_state["active_plan_project"] = renamed_plan_name
 
             st.markdown("**進行中**")
             active_project = st.selectbox(
@@ -12338,11 +12428,28 @@ with all_tabs[2]:
                     ・ユーザーが明示していない内容を事実として追加してはいけません。
                     ・通常のトークルームの話題と混同しないでください。
 
+                    【計画名変更ルール】
+                    ・ユーザーが計画名の変更を明示的に指示した場合だけ、新しい計画名を抽出してください。
+                    ・計画名について話題にしただけの場合や、候補を挙げただけの場合は変更しないでください。
+                    ・ユーザーの明示的な指示がない限り、あなたの判断で計画名を変更してはいけません。
+
                     【話し方】
                     {STYLE_PRESETS.get(current_style_preset, "")}
 
                     【回答の長さ】
                     {response_length_prompt}
+
+                    【出力形式】
+                    必ず次のJSON形式だけで出力してください。
+                    {{
+                    "reply": "ユーザーへ表示する回答",
+                    "requested_plan_name": null
+                    }}
+
+                    ・上記の計画名変更ルールに該当する場合は、requested_plan_nameへ新しい計画名を入れてください。
+                    ・該当しない場合は、requested_plan_nameをnullにしてください。
+                    ・replyには、通常の会話回答だけを入れてください。
+                    ・JSON以外の説明文やMarkdownのコードブロックは出力しないでください。
                     """
 
                     plan_ai_start_time = time.time()
@@ -12351,6 +12458,7 @@ with all_tabs[2]:
                             provider=CHAT_PROVIDER,
                             system_instruction=plan_ai_instruction,
                             user_prompt=plan_history_text,
+                            response_format_json=True,
                             model_name=CHAT_MODEL_NAME
                         )
                     plan_ai_processing_time = time.time() - plan_ai_start_time
@@ -12363,7 +12471,39 @@ with all_tabs[2]:
                         is_chat=True
                     )
 
-                    plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
+                    plan_ai_text = str(plan_ai_result.get("text", "") or "").strip()
+
+                    try:
+                        plan_ai_data = json.loads(plan_ai_text)
+                    except Exception:
+                        plan_ai_data = {"reply": plan_ai_text, "requested_plan_name": None}
+
+                    plan_ai_reply = str(plan_ai_data.get("reply", "") or "").strip()
+                    requested_plan_name = str(
+                        plan_ai_data.get("requested_plan_name", "") or ""
+                    ).strip()
+
+                    if (
+                        requested_plan_name
+                        and requested_plan_name
+                        != selected_project["project_name"]
+                    ):
+                        rename_succeeded = update_plan_project(
+                            project_id=selected_project["id"],
+                            update_data={
+                                "project_name": requested_plan_name,
+                                "updated_at": datetime.now(JST).isoformat()
+                            }
+                        )
+
+                        if rename_succeeded:
+                            selected_project["project_name"] = requested_plan_name
+                            st.session_state["renamed_plan_name"] = requested_plan_name
+                        else:
+                            st.warning(
+                                "回答は作成できましたが、"
+                                "計画名を変更できませんでした。"
+                            )
 
                     if not plan_ai_reply:
                         plan_ai_reply = (
