@@ -12211,10 +12211,12 @@ with all_tabs[2]:
             if newly_created_plan_name in project_names:
                 st.session_state["active_plan_project"] = newly_created_plan_name
 
+            st.markdown("**進行中**")
             active_project = st.selectbox(
-                "**進行中**",
+                "進行中",
                 ["選択してください"] + project_names,
-                key="active_plan_project"
+                key="active_plan_project",
+                label_visibility="collapsed"
             )
 
             if st.button("➕ 新しい計画を作成", key="open_create_plan_dialog"):
@@ -12236,10 +12238,12 @@ with all_tabs[2]:
                 st.session_state["completed_plan_project"] = "選択してください"
             
             # completed_project = st.selectbox("完了済みの計画", ["選択してください"] + completed_project_names)
+            st.markdown("**完了済みの計画**")
             completed_project = st.selectbox(
                 "完了済みの計画",
                 ["選択してください"] + completed_project_names,
-                key="completed_plan_project"
+                key="completed_plan_project",
+                label_visibility="collapsed"
             )
 
             if completed_project != "選択してください":
@@ -12268,187 +12272,206 @@ with all_tabs[2]:
                 plan_project_id=selected_project["id"]
             )
             
-            plan_user_input = st.chat_input("この計画についての会話を入力してください")
+            if plan_view_mode == "🚀 進行中の計画":
+                plan_user_input = st.chat_input("この計画についての会話を入力してください")
 
-            if plan_user_input:
-                plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
+                if plan_user_input:
+                    plan_message_id = (f"plan_{uuid.uuid4().hex[:8]}")
 
-                user_saved = save_message(
-                    role="user",
-                    content=plan_user_input,
-                    message_id=plan_message_id,
-                    response_mode="analysis",
-                    chat_room="plan",
-                    plan_project_id=selected_project["id"]
-                )
-                if not user_saved:
-                    st.error("計画ルームのユーザー発言を保存できませんでした。")
-                    st.stop()
-
-                plan_history_lines = []
-                for message in plan_messages[-10:]:
-                    role_name = (
-                        display_user_name
-                        if message.get("role") == "user"
-                        else current_concierge_name
+                    user_saved = save_message(
+                        role="user",
+                        content=plan_user_input,
+                        message_id=plan_message_id,
+                        response_mode="analysis",
+                        chat_room="plan",
+                        plan_project_id=selected_project["id"]
                     )
-                    plan_history_lines.append(
-                        f"{role_name}: "
-                        f"{message.get('content', '')}"
+                    if not user_saved:
+                        st.error("計画ルームのユーザー発言を保存できませんでした。")
+                        st.stop()
+
+                    plan_history_lines = []
+                    for message in plan_messages[-10:]:
+                        role_name = (
+                            display_user_name
+                            if message.get("role") == "user"
+                            else current_concierge_name
+                        )
+                        plan_history_lines.append(
+                            f"{role_name}: "
+                            f"{message.get('content', '')}"
+                        )
+
+                    plan_history_lines.append(f"{display_user_name}: {plan_user_input}")
+                    plan_history_text = (
+                        "\n".join(plan_history_lines)
+                        if plan_history_lines
+                        else "会話履歴なし"
                     )
 
-                plan_history_lines.append(f"{display_user_name}: {plan_user_input}")
-                plan_history_text = (
-                    "\n".join(plan_history_lines)
-                    if plan_history_lines
-                    else "会話履歴なし"
-                )
+                    plan_ai_instruction = f"""
+                    あなたはAIコンシェルジュ「{current_concierge_name}」です。
+                    計画ルームでは、選択中の計画について継続的に会話します。
 
-                plan_ai_instruction = f"""
-                あなたはAIコンシェルジュ「{current_concierge_name}」です。
-                計画ルームでは、選択中の計画について継続的に会話します。
+                    【選択中の計画】
+                    計画名:{selected_project.get("project_name", "")}
 
-                【選択中の計画】
-                計画名:{selected_project.get("project_name", "")}
+                    計画概要:{selected_project.get("project_summary", "") or "未設定"}
 
-                計画概要:{selected_project.get("project_summary", "") or "未設定"}
+                    決定事項:{selected_project.get("decision_items", []) or []}
 
-                決定事項:{selected_project.get("decision_items", []) or []}
+                    検討中:{selected_project.get("considering_items", []) or []}
 
-                検討中:{selected_project.get("considering_items", []) or []}
+                    保留事項:{selected_project.get("pending_items", []) or []}
 
-                保留事項:{selected_project.get("pending_items", []) or []}
+                    次にやること:{selected_project.get("next_actions", []) or []}
 
-                次にやること:{selected_project.get("next_actions", []) or []}
+                    【回答ルール】
+                    ・選択中の計画を前提に回答してください。
+                    ・ユーザーの最新の発言や質問へ直接回答してください。
+                    ・通常の回答では、計画全体の総括や整理を毎回行わないでください。
+                    ・「ここまでの内容を整理すると」などの前置きから回答を始めないでください。
+                    ・計画全体を整理するのは、ユーザーが明示的に要約や整理を求めた場合だけにする。
+                    ・まだ決まっていない内容を、決定事項として断定してはいけません。
+                    ・ユーザーが明示していない内容を事実として追加してはいけません。
+                    ・通常のトークルームの話題と混同しないでください。
 
-                【回答ルール】
-                ・選択中の計画を前提に回答してください。
-                ・ユーザーの最新の発言や質問へ直接回答してください。
-                ・通常の回答では、計画全体の総括や整理を毎回行わないでください。
-                ・「ここまでの内容を整理すると」などの前置きから回答を始めないでください。
-                ・計画全体を整理するのは、ユーザーが明示的に要約や整理を求めた場合だけにする。
-                ・まだ決まっていない内容を、決定事項として断定してはいけません。
-                ・ユーザーが明示していない内容を事実として追加してはいけません。
-                ・通常のトークルームの話題と混同しないでください。
+                    【話し方】
+                    {STYLE_PRESETS.get(current_style_preset, "")}
 
-                【話し方】
-                {STYLE_PRESETS.get(current_style_preset, "")}
+                    【回答の長さ】
+                    {response_length_prompt}
+                    """
 
-                【回答の長さ】
-                {response_length_prompt}
-                """
-
-                plan_ai_start_time = time.time()
-                with st.spinner(f"{current_concierge_name}が考え中..."):
-                    plan_ai_result = generate_ai_response(
+                    plan_ai_start_time = time.time()
+                    with st.spinner(f"{current_concierge_name}が考え中..."):
+                        plan_ai_result = generate_ai_response(
+                            provider=CHAT_PROVIDER,
+                            system_instruction=plan_ai_instruction,
+                            user_prompt=plan_history_text,
+                            model_name=CHAT_MODEL_NAME
+                        )
+                    plan_ai_processing_time = time.time() - plan_ai_start_time
+                    plan_in_tokens = int(plan_ai_result.get("in_tokens", 0) or 0)
+                    plan_out_tokens = int(plan_ai_result.get("out_tokens", 0) or 0)
+                    plan_api_cost = calculate_ai_cost(
                         provider=CHAT_PROVIDER,
-                        system_instruction=plan_ai_instruction,
-                        user_prompt=plan_history_text,
-                        model_name=CHAT_MODEL_NAME
-                    )
-                plan_ai_processing_time = time.time() - plan_ai_start_time
-                plan_in_tokens = int(plan_ai_result.get("in_tokens", 0) or 0)
-                plan_out_tokens = int(plan_ai_result.get("out_tokens", 0) or 0)
-                plan_api_cost = calculate_ai_cost(
-                    provider=CHAT_PROVIDER,
-                    in_tokens=plan_in_tokens,
-                    out_tokens=plan_out_tokens,
-                    is_chat=True
-                )
-
-                plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
-
-                if not plan_ai_reply:
-                    plan_ai_reply = (
-                        "うまく回答を作成できませんでした。"
-                        "もう一度送ってみてください。"
+                        in_tokens=plan_in_tokens,
+                        out_tokens=plan_out_tokens,
+                        is_chat=True
                     )
 
-                assistant_saved = save_message(
-                    role="assistant",
-                    content=plan_ai_reply,
-                    message_id=plan_message_id,
-                    response_mode="analysis",
-                    chat_room="plan",
-                    plan_project_id=selected_project["id"]
-                )
-                if not assistant_saved:
-                    st.error("AIの回答を保存できませんでした。")
-                    st.stop()
-                
-                save_system_audit_log(
-                    user_id=CURRENT_USER_ID,
-                    plan_type=current_plan_type,
-                    event_type="PLAN_CHAT_SUCCESS",
-                    processing_time=plan_ai_processing_time,
-                    in_t=plan_in_tokens,
-                    out_t=plan_out_tokens,
-                    api_cost=plan_api_cost,
-                    details=(
-                        f"chat_room=plan"
-                        f"provider={CHAT_PROVIDER}"
-                        f" | model={CHAT_MODEL_NAME}"
-                        f" | project_id={selected_project['id']}"
-                        f" | project_name={selected_project['project_name']}"
-                    ),
-                    message_id=str(plan_message_id)
-                )
-                st.rerun()
+                    plan_ai_reply = str(plan_ai_result.get("text", "") or "").strip()
+
+                    if not plan_ai_reply:
+                        plan_ai_reply = (
+                            "うまく回答を作成できませんでした。"
+                            "もう一度送ってみてください。"
+                        )
+
+                    assistant_saved = save_message(
+                        role="assistant",
+                        content=plan_ai_reply,
+                        message_id=plan_message_id,
+                        response_mode="analysis",
+                        chat_room="plan",
+                        plan_project_id=selected_project["id"]
+                    )
+                    if not assistant_saved:
+                        st.error("AIの回答を保存できませんでした。")
+                        st.stop()
+                    
+                    save_system_audit_log(
+                        user_id=CURRENT_USER_ID,
+                        plan_type=current_plan_type,
+                        event_type="PLAN_CHAT_SUCCESS",
+                        processing_time=plan_ai_processing_time,
+                        in_t=plan_in_tokens,
+                        out_t=plan_out_tokens,
+                        api_cost=plan_api_cost,
+                        details=(
+                            f"chat_room=plan"
+                            f"provider={CHAT_PROVIDER}"
+                            f" | model={CHAT_MODEL_NAME}"
+                            f" | project_id={selected_project['id']}"
+                            f" | project_name={selected_project['project_name']}"
+                        ),
+                        message_id=str(plan_message_id)
+                    )
+                    st.rerun()
             
             # st.caption("※Flutter版では画面右側にジャンプボタンを表示予定")
             st.markdown("")
-            history_title_col, reflect_button_col, complete_button_col, delete_button_col = (
-                st.columns([3, 1, 1, 1])
-            )
-
-            with history_title_col:
-                st.markdown("##### 💬 会話履歴")
-
-            with reflect_button_col:
-                reflect_plan = st.button(
-                    "📝 計画に反映",
-                    key=f"reflect_plan_{selected_project['id']}",
-                    # use_container_width=True
+            if plan_view_mode == "🚀 進行中の計画":
+                history_title_col, reflect_button_col, complete_button_col, delete_button_col = (
+                    st.columns([3, 1, 1, 1])
                 )
 
-            with complete_button_col:
-                if plan_view_mode == "🚀 進行中の計画":
+                with history_title_col:
+                    st.markdown("##### 💬 会話履歴")
+
+                with reflect_button_col:
+                    reflect_plan = st.button(
+                        "📝 計画に反映",
+                        key=f"reflect_plan_{selected_project['id']}"
+                    )
+
+                with complete_button_col:
                     complete_plan = st.button(
                         "✅ 完了にする",
                         key=f"complete_plan_{selected_project['id']}",
                         use_container_width=True
                     )
-                    restore_plan = False
-                else:
+
+                with delete_button_col:
+                    active_delete = st.button(
+                        "計画削除",
+                        key=f"active_delete_{selected_project['id']}"
+                    )
+
+                restore_plan = False
+
+            else:
+                history_title_col, restore_button_col, delete_button_col = (
+                    st.columns([4, 1, 1])
+                )
+
+                with history_title_col:
+                    st.markdown("##### 💬 会話履歴")
+
+                with restore_button_col:
                     restore_plan = st.button(
                         "↩️ 進行中へ戻す",
                         key=f"restore_plan_{selected_project['id']}",
                         use_container_width=True
                     )
-                    complete_plan = False
+
+                with delete_button_col:
+                    active_delete = st.button(
+                        "計画削除",
+                        key=f"active_delete_{selected_project['id']}"
+                    )
+
+                reflect_plan = False
+                complete_plan = False
 
             if complete_plan:
                 show_plan_complete_dialog(
                     selected_project["id"],
                     selected_project["project_name"]
                 )
+
             if restore_plan:
                 show_plan_restore_dialog(
                     selected_project["id"],
                     selected_project["project_name"]
                 )
 
-            with delete_button_col:
-                active_delete = st.button(
-                    "計画削除",
-                    key=f"active_delete_{selected_project['id']}",
-                    # use_container_width=True
+            if active_delete:
+                show_plan_delete_dialog(
+                    selected_project["id"],
+                    selected_project["project_name"]
                 )
-                if active_delete:
-                    show_plan_delete_dialog(
-                        selected_project["id"],
-                        selected_project["project_name"]
-                    )
                 
             if reflect_plan:          
                 unreflected_messages = get_unreflected_plan_messages(
