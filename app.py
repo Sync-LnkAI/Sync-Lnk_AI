@@ -8121,11 +8121,7 @@ def show_plan_complete_dialog(project_id: int, project_name: str):
             #     st.error("計画を完了済みに移動できませんでした。")
             if update_succeeded:
                 st.session_state["reset_active_plan_project"] = True
-
-                st.success(
-                    f"DB更新完了: "
-                    f"{st.session_state['plan_complete_db_time']:.2f}秒"
-                )
+                st.success(f"DB更新完了: {update_elapsed:.2f}秒")
 
                 if st.button(
                     "画面を更新",
@@ -12525,9 +12521,7 @@ with all_tabs[2]:
                                 "updated_at": datetime.now(JST).isoformat()
                             }
                         )
-                        st.session_state["plan_complete_db_time"] = (
-                            time.time() - update_start_time
-                        )
+                        update_elapsed = time.time() - update_start_time
 
                         if update_succeeded:
                             reflection_message_id = str(
