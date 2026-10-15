@@ -12176,6 +12176,18 @@ with all_tabs[2]:
 
     else:
         st.caption("AIと一緒に継続的な計画を作成して管理することができる専用ルームです。")
+        
+        plan_complete_db_time = st.session_state.pop(
+            "plan_complete_db_time",
+            None
+        )
+
+        if plan_complete_db_time is not None:
+            st.info(
+                f"計画完了のDB更新時間: "
+                f"{plan_complete_db_time:.2f}秒"
+            )
+
         plan_view_mode = st.radio(
             "",
             [
@@ -12500,6 +12512,7 @@ with all_tabs[2]:
                             if message.get("created_at")
                         )
 
+                        update_start_time = time.time()
                         update_succeeded = update_plan_project(
                             project_id=selected_project["id"],
                             update_data={
@@ -12507,6 +12520,9 @@ with all_tabs[2]:
                                 "last_reflected_at": reflected_at,
                                 "updated_at": datetime.now(JST).isoformat()
                             }
+                        )
+                        st.session_state["plan_complete_db_time"] = (
+                            time.time() - update_start_time
                         )
 
                         if update_succeeded:
