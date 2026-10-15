@@ -8038,30 +8038,6 @@ def update_plan_project(project_id: int, update_data: dict) -> bool:
         return False
 #================================================
 
-# 計画名変更の会話整形関数
-def extract_requested_plan_name(user_message: str):
-    text = str(user_message or "").strip()
-
-    patterns = [
-        r"計画名を[「『\"](.+?)[」』\"]に変更",
-        r"計画名を[「『\"](.+?)[」』\"]に変えて",
-        r"計画名を[「『\"](.+?)[」』\"]にして",
-        r"計画名は[「『\"](.+?)[」』\"]に変更",
-        r"計画名は[「『\"](.+?)[」』\"]にして"
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text)
-
-        if match:
-            new_project_name = match.group(1).strip()
-
-            if new_project_name:
-                return new_project_name
-
-    return None
-#================================================
-
 # 計画を削除する関数
 def delete_plan_project(project_id: int) -> bool:
     try:
