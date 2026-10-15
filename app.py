@@ -12429,6 +12429,20 @@ with all_tabs[2]:
                 chat_room="plan",
                 plan_project_id=selected_project["id"]
             )
+
+            unreflected_message_count = len(
+                get_unreflected_plan_messages(
+                    project_id=selected_project["id"],
+                    last_reflected_at=selected_project.get("last_reflected_at")
+                )
+            )
+
+            if unreflected_message_count >= 20:
+                st.caption(
+                    "💡 未反映の会話が10往復ほどあります。"
+                    "「📝 計画に反映」で計画書を更新しておくと、"
+                    "今後の会話を続けやすくなります。"
+                )
             
             if plan_view_mode == "🚀 進行中の計画":
                 plan_user_input = st.chat_input("この計画についての会話を入力してください")
@@ -12449,7 +12463,7 @@ with all_tabs[2]:
                         st.stop()
 
                     plan_history_lines = []
-                    for message in plan_messages[-10:]:
+                    for message in plan_messages[-20:]:
                         role_name = (
                             display_user_name
                             if message.get("role") == "user"
@@ -12493,6 +12507,12 @@ with all_tabs[2]:
                     ・まだ決まっていない内容を、決定事項として断定してはいけません。
                     ・ユーザーが明示していない内容を事実として追加してはいけません。
                     ・通常のトークルームの話題と混同しないでください。
+
+                    【計画進行サポート】
+                    ・回答後、計画を前へ進めるために有用な場合だけ、次に決めること、確認すること、実行することを1～3件提示してください。
+                    ・次の行動がすでに明確な場合や、単純な確認への回答では、不要な提案を追加しないでください。
+                    ・複数の課題がある場合は、優先順位が最も高いものを明確にしてください。
+                    ・ユーザーへ過度に質問を重ねず、現在ある情報で進められる作業を先に提示してください。
 
                     【計画名変更ルール】
                     ・ユーザーが計画名の変更を明示的に指示した場合だけ、新しい計画名を抽出してください。
