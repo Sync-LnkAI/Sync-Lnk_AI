@@ -9214,6 +9214,15 @@ with all_tabs[0]:
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
 
         current_subscription = get_user_subscription(CURRENT_USER_ID)
+        st.write(
+            "DEBUG current_subscription:",
+            current_subscription
+        )
+        st.write(
+            "DEBUG CURRENT_USER_ID:",
+            CURRENT_USER_ID
+        )
+
         st.session_state["current_user_plan_code"] = (
             current_subscription["plan_code"]
         )
@@ -9239,7 +9248,7 @@ with all_tabs[0]:
         # dialect_prompt = ""
 
         # current_plan_type = "スタンダード"
-        current_plan_type = "ライトプラン"
+        # current_plan_type = "ライトプラン"
 
         if current_plan_type != "🆓 無料プラン":
             response_length_prompt = (
