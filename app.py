@@ -8627,7 +8627,7 @@ def generate_merged_plan_document(
         project_summary = str(merge_output.get("summary", "") or "").strip()
 
         merged_document = re.sub(r"<br\s*/?>", "\n", merged_document, flags=re.IGNORECASE)
-        merged_document = re.sub(r"<[^>]+*", "", merged_document)
+        merged_document = re.sub(r"<[^>]+>", "", merged_document)
 
         if not merged_document:
             merged_document = existing_document
