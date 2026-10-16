@@ -8901,6 +8901,8 @@ def get_user_point_balance(
             .limit(1)
             .execute()
         )
+        st.write("DEBUG point user_id:", user_id)
+        st.write("DEBUG point response:", response.data)
 
         if not response.data:
             return default_balance
