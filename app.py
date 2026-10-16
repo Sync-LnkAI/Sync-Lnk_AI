@@ -193,7 +193,6 @@ def calculate_ai_cost(
 
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
-DAILY_LIMIT = 20
 BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
 # ==================================================================
@@ -243,6 +242,151 @@ PAST_LOG_REPEAT_BONUS_MAX = 0.12
 # 計画作成可能件数の定義
 MAX_ACTIVE_PLAN_PROJECTS = 5
 MAX_COMPLETED_PLAN_PROJECTS = 10
+# ==========================================
+
+# 会員種別の定義
+PLAN_LABELS = {
+    "free": "🆓 無料プラン",
+    "light": "💸 ライトプラン",
+    "standard": "👑 スタンダードプラン"
+}
+
+
+def get_user_subscription(user_id: str) -> dict:
+    default_subscription = {
+        "plan_code": "free",
+        "plan_label": PLAN_LABELS["free"],
+        "subscription_status": "active",
+        "started_at": None,
+        "expires_at": None,
+        "cancel_at_period_end": False
+    }
+
+    try:
+        response = (
+            supabase
+            .table("user_subscriptions")
+            .select(
+                "plan_code,"
+                "subscription_status,"
+                "started_at,"
+                "expires_at,"
+                "cancel_at_period_end"
+            )
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+
+        if not response.data:
+            return default_subscription
+
+        subscription = response.data[0]
+        plan_code = str(
+            subscription.get("plan_code", "free") or "free"
+        ).strip()
+
+        if plan_code not in PLAN_LABELS:
+            plan_code = "free"
+
+        subscription_status = str(
+            subscription.get(
+                "subscription_status",
+                "active"
+            ) or "active"
+        ).strip()
+
+        expires_at = subscription.get("expires_at")
+
+        if subscription_status not in ("active", "trial"):
+            plan_code = "free"
+
+        if expires_at:
+            try:
+                expiration_datetime = datetime.fromisoformat(
+                    str(expires_at).replace("Z", "+00:00")
+                )
+
+                if expiration_datetime <= datetime.now(
+                    expiration_datetime.tzinfo
+                ):
+                    plan_code = "free"
+                    subscription_status = "expired"
+
+            except Exception:
+                plan_code = "free"
+
+        return {
+            "plan_code": plan_code,
+            "plan_label": PLAN_LABELS[plan_code],
+            "subscription_status": subscription_status,
+            "started_at": subscription.get("started_at"),
+            "expires_at": expires_at,
+            "cancel_at_period_end": bool(
+                subscription.get(
+                    "cancel_at_period_end",
+                    False
+                )
+            )
+        }
+
+    except Exception as e:
+        print(
+            "会員情報取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_subscription
+# ==========================================
+
+# 会員別の制限条件の定義
+PLAN_FEATURES = {
+    "free": {
+        "daily_chat_limit": 8,
+        "saved_chat_limit": 0,
+        "plan_room": False,
+        "plan_active_limit": 0,
+        "plan_completed_limit": 0,
+        "summary_max_chars": 250,
+        "premium_personality": False,
+        "pc_access": False,
+        "memory_room_view": True,
+        "memory_room_edit": False
+    },
+    "light": {
+        "daily_chat_limit": 20,
+        "saved_chat_limit": 5,
+        "plan_room": False,
+        "plan_active_limit": 0,
+        "plan_completed_limit": 0,
+        "summary_max_chars": 500,
+        "premium_personality": False,
+        "pc_access": False,
+        "memory_room_view": True,
+        "memory_room_edit": True
+    },
+    "standard": {
+        "daily_chat_limit": 100,
+        "saved_chat_limit": 10,
+        "plan_room": True,
+        "plan_active_limit": 5,
+        "plan_completed_limit": 10,
+        "summary_max_chars": 750,
+        "premium_personality": True,
+        "pc_access": True,
+        "memory_room_view": True,
+        "memory_room_edit": True
+    }
+}
+
+def get_plan_features(plan_code: str) -> dict:
+    normalized_plan_code = str(
+        plan_code or "free"
+    ).strip().lower()
+
+    return PLAN_FEATURES.get(
+        normalized_plan_code,
+        PLAN_FEATURES["free"]
+    )
 # ==========================================
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
@@ -2444,17 +2588,15 @@ def check_and_update_limits(
         現在回数
         最大回数
     """
-    current_plan = st.session_state.get(
-        "current_user_plan_state",
-        "🆓 無料プラン"
-    )
+    current_plan_code = st.session_state.get("current_user_plan_code", "free")
+    plan_features = get_plan_features(current_plan_code)
 
-    if current_plan == "🆓 無料プラン":
-        max_limit = 100
-    elif "ライト" in current_plan:
-        max_limit = 100
-    else:
-        max_limit = 99999
+    max_limit = int(
+        plan_features.get(
+            "daily_chat_limit",
+            PLAN_FEATURES["free"]["daily_chat_limit"]
+        )
+    )
 
     try:
         now_jst = datetime.now(JST)
@@ -2600,17 +2742,15 @@ def get_usage_status(
     利用回数を表示するだけの読み取り専用関数。
     DBのカウントや最終送信時刻は更新しない。
     """
-    current_plan = st.session_state.get(
-        "current_user_plan_state",
-        "🆓 無料プラン"
-    )
+    current_plan_code = st.session_state.get("current_user_plan_code", "free")
+    plan_features = get_plan_features(current_plan_code)
 
-    if current_plan == "🆓 無料プラン":
-        max_limit = 100
-    elif "ライト" in current_plan:
-        max_limit = 100
-    else:
-        max_limit = 99999
+    max_limit = int(
+        plan_features.get(
+            "daily_chat_limit",
+            PLAN_FEATURES["free"]["daily_chat_limit"]
+        )
+    )
 
     try:
         res = (
@@ -8810,8 +8950,8 @@ for m in manual_memories:
         current_ai_avatar = fact.replace("AIアバター:", "").strip()
     if fact.startswith("ユーザーアバター:"):
         current_user_avatar = fact.replace("ユーザーアバター:", "").strip()
-    if fact.startswith("会員プラン:"):
-        st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
+    # if fact.startswith("会員プラン:"):
+    #     st.session_state["current_user_plan_state"] = fact.replace("会員プラン:", "").strip()
     if fact.startswith("人格:"):
         current_style_preset = fact.replace("人格:", "").strip()
     # if fact.startswith("応答方針:"):
@@ -9072,7 +9212,26 @@ all_tabs = st.tabs(tab_titles)
 # ------------------------------------------------------------------
 with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        current_plan_type = st.session_state.get("current_user_plan_state", "🆓 無料プラン")
+
+        current_subscription = get_user_subscription(CURRENT_USER_ID)
+        st.session_state["current_user_plan_code"] = (
+            current_subscription["plan_code"]
+        )
+        st.session_state["current_user_plan_state"] = (
+            current_subscription["plan_label"]
+        )
+        current_plan_type = st.session_state.get(
+            "current_user_plan_state",
+            "🆓 無料プラン"
+        )
+        current_plan_code = st.session_state.get("current_user_plan_code", "free")
+        current_plan_features = get_plan_features(current_plan_code)
+        daily_chat_limit = int(
+            current_plan_features.get(
+                "daily_chat_limit",
+                PLAN_FEATURES["free"]["daily_chat_limit"]
+            )
+        )
         # ==========================================
         # プラン別制御
         # ==========================================
