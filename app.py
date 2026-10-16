@@ -12358,10 +12358,7 @@ with all_tabs[0]:
                             ):
                                 st.toast("💎 ライトプラン以上で利用できます")
                         else:
-                            (
-                                paired_user_message
-                                and paired_assistant_message
-                            ):
+                            if (paired_user_message and paired_assistant_message):
                                 if st.button("⭐", key=f"save_chat_paid_{message_id}_{index}"):
                                     saved_chats_count = get_saved_chat_count()
                                     save_limit = int(
