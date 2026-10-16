@@ -1923,6 +1923,23 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
     try:
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
+
+        plan_summary_context = ""
+        if "スタンダード" in current_plan_type:
+            plan_summary_context = get_plan_overall_summary(
+                target_user_id
+            )
+            if plan_summary_context:
+                plan_summary_prompt_block = f"""
+                【現在の計画情報】
+                {plan_summary_context}
+
+                【計画情報の反映ルール】
+                ・進行中・完了済みの件数、計画名、短い概要を記憶要約へ含めてください。
+                ・計画情報にない進捗、決定事項、予定、会話内容を推測で追加しないでください。
+                ・通常会話から得た重要な記憶を、計画情報だけで置き換えないでください。
+                ・計画情報を含めた要約全体を、指定された文字数上限以内に収めてください。
+                """
         
         summary_config = (
             SUMMARY_MEMORY_CONFIG.get(
@@ -2093,7 +2110,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         conversation_text = "\n".join(conversation_lines)
 
         # 🧠 Google Gemini に対する、バックグラウンド処理専用の要約指示書（システムプロンプト）の構築
-        summary_instruction = """
+        summary_instruction = f"""
         あなたは優秀な記憶整理システムです。
         ・現在保存されている要約と、今回新しく追加された会話を統合し、最新の要約を作成してください。
         ・既存要約にある有効な情報は、新しい会話で否定または変更されていない限り保持してください。
@@ -2158,6 +2175,8 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ○○
 
         存在しない項目は省略して構いません。
+
+        {plan_summary_prompt_block}
 
         {summary_detail_rule}
 
@@ -7979,6 +7998,24 @@ def get_plan_project_count(status: str) -> int:
         return 0
 #================================================
 
+# 計画の要約を集めるDB関数の呼び出し成関数
+def get_plan_overall_summary(user_id: str) -> str:
+    try:
+        response = (
+            supabase
+            .rpc("get_plan_overall_summary", {"p_user_id": str(user_id)})
+            .execute()
+        )
+        return str(response.data or "").strip()
+
+    except Exception as e:
+        print(
+            "計画全体要約取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return ""
+#================================================
+
 # 計画の作成関数
 def create_plan_project(project_name: str):
     try:
@@ -8507,7 +8544,7 @@ def generate_merged_plan_document(
     ・AIコンシェルジュが提案しただけの内容は、ユーザーが同意していない限り、決定済みとして扱ってはいけません。
     ・会話そのものをそのまま書き写さず、計画書として分かりやすく整理してください。
     ・古い内容と新しい内容が矛盾する場合は、ユーザーの最新発言を優先してください。
-    ・説明文、前置き、更新報告は不要です。更新後の計画書本文だけを出力してください。
+    ・説明文、前置き、更新報告は不要です。指定されたJSON形式だけを出力してください。
     ・計画書内の【計画名】には、必ず「{selected_project.get("project_name", "")}」を使用してください。
     ・既存の計画書に別の計画名が記載されている場合は、現在の正式な計画名へ更新してください。
 
@@ -8538,6 +8575,22 @@ def generate_merged_plan_document(
 
     **【今後の作業】**
     ・次に実施する作業
+
+    【短い概要の作成ルール】
+    ・計画の目的や対象が分かる短い概要を作成してください。
+    ・進捗、決定事項、次の作業などの細かな状況は含めないでください。
+    ・計画名をそのまま繰り返すだけの文章にしないでください。
+    ・50文字以内を目安にしてください。
+
+    【最終出力形式】
+    必ず次のJSON形式だけで出力してください。
+    {{
+    "document": "更新後の計画書全文",
+    "summary": "計画の短い概要"
+    }}
+    ・documentには、上記の出力形式に従った計画書全文を入れてください。
+    ・summaryには、上記の短い概要の作成ルールに従った概要を入れてください。
+    ・JSON以外の説明文やMarkdownのコードブロックは出力しないでください。
     """
 
     try:
@@ -8546,7 +8599,7 @@ def generate_merged_plan_document(
             provider=BACKGROUND_PROVIDER,
             system_instruction="",
             user_prompt=merge_prompt,
-            response_format_json=False,
+            response_format_json=True,
             model_name=SUMMARY_MODEL_NAME
         )
         merge_processing_time = time.time() - merge_start_time
@@ -8560,24 +8613,25 @@ def generate_merged_plan_document(
             is_chat=False
         )
 
-        merged_document = str(merge_result.get("text", "") or "").strip()
+        merge_text = str(merge_result.get("text", "") or "").strip()
 
-        merged_document = re.sub(
-            r"<br\s*/?>",
-            "\n",
-            merged_document,
-            flags=re.IGNORECASE
-        )
-        merged_document = re.sub(
-            r"<[^>]+>",
-            "",
-            merged_document)
+        try:
+            merge_output = json.loads(merge_text)
+        except Exception:
+            merge_output = {"document": merge_text, "summary": ""}
+
+        merged_document = str(merge_output.get("document", "") or "").strip()
+        project_summary = str(merge_output.get("summary", "") or "").strip()
+
+        merged_document = re.sub(r"<br\s*/?>", "\n", merged_document, flags=re.IGNORECASE)
+        merged_document = re.sub(r"<[^>]+*", "", merged_document)
 
         if not merged_document:
             merged_document = existing_document
 
         return {
             "document": merged_document,
+            "summary": project_summary,
             "processing_time": merge_processing_time,
             "in_tokens": merge_in_tokens,
             "out_tokens": merge_out_tokens,
@@ -8592,6 +8646,9 @@ def generate_merged_plan_document(
 
         return {
             "document": existing_document,
+            "summary": str(
+                selected_project.get("project_summary", "") or ""
+            ).strip(),
             "processing_time": 0.0,
             "in_tokens": 0,
             "out_tokens": 0,
@@ -12708,6 +12765,7 @@ with all_tabs[2]:
                             unreflected_messages=unreflected_messages
                         )
                         merged_document = str(merge_data.get("document", "") or "").strip()
+                        project_summary = str(merge_data.get("summary", "") or "").strip()
 
                         if not merged_document:
                             st.error("計画書を作成できませんでした。")
@@ -12723,6 +12781,10 @@ with all_tabs[2]:
                             project_id=selected_project["id"],
                             update_data={
                                 "plan_document": merged_document,
+                                "project_summary": (
+                                    project_summary
+                                    or selected_project.get("project_summary", "")
+                                ),
                                 "last_reflected_at": reflected_at,
                                 "updated_at": datetime.now(JST).isoformat()
                             }
