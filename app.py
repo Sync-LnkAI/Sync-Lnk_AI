@@ -8615,6 +8615,9 @@ def generate_merged_plan_document(
 
         merge_text = str(merge_result.get("text", "") or "").strip()
 
+        st.write("DEBUG merge_text")
+        st.code(merge_text, language="json")
+
         try:
             merge_output = json.loads(merge_text)
         except Exception:
@@ -12823,7 +12826,7 @@ with all_tabs[2]:
                             )
 
                             st.success("計画書へ反映しました。")
-                            st.rerun()
+                            # st.rerun()
                         else:
                             st.error("計画書の保存に失敗しました。")
 
