@@ -8615,9 +8615,6 @@ def generate_merged_plan_document(
 
         merge_text = str(merge_result.get("text", "") or "").strip()
 
-        st.write("DEBUG merge_text")
-        st.code(merge_text, language="json")
-
         try:
             merge_output = json.loads(merge_text)
         except Exception:
@@ -12779,15 +12776,6 @@ with all_tabs[2]:
                             for message in unreflected_messages
                             if message.get("created_at")
                         )
-
-                        st.write("DEBUG update project_id")
-                        st.code(str(selected_project["id"]))
-
-                        st.write("DEBUG update plan_document")
-                        st.code(merged_document)
-
-                        st.write("DEBUG update project_summary")
-                        st.code(project_summary)
 
                         update_succeeded = update_plan_project(
                             project_id=selected_project["id"],
