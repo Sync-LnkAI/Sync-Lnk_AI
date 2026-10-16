@@ -9212,8 +9212,14 @@ all_tabs = st.tabs(tab_titles)
 # ------------------------------------------------------------------
 with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
+        st.write("CURRENT_USER_ID:", CURRENT_USER_ID)
+        st.write(
+            "管理者IDと一致:",
+            CURRENT_USER_ID == ADMIN_USER_ID
+        )
 
         current_subscription = get_user_subscription(CURRENT_USER_ID)
+        
         st.write(
             "DEBUG current_subscription:",
             current_subscription
