@@ -9648,7 +9648,8 @@ with all_tabs[0]:
         available_points = int(current_point_balance.get("available_points", 0) or 0)
 
         st.caption(
-            f"本日の会話：{db_count} / {db_max}回"
+            f"{current_plan_type}"
+            f"　｜　本日の会話：{db_count} / {db_max}回"
             f"　｜　保有ポイント：{available_points:,}pt"
         )
 
