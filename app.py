@@ -239,11 +239,6 @@ PAST_LOG_REPEAT_BONUS_PER_DAY = 0.03
 PAST_LOG_REPEAT_BONUS_MAX = 0.12
 # ==========================================
 
-# 計画作成可能件数の定義
-MAX_ACTIVE_PLAN_PROJECTS = 5
-MAX_COMPLETED_PLAN_PROJECTS = 10
-# ==========================================
-
 # 会員種別の定義
 PLAN_LABELS = {
     "free": "🆓 無料プラン",
@@ -331,10 +326,6 @@ def get_user_subscription(user_id: str) -> dict:
         }
 
     except Exception as e:
-        st.error(
-            "会員情報取得エラー: "
-            f"{type(e).__name__}: {e}"
-        )
         print(
             "会員情報取得エラー: "
             f"{type(e).__name__}: {e}"
@@ -352,6 +343,7 @@ PLAN_FEATURES = {
         "plan_completed_limit": 0,
         "summary_max_chars": 250,
         "premium_personality": False,
+        "response_length_edit": False,
         "pc_access": False,
         "memory_room_view": True,
         "memory_room_edit": False
@@ -363,7 +355,8 @@ PLAN_FEATURES = {
         "plan_active_limit": 0,
         "plan_completed_limit": 0,
         "summary_max_chars": 500,
-        "premium_personality": False,
+        "premium_personality": True,
+        "response_length_edit": True,
         "pc_access": False,
         "memory_room_view": True,
         "memory_room_edit": True
@@ -376,6 +369,7 @@ PLAN_FEATURES = {
         "plan_completed_limit": 10,
         "summary_max_chars": 750,
         "premium_personality": True,
+        "response_length_edit": True,
         "pc_access": True,
         "memory_room_view": True,
         "memory_room_edit": True
@@ -1723,35 +1717,41 @@ def get_memories(source="manual"):
 
 #         return False
 
-def delete_memory(memory_id: int) -> bool:
-    try:
-        (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .delete()
-            .eq("id", memory_id)
-            .execute()
-        )
-        return True
-    except Exception as e:
-        print(f"❌ [DBメモリ削除エラー] {e}")
-        return False
+# def delete_memory(memory_id: int) -> bool:
+#     try:
+#         (
+#             supabase
+#             .table(DB_MEMORIES_TABLE)
+#             .delete()
+#             .eq("id", memory_id)
+#             .execute()
+#         )
+#         return True
+#     except Exception as e:
+#         print(f"❌ [DBメモリ削除エラー] {e}")
+#         return False
 
 # 要約の編集内容の保存関数
 def update_memory(memory_id: int, new_fact: str) -> bool:
     try:
+        current_plan_code = st.session_state.get("current_user_plan_code", "free")
+        plan_features = get_plan_features(current_plan_code)
+
+        if not plan_features.get("memory_room_edit", False):
+            st.warning("記憶の編集はライトプラン以上で利用できます。")
+            return False
+
         (
             supabase
             .table(DB_MEMORIES_TABLE)
             .update({
                 "fact": new_fact,
-                "updated_at":
-                    datetime.now(JST).isoformat()
+                "updated_at": datetime.now(
+                    JST
+                ).isoformat()
             })
-            .eq(
-                "id",
-                memory_id
-            )
+            .eq("id", memory_id)
+            .eq("user_id", CURRENT_USER_ID)
             .execute()
         )
 
@@ -1759,11 +1759,11 @@ def update_memory(memory_id: int, new_fact: str) -> bool:
 
     except Exception as e:
         print(
-            f"記憶更新エラー: "
+            "記憶更新エラー: "
             f"{type(e).__name__}: {e}"
         )
-
         return False
+# ==========================================
 
 # ==========================================
 # 旧設定保存関数
@@ -2072,11 +2072,14 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
 
-        plan_summary_context = ""
-        if "スタンダード" in current_plan_type:
+        plan_summary_prompt_block = ""
+        summary_plan_code = str(subscription.get("plan_code", "free") or "free").strip()
+
+        if summary_plan_code == "standard":
             plan_summary_context = get_plan_overall_summary(
                 target_user_id
             )
+
             if plan_summary_context:
                 plan_summary_prompt_block = f"""
                 【現在の計画情報】
@@ -2095,8 +2098,18 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 SUMMARY_MEMORY_CONFIG["🆓 無料プラン"]
             )
         )
-        summary_max_chars = (summary_config["max_chars"])
-        summary_detail_rule = (summary_config["detail_rule"])
+
+        subscription = get_user_subscription(target_user_id)
+        summary_plan_features = get_plan_features(
+            subscription.get("plan_code", "free")
+        )
+        summary_max_chars = int(
+            summary_plan_features.get(
+                "summary_max_chars",
+                PLAN_FEATURES["free"]["summary_max_chars"]
+            )
+        )
+        summary_detail_rule = summary_config["detail_rule"]
 
         # 要約処理時間の計測開始
         start_summary_time = datetime.now(JST)
@@ -7954,6 +7967,25 @@ def save_saved_chat(
     original_message_id: str
 ) -> bool:
     try:
+        current_plan_code = st.session_state.get("current_user_plan_code", "free")
+        plan_features = get_plan_features(current_plan_code)
+        save_limit = int(plan_features.get("saved_chat_limit", 0))
+
+        if save_limit <= 0:
+            st.warning("会話保存はライトプラン以上で利用できます。")
+            return False
+
+        saved_chats_count = get_saved_chat_count()
+
+        if saved_chats_count >= save_limit:
+            st.warning(
+                f"保存上限（{save_limit}件）に達しています。"
+                "不要な保存済み会話を削除してから、"
+                "もう一度お試しください。"
+            )
+            return False
+
+
         data = {
             "user_id": CURRENT_USER_ID,
             "title": title,
@@ -8203,20 +8235,22 @@ def show_create_plan_dialog():
     )
 
     if create_plan:
-        if create_plan:
-            active_plan_count = get_plan_project_count("active")
+        current_plan_code = st.session_state.get("current_user_plan_code", "free")
+        plan_features = get_plan_features(current_plan_code)
+        active_plan_limit = int(plan_features.get("plan_active_limit", 0))
+        active_plan_count = get_plan_project_count("active")
 
-            if active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS:
-                st.warning(
-                    f"進行中の計画は最大"
-                    f"{MAX_ACTIVE_PLAN_PROJECTS}件まで登録できます。\n\n"
-                    "既存の計画を完了済みに移動するか、削除してから、"
-                    "新しい計画を作成してください。"
-                )
-                return
-
-            project_name = new_project_name.strip()
-
+        if (
+            active_plan_limit <= 0
+            or active_plan_count >= active_plan_limit
+        ):
+            st.warning(
+                f"進行中の計画は最大"
+                f"{active_plan_limit}件まで登録できます。\n\n"
+                "既存の計画を完了済みに移動するか、削除してから、"
+                "新しい計画を作成してください。"
+            )
+            return
 
         project_name = new_project_name.strip()
 
@@ -8343,16 +8377,23 @@ def show_plan_complete_dialog(project_id: int, project_name: str):
             key=f"confirm_complete_{project_id}",
             use_container_width=True
         ):
+            current_plan_code = st.session_state.get("current_user_plan_code", "free")
+            plan_features = get_plan_features(current_plan_code)
+            completed_plan_limit = int(plan_features.get("plan_completed_limit", 0))
             completed_plan_count = get_plan_project_count("completed")
 
-            if completed_plan_count >= MAX_COMPLETED_PLAN_PROJECTS:
+            if (
+                completed_plan_limit <= 0
+                or completed_plan_count >= completed_plan_limit
+            ):
                 st.warning(
                     f"完了済みの計画は最大"
-                    f"{MAX_COMPLETED_PLAN_PROJECTS}件まで保存できます。\n\n"
+                    f"{completed_plan_limit}件まで保存できます。\n\n"
                     "不要な完了済み計画を削除してから、"
                     "この計画を完了済みに移動してください。"
                 )
                 return
+            
             update_succeeded = update_plan_project(
                 project_id=project_id,
                 update_data={
@@ -8390,12 +8431,19 @@ def show_plan_restore_dialog(project_id: int, project_name: str):
             key=f"confirm_restore_{project_id}",
             use_container_width=True
         ):
+            current_plan_code = st.session_state.get("current_user_plan_code", "free")
+            plan_features = get_plan_features(current_plan_code)
+            active_plan_limit = int(plan_features.get("plan_active_limit", 0))
             active_plan_count = get_plan_project_count("active")
 
-            if active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS:
+            if (
+                active_plan_limit <= 0
+                or active_plan_count >= active_plan_limit
+            ):
+                
                 st.warning(
                     f"進行中の計画は最大"
-                    f"{MAX_ACTIVE_PLAN_PROJECTS}件まで登録できます。\n\n"
+                    f"{active_plan_limit}件まで登録できます。\n\n"
                     "既存の進行中計画を完了済みにするか、削除してから、"
                     "この計画を進行中へ戻してください。"
                 )
@@ -8828,7 +8876,282 @@ def get_unreflected_plan_messages(project_id: int, last_reflected_at=None) -> li
         return []
 #================================================
 
-# 
+# ポイント残高取得関数
+def get_user_point_balance(
+    user_id: str
+) -> dict:
+    default_balance = {
+        "available_points": 0,
+        "lifetime_earned_points": 0,
+        "lifetime_used_points": 0,
+        "lifetime_expired_points": 0
+    }
+
+    try:
+        response = (
+            supabase
+            .table("user_point_balances")
+            .select(
+                "available_points,"
+                "lifetime_earned_points,"
+                "lifetime_used_points,"
+                "lifetime_expired_points"
+            )
+            .eq("user_id", str(user_id))
+            .limit(1)
+            .execute()
+        )
+
+        if not response.data:
+            return default_balance
+
+        balance_data = response.data[0]
+
+        return {
+            "available_points": int(
+                balance_data.get(
+                    "available_points",
+                    0
+                ) or 0
+            ),
+            "lifetime_earned_points": int(
+                balance_data.get(
+                    "lifetime_earned_points",
+                    0
+                ) or 0
+            ),
+            "lifetime_used_points": int(
+                balance_data.get(
+                    "lifetime_used_points",
+                    0
+                ) or 0
+            ),
+            "lifetime_expired_points": int(
+                balance_data.get(
+                    "lifetime_expired_points",
+                    0
+                ) or 0
+            )
+        }
+
+    except Exception as e:
+        print(
+            "ポイント残高取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_balance
+#================================================
+
+# ポイント獲得RPC呼び出し関数
+def earn_points(
+    user_id: str,
+    points: int,
+    reason_code: str,
+    operation_id: str,
+    description: str = "",
+    reference_id: str = "",
+    expires_at=None
+) -> dict:
+    default_result = {
+        "result_status": "error",
+        "current_balance": 0,
+        "transaction_id": None
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "earn_user_points",
+                {
+                    "p_user_id": str(user_id),
+                    "p_points": int(points),
+                    "p_reason_code": str(reason_code),
+                    "p_operation_id": str(operation_id),
+                    "p_description": (
+                        str(description)
+                        if description
+                        else None
+                    ),
+                    "p_reference_id": (
+                        str(reference_id)
+                        if reference_id
+                        else None
+                    ),
+                    "p_expires_at": expires_at
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(
+                result.get(
+                    "result_status",
+                    "error"
+                ) or "error"
+            ),
+            "current_balance": int(
+                result.get(
+                    "current_balance",
+                    0
+                ) or 0
+            ),
+            "transaction_id": (
+                int(result["transaction_id"])
+                if result.get("transaction_id") is not None
+                else None
+            )
+        }
+
+    except Exception as e:
+        print(
+            "ポイント獲得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
+#================================================
+
+# ポイント消費RPC呼び出し関数
+def use_points(
+    user_id: str,
+    points: int,
+    reason_code: str,
+    operation_id: str,
+    description: str = "",
+    reference_id: str = ""
+) -> dict:
+    default_result = {
+        "result_status": "error",
+        "current_balance": 0,
+        "transaction_id": None
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "use_user_points",
+                {
+                    "p_user_id": str(user_id),
+                    "p_points": int(points),
+                    "p_reason_code": str(reason_code),
+                    "p_operation_id": str(operation_id),
+                    "p_description": (
+                        str(description)
+                        if description
+                        else None
+                    ),
+                    "p_reference_id": (
+                        str(reference_id)
+                        if reference_id
+                        else None
+                    )
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(
+                result.get(
+                    "result_status",
+                    "error"
+                ) or "error"
+            ),
+            "current_balance": int(
+                result.get(
+                    "current_balance",
+                    0
+                ) or 0
+            ),
+            "transaction_id": (
+                int(result["transaction_id"])
+                if result.get("transaction_id") is not None
+                else None
+            )
+        }
+
+    except Exception as e:
+        print(
+            "ポイント消費エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
+#================================================
+
+# ポイント失効RPC呼び出し関数
+def expire_points(
+    user_id: str,
+    operation_id: str
+) -> dict:
+    default_result = {
+        "result_status": "error",
+        "expired_points": 0,
+        "current_balance": 0,
+        "transaction_id": None
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "expire_user_points",
+                {
+                    "p_user_id": str(user_id),
+                    "p_operation_id": str(operation_id)
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(
+                result.get(
+                    "result_status",
+                    "error"
+                ) or "error"
+            ),
+            "expired_points": int(
+                result.get(
+                    "expired_points",
+                    0
+                ) or 0
+            ),
+            "current_balance": int(
+                result.get(
+                    "current_balance",
+                    0
+                ) or 0
+            ),
+            "transaction_id": (
+                int(result["transaction_id"])
+                if result.get("transaction_id") is not None
+                else None
+            )
+        }
+
+    except Exception as e:
+        print(
+            "ポイント失効エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
 #================================================
 
 # 🎨グラデーションカラーパレット
@@ -9216,22 +9539,8 @@ all_tabs = st.tabs(tab_titles)
 # ------------------------------------------------------------------
 with all_tabs[0]:       
         display_user_name = f"{current_user_name}{current_user_honorific}" if current_user_honorific != "（呼び捨て/なし）" else current_user_name
-        st.write("CURRENT_USER_ID:", CURRENT_USER_ID)
-        st.write(
-            "管理者IDと一致:",
-            CURRENT_USER_ID == ADMIN_USER_ID
-        )
-
+       
         current_subscription = get_user_subscription(CURRENT_USER_ID)
-        
-        st.write(
-            "DEBUG current_subscription:",
-            current_subscription
-        )
-        st.write(
-            "DEBUG CURRENT_USER_ID:",
-            CURRENT_USER_ID
-        )
 
         st.session_state["current_user_plan_code"] = (
             current_subscription["plan_code"]
@@ -9334,7 +9643,14 @@ with all_tabs[0]:
             all_messages = [{"role": "assistant", "content": welcome_text}]
 
         db_count, db_max = get_usage_status(CURRENT_USER_ID)
-        st.caption(f"本日の会話：{db_count} / {db_max}回")
+
+        current_point_balance = get_user_point_balance(CURRENT_USER_ID)
+        available_points = int(current_point_balance.get("available_points", 0) or 0)
+
+        st.caption(
+            f"本日の会話：{db_count} / {db_max}回"
+            f"　｜　保有ポイント：{available_points:,}pt"
+        )
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
@@ -11913,225 +12229,6 @@ with all_tabs[0]:
 
                             print("📡 AIテキスト応答確認: "f"{ai_reply[:15]}...")
 
-                            # # Geminiへの指示（プロンプト）の流し込み口
-                            # json_instruction = f"""
-                            # 以下のユーザー発言に回答してください。
-
-                            # 同時に、ユーザーが今回の発言で新しく指定した
-                            # 口調、話し方、回答の長さ、回答形式、禁止事項などの
-                            # 継続的な要望があれば抽出してください。
-
-                            # 必ず次のJSONオブジェクトだけを返してください。
-
-                            # {{
-                            #     "reply": "ユーザーへの回答",
-                            #     "new_instruction": "新しく指定された継続的な要望。なければ、なし"
-                            # }}
-
-                            # ルール:
-                            # ・replyには、ユーザーへの自然な回答を入れてください。
-                            # ・new_instructionには、今回新しく示された継続的な話し方の要望だけを入れてください。
-                            # ・単なる質問、雑談、事実、感想はnew_instructionへ入れないでください。
-                            # ・「今回だけ」「この質問だけ」など一時的な指定はnew_instructionへ保存しないでください。
-                            # ユーザー自身の日常会話や特定の作業・特定の執筆・特定のタスクにのみ適用される条件は保存しない。今後の会話全体に適用してほしい恒久的な要望のみ保存する。
-                            # ・新しい要望がない場合は、new_instructionを必ず「なし」にしてください。
-                            # ・JSONの外に説明文を出さないでください。
-                            # ・```jsonなどの囲み記号を付けないでください。
-
-                            # ユーザー発言:
-                            # {user_input}
-                            # """
-
-                            # api_start_time = time.time()
-                            # # 💡 出力形式を強制するため、本物の JSON モード（response_mime_type）をガチッと通電させます！
-                            # json_model = genai.GenerativeModel(
-                            #     model_name=CHAT_MODEL_NAME,
-                            #     system_instruction=system_instruction
-                            # )
-
-                            # response = json_model.generate_content(
-                            #     [
-                            #         {
-                            #             "role": "user",
-                            #             "parts": [json_instruction]
-                            #         }
-                            #     ],
-                            #     generation_config={
-                            #         "response_mime_type": "application/json"
-                            #     }
-                            # )
-
-                            # api_elapsed = time.time() - api_start_time
-
-                            # in_t, out_t = 0, 0
-                            # if hasattr(response, "usage_metadata") and response.usage_metadata:
-                            #     in_t = response.usage_metadata.prompt_token_count
-                            #     out_t = response.usage_metadata.candidates_token_count
-                            #     add_permanent_tokens(CURRENT_USER_ID, "chat", in_t, out_t)
-                            #     st.session_state.last_in_tokens = in_t
-                            #     st.session_state.last_out_tokens = out_t
-                            #     st.session_state.total_in_tokens += in_t
-                            #     st.session_state.total_out_tokens += out_t
-                            
-                            # # 届いたJSONデータをを解体して引き出しを取り出します
-                            # try:
-    
-                            #     raw_json_text = response.text or ""
-
-                            #     clean_json_text = (
-                            #         raw_json_text
-                            #         .strip()
-                            #         .replace("```json", "")
-                            #         .replace("```JSON", "")
-                            #         .replace("```", "")
-                            #         .strip()
-                            #     )
-
-                            #     res_json = json.loads(
-                            #         clean_json_text,
-                            #         strict=False
-                            #     )
-
-                            #     if not isinstance(res_json, dict):
-                            #         raise ValueError(
-                            #             "GeminiのJSON応答がobject形式ではありません"
-                            #         )
-
-                            #     ai_reply = str(
-                            #         res_json.get(
-                            #             "reply",
-                            #             "申し訳ありません。応答を正しく処理できませんでした。"
-                            #         )
-                            #         or ""
-                            #     ).strip()
-
-                            #     raw_new_manner = res_json.get(
-                            #         "new_instruction",
-                            #         "なし"
-                            #     )
-
-                            #     if isinstance(
-                            #         raw_new_manner,
-                            #         list
-                            #     ):
-                            #         new_manner = "\n".join(
-                            #             str(item).strip()
-                            #             for item in raw_new_manner
-                            #             if str(item).strip()
-                            #         )
-                            #     else:
-                            #         new_manner = str(
-                            #             raw_new_manner or "なし"
-                            #         ).strip()
-
-                            #     if not ai_reply:
-                            #         raise ValueError(
-                            #             "JSON内のreplyが空です"
-                            #         )
-
-                            # except Exception as json_err:
-                            #     json_error_detail = (
-                            #         f"{type(json_err).__name__}: "
-                            #         f"{json_err}"
-                            #     )
-                            #     # st.error(f"JSON解析エラー: {type(json_err).__name__}: {json_err}")
-
-                            #     print(
-                            #         f"⚠️ JSON解析エラー: "
-                            #         f"{json_error_detail}"
-                            #     )
-
-                            #     # st.code(
-                            #     #     response.text or "(空の応答)",
-                            #     #     language="json"
-                            #     # )
-
-                            #     # JSON解析に失敗しても、空返答にはしない
-                            #     ai_reply = (
-                            #         response.text
-                            #         if response.text
-                            #         else "申し訳ありません。応答を正しく処理できませんでした。"
-                            #     )
-
-                            #     new_manner = "なし"
-                            
-                            # # 🟢 【電波瞬断（Geminiエラー）のガードレール】
-                            # #     一発目の通信（response = ...）の時点で電波瞬断やタイムアウトが起きていた場合、
-                            # #     responseオブジェクト自体が壊れているため、安全にテスター向けのシステム案内へ着陸させます。
-                            # if not response or not hasattr(response, "text") or not response.text:
-                            #     st.error("【システム通信エラー】AIサーバーとの接続が一時的に遮断されました。電波環境の良い場所で、もう一度メッセージを送信してください。（※会話および口調の自動学習は実行されていません）")
-                            #     st.stop() # ➔ 💡ここで処理を完全にストップさせ、下の処理へ進ませません
-
-                            # # 🎯 通信が正常だった場合のみ、ここから下が安全に実行されます
-                            # print(f"📡 [Gemini JSON生データ確認] reply: {ai_reply[:15]}...")
-                            # print(f"🧠 [AIが抽出した新こだわり] new_mannerの中身: ➔ 【 {new_manner} 】")
-
-                            # # 🛡️ 【ライトプラン上限5個の窓枠ローテーション・全自動追記インフラ】
-                            # if new_manner and new_manner != "なし" and "なし" not in new_manner:
-                            #     current_instruction_text = str(current_user_instruction)
-                            #     lines = [l.strip() for l in current_instruction_text.split("\n") if l.strip()]
-                            
-                            #     if new_manner not in lines:
-
-                            #         lines.append(new_manner)
-
-                            #         if len(lines) > 5:
-                            #             lines = lines[-5:]
-
-                            #         updated_instruction_text = "\n".join(lines)
-
-                                #     # 応答方針のレコードを探す
-                                #     instruction_res = (
-                                #         supabase
-                                #         .table(DB_MEMORIES_TABLE)
-                                #         .select("*")
-                                #         .eq(
-                                #             "user_id",
-                                #             str(CURRENT_USER_ID)
-                                #         )
-                                #         .eq(
-                                #             "source",
-                                #             "manual"
-                                #         )
-                                #         .execute()
-                                #     )
-                                #     instruction_row = None
-
-                                #     for row in instruction_res.data:
-
-                                #         fact = row.get("fact", "")
-
-                                #         if fact.startswith("応答方針:"):
-                                #             instruction_row = row
-                                #             break
-
-                                #     if instruction_row:
-
-                                #         update_result = (
-                                #             supabase
-                                #             .table(DB_MEMORIES_TABLE)
-                                #             .update({
-                                #             "fact":
-                                #             "応答方針: "
-                                #             + updated_instruction_text
-                                #             })
-                                #             .eq(
-                                #                 "id",
-                                #                 instruction_row["id"]
-                                #             )
-                                #             .execute()
-                                #         )
-
-                                #     print(
-                                #         "✅ 応答方針更新結果:",
-                                #         update_result.data
-                                #     )
-                                # else:
-
-                                #     print(
-                                #         "⚠️ 応答方針レコードが見つかりませんでした"
-                                #     )    
-
                             clean_reply = clean_bold_markdown(ai_reply)
                             # with st.chat_message("assistant", avatar=current_ai_avatar):
                             # with st.chat_message("assistant"):
@@ -12165,39 +12262,6 @@ with all_tabs[0]:
                                 args=(current_msg_id, current_plan_type)
                             )
                             async_thread.start()
-
-                            # ==================================================================
-                            # 🧠 記憶の自動要約マルチスレッド
-                            # ==================================================================
-                            # メインスレッドの画面が次の送信（再描画）へ向かう前に、新設された引き出しをクリア
-                            # import threading
-        
-                            #st.session_state.summary_in_tokens = 0
-                            #st.session_state.summary_out_tokens = 0
-                            #st.session_state.summary_processing_time = 0.0
-        
-                            # データベースから最新の会話履歴を再取得して、裏の要約関数へダイレクトに手渡します
-                            # all_messages_updated = get_messages(CURRENT_USER_ID)
-                            # async_thread = threading.Thread(
-                            #     target=check_and_summarize_history, 
-                            #     args=(current_msg_id,current_plan_type)
-                            #     # args=(all_messages_updated, current_msg_id, current_plan_type) 
-                            # )
-                            # async_thread.start()
-                            # if (st.session_state.conversation_count % SUMMARY_INTERVAL_MESSAGES == 0):
-                            #     async_thread = threading.Thread(
-                            #         target=check_and_summarize_history,
-                            #         args=(current_msg_id, current_plan_type)
-                            #     )
-                            #     async_thread.start()
-                            
-                            # st.warning(
-                            #     f"CHAT_SUCCESS SAVE: "
-                            #     f"msg_id={current_msg_id} "
-                            #     f"in={in_t} "
-                            #     f"out={out_t} "
-                            #     f"cost={current_通_cost}"
-                            # )
 
                             # 5. チャットデータと、今2.0秒の間に合流した要約データをまとめて、Supabaseの新設詳細カラムへ1発で同時インサート！
                             save_system_audit_log(
@@ -12237,10 +12301,6 @@ with all_tabs[0]:
                                 message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                             )
 
-        # for msg in reversed(all_messages):
-        #     role_label = display_user_name if msg["role"] == "user" else current_concierge_name
-        #     avatar_img = current_user_avatar if msg["role"] == "user" else current_ai_avatar
-        # for msg in reversed(all_messages):
         for index, msg in enumerate(reversed(all_messages)):
             message_id = str(msg.get("message_id", ""))
 
@@ -12290,31 +12350,34 @@ with all_tabs[0]:
                 with col_save:
                     col_star, col_text = st.columns([2, 5])
                     with col_star:
-                        if (current_plan_type == "🆓 無料プラン"):
-                            if st.button("⭐", key=f"save_chat_free_{message_id}_{index}"):
+                        save_limit = int(current_plan_features.get("saved_chat_limit", 0))
+                        if save_limit <= 0:
+                            if st.button(
+                                "⭐",
+                                key=f"save_chat_free_{message_id}_{index}"
+                            ):
                                 st.toast("💎 ライトプラン以上で利用できます")
                         else:
-                            if (paired_user_message and paired_assistant_message):
+                            (paired_user_message and paired_assistant_message):
                                 if st.button("⭐", key=f"save_chat_paid_{message_id}_{index}"):
-                                    saved_chats_count = len(get_saved_chats())
-
-                                    if "ライト" in current_plan_type:
-                                        save_limit = 5
-                                    else:
-                                        save_limit = 10
+                                    saved_chats_count = get_saved_chat_count()
+                                    save_limit = int(
+                                        current_plan_features.get("saved_chat_limit", 0)
+                                    )
 
                                     if saved_chats_count >= save_limit:
                                         st.toast(f"保存上限（{save_limit}件）に達しています。不要な保存済の会話を削除してからやり直してください。")
 
                                     else:
-                                        save_saved_chat(
+                                        save_succeeded = save_saved_chat(
                                             title = create_saved_chat_title(paired_user_message),
                                             summary = str(paired_assistant_message)[:100],
                                             user_message = paired_user_message,
                                             assistant_message = paired_assistant_message,
                                             original_message_id = message_id
                                         )
-                                        st.toast("✅ 会話を保存しました")
+                                        if save_succeeded:
+                                            st.toast("✅ 会話を保存しました")
                     with col_text:
                         st.caption("会話保存")
 
@@ -12330,28 +12393,6 @@ with all_tabs[0]:
                         st.caption("🧠 不明")
 
                 st.write("")
-
-                # col_save, col_mode = st.columns([2, 1])
-                # with col_save:
-                #     if current_plan_type == "🆓 無料プラン":
-                #         st.caption("💎 ライトプラン以上で会話を保存できます")
-                #     else:
-
-                #         st.button("☆ この会話を保存", key=f"save_chat_{current_msg_id}")
-                # with col_mode:
-
-                #     # st.caption(f"🧠 {MODE_LABELS.get(response_mode, response_mode)}")
-                #     st.caption("🧠 会話モード")
-                #st.divider()
-
-            # st.write(
-            #     f"【{role_label}】: "
-            #     f"{clean_bold_markdown(msg['content'])}"
-            # )
-            # with st.chat_message(msg["role"]):
-            #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
-            # with st.chat_message(msg["role"], avatar=avatar_img):
-            #     st.write(f"【{role_label}】: {clean_bold_markdown(msg['content'])}")
 
 with all_tabs[1]:
     memory_tabs = st.tabs(["🧠 AIの長期記憶","💾 保存した会話"])
@@ -12389,15 +12430,18 @@ with all_tabs[1]:
 
                     # col_space, col_edit = st.columns([9, 1])
                     edit_key = (f"edit_memory_{block['title']}")
-                    # with col_edit:
-                    # if st.button("編集", key=edit_key):
-                    #     st.session_state[f"editing_{block['title']}"] = True
-                    if current_plan_type == "🆓 無料プラン":
+                    memory_room_edit_enabled = bool(
+                        current_plan_features.get("memory_room_edit", False)
+                    )
+
+                    if not memory_room_edit_enabled:
                         if st.button("編集", key=edit_key):
-                            st.toast("💎 ライトプラン以上で利用できます")
+                            st.toast("💎 記憶の編集はライトプラン以上で利用できます")
                     else:
                         if st.button("編集", key=edit_key):
-                            st.session_state[f"editing_{block['title']}"] = True
+                            st.session_state[
+                                f"editing_{block['title']}"
+                            ] = True
                     if st.session_state.get(f"editing_{block['title']}",False):
                         edited_text = st.text_area(
                             "内容を編集",
@@ -12408,16 +12452,18 @@ with all_tabs[1]:
                         col_save, col_cancel, col_spacer = st.columns([1, 1, 6])
                         with col_save:
                             if st.button("更新", key=f"save_memory_{block['title']}"):
-                            
+                                if not memory_room_edit_enabled:
+                                    st.warning("記憶の編集はライトプラン以上で利用できます。")
+                                    st.session_state[f"editing_{block['title']}"] = False
+                                    st.stop()
+
                                 updated_blocks = []
+
                                 for target_block in memory_blocks:
-                                    if (target_block["title"] == block["title"]):
-                                
+                                    if target_block["title"] == block["title"]:
                                         updated_blocks.append({
-                                        "title":
-                                        target_block["title"],
-                                        "content":
-                                        edited_text
+                                            "title": target_block["title"],
+                                            "content": edited_text
                                         })
                                     else:
                                         updated_blocks.append(target_block)
@@ -12502,13 +12548,10 @@ with all_tabs[1]:
         st.divider()
 
 with all_tabs[2]:
-    current_plan_type = "スタンダード"
-    # st.markdown("##### 📁 計画ルーム")
-    if ("スタンダード" not in current_plan_type):
+    plan_room_enabled = bool(current_plan_features.get("plan_room", False))
 
-        st.info(
-            "スタンダードプラン専用機能です。"
-        )
+    if not plan_room_enabled:
+        st.info("計画ルームはスタンダードプラン専用機能です。")
 
         st.markdown(
             """
@@ -12524,6 +12567,9 @@ with all_tabs[2]:
         )
 
     else:
+        active_plan_limit = int(current_plan_features.get("plan_active_limit", 0))
+        completed_plan_limit = int(current_plan_features.get("plan_completed_limit", 0))
+
         st.caption("AIと一緒に継続的な計画を作成して管理することができる専用ルームです。")
         plan_view_mode = st.radio(
             "",
@@ -12577,11 +12623,11 @@ with all_tabs[2]:
             )
 
             active_plan_count = get_plan_project_count("active")
-            active_plan_limit_reached = (active_plan_count >= MAX_ACTIVE_PLAN_PROJECTS)
+            active_plan_limit_reached = (active_plan_count >= active_plan_limit)
 
             st.caption(
                 f"進行中の計画："
-                f"{active_plan_count} / {MAX_ACTIVE_PLAN_PROJECTS}件"
+                f"{active_plan_count} / {active_plan_limit}件"
             )
 
             if st.button(
@@ -12613,7 +12659,7 @@ with all_tabs[2]:
             completed_plan_count = get_plan_project_count("completed")
             st.caption(
                 f"完了済みの計画："
-                f"{completed_plan_count} / {MAX_COMPLETED_PLAN_PROJECTS}件"
+                f"{completed_plan_count} / {completed_plan_limit}件"
             )
 
             if st.session_state.pop("reset_completed_plan_project", False):
@@ -13138,41 +13184,19 @@ with all_tabs[3]:
                 ),
                 label_visibility="collapsed"
             )
-            # selected_preset = st.selectbox(
-            #     "AIの人格・スタイル",
-            #     DISPLAY_PRESETS,
-            #     index=(
-            #         DISPLAY_PRESETS.index(current_style_preset)
-            #         if current_style_preset in DISPLAY_PRESETS
-            #         else 0
-            #     )
-            # )
-            # st.caption("🆓 無料: 設定なし / フランクな相棒 / 有能な執事・秘書")
-            # st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。")
-            # st.caption("")
+            
+            premium_personality_enabled = bool(
+                current_plan_features.get("premium_personality", False)
+            )
 
-            # selected_preset = st.selectbox(
-            #     "AIの人格・スタイル",
-            #     [
-            #         "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
-            #         "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
-            #         "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】",
-
-            #         "──────────── 💎 ライト以上 ────────────",
-
-            #         "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
-            #         "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
-            #         "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
-            #         "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
-            #         "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
-            #         "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
-            #     ]
-            # )
             if (
-                current_plan_type == "🆓 無料プラン"
+                not premium_personality_enabled
                 and selected_preset in PREMIUM_PRESETS
             ):
-                st.caption("💎 の付いた人格は、ライトプラン以上で利用できます。人格を選び直してください。")
+                st.caption(
+                    "💎 の付いた人格は、ライトプラン以上で利用できます。"
+                    "人格を選び直してください。"
+                )
                 st.caption("")
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
@@ -13204,120 +13228,20 @@ with all_tabs[3]:
             st.markdown("**🔒 拡張会話設定**")
             # st.markdown("##### 🔒 プレミアム会話設定")
 
-            is_free_plan = (
-                current_plan_type
-                == "🆓 無料プラン"
+            response_length_edit_enabled = bool(
+                current_plan_features.get("response_length_edit", False)
             )
             st.markdown("**返事の長さ**")
             new_response_length = st.selectbox(
                 "",
                 RESPONSE_LENGTH_PRESETS,
                 index=default_length_idx,
-                disabled=is_free_plan,
+                disabled=not response_length_edit_enabled,
                 label_visibility="collapsed"
             )
 
-            # new_response_length = st.selectbox(
-            #     "返事の長さ",
-            #     RESPONSE_LENGTH_PRESETS,
-            #     index=default_length_idx,
-            #     disabled=is_free_plan
-            # )
-            if is_free_plan:
-                st.caption(
-                    "💎 ライトプラン以上で利用可能"
-                )
-            # default_dialect_idx = (
-            #     DIALECT_PRESETS.index(
-            #         current_dialect
-            #     )
-            #     if current_dialect
-            #     in DIALECT_PRESETS
-            #     else 0
-            # )
-            # new_dialect = st.selectbox(
-            #     "方言",
-            #     DIALECT_PRESETS,
-            #     index=default_dialect_idx,
-            #     disabled=is_free_plan
-            # )
-            # if is_free_plan:
-            #     st.caption(
-            #         "💎 ライトプラン以上で利用可能"
-            #     )
-
-            # ==========================================
-            # 応答方針（旧仕様）
-            # 現在はUI非表示
-            # DB互換性維持のため内部保持
-            # ==========================================
-            # st.markdown("##### 📝 AIの話し方")
-            # st.caption("あなたが会話の中で伝えた細かいマナーやこだわりは、ここに自動で箇条書きで追加されていきます。")
-            # st.caption("また、必要に応じていつでも自分で消去・修正や追加ができます。（例；話は簡潔にして、回答は５行以内にして、など）")
-            # st.caption("ただし、１次的な指示では自動で記憶されません。（良い例：今後は〇〇にして、ずっと△△にして、など）")
-
-            # instruction_rules = [
-            #     r.strip()
-            #     for r in str(current_user_instruction).split("\n")
-            #     if r.strip()
-            # ]
-
-            # edited_rules = []
-
-            # for idx, rule in enumerate(instruction_rules):
-
-            #     col_rule, col_del = st.columns([9,1])
-
-            #     with col_rule:
-            #         rule_text = st.text_input(
-            #             f"rule_{idx}",
-            #             value=rule,
-            #             label_visibility="collapsed"
-            #         )
-
-            #     with col_del:
-            #         delete_flag = st.checkbox(
-            #             "削除",
-            #             key=f"delete_rule_{idx}"
-            #         )
-
-            #     if not delete_flag and rule_text.strip():
-            #         edited_rules.append(
-            #             rule_text.strip()
-            #         )
-            # #st.markdown("---")
-            # st.caption("")
-            # st.markdown("➕ AIの話し方を追加")
-            # new_rule = st.text_input(
-            #     "下記に入力して、基本設定を保存すると追加されます。ただし、追加できる話し方は5件までとなります。6件目が追加されると、1件目が押し出されて消えますのでご注意ください。",
-            #     key="new_rule_input"
-            # )
-            # if new_rule.strip():
-            #     edited_rules.append(
-            #         new_rule.strip()
-            #     )
-            
-            # # 重複削除
-            # edited_rules = list(dict.fromkeys(edited_rules))
-            # # 最新5件のみ保持
-            # edited_rules = edited_rules[-5:]
-
-            # st.markdown("🖼️ アバター（アイコン）設定")
-            # col_a, col_u = st.columns(2)
-            # with col_a:
-            #     ai_preset_keys = list(AVATAR_PRESETS_AI.keys())
-            #     default_ai_idx = next((i for i, k in enumerate(ai_preset_keys) if AVATAR_PRESETS_AI[k] == current_ai_avatar), 0)
-            #     ai_avatar_sel = st.selectbox("AIのアバター", ai_preset_keys, index=default_ai_idx)
-            #     ai_avatar_val = AVATAR_PRESETS_AI[ai_avatar_sel]
-            # with col_u:
-            #     user_preset_keys = list(AVATAR_PRESETS_USER.keys())
-            #     default_user_idx = next((i for i, k in enumerate(user_preset_keys) if AVATAR_PRESETS_USER[k] == current_user_avatar), 0)
-            #     user_avatar_sel = st.selectbox("あなたのアバター", user_preset_keys, index=default_user_idx)
-            #     user_avatar_val = AVATAR_PRESETS_USER[user_avatar_sel]
-            
-            # plan_options = ["🆓 無料プラン", "💸 ライトプラン", "👑 スタンダードプラン"]
-            # current_plan_idx = plan_options.index(st.session_state.current_user_plan_state) if st.session_state.current_user_plan_state in plan_options else 0
-            # new_plan = st.selectbox("現在の会員プラン", plan_options, index=current_plan_idx)
+            if not response_length_edit_enabled:
+                st.caption("💎 ライトプラン以上で利用可能")
 
             st.markdown("---")
             bottom_save = st.form_submit_button(
@@ -13334,8 +13258,13 @@ with all_tabs[3]:
                 st.session_state["settings_saved"] = False
 
             if top_save or bottom_save:
+                response_length_to_save = (
+                    new_response_length
+                    if response_length_edit_enabled
+                    else "普通"
+                )
                 if (
-                    current_plan_type == "🆓 無料プラン"
+                    not premium_personality_enabled
                     and selected_preset in PREMIUM_PRESETS
                 ):
                     target_placeholder = (
@@ -13344,10 +13273,12 @@ with all_tabs[3]:
                         else bottom_placeholder
                     )
 
-                    target_placeholder.warning("選択された人格は、💎 ライトプラン以上で利用できます。人格を選び直してください。")
+                    target_placeholder.warning(
+                        "選択された人格は、💎 ライトプラン以上で利用できます。"
+                        "人格を選び直してください。"
+                    )
 
                 else:
-
                     settings_dict = {
                         "カラーテーマ": selected_color,
                         "AIの名前": new_concierge_name,
@@ -13355,8 +13286,7 @@ with all_tabs[3]:
                         "ユーザー敬称": new_user_honorific,
                         "AI一人称": new_first_person,
                         "人格": selected_preset,
-                        "会話長さ": new_response_length,
-                        # "方言": new_dialect,
+                        "会話長さ": response_length_to_save,
                         "絵文字の量": new_emoji_setting
                     }
                     target_placeholder = (
