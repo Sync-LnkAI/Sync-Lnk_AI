@@ -331,6 +331,10 @@ def get_user_subscription(user_id: str) -> dict:
         }
 
     except Exception as e:
+        st.error(
+            "会員情報取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
         print(
             "会員情報取得エラー: "
             f"{type(e).__name__}: {e}"
