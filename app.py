@@ -8935,6 +8935,10 @@ def get_user_point_balance(
         }
 
     except Exception as e:
+        st.error(
+            "ポイント残高取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
         print(
             "ポイント残高取得エラー: "
             f"{type(e).__name__}: {e}"
