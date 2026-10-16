@@ -9314,11 +9314,9 @@ with all_tabs[0]:
             )
             all_messages = [{"role": "assistant", "content": welcome_text}]
 
-        db_count, db_max = get_usage_status(
+        db_count, db_max = get_usage_status(CURRENT_USER_ID)
+        st.caption(f"本日の会話：{db_count} / {db_max}回")
 
-            CURRENT_USER_ID
-        )
-        
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
