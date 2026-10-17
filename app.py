@@ -9235,7 +9235,12 @@ def purchase_point_product(
             )
         }
 
-    except Exception 
+        except Exception as e:
+        print(
+            "ポイント商品購入エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result 
 #================================================
 
 # 有料人格パスが有効かを取得する関数
