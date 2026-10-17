@@ -9235,7 +9235,7 @@ def purchase_point_product(
             )
         }
 
-        except Exception as e:
+    except Exception as e:
         print(
             "ポイント商品購入エラー: "
             f"{type(e).__name__}: {e}"
