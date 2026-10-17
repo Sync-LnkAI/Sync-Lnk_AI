@@ -387,6 +387,25 @@ def get_plan_features(plan_code: str) -> dict:
     )
 # ==========================================
 
+# ポイント設定
+POINT_INITIAL_REGISTRATION = 250
+
+POINT_REWARDED_AD = 5
+REWARDED_AD_DAILY_LIMIT = 5
+REWARDED_AD_COOLDOWN_MINUTES = 3
+
+POINT_COST_SEARCH = 25
+POINT_COST_DETAILED_ANALYSIS = 50
+
+POINT_COST_AD_FREE_7_DAYS = 100
+POINT_COST_AD_FREE_30_DAYS = 400
+
+POINT_COST_SAVED_CHAT_PLUS_5_30_DAYS = 250
+
+POINT_COST_DAILY_CHAT_PLUS_5_7_DAYS = 50
+POINT_COST_DAILY_CHAT_PLUS_5_30_DAYS = 200
+# ==========================================
+
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
 # if "tokens_loaded" not in st.session_state:
 #     import threading
@@ -8901,8 +8920,6 @@ def get_user_point_balance(
             .limit(1)
             .execute()
         )
-        st.write("DEBUG point user_id:", user_id)
-        st.write("DEBUG point response:", response.data)
 
         if not response.data:
             return default_balance
@@ -8937,10 +8954,6 @@ def get_user_point_balance(
         }
 
     except Exception as e:
-        st.error(
-            "ポイント残高取得エラー: "
-            f"{type(e).__name__}: {e}"
-        )
         print(
             "ポイント残高取得エラー: "
             f"{type(e).__name__}: {e}"
@@ -9158,6 +9171,368 @@ def expire_points(
             f"{type(e).__name__}: {e}"
         )
         return default_result
+#================================================
+
+# ポイント商品を購入する関数
+def purchase_point_product(
+    user_id: str,
+    product_code: str,
+    operation_id: str
+) -> dict:
+    default_result = {
+        "result_status": "error",
+        "current_balance": 0,
+        "transaction_id": None,
+        "entitlement_code": "",
+        "entitlement_expires_at": None
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "purchase_point_product",
+                {
+                    "p_user_id": str(user_id),
+                    "p_product_code": str(product_code),
+                    "p_operation_id": str(operation_id)
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(
+                result.get(
+                    "result_status",
+                    "error"
+                ) or "error"
+            ),
+            "current_balance": int(
+                result.get(
+                    "current_balance",
+                    0
+                ) or 0
+            ),
+            "transaction_id": (
+                int(result["transaction_id"])
+                if result.get("transaction_id") is not None
+                else None
+            ),
+            "entitlement_code": str(
+                result.get(
+                    "entitlement_code",
+                    ""
+                ) or ""
+            ),
+            "entitlement_expires_at": result.get(
+                "entitlement_expires_at"
+            )
+        }
+
+    except Exception 
+#================================================
+
+# 有料人格パスが有効かを取得する関数
+def get_active_entitlement(
+    user_id: str,
+    entitlement_code: str
+) -> dict:
+    default_result = {
+        "is_active": False,
+        "entitlement_code": str(entitlement_code),
+        "quantity": 0,
+        "starts_at": None,
+        "expires_at": None,
+        "source_product_code": ""
+    }
+
+    try:
+        response = (
+            supabase
+            .table("user_entitlements")
+            .select(
+                "entitlement_code,"
+                "quantity,"
+                "starts_at,"
+                "expires_at,"
+                "status,"
+                "source_product_code"
+            )
+            .eq(
+                "user_id",
+                str(user_id)
+            )
+            .eq(
+                "entitlement_code",
+                str(entitlement_code)
+            )
+            .eq(
+                "status",
+                "active"
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        entitlement = response.data[0]
+        expires_at = entitlement.get("expires_at")
+
+        if not expires_at:
+            return default_result
+
+        try:
+            expiration_datetime = datetime.fromisoformat(
+                str(expires_at).replace(
+                    "Z",
+                    "+00:00"
+                )
+            )
+
+            now_datetime = datetime.now(
+                expiration_datetime.tzinfo
+            )
+
+            if expiration_datetime <= now_datetime:
+                return default_result
+
+        except Exception:
+            return default_result
+
+        return {
+            "is_active": True,
+            "entitlement_code": str(
+                entitlement.get(
+                    "entitlement_code",
+                    entitlement_code
+                ) or entitlement_code
+            ),
+            "quantity": int(
+                entitlement.get(
+                    "quantity",
+                    0
+                ) or 0
+            ),
+            "starts_at": entitlement.get(
+                "starts_at"
+            ),
+            "expires_at": expires_at,
+            "source_product_code": str(
+                entitlement.get(
+                    "source_product_code",
+                    ""
+                ) or ""
+            )
+        }
+
+    except Exception as e:
+        print(
+            "購入済み権利取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
+#================================================
+
+# 購入可能な人格パス商品を取得する関数
+def get_point_products(
+    product_category: str = ""
+) -> list[dict]:
+    try:
+        query = (
+            supabase
+            .table("point_products")
+            .select(
+                "product_code,"
+                "product_name,"
+                "product_description,"
+                "product_category,"
+                "point_cost,"
+                "entitlement_code,"
+                "duration_days,"
+                "quantity,"
+                "display_order"
+            )
+            .eq("is_enabled", True)
+            .eq("is_visible", True)
+        )
+
+        if product_category:
+            query = query.eq(
+                "product_category",
+                product_category
+            )
+
+        response = (
+            query
+            .order("display_order")
+            .execute()
+        )
+
+        return response.data or []
+
+    except Exception as e:
+        print(
+            "ポイント商品取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
+#================================================
+
+# 有料人格パスの購入ダイアログ関数
+@st.dialog("💎 有料人格パス")
+def show_personality_pass_dialog():
+    point_balance = get_user_point_balance(
+        CURRENT_USER_ID
+    )
+
+    available_points = int(
+        point_balance.get(
+            "available_points",
+            0
+        ) or 0
+    )
+
+    st.markdown(
+        f"**現在の保有ポイント："
+        f"{available_points:,}pt**"
+    )
+
+    st.caption(
+        "有料人格パスの有効期間中は、"
+        "すべての💎付き人格を自由に利用できます。"
+    )
+
+    personality_products = get_point_products(
+        "personality"
+    )
+
+    if not personality_products:
+        st.info(
+            "現在購入できる有料人格パスはありません。"
+        )
+        return
+
+    for product in personality_products:
+        product_code = str(
+            product.get("product_code", "") or ""
+        )
+
+        product_name = str(
+            product.get("product_name", "") or ""
+        )
+
+        product_description = str(
+            product.get(
+                "product_description",
+                ""
+            ) or ""
+        )
+
+        point_cost = int(
+            product.get("point_cost", 0) or 0
+        )
+
+        st.markdown(f"**{product_name}**")
+
+        if product_description:
+            st.caption(product_description)
+
+        if available_points < point_cost:
+            st.button(
+                f"{point_cost:,}ptで購入",
+                key=f"buy_personality_{product_code}",
+                disabled=True,
+                use_container_width=True
+            )
+
+            st.caption(
+                f"ポイントが"
+                f"{point_cost - available_points:,}pt"
+                f"不足しています。"
+            )
+
+        else:
+            if st.button(
+                f"{point_cost:,}ptで購入",
+                key=f"buy_personality_{product_code}",
+                use_container_width=True
+            ):
+                operation_id = (
+                    f"point_purchase_"
+                    f"{CURRENT_USER_ID}_"
+                    f"{product_code}_"
+                    f"{uuid.uuid4().hex}"
+                )
+
+                purchase_result = (
+                    purchase_point_product(
+                        user_id=CURRENT_USER_ID,
+                        product_code=product_code,
+                        operation_id=operation_id
+                    )
+                )
+
+                result_status = str(
+                    purchase_result.get(
+                        "result_status",
+                        "error"
+                    ) or "error"
+                )
+
+                if result_status == "purchased":
+                    st.session_state[
+                        "point_purchase_success"
+                    ] = {
+                        "product_name": product_name,
+                        "current_balance": int(
+                            purchase_result.get(
+                                "current_balance",
+                                0
+                            ) or 0
+                        ),
+                        "expires_at": (
+                            purchase_result.get(
+                                "entitlement_expires_at"
+                            )
+                        )
+                    }
+
+                    st.rerun()
+
+                elif result_status == "insufficient_points":
+                    st.warning(
+                        "ポイントが不足しています。"
+                    )
+
+                elif result_status == "already_processed":
+                    st.info(
+                        "この購入処理はすでに完了しています。"
+                    )
+
+                elif result_status == "product_disabled":
+                    st.warning(
+                        "現在、この商品は購入できません。"
+                    )
+
+                elif result_status == "product_not_found":
+                    st.error(
+                        "購入商品を確認できませんでした。"
+                    )
+
+                else:
+                    st.error(
+                        "有料人格パスを購入できませんでした。"
+                    )
+
+        st.divider()
 #================================================
 
 # 🎨グラデーションカラーパレット
@@ -13192,8 +13567,26 @@ with all_tabs[3]:
                 label_visibility="collapsed"
             )
             
+            premium_personality_entitlement = (
+                get_active_entitlement(
+                    CURRENT_USER_ID,
+                    "premium_personality"
+                )
+            )
+
+            premium_personality_pass_active = bool(
+                premium_personality_entitlement.get(
+                    "is_active",
+                    False
+                )
+            )
+
             premium_personality_enabled = bool(
-                current_plan_features.get("premium_personality", False)
+                current_plan_features.get(
+                    "premium_personality",
+                    False
+                )
+                or premium_personality_pass_active
             )
 
             if (
@@ -13205,6 +13598,14 @@ with all_tabs[3]:
                     "人格を選び直してください。"
                 )
                 st.caption("")
+
+                if st.form_submit_button(
+                    "💎 ポイントで有料人格パスを購入",
+                    key="open_personality_pass_dialog"
+                ):
+                    st.session_state[
+                        "open_personality_pass_dialog"
+                    ] = True
 
             with st.expander("💬 人格ごとの会話サンプルを見る"):
                 for personality, sample in PERSONALITY_SAMPLES.items():
@@ -13319,6 +13720,9 @@ with all_tabs[3]:
                         st.rerun()
                     else:
                         target_placeholder.error("設定の保存に失敗しました")
+
+        if st.session_state.pop("open_personality_pass_dialog", False):
+            show_personality_pass_dialog()
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
