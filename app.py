@@ -13609,7 +13609,7 @@ with all_tabs[3]:
             elif not current_plan_features.get("premium_personality", False):
                 if selected_preset in PREMIUM_PRESETS:
                     st.caption(
-                        "💎 選択した人格を使用するには、ライトプラン以上への加入、
+                        "💎 選択した人格を使用するには、ライトプラン以上への加入、"
                         "または有料人格パスの購入が必要です。"
                     )
                 else:
