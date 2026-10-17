@@ -9618,8 +9618,79 @@ def show_point_detail_dialog():
 
     st.caption("現在は広告機能の準備中です。")
     st.divider()
-    st.markdown("#### 📖 ポイント履歴")
 
+    st.markdown("#### 🛍️ ポイントで機能を購入")
+
+    point_products = get_point_products()
+
+    if not point_products:
+        st.caption("現在購入できるポイント商品はありません。")
+
+    else:
+        for product in point_products:
+            product_code = str(product.get("product_code", "") or "")
+            product_name = str(product.get("product_name", "") or "")
+            product_description = str(product.get("product_description", "") or "")
+            point_cost = int(product.get("point_cost", 0) or 0)
+            st.markdown(f"**{product_name}**")
+
+            if product_description:
+                st.caption(product_description)
+
+            can_purchase = (available_points >= point_cost)
+
+            if st.button(
+                f"{point_cost:,}ptで購入",
+                key=f"buy_point_product_{product_code}",
+                disabled=not can_purchase,
+                use_container_width=True
+            ):
+                operation_id = (
+                    f"point_purchase_"
+                    f"{CURRENT_USER_ID}_"
+                    f"{product_code}_"
+                    f"{uuid.uuid4().hex}"
+                )
+
+                purchase_result = purchase_point_product(
+                    user_id=CURRENT_USER_ID,
+                    product_code=product_code,
+                    operation_id=operation_id
+                )
+
+                result_status = str(
+                    purchase_result.get("result_status", "error") or "error"
+                )
+
+                if result_status == "purchased":
+                    st.toast(f"✅ {product_name}を購入しました")
+                    st.rerun()
+
+                elif result_status == "insufficient_points":
+                    st.warning("ポイントが不足しています。")
+
+                elif result_status == "already_processed":
+                    st.info("この購入処理はすでに完了しています。")
+
+                elif result_status == "product_disabled":
+                    st.warning("現在、この商品は購入できません。")
+
+                elif result_status == "product_not_found":
+                    st.error("購入商品を確認できませんでした。")
+
+                else:
+                    st.error("ポイント商品を購入できませんでした。")
+
+            if not can_purchase:
+                st.caption(
+                    f"あと"
+                    f"{point_cost - available_points:,}pt"
+                    f"必要です。"
+                )
+
+            st.divider()
+
+    st.markdown("#### 📖 ポイント履歴")
     point_transactions = get_point_transactions(CURRENT_USER_ID, limit=50)
 
     if not point_transactions:
@@ -9650,7 +9721,7 @@ def show_point_detail_dialog():
         description = str(transaction.get("description", "") or "").strip()
         created_at = transaction.get("created_at")
 
-        # formatted_created_at = ""
+        formatted_created_at = ""
 
         if created_at:
             try:
