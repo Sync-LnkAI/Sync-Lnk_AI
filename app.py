@@ -9586,7 +9586,7 @@ def show_point_detail_dialog():
     lifetime_expired_points = int(point_balance.get("lifetime_expired_points", 0) or 0)
 
     detail_tab, shop_tab = st.tabs([
-        "ポイント詳細",
+        "詳細",
         "ショップ"
     ])
 
