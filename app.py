@@ -10197,7 +10197,7 @@ with all_tabs[0]:
             if st.button(
                 "ポイント詳細",
                 key="open_point_detail_dialog",
-                use_container_width=True
+                # use_container_width=True
             ):
                 show_point_detail_dialog()
 
