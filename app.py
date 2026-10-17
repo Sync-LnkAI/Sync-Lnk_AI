@@ -9650,7 +9650,7 @@ def show_point_detail_dialog():
         description = str(transaction.get("description", "") or "").strip()
         created_at = transaction.get("created_at")
 
-        formatted_created_at = ""
+        # formatted_created_at = ""
 
         if created_at:
             try:
