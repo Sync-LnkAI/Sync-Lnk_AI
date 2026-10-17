@@ -13609,17 +13609,17 @@ with all_tabs[3]:
             elif not current_plan_features.get("premium_personality", False):
                 if selected_preset in PREMIUM_PRESETS:
                     st.caption(
-                        "💎 選択した人格を使用するには、ライトプラン以上への加入、"
+                        "💎付の人格を使用するには、ライトプラン以上への加入、"
                         "または有料人格パスの購入が必要です。"
                     )
                 else:
                     st.caption(
-                        "💎 有料人格パスを購入すると、"
+                        "有料人格パスを購入すると、"
                         "すべての💎付き人格を自由に利用できます。"
                     )
 
                 if st.form_submit_button(
-                    "💎 ポイントで有料人格パスを購入",
+                    "ポイントで有料人格パスを購入",
                     key="request_personality_pass_dialog"
                 ):
                     st.session_state["open_personality_pass_dialog"] = True
