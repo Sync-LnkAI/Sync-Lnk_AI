@@ -13600,6 +13600,26 @@ with all_tabs[3]:
                         "expires_at"
                     )
                 )
+                formatted_pass_expires_at = ""
+
+                if pass_expires_at:
+                    try:
+                        pass_expiration_datetime = (
+                            datetime.fromisoformat(
+                                str(pass_expires_at).replace(
+                                    "Z",
+                                    "+00:00"
+                                )
+                            )
+                            .astimezone(JST)
+                        )
+
+                        formatted_pass_expires_at = (
+                            pass_expiration_datetime.strftime("%Y年%m月%d日 %H:%M")
+                        )
+
+                    except Exception:
+                        formatted_pass_expires_at = str(pass_expires_at)
 
                 st.caption(
                     f"💎 有料人格パス利用中"
