@@ -9577,7 +9577,7 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 #================================================
 
 # ポイント詳細・履歴ダイアログ関数
-@st.dialog("💎 ポイント詳細")
+@st.dialog("ポイント詳細")
 def show_point_detail_dialog():
     point_balance = get_user_point_balance(CURRENT_USER_ID)
     available_points = int(point_balance.get("available_points", 0) or 0)
@@ -9585,15 +9585,20 @@ def show_point_detail_dialog():
     lifetime_used_points = int(point_balance.get("lifetime_used_points", 0) or 0)
     lifetime_expired_points = int(point_balance.get("lifetime_expired_points", 0) or 0)
 
-    st.markdown(f"### 保有ポイント：{available_points:,}pt")
+    st.markdown(f"** 保有ポイント：{available_points:,}pt**")
     balance_col, used_col, expired_col = st.columns(3)
 
     with balance_col:
-        st.metric("累計獲得", f"{lifetime_earned_points:,}pt")
+        st.caption("累計獲得")
+        st.markdown(f"**{lifetime_earned_points:,}pt**")
+
     with used_col:
-        st.metric("累計使用", f"{lifetime_used_points:,}pt")
+        st.caption("累計使用")
+        st.markdown(f"**{lifetime_used_points:,}pt**")
+
     with expired_col:
-        st.metric("累計失効", f"{lifetime_expired_points:,}pt")
+        st.caption("累計失効")
+        st.markdown(f"**{lifetime_expired_points:,}pt**")
 
     st.divider()
     st.markdown("#### 🎬 ポイントを獲得")
