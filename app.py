@@ -10195,7 +10195,7 @@ with all_tabs[0]:
 
         with point_detail_col:
             if st.button(
-                "💎 詳細",
+                "ポイント詳細",
                 key="open_point_detail_dialog",
                 use_container_width=True
             ):
