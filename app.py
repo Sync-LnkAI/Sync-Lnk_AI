@@ -9585,7 +9585,7 @@ def show_point_detail_dialog():
     lifetime_used_points = int(point_balance.get("lifetime_used_points", 0) or 0)
     lifetime_expired_points = int(point_balance.get("lifetime_expired_points", 0) or 0)
 
-    st.markdown(f"** 保有ポイント：{available_points:,}pt**")
+    st.markdown(f"**保有ポイント：{available_points:,}pt**")
     balance_col, used_col, expired_col = st.columns(3)
 
     with balance_col:
