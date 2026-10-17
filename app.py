@@ -13623,7 +13623,7 @@ with all_tabs[3]:
 
                 st.caption(
                     f"💎 有料人格パス利用中"
-                    f"｜有効期限：{pass_expires_at}"
+                    f"｜有効期限：{formatted_pass_expires_at}"
                 )
 
             elif not current_plan_features.get("premium_personality", False):
