@@ -631,7 +631,7 @@ STYLE_PRESETS = {
     ・励ましや相談向けの表現を、事実確認や設計回答へ機械的に付けない
     """,
 
-    "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】":
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】":
     """
     明るく親しみやすいギャルのように、前向きで元気のある回答をする。
     テンションは高めに保ちつつ、真面目な相談や重要な判断では落ち着いて対応する。
@@ -830,13 +830,13 @@ PERSONALITY_SAMPLES = {
 FREE_PRESETS = [
     "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】",
     "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】",
-    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】"
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】",
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】"
 ]
 
 PREMIUM_PRESETS = [
     "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】",
     "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】",
-    "💎 ✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】",
     "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】",
     "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】",
     "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】"
@@ -9540,6 +9540,152 @@ def show_personality_pass_dialog():
         st.divider()
 #================================================
 
+# ポイント履歴取得関数
+def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
+    try:
+        safe_limit = max(1, min(int(limit), 100))
+
+        response = (
+            supabase
+            .table("point_transactions")
+            .select(
+                "id,"
+                "transaction_type,"
+                "points,"
+                "balance_after,"
+                "reason_code,"
+                "description,"
+                "reference_id,"
+                "operation_id,"
+                "expires_at,"
+                "created_at"
+            )
+            .eq("user_id", str(user_id))
+            .order("created_at", desc=True)
+            .limit(safe_limit)
+            .execute()
+        )
+
+        return response.data or []
+
+    except Exception as e:
+        print(
+            "ポイント履歴取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
+#================================================
+
+# ポイント詳細・履歴ダイアログ関数
+@st.dialog("💎 ポイント詳細")
+def show_point_detail_dialog():
+    point_balance = get_user_point_balance(CURRENT_USER_ID)
+    available_points = int(point_balance.get("available_points", 0) or 0)
+    lifetime_earned_points = int(point_balance.get("lifetime_earned_points", 0) or 0)
+    lifetime_used_points = int(point_balance.get("lifetime_used_points", 0) or 0)
+    lifetime_expired_points = int(point_balance.get("lifetime_expired_points", 0) or 0)
+
+    st.markdown(f"### 保有ポイント：{available_points:,}pt")
+    balance_col, used_col, expired_col = st.columns(3)
+
+    with balance_col:
+        st.metric("累計獲得", f"{lifetime_earned_points:,}pt")
+    with used_col:
+        st.metric("累計使用", f"{lifetime_used_points:,}pt")
+    with expired_col:
+        st.metric("累計失効", f"{lifetime_expired_points:,}pt")
+
+    st.divider()
+    st.markdown("#### 🎬 ポイントを獲得")
+    st.caption(
+        "動画広告を最後まで視聴すると、"
+        f"{POINT_REWARDED_AD}pt獲得できます。"
+    )
+
+    st.button(
+        f"🎬 動画を視聴して"
+        f"{POINT_REWARDED_AD}pt獲得",
+        key="watch_reward_ad_point_detail",
+        use_container_width=True,
+        disabled=True,
+        help="リワード広告はFlutter移植時に接続予定です。"
+    )
+
+    st.caption("現在は広告機能の準備中です。")
+    st.divider()
+    st.markdown("#### 📖 ポイント履歴")
+
+    point_transactions = get_point_transactions(CURRENT_USER_ID, limit=50)
+
+    if not point_transactions:
+        st.caption("まだポイント履歴はありません。")
+        return
+
+    transaction_labels = {
+        "earn": "獲得",
+        "use": "使用",
+        "expire": "失効",
+        "adjust": "調整"
+    }
+
+    reason_labels = {
+        "initial_registration": "初回登録",
+        "rewarded_ad": "動画広告視聴",
+        "point_product_purchase": "ポイント商品購入",
+        "point_expiration": "有効期限切れ",
+        "admin_adjustment": "運営による調整",
+        "initial_test_reward": "テストポイント付与"
+    }
+
+    for transaction in point_transactions:
+        transaction_type = str(transaction.get("transaction_type", "") or "")
+        points = int(transaction.get("points", 0) or 0)
+        balance_after = int(transaction.get("balance_after", 0) or 0)
+        reason_code = str(transaction.get("reason_code", "") or "")
+        description = str(transaction.get("description", "") or "").strip()
+        created_at = transaction.get("created_at")
+
+        formatted_created_at = ""
+
+        if created_at:
+            try:
+                created_datetime = (
+                    datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                    .astimezone(JST)
+                )
+
+                formatted_created_at = (
+                    created_datetime.strftime("%Y/%m/%d %H:%M")
+                )
+
+            except Exception:
+                formatted_created_at = str(created_at)
+
+        type_label = transaction_labels.get(transaction_type, transaction_type)
+        reason_label = reason_labels.get(reason_code, description or reason_code)
+
+        point_text = (
+            f"+{points:,}pt"
+            if points > 0
+            else f"{points:,}pt"
+        )
+
+        st.markdown(
+            f"**{formatted_created_at}｜"
+            f"{type_label} {point_text}**"
+        )
+
+        if reason_label:
+            st.caption(
+                f"{reason_label}"
+                f"｜処理後残高：{balance_after:,}pt"
+            )
+        else:
+            st.caption(f"処理後残高：{balance_after:,}pt")
+
+        st.divider()
+#================================================
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
@@ -10033,11 +10179,22 @@ with all_tabs[0]:
         current_point_balance = get_user_point_balance(CURRENT_USER_ID)
         available_points = int(current_point_balance.get("available_points", 0) or 0)
 
-        st.caption(
-            f"{current_plan_type}"
-            f"　｜　本日の会話：{db_count} / {db_max}回"
-            f"　｜　保有ポイント：{available_points:,}pt"
-        )
+        status_col, point_detail_col = st.columns([8, 2], vertical_alignment="center")
+
+        with status_col:
+            st.caption(
+                f"{current_plan_type}"
+                f"　｜　本日の会話：{db_count} / {db_max}回"
+                f"　｜　保有ポイント：{available_points:,}pt"
+            )
+
+        with point_detail_col:
+            if st.button(
+                "💎 詳細",
+                key="open_point_detail_dialog",
+                use_container_width=True
+            ):
+                show_point_detail_dialog()
 
         if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
             if len(user_input) > MAX_INPUT_CHARS:
