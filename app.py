@@ -13604,14 +13604,6 @@ with all_tabs[3]:
                 )
                 st.caption("")
 
-                if st.form_submit_button(
-                    "💎 ポイントで有料人格パスを購入",
-                    key="open_personality_pass_dialog"
-                ):
-                    st.session_state[
-                        "open_personality_pass_dialog"
-                    ] = True
-
             with st.expander("💬 人格ごとの会話サンプルを見る"):
                 for personality, sample in PERSONALITY_SAMPLES.items():
                     st.markdown(f" {personality}")
@@ -13726,8 +13718,32 @@ with all_tabs[3]:
                     else:
                         target_placeholder.error("設定の保存に失敗しました")
 
-        if st.session_state.pop("open_personality_pass_dialog", False):
-            show_personality_pass_dialog()
+        # if st.session_state.pop("open_personality_pass_dialog", False):
+        #     show_personality_pass_dialog()
+        if premium_personality_pass_active:
+            pass_expires_at = (
+                premium_personality_entitlement.get(
+                    "expires_at"
+                )
+            )
+
+            st.caption(
+                f"💎 有料人格パス利用中"
+                f"｜有効期限：{pass_expires_at}"
+            )
+
+        elif not current_plan_features.get("premium_personality", False):
+            st.caption(
+                "💎 有料人格パスを購入すると、"
+                "すべての💎付き人格を自由に利用できます。"
+            )
+
+            if st.button(
+                "💎 ポイントで有料人格パスを購入",
+                key="open_personality_pass_dialog",
+                use_container_width=True
+            ):
+                show_personality_pass_dialog()
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
