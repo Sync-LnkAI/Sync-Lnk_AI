@@ -9606,8 +9606,6 @@ def show_point_detail_dialog():
             st.caption("累計失効")
             st.markdown(f"**{lifetime_expired_points:,}pt**")
 
-        st.divider()
-
         active_entitlements = get_active_entitlements(CURRENT_USER_ID)
         if active_entitlements:
             st.divider()
@@ -9676,7 +9674,7 @@ def show_point_detail_dialog():
                         f"有効期限：{formatted_expires_at}"
                     )
 
-
+        st.divider()
         st.markdown("#### 🎬 ポイントを獲得")
         st.caption(
             "動画広告を最後まで視聴すると、"
