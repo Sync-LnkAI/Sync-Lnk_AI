@@ -9585,181 +9585,190 @@ def show_point_detail_dialog():
     lifetime_used_points = int(point_balance.get("lifetime_used_points", 0) or 0)
     lifetime_expired_points = int(point_balance.get("lifetime_expired_points", 0) or 0)
 
-    st.markdown(f"**保有ポイント：{available_points:,}pt**")
-    balance_col, used_col, expired_col = st.columns(3)
+    detail_tab, shop_tab = st.tabs([
+        "ポイント詳細",
+        "ショップ"
+    ])
 
-    with balance_col:
-        st.caption("累計獲得")
-        st.markdown(f"**{lifetime_earned_points:,}pt**")
+    with detail_tab:
+        st.markdown(f"**保有ポイント：{available_points:,}pt**")
+        balance_col, used_col, expired_col = st.columns(3)
 
-    with used_col:
-        st.caption("累計使用")
-        st.markdown(f"**{lifetime_used_points:,}pt**")
+        with balance_col:
+            st.caption("累計獲得")
+            st.markdown(f"**{lifetime_earned_points:,}pt**")
 
-    with expired_col:
-        st.caption("累計失効")
-        st.markdown(f"**{lifetime_expired_points:,}pt**")
+        with used_col:
+            st.caption("累計使用")
+            st.markdown(f"**{lifetime_used_points:,}pt**")
 
-    st.divider()
-    st.markdown("#### 🎬 ポイントを獲得")
-    st.caption(
-        "動画広告を最後まで視聴すると、"
-        f"{POINT_REWARDED_AD}pt獲得できます。"
-    )
-
-    st.button(
-        f"🎬 動画を視聴して"
-        f"{POINT_REWARDED_AD}pt獲得",
-        key="watch_reward_ad_point_detail",
-        use_container_width=True,
-        disabled=True,
-        help="リワード広告はFlutter移植時に接続予定です。"
-    )
-
-    st.caption("現在は広告機能の準備中です。")
-    st.divider()
-
-    st.markdown("#### 🛍️ ポイントで機能を購入")
-
-    point_products = get_point_products()
-
-    if not point_products:
-        st.caption("現在購入できるポイント商品はありません。")
-
-    else:
-        for product in point_products:
-            product_code = str(product.get("product_code", "") or "")
-            product_name = str(product.get("product_name", "") or "")
-            product_description = str(product.get("product_description", "") or "")
-            point_cost = int(product.get("point_cost", 0) or 0)
-            st.markdown(f"**{product_name}**")
-
-            if product_description:
-                st.caption(product_description)
-
-            can_purchase = (available_points >= point_cost)
-
-            if st.button(
-                f"{point_cost:,}ptで購入",
-                key=f"buy_point_product_{product_code}",
-                disabled=not can_purchase,
-                use_container_width=True
-            ):
-                operation_id = (
-                    f"point_purchase_"
-                    f"{CURRENT_USER_ID}_"
-                    f"{product_code}_"
-                    f"{uuid.uuid4().hex}"
-                )
-
-                purchase_result = purchase_point_product(
-                    user_id=CURRENT_USER_ID,
-                    product_code=product_code,
-                    operation_id=operation_id
-                )
-
-                result_status = str(
-                    purchase_result.get("result_status", "error") or "error"
-                )
-
-                if result_status == "purchased":
-                    st.toast(f"✅ {product_name}を購入しました")
-                    st.rerun()
-
-                elif result_status == "insufficient_points":
-                    st.warning("ポイントが不足しています。")
-
-                elif result_status == "already_processed":
-                    st.info("この購入処理はすでに完了しています。")
-
-                elif result_status == "product_disabled":
-                    st.warning("現在、この商品は購入できません。")
-
-                elif result_status == "product_not_found":
-                    st.error("購入商品を確認できませんでした。")
-
-                else:
-                    st.error("ポイント商品を購入できませんでした。")
-
-            if not can_purchase:
-                st.caption(
-                    f"あと"
-                    f"{point_cost - available_points:,}pt"
-                    f"必要です。"
-                )
-
-            st.divider()
-
-    st.markdown("#### 📖 ポイント履歴")
-    point_transactions = get_point_transactions(CURRENT_USER_ID, limit=50)
-
-    if not point_transactions:
-        st.caption("まだポイント履歴はありません。")
-        return
-
-    transaction_labels = {
-        "earn": "獲得",
-        "use": "使用",
-        "expire": "失効",
-        "adjust": "調整"
-    }
-
-    reason_labels = {
-        "initial_registration": "初回登録",
-        "rewarded_ad": "動画広告視聴",
-        "point_product_purchase": "ポイント商品購入",
-        "point_expiration": "有効期限切れ",
-        "admin_adjustment": "運営による調整",
-        "initial_test_reward": "テストポイント付与"
-    }
-
-    for transaction in point_transactions:
-        transaction_type = str(transaction.get("transaction_type", "") or "")
-        points = int(transaction.get("points", 0) or 0)
-        balance_after = int(transaction.get("balance_after", 0) or 0)
-        reason_code = str(transaction.get("reason_code", "") or "")
-        description = str(transaction.get("description", "") or "").strip()
-        created_at = transaction.get("created_at")
-
-        formatted_created_at = ""
-
-        if created_at:
-            try:
-                created_datetime = (
-                    datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
-                    .astimezone(JST)
-                )
-
-                formatted_created_at = (
-                    created_datetime.strftime("%Y/%m/%d %H:%M")
-                )
-
-            except Exception:
-                formatted_created_at = str(created_at)
-
-        type_label = transaction_labels.get(transaction_type, transaction_type)
-        reason_label = reason_labels.get(reason_code, description or reason_code)
-
-        point_text = (
-            f"+{points:,}pt"
-            if points > 0
-            else f"{points:,}pt"
-        )
-
-        st.markdown(
-            f"**{formatted_created_at}｜"
-            f"{type_label} {point_text}**"
-        )
-
-        if reason_label:
-            st.caption(
-                f"{reason_label}"
-                f"｜処理後残高：{balance_after:,}pt"
-            )
-        else:
-            st.caption(f"処理後残高：{balance_after:,}pt")
+        with expired_col:
+            st.caption("累計失効")
+            st.markdown(f"**{lifetime_expired_points:,}pt**")
 
         st.divider()
+        st.markdown("#### 🎬 ポイントを獲得")
+        st.caption(
+            "動画広告を最後まで視聴すると、"
+            f"{POINT_REWARDED_AD}pt獲得できます。"
+        )
+
+        st.button(
+            f"🎬 動画を視聴して"
+            f"{POINT_REWARDED_AD}pt獲得",
+            key="watch_reward_ad_point_detail",
+            use_container_width=True,
+            disabled=True,
+            help="リワード広告はFlutter移植時に接続予定です。"
+        )
+
+        st.caption("現在は広告機能の準備中です。")
+        st.divider()
+        
+        st.markdown("#### 📖 ポイント履歴")
+        point_transactions = get_point_transactions(CURRENT_USER_ID, limit=50)
+
+        if not point_transactions:
+            st.caption("まだポイント履歴はありません。")
+            return
+
+        transaction_labels = {
+            "earn": "獲得",
+            "use": "使用",
+            "expire": "失効",
+            "adjust": "調整"
+        }
+
+        reason_labels = {
+            "initial_registration": "初回登録",
+            "rewarded_ad": "動画広告視聴",
+            "point_product_purchase": "ポイント商品購入",
+            "point_expiration": "有効期限切れ",
+            "admin_adjustment": "運営による調整",
+            "initial_test_reward": "テストポイント付与"
+        }
+
+        for transaction in point_transactions:
+            transaction_type = str(transaction.get("transaction_type", "") or "")
+            points = int(transaction.get("points", 0) or 0)
+            balance_after = int(transaction.get("balance_after", 0) or 0)
+            reason_code = str(transaction.get("reason_code", "") or "")
+            description = str(transaction.get("description", "") or "").strip()
+            created_at = transaction.get("created_at")
+
+            formatted_created_at = ""
+
+            if created_at:
+                try:
+                    created_datetime = (
+                        datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+                        .astimezone(JST)
+                    )
+
+                    formatted_created_at = (
+                        created_datetime.strftime("%Y/%m/%d %H:%M")
+                    )
+
+                except Exception:
+                    formatted_created_at = str(created_at)
+
+            type_label = transaction_labels.get(transaction_type, transaction_type)
+            reason_label = reason_labels.get(reason_code, description or reason_code)
+
+            point_text = (
+                f"+{points:,}pt"
+                if points > 0
+                else f"{points:,}pt"
+            )
+
+            st.markdown(
+                f"**{formatted_created_at}｜"
+                f"{type_label} {point_text}**"
+            )
+
+            if reason_label:
+                st.caption(
+                    f"{reason_label}"
+                    f"｜処理後残高：{balance_after:,}pt"
+                )
+            else:
+                st.caption(f"処理後残高：{balance_after:,}pt")
+        st.divider()
+
+    with shop_tab:
+        st.markdown(f"**保有ポイント：{available_points:,}pt**")
+
+        st.markdown("#### 🛍️ ポイントで機能を購入")
+
+        point_products = get_point_products()
+
+        if not point_products:
+            st.caption("現在購入できるポイント商品はありません。")
+
+        else:
+            for product in point_products:
+                product_code = str(product.get("product_code", "") or "")
+                product_name = str(product.get("product_name", "") or "")
+                product_description = str(product.get("product_description", "") or "")
+                point_cost = int(product.get("point_cost", 0) or 0)
+                st.markdown(f"**{product_name}**")
+
+                if product_description:
+                    st.caption(product_description)
+
+                can_purchase = (available_points >= point_cost)
+
+                if st.button(
+                    f"{point_cost:,}ptで購入",
+                    key=f"buy_point_product_{product_code}",
+                    disabled=not can_purchase,
+                    use_container_width=True
+                ):
+                    operation_id = (
+                        f"point_purchase_"
+                        f"{CURRENT_USER_ID}_"
+                        f"{product_code}_"
+                        f"{uuid.uuid4().hex}"
+                    )
+
+                    purchase_result = purchase_point_product(
+                        user_id=CURRENT_USER_ID,
+                        product_code=product_code,
+                        operation_id=operation_id
+                    )
+
+                    result_status = str(
+                        purchase_result.get("result_status", "error") or "error"
+                    )
+
+                    if result_status == "purchased":
+                        st.toast(f"✅ {product_name}を購入しました")
+                        st.rerun()
+
+                    elif result_status == "insufficient_points":
+                        st.warning("ポイントが不足しています。")
+
+                    elif result_status == "already_processed":
+                        st.info("この購入処理はすでに完了しています。")
+
+                    elif result_status == "product_disabled":
+                        st.warning("現在、この商品は購入できません。")
+
+                    elif result_status == "product_not_found":
+                        st.error("購入商品を確認できませんでした。")
+
+                    else:
+                        st.error("ポイント商品を購入できませんでした。")
+
+                if not can_purchase:
+                    st.caption(
+                        f"あと"
+                        f"{point_cost - available_points:,}pt"
+                        f"必要です。"
+                    )
+
+                st.divider()
+        
 #================================================
 
 # 🎨グラデーションカラーパレット
