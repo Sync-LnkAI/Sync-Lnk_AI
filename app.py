@@ -9607,6 +9607,76 @@ def show_point_detail_dialog():
             st.markdown(f"**{lifetime_expired_points:,}pt**")
 
         st.divider()
+
+        active_entitlements = get_active_entitlements(CURRENT_USER_ID)
+        if active_entitlements:
+            st.divider()
+            st.markdown("#### ✅ 利用中の機能")
+
+            entitlement_labels = {
+                "premium_personality": "有料人格パス",
+                "ad_free": "広告OFF",
+                "saved_chat_plus": "会話保存枠追加",
+                "daily_chat_plus": "1日の会話上限追加"
+            }
+
+            for entitlement in active_entitlements:
+                entitlement_code = str(entitlement.get("entitlement_code", "") or "")
+
+                entitlement_label = entitlement_labels.get(
+                    entitlement_code,
+                    entitlement_code
+                )
+
+                quantity = int(entitlement.get("quantity", 0) or 0)
+                expires_at = entitlement.get("expires_at")
+
+                formatted_expires_at = ""
+                if expires_at:
+                    try:
+                        expiration_datetime = (
+                            datetime.fromisoformat(
+                                str(expires_at).replace(
+                                    "Z",
+                                    "+00:00"
+                                )
+                            )
+                            .astimezone(JST)
+                        )
+
+                        formatted_expires_at = (
+                            expiration_datetime.strftime("%Y年%m月%d日 %H:%M")
+                        )
+
+                    except Exception:
+                        formatted_expires_at = str(expires_at)
+
+                entitlement_detail = ""
+
+                if entitlement_code == "saved_chat_plus":
+                    entitlement_detail = (f"保存上限＋{quantity}件")
+
+                elif entitlement_code == "daily_chat_plus":
+                    entitlement_detail = (f"1日の会話上限＋{quantity}回")
+
+                elif entitlement_code == "ad_free":
+                    entitlement_detail = ("通常広告を非表示")
+
+                elif entitlement_code == "premium_personality":
+                    entitlement_detail = ("すべての💎付き人格を利用可能")
+
+                st.markdown(f"**{entitlement_label}**")
+                if entitlement_detail:
+                    st.caption(
+                        f"{entitlement_detail}"
+                        f"｜有効期限：{formatted_expires_at}"
+                    )
+                else:
+                    st.caption(
+                        f"有効期限：{formatted_expires_at}"
+                    )
+
+
         st.markdown("#### 🎬 ポイントを獲得")
         st.caption(
             "動画広告を最後まで視聴すると、"
@@ -9769,6 +9839,40 @@ def show_point_detail_dialog():
 
                 st.divider()
         
+#================================================
+
+# 購入済み権利を取得する関数
+def get_active_entitlements(user_id: str) -> list[dict]:
+    try:
+        now_iso = datetime.now(JST).isoformat()
+
+        response = (
+            supabase
+            .table("user_entitlements")
+            .select(
+                "entitlement_code,"
+                "quantity,"
+                "starts_at,"
+                "expires_at,"
+                "status,"
+                "source_product_code,"
+                "updated_at"
+            )
+            .eq("user_id", str(user_id))
+            .eq("status", "active")
+            .gt("expires_at", now_iso)
+            .order("expires_at", desc=False)
+            .execute()
+        )
+
+        return response.data or []
+
+    except Exception as e:
+        print(
+            "購入済み権利一覧取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
 #================================================
 
 # 🎨グラデーションカラーパレット
