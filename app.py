@@ -7887,6 +7887,7 @@ def build_case_rename_followup(
         f"へ変更しました。\n\n"
         "保存されている計算条件を確認できませんでした。"
     )
+#================================================
 
 # 仲介手数料を自動入力に変更判定関数
 def should_reset_brokerage_fee(
@@ -7911,6 +7912,7 @@ def should_reset_brokerage_fee(
             ]
         )
     )
+#================================================
 
 # 改行表示変換関数
 def display_message(
@@ -7924,6 +7926,7 @@ def display_message(
     display_content = (clean_bold_markdown(content).replace("\n", "<br>"))
 
     st.markdown(f"{speaker}:<br>{display_content}", unsafe_allow_html=True)
+#================================================
 
 # 計算モード終了判定関数
 def should_exit_real_estate_calculation(
@@ -7973,6 +7976,29 @@ def should_exit_real_estate_calculation(
     # }
 
     return text in exact_exit_phrases
+#================================================
+
+# 会話保存件数のカウント関数
+def get_saved_chat_count() -> int:
+    try:
+        response = (
+            supabase
+            .table("saved_chats")
+            .select("id", count="exact")
+            .eq("user_id", CURRENT_USER_ID)
+            .limit(1)
+            .execute()
+        )
+
+        return int(response.count or 0)
+
+    except Exception as e:
+        print(
+            "保存会話件数取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return 0
+#================================================
 
 # 会話保存関数
 def save_saved_chat(
@@ -8043,6 +8069,7 @@ def save_saved_chat(
         )
 
         return False
+#================================================
 
 # 保存した会話の読み込み関数
 def get_saved_chats():
@@ -8076,6 +8103,7 @@ def get_saved_chats():
         )
 
         return []
+#================================================
 
 # 会話タイトル作成関数
 def create_saved_chat_title(
@@ -8090,6 +8118,7 @@ def create_saved_chat_title(
         return "保存した会話"
 
     return text[:20]
+#================================================
 
 # 保存されている会話の削除関数
 def delete_saved_chat(
@@ -8116,6 +8145,7 @@ def delete_saved_chat(
         )
 
         return False
+#================================================
 
 def parse_summary_memory_blocks(summary_text: str):
 
@@ -8141,6 +8171,7 @@ def parse_summary_memory_blocks(summary_text: str):
         blocks.append({"title": current_title, "content": "\n".join(current_lines)})
 
     return blocks
+#================================================
 
 # 計画ルーム用の計画一覧を取得する関数
 def get_plan_projects(status: str = "active"):
