@@ -9578,6 +9578,7 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 # ポイント詳細・履歴ダイアログ関数
 @st.dialog("ポイント詳細")
 def show_point_detail_dialog():
+    st.error("DEBUG 新しいポイントダイアログを実行中")
     point_balance = get_user_point_balance(CURRENT_USER_ID)
     available_points = int(point_balance.get("available_points", 0) or 0)
     lifetime_earned_points = int(point_balance.get("lifetime_earned_points", 0) or 0)
@@ -9891,6 +9892,12 @@ def show_point_detail_dialog():
                     )
 
                 st.divider()
+    except Exception as e:
+        st.error(
+            "追加権利一覧取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
         
 #================================================
 
