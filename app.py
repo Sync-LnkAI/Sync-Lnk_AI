@@ -11855,6 +11855,12 @@ with all_tabs[0]:
                             else "直近の会話履歴なし"
                         )
 
+                        # 過去会話検索時間
+                        search_elapsed = 0.0
+
+                        # Google検索時間
+                        search_execution_elapsed = 0.0
+
                         router_start_time = time.time()
 
                         # ==========================================
@@ -12176,6 +12182,18 @@ with all_tabs[0]:
                                     tool_router_in_t,
                                     tool_router_out_t
                                 )
+                        
+                        if need_search and response_mode == "analysis":
+                            processing_type = "simple_search_analysis"
+
+                        elif need_search:
+                            processing_type = "simple_search"
+
+                        elif response_mode == "analysis":
+                            processing_type = "simple_analysis"
+
+                        else:
+                            processing_type = "normal_chat"
 
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
@@ -12234,6 +12252,8 @@ with all_tabs[0]:
                                     f"provider={GOOGLE_SEARCH_PROVIDER}"
                                     f" | model={GOOGLE_MODEL_NAME}"
                                     f" | Google Search Grounding"
+                                    f" | 処理区分={processing_type}"
+                                    f" | 回答モード={response_mode}"
                                 ),
                                 message_id=str(current_msg_id)
                             )
@@ -13527,7 +13547,12 @@ with all_tabs[0]:
                                 details=(
                                     f"provider={CHAT_PROVIDER}"
                                     f" | model={CHAT_MODEL_NAME}"
-                                    f" | 検索時間={search_elapsed:.2f}秒"
+                                    f" | 処理区分={processing_type}"
+                                    f" | 回答モード={response_mode}"
+                                    f" | 過去会話検索時間="
+                                    f"{search_elapsed:.2f}秒"
+                                    f" | Google検索時間="
+                                    f"{search_execution_elapsed:.2f}秒"
                                 ),
                                 message_id=str(current_msg_id),
                                 search_time=float(search_elapsed)
