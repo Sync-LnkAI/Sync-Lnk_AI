@@ -9892,12 +9892,6 @@ def show_point_detail_dialog():
                     )
 
                 st.divider()
-    except Exception as e:
-        st.error(
-            "追加権利一覧取得エラー: "
-            f"{type(e).__name__}: {e}"
-        )
-        return []
         
 #================================================
 
@@ -9974,11 +9968,16 @@ def get_active_entitlement_grant_total(
         return int(response.data or 0)
 
     except Exception as e:
+        st.error(
+            "追加権利一覧取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
         print(
             "追加権利数量取得エラー: "
             f"{type(e).__name__}: {e}"
         )
-        return 0
+        return []
+        # return 0
 #================================================
 
 # 実効会話上限を取得する関数
