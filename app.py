@@ -14696,7 +14696,7 @@ with all_tabs[3]:
         f"🎬 動画を視聴して"
         f"{POINT_REWARDED_AD}pt獲得",
         key="watch_reward_ad_settings",
-        use_container_width=True,
+        # use_container_width=True,
         disabled=True,
         help=(
             "リワード広告はFlutter移植時に"
