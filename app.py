@@ -13499,7 +13499,13 @@ with all_tabs[1]:
 
     with memory_tabs[1]:
         st.markdown("##### 💬 保存されている会話")
-        if current_plan_type == "🆓 無料プラン":
+        effective_saved_chat_limit = (
+            get_effective_saved_chat_limit(
+                user_id=CURRENT_USER_ID,
+                plan_code=current_plan_code
+            )
+        )   
+        if effective_saved_chat_limit <= 0:
             st.caption("ここで保存した会話を確認できます。")
             st.caption(" 💎 ライトプラン以上で利用できます。")
 
