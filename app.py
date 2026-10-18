@@ -9758,10 +9758,68 @@ def show_point_detail_dialog():
 
         st.divider()
         st.markdown("#### 🎬 ポイントを獲得")
+
+        reward_ad_status = check_reward_ad_eligibility(
+            user_id=CURRENT_USER_ID,
+            placement_code="point_detail_reward"
+        )
+
+        reward_ad_result_status = str(
+            reward_ad_status.get("result_status", "error") or "error"
+        )
+
+        placement_rewarded_count = int(
+            reward_ad_status.get("placement_rewarded_count", 0) or 0
+        )
+
+        total_rewarded_count = int(
+            reward_ad_status.get("total_rewarded_count", 0) or 0
+        )
+
+        placement_daily_limit = int(
+            reward_ad_status.get("placement_daily_limit", 10) or 10
+        )
+
+        total_daily_limit = int(
+            reward_ad_status.get("total_daily_limit", 20) or 20
+        )
+
+        cooldown_remaining_seconds = int(
+            reward_ad_status.get("cooldown_remaining_seconds", 0) or 0
+        )
+
         st.caption(
             "動画広告を最後まで視聴すると、"
             f"{POINT_REWARDED_AD}pt獲得できます。"
         )
+
+        st.caption(
+            f"この画面での本日の視聴："
+            f"{placement_rewarded_count} / "
+            f"{placement_daily_limit}回"
+            f"　｜　全体："
+            f"{total_rewarded_count} / "
+            f"{total_daily_limit}回"
+        )
+
+        if reward_ad_result_status == "cooldown_active":
+            cooldown_minutes = (cooldown_remaining_seconds // 60)
+            cooldown_seconds = (cooldown_remaining_seconds % 60)
+
+            st.caption(
+                f"次回視聴まで："
+                f"{cooldown_minutes:02d}:"
+                f"{cooldown_seconds:02d}"
+            )
+
+        elif reward_ad_result_status == ("placement_daily_limit_reached"):
+            st.caption("この画面からの本日の視聴上限に達しています。")
+
+        elif reward_ad_result_status == ("total_daily_limit_reached"):
+            st.caption("本日の動画広告の視聴上限に達しています。")
+
+        elif reward_ad_result_status == "error":
+            st.caption("広告の視聴状況を確認できませんでした。")
 
         st.button(
             f"🎬 動画を視聴して"
@@ -9769,7 +9827,7 @@ def show_point_detail_dialog():
             key="watch_reward_ad_point_detail",
             use_container_width=True,
             disabled=True,
-            help="リワード広告はFlutter移植時に接続予定です。"
+            help=("リワード広告はFlutter移植時に接続予定です。")
         )
 
         st.caption("現在は広告機能の準備中です。")
@@ -10072,29 +10130,16 @@ def get_active_entitlement_grants(user_id: str) -> list[dict]:
 
             try:
                 starts_datetime = (
-                    datetime.fromisoformat(
-                        str(starts_at).replace(
-                            "Z",
-                            "+00:00"
-                        )
-                    )
+                    datetime.fromisoformat(str(starts_at).replace("Z", "+00:00"))
                     .astimezone(JST)
                 )
 
                 expires_datetime = (
-                    datetime.fromisoformat(
-                        str(expires_at).replace(
-                            "Z",
-                            "+00:00"
-                        )
-                    )
+                    datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
                     .astimezone(JST)
                 )
 
-                if (
-                    starts_datetime <= now_jst
-                    and expires_datetime > now_jst
-                ):
+                if (starts_datetime <= now_jst and expires_datetime > now_jst):
                     active_grants.append(grant)
 
             except Exception as date_error:
@@ -10112,6 +10157,219 @@ def get_active_entitlement_grants(user_id: str) -> list[dict]:
             f"{type(e).__name__}: {e}"
         )
         return []
+#================================================
+
+# Python側からリワード広告RPCを呼ぶ関数
+def check_reward_ad_eligibility(user_id: str, placement_code: str) -> dict:
+    
+    default_result = {
+        "is_allowed": False,
+        "result_status": "error",
+        "placement_rewarded_count": 0,
+        "total_rewarded_count": 0,
+        "cooldown_remaining_seconds": 0,
+        "placement_daily_limit": 10,
+        "total_daily_limit": 20
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "check_reward_ad_eligibility",
+                {
+                    "p_user_id": str(user_id),
+                    "p_placement_code": str(
+                        placement_code
+                    )
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "is_allowed": bool(result.get("is_allowed", False)),
+            "result_status": str(
+                result.get("result_status", "error") or "error"
+            ),
+            "placement_rewarded_count": int(
+                result.get("placement_rewarded_count", 0) or 0
+            ),
+            "total_rewarded_count": int(
+                result.get("total_rewarded_count", 0) or 0
+            ),
+            "cooldown_remaining_seconds": int(
+                result.get("cooldown_remaining_seconds", 0) or 0
+            ),
+            "placement_daily_limit": int(
+                result.get("placement_daily_limit", 10) or 10
+            ),
+            "total_daily_limit": int(result.get("total_daily_limit", 20) or 20)
+        }
+
+    except Exception as e:
+        print(
+            "リワード広告視聴可否確認エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
+#================================================
+
+# 広告視聴開始を登録するPython関数
+def start_reward_ad_view(
+    user_id: str,
+    ad_view_id: str,
+    placement_code: str
+) -> dict:
+    default_result = {
+        "result_status": "error",
+        "ad_view_row_id": None,
+        "ad_view_id": str(ad_view_id),
+        "placement_code": str(placement_code),
+        "placement_rewarded_count": 0,
+        "total_rewarded_count": 0,
+        "cooldown_remaining_seconds": 0
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "start_reward_ad_view",
+                {
+                    "p_user_id": str(user_id),
+                    "p_ad_view_id": str(ad_view_id),
+                    "p_placement_code": str(
+                        placement_code
+                    )
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(result.get("result_status", "error") or "error"),
+            "ad_view_row_id": (
+                int(result["ad_view_row_id"])
+                if result.get(
+                    "ad_view_row_id"
+                ) is not None
+                else None
+            ),
+            "ad_view_id": str(
+                result.get(
+                    "ad_view_id",
+                    ad_view_id
+                ) or ad_view_id
+            ),
+            "placement_code": str(
+                result.get(
+                    "placement_code",
+                    placement_code
+                ) or placement_code
+            ),
+            "placement_rewarded_count": int(
+                result.get(
+                    "placement_rewarded_count",
+                    0
+                ) or 0
+            ),
+            "total_rewarded_count": int(
+                result.get(
+                    "total_rewarded_count",
+                    0
+                ) or 0
+            ),
+            "cooldown_remaining_seconds": int(
+                result.get(
+                    "cooldown_remaining_seconds",
+                    0
+                ) or 0
+            )
+        }
+
+    except Exception as e:
+        print(
+            "リワード広告視聴開始エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
+#================================================
+
+# 広告視聴完了と5pt付与を呼び出すPython関数
+def complete_reward_ad_view(user_id: str, ad_view_id: str) -> dict:
+    
+    default_result = {
+        "result_status": "error",
+        "reward_points": 0,
+        "current_balance": 0,
+        "transaction_id": None,
+        "rewarded_at": None
+    }
+
+    try:
+        response = (
+            supabase
+            .rpc(
+                "complete_reward_ad_view",
+                {
+                    "p_user_id": str(user_id),
+                    "p_ad_view_id": str(ad_view_id)
+                }
+            )
+            .execute()
+        )
+
+        if not response.data:
+            return default_result
+
+        result = response.data[0]
+
+        return {
+            "result_status": str(
+                result.get(
+                    "result_status",
+                    "error"
+                ) or "error"
+            ),
+            "reward_points": int(
+                result.get(
+                    "reward_points",
+                    0
+                ) or 0
+            ),
+            "current_balance": int(
+                result.get(
+                    "current_balance",
+                    0
+                ) or 0
+            ),
+            "transaction_id": (
+                int(result["transaction_id"])
+                if result.get("transaction_id") is not None
+                else None
+            ),
+            "rewarded_at": result.get(
+                "rewarded_at"
+            )
+        }
+
+    except Exception as e:
+        print(
+            "リワード広告視聴完了エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return default_result
 #================================================
 
 # 🎨グラデーションカラーパレット
