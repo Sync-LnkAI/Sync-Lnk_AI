@@ -10372,6 +10372,34 @@ def complete_reward_ad_view(user_id: str, ad_view_id: str) -> dict:
         return default_result
 #================================================
 
+# 初回登録250ptの付与基盤関数
+def grant_initial_registration_points(user_id: str) -> dict:
+    
+    normalized_user_id = str(user_id or "").strip()
+
+    if not normalized_user_id:
+        return {
+            "result_status": "invalid_user_id",
+            "current_balance": 0,
+            "transaction_id": None
+        }
+
+    return earn_points(
+        user_id=normalized_user_id,
+        points=POINT_INITIAL_REGISTRATION,
+        reason_code="initial_registration",
+        operation_id=(
+            f"initial_registration:"
+            f"{normalized_user_id}"
+        ),
+        description="初回登録特典",
+        reference_id=normalized_user_id,
+        expires_at=None
+    )
+#================================================
+
+
+
 # 🎨グラデーションカラーパレット
 THEMES = {
      "パステル": {
