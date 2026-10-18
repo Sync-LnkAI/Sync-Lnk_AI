@@ -10019,11 +10019,8 @@ def is_native_ad_enabled(user_id: str, plan_code: str) -> bool:
 # 購入単位の追加権利を取得する関数
 def get_active_entitlement_grants(user_id: str) -> list[dict]:
     try:
-        now_isonow(JST).isoformat()
-
         response = (
-            supabase
-            .table("user_entitlement_grants")
+            supabase .table("user_entitlement_grants")
             .select(
                 "id,"
                 "entitlement_code,"
@@ -10037,16 +10034,58 @@ def get_active_entitlement_grants(user_id: str) -> list[dict]:
             )
             .eq("user_id", str(user_id))
             .eq("status", "active")
-            .lte("starts_at", now_iso)
-            .gt("expires_at", now_iso)
             .order("expires_at", desc=False)
             .execute()
         )
 
-        return response.data or []
+        active_grants = []
+        now_jst = datetime.now(JST)
+
+        for grant in response.data or []:
+            starts_at = grant.get("starts_at")
+            expires_at = grant.get("expires_at")
+
+            if not starts_at or not expires_at:
+                continue
+
+            try:
+                starts_datetime = (
+                    datetime.fromisoformat(
+                        str(starts_at).replace(
+                            "Z",
+                            "+00:00"
+                        )
+                    )
+                    .astimezone(JST)
+                )
+
+                expires_datetime = (
+                    datetime.fromisoformat(
+                        str(expires_at).replace(
+                            "Z",
+                            "+00:00"
+                        )
+                    )
+                    .astimezone(JST)
+                )
+
+                if (
+                    starts_datetime <= now_jst
+                    and expires_datetime > now_jst
+                ):
+                    active_grants.append(grant)
+
+            except Exception as date_error:
+                print(
+                    "追加権利日時解析エラー: "
+                    f"{type(date_error).__name__}: "
+                    f"{date_error}"
+                )
+
+        return active_grants
 
     except Exception as e:
-        print(
+        st.error(
             "追加権利一覧取得エラー: "
             f"{type(e).__name__}: {e}"
         )
