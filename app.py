@@ -2624,14 +2624,11 @@ def check_and_update_limits(
         現在回数
         最大回数
     """
-    current_plan_code = st.session_state.get("current_user_plan_code", "free")
-    plan_features = get_plan_features(current_plan_code)
 
-    max_limit = int(
-        plan_features.get(
-            "daily_chat_limit",
-            PLAN_FEATURES["free"]["daily_chat_limit"]
-        )
+    current_plan_code = st.session_state.get("current_user_plan_code", "free")
+    max_limit = get_effective_daily_chat_limit(
+        user_id=user_id,
+        plan_code=current_plan_code
     )
 
     try:
@@ -2778,14 +2775,11 @@ def get_usage_status(
     利用回数を表示するだけの読み取り専用関数。
     DBのカウントや最終送信時刻は更新しない。
     """
+    
     current_plan_code = st.session_state.get("current_user_plan_code", "free")
-    plan_features = get_plan_features(current_plan_code)
-
-    max_limit = int(
-        plan_features.get(
-            "daily_chat_limit",
-            PLAN_FEATURES["free"]["daily_chat_limit"]
-        )
+    max_limit = get_effective_daily_chat_limit(
+        user_id=user_id,
+        plan_code=current_plan_code
     )
 
     try:
@@ -7987,8 +7981,10 @@ def save_saved_chat(
 ) -> bool:
     try:
         current_plan_code = st.session_state.get("current_user_plan_code", "free")
-        plan_features = get_plan_features(current_plan_code)
-        save_limit = int(plan_features.get("saved_chat_limit", 0))
+        save_limit = get_effective_saved_chat_limit(
+            user_id=CURRENT_USER_ID,
+            plan_code=current_plan_code
+        )
 
         if save_limit <= 0:
             st.warning("会話保存はライトプラン以上で利用できます。")
@@ -9871,6 +9867,68 @@ def get_active_entitlements(user_id: str) -> list[dict]:
             f"{type(e).__name__}: {e}"
         )
         return []
+#================================================
+
+# 基本上限と追加枠を合計する関数
+def get_effective_saved_chat_limit(user_id: str, plan_code: str) -> int:
+    
+    plan_features = get_plan_features(plan_code)
+    base_limit = int(plan_features.get("saved_chat_limit", 0) or 0)
+
+    additional_limit = (
+        get_active_entitlement_grant_total(
+            user_id=user_id,
+            entitlement_code="saved_chat_plus"
+        )
+    )
+
+    return max(0, base_limit + additional_limit)
+#================================================
+
+# 追加枠の合計を取得する関数
+def get_active_entitlement_grant_total(
+    user_id: str,
+    entitlement_code: str
+) -> int:
+    try:
+        response = (
+            supabase
+            .rpc(
+                "get_active_entitlement_grant_total",
+                {
+                    "p_user_id": str(user_id),
+                    "p_entitlement_code": str(
+                        entitlement_code
+                    )
+                }
+            )
+            .execute()
+        )
+
+        return int(response.data or 0)
+
+    except Exception as e:
+        print(
+            "追加権利数量取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return 0
+#================================================
+
+# 実効会話上限を取得する関数
+def get_effective_daily_chat_limit(user_id: str, plan_code: str) -> int:
+    
+    plan_features = get_plan_features(plan_code)
+    base_limit = int(plan_features.get("daily_chat_limit", 0) or 0)
+
+    additional_limit = (
+        get_active_entitlement_grant_total(
+            user_id=user_id,
+            entitlement_code="daily_chat_plus"
+        )
+    )
+
+    return max(0, base_limit + additional_limit)
 #================================================
 
 # 🎨グラデーションカラーパレット
@@ -13081,32 +13139,46 @@ with all_tabs[0]:
                 with col_save:
                     col_star, col_text = st.columns([2, 5])
                     with col_star:
-                        save_limit = int(current_plan_features.get("saved_chat_limit", 0))
+                        save_limit = get_effective_saved_chat_limit(
+                            user_id=CURRENT_USER_ID,
+                            plan_code=current_plan_code
+                        )
+
                         if save_limit <= 0:
                             if st.button(
                                 "⭐",
                                 key=f"save_chat_free_{message_id}_{index}"
                             ):
-                                st.toast("💎 ライトプラン以上で利用できます")
+                                st.toast(
+                                    "ライトプラン以上、または会話保存枠の購入で利用できます"
+                                )
+
                         else:
                             if (paired_user_message and paired_assistant_message):
-                                if st.button("⭐", key=f"save_chat_paid_{message_id}_{index}"):
+                                if st.button(
+                                    "⭐",
+                                    key=f"save_chat_paid_{message_id}_{index}"
+                                ):
                                     saved_chats_count = get_saved_chat_count()
-                                    save_limit = int(
-                                        current_plan_features.get("saved_chat_limit", 0)
-                                    )
 
                                     if saved_chats_count >= save_limit:
-                                        st.toast(f"保存上限（{save_limit}件）に達しています。不要な保存済の会話を削除してからやり直してください。")
+                                        st.toast(
+                                            f"保存上限（{save_limit}件）に達しています。"
+                                            "不要な保存済みの会話を削除してから"
+                                            "やり直してください。"
+                                        )
 
                                     else:
                                         save_succeeded = save_saved_chat(
-                                            title = create_saved_chat_title(paired_user_message),
-                                            summary = str(paired_assistant_message)[:100],
-                                            user_message = paired_user_message,
-                                            assistant_message = paired_assistant_message,
-                                            original_message_id = message_id
+                                            title=create_saved_chat_title(
+                                                paired_user_message
+                                            ),
+                                            summary="",
+                                            user_message=paired_user_message,
+                                            assistant_message=paired_assistant_message,
+                                            original_message_id=message_id
                                         )
+
                                         if save_succeeded:
                                             st.toast("✅ 会話を保存しました")
                     with col_text:
