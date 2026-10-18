@@ -14328,302 +14328,383 @@ with all_tabs[2]:
 # 🎨 【タブ2】 話し方・見た目設定
 # ------------------------------------------------------------------
 with all_tabs[3]:
-        #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
-        st.markdown("")
-        st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
+    #st.write(f"#### 🎨 {current_concierge_name}のカスタマイズ")
+    st.markdown("")
+    st.markdown("📚AIの話し方・見た目・アプリのデザインを自分の好みに設定できます。")
+    st.divider()
+
+    with st.form("unified_settings_form"):
+        if "settings_saved" not in st.session_state:
+            st.session_state["settings_saved"] = False
+        if "settings_saved_position" not in st.session_state:
+            st.session_state["settings_saved_position"] = ""
+
+        st.markdown("##### 🎨 アプリの外観＆カラー")
+        st.markdown("**カラーテーマ（背景＆メッセージ枠）**")
+        selected_color = st.selectbox(
+            "",
+            list(THEMES.keys()),
+            index=(
+                list(THEMES.keys()).index(current_theme_color)
+                if current_theme_color in THEMES
+                else 0
+            ),
+            label_visibility="collapsed"
+        )
+        # 上部設定保存ボタン
+        top_save = st.form_submit_button(
+            "💾 設定を保存",
+            key="save_settings_top",
+        )
+        top_placeholder = st.empty()
+        if (
+            st.session_state.get("settings_saved")
+            and
+            st.session_state.get("settings_saved_position") == "top"
+        ):
+            top_placeholder.success("設定を登録しました")
+            st.session_state["settings_saved"] = False
+
         st.divider()
 
-        with st.form("unified_settings_form"):
-            if "settings_saved" not in st.session_state:
-                st.session_state["settings_saved"] = False
-            if "settings_saved_position" not in st.session_state:
-                st.session_state["settings_saved_position"] = ""
+        st.markdown("##### 👤 基本設定")
+        honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
+        default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
+        preset_keys = list(STYLE_PRESETS.keys())
+        default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
+        default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
 
-            st.markdown("##### 🎨 アプリの外観＆カラー")
-            st.markdown("**カラーテーマ（背景＆メッセージ枠）**")
-            selected_color = st.selectbox(
-                "",
-                list(THEMES.keys()),
-                index=(
-                    list(THEMES.keys()).index(current_theme_color)
-                    if current_theme_color in THEMES
-                    else 0
-                ),
-                label_visibility="collapsed"
-            )
-            # 上部設定保存ボタン
-            top_save = st.form_submit_button(
-                "💾 設定を保存",
-                key="save_settings_top",
-            )
-            top_placeholder = st.empty()
-            if (
-                st.session_state.get("settings_saved")
-                and
-                st.session_state.get("settings_saved_position") == "top"
-            ):
-                top_placeholder.success("設定を登録しました")
-                st.session_state["settings_saved"] = False
+        # new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
+        # new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
+        # new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
+        # new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
+        st.markdown("**AIの名前**")
+        new_concierge_name = st.text_input(
+            "",
+            value=current_concierge_name,
+            label_visibility="collapsed"
+        )
 
-            st.divider()
+        st.markdown("**あなたのお名前 / ニックネーム**")
+        new_user_name = st.text_input(
+            "",
+            value=current_user_name,
+            label_visibility="collapsed"
+        )
 
-            st.markdown("##### 👤 基本設定")
-            honorific_options = ["さん", "様", "君", "ちゃん", "（呼び捨て/なし）"]
-            default_honorific_idx = honorific_options.index(current_user_honorific) if current_user_honorific in honorific_options else 0
-            preset_keys = list(STYLE_PRESETS.keys())
-            default_preset_idx = preset_keys.index(current_style_preset) if current_style_preset in preset_keys else 0
-            default_fp_idx = FIRST_PERSON_PRESETS.index(current_first_person) if current_first_person in FIRST_PERSON_PRESETS else 0
+        st.markdown("**AIからの呼び方（敬称）**")
+        new_user_honorific = st.selectbox(
+            "",
+            honorific_options,
+            index=default_honorific_idx,
+            label_visibility="collapsed"
+        )
 
-            # new_concierge_name = st.text_input("AIの名前", value=current_concierge_name)
-            # new_user_name = st.text_input("あなたのお名前 / ニックネーム", value=current_user_name)
-            # new_user_honorific = st.selectbox("AIからの呼び方（敬称）", honorific_options, index=default_honorific_idx)
-            # new_first_person = st.selectbox("AIの一人称", FIRST_PERSON_PRESETS, index=default_fp_idx)
-            st.markdown("**AIの名前**")
-            new_concierge_name = st.text_input(
-                "",
-                value=current_concierge_name,
-                label_visibility="collapsed"
-            )
+        st.markdown("**AIの一人称**")
+        new_first_person = st.selectbox(
+            "",
+            FIRST_PERSON_PRESETS,
+            index=default_fp_idx,
+            label_visibility="collapsed"
+        )
 
-            st.markdown("**あなたのお名前 / ニックネーム**")
-            new_user_name = st.text_input(
-                "",
-                value=current_user_name,
-                label_visibility="collapsed"
+        default_length_idx = (
+            RESPONSE_LENGTH_PRESETS.index(
+                current_response_length
             )
+            if current_response_length
+            in RESPONSE_LENGTH_PRESETS
+            else 1
+        )
+        st.markdown("---")
+        st.markdown("##### 💬 会話設定")
+        st.caption(
+            "返事の長さや方言を設定できます。"
+        )
 
-            st.markdown("**AIからの呼び方（敬称）**")
-            new_user_honorific = st.selectbox(
-                "",
-                honorific_options,
-                index=default_honorific_idx,
-                label_visibility="collapsed"
+        # AIの人格を選択
+        st.markdown("**AIの人格・スタイル**")
+        selected_preset = st.selectbox(
+            "",
+            DISPLAY_PRESETS,
+            index=(
+                DISPLAY_PRESETS.index(current_style_preset)
+                if current_style_preset in DISPLAY_PRESETS
+                else 0
+            ),
+            label_visibility="collapsed"
+        )
+        
+        premium_personality_entitlement = (
+            get_active_entitlement(
+                CURRENT_USER_ID,
+                "premium_personality"
             )
+        )
 
-            st.markdown("**AIの一人称**")
-            new_first_person = st.selectbox(
-                "",
-                FIRST_PERSON_PRESETS,
-                index=default_fp_idx,
-                label_visibility="collapsed"
+        premium_personality_pass_active = bool(
+            premium_personality_entitlement.get(
+                "is_active",
+                False
             )
+        )
 
-            default_length_idx = (
-                RESPONSE_LENGTH_PRESETS.index(
-                    current_response_length
-                )
-                if current_response_length
-                in RESPONSE_LENGTH_PRESETS
-                else 1
+        premium_personality_enabled = bool(
+            current_plan_features.get(
+                "premium_personality",
+                False
             )
-            st.markdown("---")
-            st.markdown("##### 💬 会話設定")
-            st.caption(
-                "返事の長さや方言を設定できます。"
-            )
+            or premium_personality_pass_active
+        )
 
-            # AIの人格を選択
-            st.markdown("**AIの人格・スタイル**")
-            selected_preset = st.selectbox(
-                "",
-                DISPLAY_PRESETS,
-                index=(
-                    DISPLAY_PRESETS.index(current_style_preset)
-                    if current_style_preset in DISPLAY_PRESETS
-                    else 0
-                ),
-                label_visibility="collapsed"
-            )
-            
-            premium_personality_entitlement = (
-                get_active_entitlement(
-                    CURRENT_USER_ID,
-                    "premium_personality"
-                )
-            )
-
-            premium_personality_pass_active = bool(
+        if premium_personality_pass_active:
+            pass_expires_at = (
                 premium_personality_entitlement.get(
-                    "is_active",
-                    False
+                    "expires_at"
                 )
             )
+            formatted_pass_expires_at = ""
 
-            premium_personality_enabled = bool(
-                current_plan_features.get(
-                    "premium_personality",
-                    False
-                )
-                or premium_personality_pass_active
-            )
-
-            if premium_personality_pass_active:
-                pass_expires_at = (
-                    premium_personality_entitlement.get(
-                        "expires_at"
-                    )
-                )
-                formatted_pass_expires_at = ""
-
-                if pass_expires_at:
-                    try:
-                        pass_expiration_datetime = (
-                            datetime.fromisoformat(
-                                str(pass_expires_at).replace(
-                                    "Z",
-                                    "+00:00"
-                                )
+            if pass_expires_at:
+                try:
+                    pass_expiration_datetime = (
+                        datetime.fromisoformat(
+                            str(pass_expires_at).replace(
+                                "Z",
+                                "+00:00"
                             )
-                            .astimezone(JST)
                         )
+                        .astimezone(JST)
+                    )
 
-                        formatted_pass_expires_at = (
-                            pass_expiration_datetime.strftime("%Y年%m月%d日 %H:%M")
-                        )
+                    formatted_pass_expires_at = (
+                        pass_expiration_datetime.strftime("%Y年%m月%d日 %H:%M")
+                    )
 
-                    except Exception:
-                        formatted_pass_expires_at = str(pass_expires_at)
+                except Exception:
+                    formatted_pass_expires_at = str(pass_expires_at)
 
+            st.caption(
+                f"💎 有料人格パス利用中"
+                f"｜有効期限：{formatted_pass_expires_at}"
+            )
+
+        elif not current_plan_features.get("premium_personality", False):
+            if selected_preset in PREMIUM_PRESETS:
                 st.caption(
-                    f"💎 有料人格パス利用中"
-                    f"｜有効期限：{formatted_pass_expires_at}"
+                    "💎付の人格を使用するには、ライトプラン以上への加入、"
+                    "または有料人格パスの購入が必要です。"
+                )
+            else:
+                st.caption(
+                    "有料人格パスを購入すると、"
+                    "すべての💎付き人格を自由に利用できます。"
                 )
 
-            elif not current_plan_features.get("premium_personality", False):
-                if selected_preset in PREMIUM_PRESETS:
-                    st.caption(
-                        "💎付の人格を使用するには、ライトプラン以上への加入、"
-                        "または有料人格パスの購入が必要です。"
-                    )
-                else:
-                    st.caption(
-                        "有料人格パスを購入すると、"
-                        "すべての💎付き人格を自由に利用できます。"
-                    )
-
-                if st.form_submit_button(
-                    "ポイントで有料人格パスを購入",
-                    key="request_personality_pass_dialog"
-                ):
-                    st.session_state["open_personality_pass_dialog"] = True
-                st.caption("")
-
-            with st.expander("💬 人格ごとの会話サンプルを見る"):
-                for personality, sample in PERSONALITY_SAMPLES.items():
-                    st.markdown(f" {personality}")
-                    st.markdown(sample)
-                    st.divider()
-            
-            st.caption("")
-            # 絵文字3段階パーソナライズドロップダウン
-            emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
-            default_emoji_idx = (
-                emoji_options.index(current_emoji_setting)
-                if current_emoji_setting in emoji_options
-                else 1
-            )
-            st.markdown("**AIの発言内の絵文字の量**")
-            new_emoji_setting = st.selectbox(
-                "",
-                emoji_options,
-                index=default_emoji_idx,
-                label_visibility="collapsed"
-            )
-            # new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
-            # st.caption("AIの発言内の絵文字の量")
-            # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
-
-            st.markdown("---")
-            st.markdown("**🔒 拡張会話設定**")
-            # st.markdown("##### 🔒 プレミアム会話設定")
-
-            response_length_edit_enabled = bool(
-                current_plan_features.get("response_length_edit", False)
-            )
-            st.markdown("**返事の長さ**")
-            new_response_length = st.selectbox(
-                "",
-                RESPONSE_LENGTH_PRESETS,
-                index=default_length_idx,
-                disabled=not response_length_edit_enabled,
-                label_visibility="collapsed"
-            )
-
-            if not response_length_edit_enabled:
-                st.caption("💎 ライトプラン以上で利用可能")
-
-            st.markdown("---")
-            bottom_save = st.form_submit_button(
-                "💾 設定を保存",
-                key="save_settings_bottom"
-            )
-            bottom_placeholder = st.empty()
-            if (
-                st.session_state.get("settings_saved")
-                and
-                st.session_state.get("settings_saved_position") == "bottom"
+            if st.form_submit_button(
+                "ポイントで有料人格パスを購入",
+                key="request_personality_pass_dialog"
             ):
-                bottom_placeholder.success("設定を登録しました")
-                st.session_state["settings_saved"] = False
+                st.session_state["open_personality_pass_dialog"] = True
+            st.caption("")
 
-            if top_save or bottom_save:
-                response_length_to_save = (
-                    new_response_length
-                    if response_length_edit_enabled
-                    else "普通"
+        with st.expander("💬 人格ごとの会話サンプルを見る"):
+            for personality, sample in PERSONALITY_SAMPLES.items():
+                st.markdown(f" {personality}")
+                st.markdown(sample)
+                st.divider()
+        
+        st.caption("")
+        # 絵文字3段階パーソナライズドロップダウン
+        emoji_options = ["使用（多め）","使用（普通）","使用（少なめ）","無し"]
+        default_emoji_idx = (
+            emoji_options.index(current_emoji_setting)
+            if current_emoji_setting in emoji_options
+            else 1
+        )
+        st.markdown("**AIの発言内の絵文字の量**")
+        new_emoji_setting = st.selectbox(
+            "",
+            emoji_options,
+            index=default_emoji_idx,
+            label_visibility="collapsed"
+        )
+        # new_emoji_setting = st.selectbox("AIの発言内の絵文字の量", emoji_options, index=default_emoji_idx)
+        # st.caption("AIの発言内の絵文字の量")
+        # new_emoji_setting = st.selectbox("",emoji_options,index=default_emoji_idx,label_visibility="collapsed")
+
+        st.markdown("---")
+        st.markdown("**🔒 拡張会話設定**")
+        # st.markdown("##### 🔒 プレミアム会話設定")
+
+        response_length_edit_enabled = bool(
+            current_plan_features.get("response_length_edit", False)
+        )
+        st.markdown("**返事の長さ**")
+        new_response_length = st.selectbox(
+            "",
+            RESPONSE_LENGTH_PRESETS,
+            index=default_length_idx,
+            disabled=not response_length_edit_enabled,
+            label_visibility="collapsed"
+        )
+
+        if not response_length_edit_enabled:
+            st.caption("💎 ライトプラン以上で利用可能")
+
+        st.markdown("---")
+        bottom_save = st.form_submit_button(
+            "💾 設定を保存",
+            key="save_settings_bottom"
+        )
+        bottom_placeholder = st.empty()
+        if (
+            st.session_state.get("settings_saved")
+            and
+            st.session_state.get("settings_saved_position") == "bottom"
+        ):
+            bottom_placeholder.success("設定を登録しました")
+            st.session_state["settings_saved"] = False
+
+        if top_save or bottom_save:
+            response_length_to_save = (
+                new_response_length
+                if response_length_edit_enabled
+                else "普通"
+            )
+            if (
+                not premium_personality_enabled
+                and selected_preset in PREMIUM_PRESETS
+            ):
+                target_placeholder = (
+                    top_placeholder
+                    if top_save
+                    else bottom_placeholder
                 )
-                if (
-                    not premium_personality_enabled
-                    and selected_preset in PREMIUM_PRESETS
-                ):
-                    target_placeholder = (
-                        top_placeholder
+
+                target_placeholder.warning(
+                    "選択された人格は、💎 ライトプラン以上で利用できます。"
+                    "人格を選び直してください。"
+                )
+
+            else:
+                settings_dict = {
+                    "カラーテーマ": selected_color,
+                    "AIの名前": new_concierge_name,
+                    "ユーザー名": new_user_name,
+                    "ユーザー敬称": new_user_honorific,
+                    "AI一人称": new_first_person,
+                    "人格": selected_preset,
+                    "会話長さ": response_length_to_save,
+                    "絵文字の量": new_emoji_setting
+                }
+                target_placeholder = (
+                    top_placeholder
+                    if top_save
+                    else bottom_placeholder
+                )
+
+                target_placeholder.info("設定登録中...")
+
+                success =  save_all_user_settings(settings_dict)
+
+                if success:
+                    st.session_state.skip_message_reload = True
+                    st.session_state["settings_saved"] = True
+                    st.session_state["settings_saved_position"] = (
+                        "top"
                         if top_save
-                        else bottom_placeholder
+                        else "bottom"
                     )
 
-                    target_placeholder.warning(
-                        "選択された人格は、💎 ライトプラン以上で利用できます。"
-                        "人格を選び直してください。"
-                    )
-
+                    # target_placeholder.success("設定を登録しました")
+                    st.rerun()
                 else:
-                    settings_dict = {
-                        "カラーテーマ": selected_color,
-                        "AIの名前": new_concierge_name,
-                        "ユーザー名": new_user_name,
-                        "ユーザー敬称": new_user_honorific,
-                        "AI一人称": new_first_person,
-                        "人格": selected_preset,
-                        "会話長さ": response_length_to_save,
-                        "絵文字の量": new_emoji_setting
-                    }
-                    target_placeholder = (
-                        top_placeholder
-                        if top_save
-                        else bottom_placeholder
-                    )
+                    target_placeholder.error("設定の保存に失敗しました")
 
-                    target_placeholder.info("設定登録中...")
+    if st.session_state.pop("open_personality_pass_dialog", False):
+        show_personality_pass_dialog()
+    
+    st.divider()
+    st.markdown("#### 🎬 動画を視聴してポイント獲得")
 
-                    success =  save_all_user_settings(settings_dict)
+    settings_reward_status = (
+        check_reward_ad_eligibility(
+            user_id=CURRENT_USER_ID,
+            placement_code="settings_reward"
+        )
+    )
 
-                    if success:
-                        st.session_state.skip_message_reload = True
-                        st.session_state["settings_saved"] = True
-                        st.session_state["settings_saved_position"] = (
-                            "top"
-                            if top_save
-                            else "bottom"
-                        )
+    settings_reward_result = str(
+        settings_reward_status.get("result_status", "error") or "error"
+    )
 
-                        # target_placeholder.success("設定を登録しました")
-                        st.rerun()
-                    else:
-                        target_placeholder.error("設定の保存に失敗しました")
+    settings_placement_count = int(
+        settings_reward_status.get("placement_rewarded_count", 0) or 0
+    )
 
-        if st.session_state.pop("open_personality_pass_dialog", False):
-            show_personality_pass_dialog()
+    settings_total_count = int(
+        settings_reward_status.get("total_rewarded_count", 0) or 0
+    )
+
+    settings_placement_limit = int(
+        settings_reward_status.get("placement_daily_limit", 10) or 10
+    )
+
+    settings_total_limit = int(
+        settings_reward_status.get("total_daily_limit", 20) or 20
+    )
+
+    settings_cooldown_seconds = int(
+        settings_reward_status.get("cooldown_remaining_seconds", 0) or 0
+    )
+
+    st.caption(
+        "動画広告を最後まで視聴すると、"
+        f"{POINT_REWARDED_AD}pt獲得できます。"
+    )
+
+    st.caption(
+        f"この画面での本日の視聴："
+        f"{settings_placement_count} / "
+        f"{settings_placement_limit}回"
+        f"　｜　全体："
+        f"{settings_total_count} / "
+        f"{settings_total_limit}回"
+    )
+
+    if settings_reward_result == "cooldown_active":
+        cooldown_minutes = (settings_cooldown_seconds // 60)
+        cooldown_seconds = (settings_cooldown_seconds % 60)
+
+        st.caption(
+            f"次回視聴まで："
+            f"{cooldown_minutes:02d}:"
+            f"{cooldown_seconds:02d}"
+        )
+
+    elif settings_reward_result == ("placement_daily_limit_reached"):
+        st.caption("設定画面からの本日の視聴上限に達しています。")
+
+    elif settings_reward_result == ("total_daily_limit_reached"):
+        st.caption("本日の動画広告の視聴上限に達しています。")
+
+    elif settings_reward_result == "error":
+        st.caption("広告の視聴状況を確認できませんでした。")
+
+    st.button(
+        f"🎬 動画を視聴して"
+        f"{POINT_REWARDED_AD}pt獲得",
+        key="watch_reward_ad_settings",
+        use_container_width=True,
+        disabled=True,
+        help=(
+            "リワード広告はFlutter移植時に"
+            "接続予定です。"
+        )
+    )
+
+    st.caption("現在は広告機能の準備中です。")
 
 # ------------------------------------------------------------------
 # 🎨 📜 利用規約・ポリシー
