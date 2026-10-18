@@ -9611,6 +9611,10 @@ def show_point_detail_dialog():
                 CURRENT_USER_ID
             )
         )
+        st.write(
+            "DEBUG active_entitlement_grants",
+            active_entitlement_grants
+        )
         if active_entitlements:
             st.divider()
             st.markdown("#### ✅ 利用中の機能")
