@@ -9578,7 +9578,6 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 # ポイント詳細・履歴ダイアログ関数
 @st.dialog("ポイント詳細")
 def show_point_detail_dialog():
-    st.error("DEBUG 新しいポイントダイアログを実行中")
     point_balance = get_user_point_balance(CURRENT_USER_ID)
     available_points = int(point_balance.get("available_points", 0) or 0)
     lifetime_earned_points = int(point_balance.get("lifetime_earned_points", 0) or 0)
@@ -9611,10 +9610,6 @@ def show_point_detail_dialog():
             get_active_entitlement_grants(
                 CURRENT_USER_ID
             )
-        )
-        st.write(
-            "DEBUG active_entitlement_grants",
-            active_entitlement_grants
         )
         if active_entitlements:
             st.divider()
@@ -9968,10 +9963,6 @@ def get_active_entitlement_grant_total(
         return int(response.data or 0)
 
     except Exception as e:
-        st.error(
-            "追加権利一覧取得エラー: "
-            f"{type(e).__name__}: {e}"
-        )
         print(
             "追加権利数量取得エラー: "
             f"{type(e).__name__}: {e}"
@@ -10085,7 +10076,7 @@ def get_active_entitlement_grants(user_id: str) -> list[dict]:
         return active_grants
 
     except Exception as e:
-        st.error(
+        print(
             "追加権利一覧取得エラー: "
             f"{type(e).__name__}: {e}"
         )
