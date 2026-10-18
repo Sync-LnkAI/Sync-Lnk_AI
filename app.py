@@ -364,7 +364,7 @@ PLAN_FEATURES = {
         "memory_room_edit": True
     },
     "standard": {
-        "daily_chat_limit": 100,
+        "daily_chat_limit": 60,
         "saved_chat_limit": 10,
         "plan_room": True,
         "plan_active_limit": 5,
@@ -390,23 +390,17 @@ def get_plan_features(plan_code: str) -> dict:
     )
 # ==========================================
 
-# ポイント設定
+# ==========================================
+# ポイント・リワード広告設定
+# ==========================================
 POINT_INITIAL_REGISTRATION = 250
-
 POINT_REWARDED_AD = 5
-REWARDED_AD_DAILY_LIMIT = 5
+
 REWARDED_AD_COOLDOWN_MINUTES = 3
-
-POINT_COST_SEARCH = 25
-POINT_COST_DETAILED_ANALYSIS = 50
-
-POINT_COST_AD_FREE_7_DAYS = 100
-POINT_COST_AD_FREE_30_DAYS = 400
-
-POINT_COST_SAVED_CHAT_PLUS_5_30_DAYS = 250
-
-POINT_COST_DAILY_CHAT_PLUS_5_7_DAYS = 50
-POINT_COST_DAILY_CHAT_PLUS_5_30_DAYS = 200
+REWARDED_AD_PLACEMENT_DAILY_LIMIT = 10
+REWARDED_AD_TOTAL_DAILY_LIMIT = 20
+# ポイント商品の価格・期間・数量は
+# point_productsテーブルを正式な取得元とする
 # ==========================================
 
 # 💡【完全修正】 起動時・F5再読み込み時にも、DBのchat_count行から本物の会話回数を確実に引き戻します！
@@ -2087,20 +2081,24 @@ SUMMARY_MEMORY_CONFIG = {
 def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【記憶の要約】
-    会話履歴が一定のボリュームを超えた際、バックグラウンドの別スレッドで全自動で対話の核心を200文字以内に集約し、
-    次回のプロンプトトークン総量を軽量化（運用コスト防衛）させるための心臓部です。
+    現在の要約と新しい通常会話を統合し、会員プランごとの文字数上限内で長期記憶を更新する。
+    バックグラウンドの別スレッドで全自動で処理。
     """
     try:
         # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
         target_user_id = CURRENT_USER_ID
+        subscription = get_user_subscription(target_user_id)
+        summary_plan_code = str(
+            subscription.get("plan_code", "free") or "free"
+        ).strip()
+        summary_plan_label = str(
+            subscription.get("plan_label", "🆓 無料プラン") or "🆓 無料プラン"
+        ).strip()
 
         plan_summary_prompt_block = ""
-        summary_plan_code = str(subscription.get("plan_code", "free") or "free").strip()
-
+        
         if summary_plan_code == "standard":
-            plan_summary_context = get_plan_overall_summary(
-                target_user_id
-            )
+            plan_summary_context = get_plan_overall_summary(target_user_id)
 
             if plan_summary_context:
                 plan_summary_prompt_block = f"""
@@ -2112,19 +2110,15 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 ・計画情報にない進捗、決定事項、予定、会話内容を推測で追加しないでください。
                 ・通常会話から得た重要な記憶を、計画情報だけで置き換えないでください。
                 ・計画情報を含めた要約全体を、指定された文字数上限以内に収めてください。
-                """
+                """.strip()
         
         summary_config = (
             SUMMARY_MEMORY_CONFIG.get(
-                current_plan_type,
+                summary_plan_label,
                 SUMMARY_MEMORY_CONFIG["🆓 無料プラン"]
             )
         )
-
-        subscription = get_user_subscription(target_user_id)
-        summary_plan_features = get_plan_features(
-            subscription.get("plan_code", "free")
-        )
+        summary_plan_features = get_plan_features(summary_plan_code)
         summary_max_chars = int(
             summary_plan_features.get(
                 "summary_max_chars",
@@ -10056,8 +10050,7 @@ def get_active_entitlement_grant_total(
             "追加権利数量取得エラー: "
             f"{type(e).__name__}: {e}"
         )
-        return []
-        # return 0
+        return 0
 #================================================
 
 # 実効会話上限を取得する関数
@@ -12258,7 +12251,7 @@ with all_tabs[0]:
                                     "search_query": user_input
                                     }).execute()
                             except Exception as e:
-                                print(f"検索ログ取得エラー {uid}: {e}")
+                                print(f"検索ログ取得エラー {CURRENT_USER_ID}: {e}")
 
                         else:
                             search_result = "なし"
