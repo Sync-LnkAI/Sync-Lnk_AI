@@ -9653,7 +9653,7 @@ def show_point_detail_dialog():
 
                 entitlement_detail = ""
 
-                elif entitlement_code == "ad_free":
+                if entitlement_code == "ad_free":
                     entitlement_detail = ("通常広告を非表示")
 
                 elif entitlement_code == "premium_personality":
@@ -9669,6 +9669,7 @@ def show_point_detail_dialog():
                     st.caption(
                         f"有効期限：{formatted_expires_at}"
                     )
+        
         if active_entitlement_grants:
             if not active_entitlements:
                 st.divider()
