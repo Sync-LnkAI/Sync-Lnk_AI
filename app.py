@@ -3767,8 +3767,8 @@ def classify_search_and_response_mode(
             response_mode = "default"
         
         requires_estimation = bool(judge_data.get("requires_estimation", False))
-        if requires_estimation:
-            response_mode = "analysis"
+        # if requires_estimation:
+        #     response_mode = "analysis"
 
         # 共通関数が返したトークン数を取得
         judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
