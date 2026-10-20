@@ -14836,6 +14836,15 @@ if is_admin:
             audit_real_instruction = "設定データなし"
 
             # リアルタイムKPI自動計算
+            processing_summary_period = st.selectbox(
+                "処理区分集計の対象期間",
+                ["全期間", "直近7日", "直近30日", "今月"],
+                index=2,
+                key=(
+                    "processing_summary_period_"
+                    f"{selected_audit_user}"
+                )
+            )
             processing_type_summary = (
                 get_user_processing_type_summary(selected_audit_user)
             )            
