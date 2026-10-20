@@ -14855,29 +14855,30 @@ if is_admin:
             audit_plan = "🆓 無料プラン"
 
             audit_facts = []
-            try:
-                selected_memory_table = (
-                    "user_memories"
-                    if selected_audit_user in [ADMIN_USER_ID, USUAL_USER_ID]
-                    else "user_memories_tester"
-                )
-                u_memories = supabase.table(selected_memory_table).select("*").eq("user_id", selected_audit_user).execute()
-                if u_memories.data:
-                    for m in u_memories.data:
-                        fact = m.get("fact", "")
-                        if m.get("source") == "manual":
-                            if fact.startswith("AIの名前:"): audit_concierge_name = fact.replace("AIの名前:", "").strip()
-                            elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
-                            elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
-                            elif fact.startswith("ユーザー敬称:"): audit_user_honorific = fact.replace("ユーザー敬称:", "").strip()
-                            elif fact.startswith("AI一人称:"): audit_first_person = fact.replace("AI一人称:", "").strip()
-                            elif fact.startswith("絵文字の量:"): audit_emoji_setting = fact.replace("絵文字の量:", "").strip()
-                            elif fact.startswith("人格:"): audit_style_preset = fact.replace("人格:", "").strip()
-                            elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
-                        else: 
-                            audit_facts.append(fact)
-            except Exception: 
-                pass
+            if audit_display_section == "user_settings":
+                try:
+                    selected_memory_table = (
+                        "user_memories"
+                        if selected_audit_user in [ADMIN_USER_ID, USUAL_USER_ID]
+                        else "user_memories_tester"
+                    )
+                    u_memories = supabase.table(selected_memory_table).select("*").eq("user_id", selected_audit_user).execute()
+                    if u_memories.data:
+                        for m in u_memories.data:
+                            fact = m.get("fact", "")
+                            if m.get("source") == "manual":
+                                if fact.startswith("AIの名前:"): audit_concierge_name = fact.replace("AIの名前:", "").strip()
+                                elif fact.startswith("ユーザー名:"): audit_user_name = fact.replace("ユーザー名:", "").strip()
+                                elif fact.startswith("カラーテーマ:"): audit_theme = fact.replace("カラーテーマ:", "").strip()
+                                elif fact.startswith("ユーザー敬称:"): audit_user_honorific = fact.replace("ユーザー敬称:", "").strip()
+                                elif fact.startswith("AI一人称:"): audit_first_person = fact.replace("AI一人称:", "").strip()
+                                elif fact.startswith("絵文字の量:"): audit_emoji_setting = fact.replace("絵文字の量:", "").strip()
+                                elif fact.startswith("人格:"): audit_style_preset = fact.replace("人格:", "").strip()
+                                elif fact.startswith("会員プラン:"): audit_plan = fact.replace("会員プラン:", "").strip()
+                            else: 
+                                audit_facts.append(fact)
+                except Exception: 
+                    pass
 
             audit_real_instruction = "設定データなし"
 
