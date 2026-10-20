@@ -15507,394 +15507,395 @@ if is_admin:
 
             # 🚀 【大開通】 1メッセージの塊（ブロック）の中にすべての内訳を並列露出させる詳細明細タイムライン
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
-            show_timeline_logs = st.button(
-                "📖 システムログを表示",
-                key="show_timeline_logs"
-            )
-            
-            try:
-                # 1. データベース（system_audit_logs）から直近50件の生データを抽出
-                if show_timeline_logs:
-                    log_res = (
-                        supabase
-                        .rpc(
-                            "get_user_recent_audit_logs",
-                            {
-                                "p_user_id": str(selected_audit_user),
-                                "p_message_limit": 50
-                            }
-                        )
-                        .execute()
-                    )
-
-                    def compact_provider_details(details):
-                        text = str(details or "")
-                        provider_match = re.search(r"provider=([^|/\s]+)", text)
-                        model_match = re.search(r"model=([^|/\s]+)", text)
-                        provider = (
-                            provider_match.group(1)
-                            if provider_match
-                            else ""
-                        )
-                        model = (
-                            model_match.group(1)
-                            if model_match
-                            else ""
-                        )
-                        if provider and model:
-                            return f"{provider} / {model}"
-                        return provider or model
-                
-                    if log_res.data:
-                        # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
-                        # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
-                        # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
-                        merged_logs = {}
-                        
-                        for log in log_res.data:
-                            # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
-                            msg_id = log.get("message_id")
-                            created_at = log.get("created_at", "")
-                            time_display = created_at.replace("T", " ")[:16] if "T" in created_at else created_at
-                            
-                            if not msg_id or msg_id == "None" or msg_id == "":
-                                # 過去データ用フォールバック：分単位で丸めて部屋を作ります
-                                msg_id = f"fallback_{created_at[:16]}"
-                            
-                            if msg_id not in merged_logs:
-                                merged_logs[msg_id] = {
-                                    "id": msg_id,
-                                    "time": time_display,
-                                    "user_plan": log.get("user_plan", "🆓 無料プラン"),
-                                    "event_type": "",
-                                    "user_message": "",
-                                    "ai_message": "",
-                                    "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
-                                    "reflection_time": 0.0, "reflection_in": 0, "reflection_out": 0,
-                                    "reflection_cost": 0.0, "reflection_details": "",
-                                    "sum_time": 0.0, "sum_in": 0, "sum_out": 0, "sum_cost": 0.0,
-                                    "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
-                                    "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
-                                    "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
-                                    "search_time": 0.0, "search_in": 0, "search_out": 0,
-                                    "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
-                                    "total_yen": 0.0, "total_time": 0.0,
-                                    "judge_details": "", "chat_details": "", "summary_details": "",
-                                    "tool_details": "", "calc_details": "", "search_exec_details": "",
-                                    "calculation_result": ""
-                                }
-                            
-                            action = log.get("action", log.get("event_type", ""))
-                            cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
-                            proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
-                            in_t = log.get("in_tokens", 0)
-                            out_t = log.get("out_tokens", 0)
-
-                            # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
-                            if action == "SUMMARY_SUCCESS":
-                                merged_logs[msg_id]["sum_time"] = proc_time
-                                merged_logs[msg_id]["sum_in"] = in_t
-                                merged_logs[msg_id]["sum_out"] = out_t
-                                merged_logs[msg_id]["sum_cost"] = cost
-                                merged_logs[msg_id]["summary_details"] = (
-                                    log.get("details", "")
-                                )
-
-                            elif action == "RESPONSE_ROUTER":
-                                merged_logs[msg_id]["judge_time"] = proc_time
-                                merged_logs[msg_id]["judge_in"] = in_t
-                                merged_logs[msg_id]["judge_out"] = out_t
-                                merged_logs[msg_id]["judge_cost"] = cost
-                                merged_logs[msg_id]["judge_result"] = (
-                                    log.get("details", "")
-                                )
-                                merged_logs[msg_id]["judge_details"] = (
-                                    log.get("details", "")
-                                )
-                            
-                            elif action == "CALCULATION_TOOL_ROUTER":
-                                merged_logs[msg_id]["tool_time"] = proc_time
-                                merged_logs[msg_id]["tool_in"] = in_t
-                                merged_logs[msg_id]["tool_out"] = out_t
-                                merged_logs[msg_id]["tool_cost"] = cost
-                                merged_logs[msg_id]["tool_details"] = (
-                                    log.get("details", "")
-                                )
-
-                            elif action == "CALCULATION_EXTRACTION":
-                                merged_logs[msg_id]["calc_time"] = proc_time
-                                merged_logs[msg_id]["calc_in"] = in_t
-                                merged_logs[msg_id]["calc_out"] = out_t
-                                merged_logs[msg_id]["calc_cost"] = cost
-                                merged_logs[msg_id]["calc_details"] = (
-                                    log.get("details", "")
-                                )
-                            
-                            elif action == "CALCULATION_SUCCESS":
-                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
-
-                            elif action == ("CALCULATION_MISSING_FIELDS"):
-                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
-
-                            elif action == "CALCULATION_ERROR":
-                                merged_logs[msg_id]["calculation_result"] = log.get("details", "")
-
-                            elif action == "SEARCH_EXECUTION":
-                                merged_logs[msg_id]["search_exec_in"] = in_t
-                                merged_logs[msg_id]["search_exec_out"] = out_t
-                                merged_logs[msg_id]["search_exec_cost"] = cost
-                                merged_logs[msg_id]["search_exec_time"] = proc_time
-                                merged_logs[msg_id]["search_exec_details"] = (
-                                    log.get("details", "")
-                                )
-                            elif action == "PLAN_REFLECTION_SUCCESS":
-                                merged_logs[msg_id]["reflection_time"] = (
-                                    log.get("processing_time", proc_time)
-                                    if log.get("processing_time") is not None
-                                    else proc_time
-                                )
-                                merged_logs[msg_id]["reflection_in"] = (
-                                    log.get("in_tokens", in_t)
-                                    if log.get("in_tokens") is not None
-                                    else in_t
-                                )
-                                merged_logs[msg_id]["reflection_out"] = (
-                                    log.get("out_tokens", out_t)
-                                    if log.get("out_tokens") is not None
-                                    else out_t
-                                )
-                                merged_logs[msg_id]["reflection_cost"] = cost
-                                merged_logs[msg_id]["reflection_details"] = (
-                                    compact_provider_details(
-                                        log.get("details", "")
-                                    )
-                                )
-
-                            elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
-                                merged_logs[msg_id]["event_type"] = action
-                                merged_logs[msg_id]["chat_time"] = (
-                                    log.get("chat_processing_time", proc_time)
-                                    if log.get("chat_processing_time") is not None
-                                    else proc_time
-                                )
-                                merged_logs[msg_id]["chat_in"] = (
-                                    log.get("chat_in_tokens", in_t)
-                                    if log.get("chat_in_tokens") is not None
-                                    else in_t
-                                )
-                                merged_logs[msg_id]["chat_out"] = (
-                                    log.get("chat_out_tokens", out_t)
-                                    if log.get("chat_out_tokens") is not None
-                                    else out_t
-                                )
-                                merged_logs[msg_id]["chat_cost"] = (cost)
-                                merged_logs[msg_id]["search_time"] = (
-                                    log.get("search_processing_time", 0.0)
-                                    if log.get("search_processing_time") is not None
-                                    else 0.0
-                                )
-                                merged_logs[msg_id]["search_in"] = (
-                                    log.get("search_in_tokens", 0)
-                                    if log.get("search_in_tokens") is not None
-                                    else 0
-                                )
-                                merged_logs[msg_id]["search_out"] = (
-                                    log.get("search_out_tokens", 0)
-                                    if log.get("search_out_tokens") is not None
-                                    else 0
-                                )
-                                merged_logs[msg_id]["chat_details"] = (
-                                    compact_provider_details(
-                                        log.get("details", "")
-                                    )
-                                )
-
-                            # 1会話単位の、全体の総実費合計コスト集計
-                            merged_logs[msg_id]["total_yen"] += cost
-                            
-                        st.markdown(
-                            """
-                            <style>
-                            .st-key-compact_audit_logs table {
-                                font-size: 0.82rem;
-                                line-height: 1.2;
-                            }
-
-                            .st-key-compact_audit_logs table th,
-                            .st-key-compact_audit_logs table td {
-                                padding: 0.25rem 0.4rem !important;
-                                vertical-align: middle;
-                            }
-
-                            .st-key-compact_audit_logs table p {
-                                margin: 0 !important;
-                                font-size: inherit;
-                                line-height: 1.2;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stAlert"] {
-                                padding: 0.45rem 0.75rem !important;
-                                margin: 0.25rem 0 0.6rem 0 !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stAlert"] p {
-                                margin: 0 !important;
-                                font-size: 0.9rem !important;
-                                line-height: 1.4 !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] {
-                                margin-top: 0 !important;
-                                margin-bottom: 0 !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] p {
-                                margin-top: 0.2rem !important;
-                                margin-bottom: 0.2rem !important;
-                            }
-
-                            .st-key-compact_audit_logs hr {
-                                margin-top: 0.6rem !important;
-                                margin-bottom: 0.6rem !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
-                                padding-top: 0.4rem !important;
-                                padding-bottom: 0.4rem !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stVerticalBlock"] {
-                                gap: 0.35rem !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > p {
-                                margin: 0.1rem 0 !important;
-                                font-size: 0.82rem !important;
-                                line-height: 1.2 !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > hr {
-                                margin: 0.35rem 0 !important;
-                            }
-
-                            .st-key-compact_audit_logs table {
-                                margin-top: 0 !important;
-                                margin-bottom: 0.25rem !important;
-                            }
-
-                            .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
-                                padding-top: 0.25rem !important;
-                                padding-bottom: 0.25rem !important;
-                            }
-
-                            </style>
-                            """,
-                            unsafe_allow_html=True
-                        )
-
-                        # 詳細ログ専用コンテナ
-                        with st.container(key="compact_audit_logs"):
-                            # アコーディオン出力
-                            for k, item in merged_logs.items():
-                                
-                                # 表示されている各処理時間を合計
-                                item["total_time"] = sum([
-                                    float(item.get("judge_time",0.0) or 0.0),
-                                    float(item.get("search_exec_time",0.0) or 0.0),
-                                    float(item.get("chat_time",0.0) or 0.0),
-                                    float(item.get("reflection_time", 0.0) or 0.0),
-                                    float(item.get("sum_time",0.0) or 0.0),
-                                    float(item.get("search_time",0.0) or 0.0),
-                                    float(item.get("tool_time",0.0) or 0.0),
-                                    float(item.get("calc_time",0.0) or 0.0)
-                                ])
-
-                                msg_res = (
-                                    supabase
-                                    .table("messages")
-                                    .select(
-                                        "role,"
-                                        "content,"
-                                        "created_at,"
-                                        "message_id,"
-                                        "response_mode"
-                                    )
-                                    .eq("user_id", selected_audit_user)
-                                    .eq("message_id", item["id"])
-                                    .order("created_at", desc=False)
-                                    .execute()
-                                )
-
-                                user_msg = ""
-                                ai_msg = ""
-
-                                for row in (msg_res.data or []):
-                                    if row.get("role") == "user":
-                                        user_msg = row.get("content", "")
-                                    elif row.get("role") == "assistant":
-                                        ai_msg = row.get("content", "")
-                                
-                                c_plan = item["user_plan"]
-                                t_yen = item["total_yen"]
-                                t_time = item["total_time"]
-                                chat_component_name = (
-                                    "📋 計画ルーム対話返答"
-                                    if item.get("event_type") == "PLAN_CHAT_SUCCESS"
-                                    else "💬 メインチャット対話返答"
-                                )
-
-                                if (not user_msg and not ai_msg):
-                                    continue
-
-                                with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
-                                    st.markdown(
-                                        '<div class="compact-audit-log">',
-                                        unsafe_allow_html=True
-                                    )
-                                    st.markdown(f"""
-
-                                    | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)token | 🪙 出力(Out)token |💰 原価 |🤖 Provider |
-                                    | :--- | :---: | :---: | :---: |:---: |:---: |
-                                    | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
-                                    | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
-                                    | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
-                                    | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
-                                    | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
-                                    | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
-                                    | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
-                                    | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
-
-                                    🔎 **【検索判定結果】** {item['judge_result']}
-
-                                    👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
-                                    """)
-                                    st.markdown(
-                                        "</div>",
-                                        unsafe_allow_html=True
-                                    )
-                                    st.markdown("---")
-
-                                    st.markdown("**👤 ユーザー発言**")
-                                    st.info(user_msg)
-                                    if item.get(
-                                        "calculation_result"
-                                    ):
-                                        # st.warning(
-                                        #     "🏠 不動産計算結果\n\n"
-                                        #     + item[
-                                        #         "calculation_result"
-                                        #     ]
-                                        # )
-                                        st.code(item["calculation_result"])
-
-                                    st.markdown("**🧠 AI返答**")
-                                    st.success(ai_msg)
-                    else: 
-                        st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
-            except Exception as log_err:
-                st.error(
-                    f"ユーザーログの取得に失敗しました: {log_err}"
+            if audit_display_section == "conversation_logs":
+                show_timeline_logs = st.button(
+                    "📖 システムログを表示",
+                    key="show_timeline_logs"
                 )
+                
+                try:
+                    # 1. データベース（system_audit_logs）から直近50件の生データを抽出
+                    if show_timeline_logs:
+                        log_res = (
+                            supabase
+                            .rpc(
+                                "get_user_recent_audit_logs",
+                                {
+                                    "p_user_id": str(selected_audit_user),
+                                    "p_message_limit": 50
+                                }
+                            )
+                            .execute()
+                        )
+
+                        def compact_provider_details(details):
+                            text = str(details or "")
+                            provider_match = re.search(r"provider=([^|/\s]+)", text)
+                            model_match = re.search(r"model=([^|/\s]+)", text)
+                            provider = (
+                                provider_match.group(1)
+                                if provider_match
+                                else ""
+                            )
+                            model = (
+                                model_match.group(1)
+                                if model_match
+                                else ""
+                            )
+                            if provider and model:
+                                return f"{provider} / {model}"
+                            return provider or model
+                    
+                        if log_res.data:
+                            # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
+                            # 時計の時間や到着順を一切信用せず、共通の固有識別ID（message_id）を鍵にして、
+                            # 別行で保存されたチャットと要約の数字を「1つの会話の塊」として100%完璧にグループ化（束ねる）します！
+                            merged_logs = {}
+                            
+                            for log in log_res.data:
+                                # データベースから固有の鍵をサルベージ（万が一古い過去ログでIDが無い行は、時間の分単位を仮の鍵にして白飛びを永久防衛）
+                                msg_id = log.get("message_id")
+                                created_at = log.get("created_at", "")
+                                time_display = created_at.replace("T", " ")[:16] if "T" in created_at else created_at
+                                
+                                if not msg_id or msg_id == "None" or msg_id == "":
+                                    # 過去データ用フォールバック：分単位で丸めて部屋を作ります
+                                    msg_id = f"fallback_{created_at[:16]}"
+                                
+                                if msg_id not in merged_logs:
+                                    merged_logs[msg_id] = {
+                                        "id": msg_id,
+                                        "time": time_display,
+                                        "user_plan": log.get("user_plan", "🆓 無料プラン"),
+                                        "event_type": "",
+                                        "user_message": "",
+                                        "ai_message": "",
+                                        "chat_time": 0.0, "chat_in": 0, "chat_out": 0,"chat_cost": 0.0,
+                                        "reflection_time": 0.0, "reflection_in": 0, "reflection_out": 0,
+                                        "reflection_cost": 0.0, "reflection_details": "",
+                                        "sum_time": 0.0, "sum_in": 0, "sum_out": 0, "sum_cost": 0.0,
+                                        "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
+                                        "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
+                                        "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
+                                        "search_time": 0.0, "search_in": 0, "search_out": 0,
+                                        "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
+                                        "total_yen": 0.0, "total_time": 0.0,
+                                        "judge_details": "", "chat_details": "", "summary_details": "",
+                                        "tool_details": "", "calc_details": "", "search_exec_details": "",
+                                        "calculation_result": ""
+                                    }
+                                
+                                action = log.get("action", log.get("event_type", ""))
+                                cost = log.get("api_cost") if log.get("api_cost") is not None else 0.0
+                                proc_time = log.get("processing_time") if log.get("processing_time") is not None else 0.0
+                                in_t = log.get("in_tokens", 0)
+                                out_t = log.get("out_tokens", 0)
+
+                                # 各コンポーネントの同じメッセージIDの対応する数値をドッキング
+                                if action == "SUMMARY_SUCCESS":
+                                    merged_logs[msg_id]["sum_time"] = proc_time
+                                    merged_logs[msg_id]["sum_in"] = in_t
+                                    merged_logs[msg_id]["sum_out"] = out_t
+                                    merged_logs[msg_id]["sum_cost"] = cost
+                                    merged_logs[msg_id]["summary_details"] = (
+                                        log.get("details", "")
+                                    )
+
+                                elif action == "RESPONSE_ROUTER":
+                                    merged_logs[msg_id]["judge_time"] = proc_time
+                                    merged_logs[msg_id]["judge_in"] = in_t
+                                    merged_logs[msg_id]["judge_out"] = out_t
+                                    merged_logs[msg_id]["judge_cost"] = cost
+                                    merged_logs[msg_id]["judge_result"] = (
+                                        log.get("details", "")
+                                    )
+                                    merged_logs[msg_id]["judge_details"] = (
+                                        log.get("details", "")
+                                    )
+                                
+                                elif action == "CALCULATION_TOOL_ROUTER":
+                                    merged_logs[msg_id]["tool_time"] = proc_time
+                                    merged_logs[msg_id]["tool_in"] = in_t
+                                    merged_logs[msg_id]["tool_out"] = out_t
+                                    merged_logs[msg_id]["tool_cost"] = cost
+                                    merged_logs[msg_id]["tool_details"] = (
+                                        log.get("details", "")
+                                    )
+
+                                elif action == "CALCULATION_EXTRACTION":
+                                    merged_logs[msg_id]["calc_time"] = proc_time
+                                    merged_logs[msg_id]["calc_in"] = in_t
+                                    merged_logs[msg_id]["calc_out"] = out_t
+                                    merged_logs[msg_id]["calc_cost"] = cost
+                                    merged_logs[msg_id]["calc_details"] = (
+                                        log.get("details", "")
+                                    )
+                                
+                                elif action == "CALCULATION_SUCCESS":
+                                    merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                                elif action == ("CALCULATION_MISSING_FIELDS"):
+                                    merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                                elif action == "CALCULATION_ERROR":
+                                    merged_logs[msg_id]["calculation_result"] = log.get("details", "")
+
+                                elif action == "SEARCH_EXECUTION":
+                                    merged_logs[msg_id]["search_exec_in"] = in_t
+                                    merged_logs[msg_id]["search_exec_out"] = out_t
+                                    merged_logs[msg_id]["search_exec_cost"] = cost
+                                    merged_logs[msg_id]["search_exec_time"] = proc_time
+                                    merged_logs[msg_id]["search_exec_details"] = (
+                                        log.get("details", "")
+                                    )
+                                elif action == "PLAN_REFLECTION_SUCCESS":
+                                    merged_logs[msg_id]["reflection_time"] = (
+                                        log.get("processing_time", proc_time)
+                                        if log.get("processing_time") is not None
+                                        else proc_time
+                                    )
+                                    merged_logs[msg_id]["reflection_in"] = (
+                                        log.get("in_tokens", in_t)
+                                        if log.get("in_tokens") is not None
+                                        else in_t
+                                    )
+                                    merged_logs[msg_id]["reflection_out"] = (
+                                        log.get("out_tokens", out_t)
+                                        if log.get("out_tokens") is not None
+                                        else out_t
+                                    )
+                                    merged_logs[msg_id]["reflection_cost"] = cost
+                                    merged_logs[msg_id]["reflection_details"] = (
+                                        compact_provider_details(
+                                            log.get("details", "")
+                                        )
+                                    )
+
+                                elif action in ("CHAT_SUCCESS", "PLAN_CHAT_SUCCESS"):
+                                    merged_logs[msg_id]["event_type"] = action
+                                    merged_logs[msg_id]["chat_time"] = (
+                                        log.get("chat_processing_time", proc_time)
+                                        if log.get("chat_processing_time") is not None
+                                        else proc_time
+                                    )
+                                    merged_logs[msg_id]["chat_in"] = (
+                                        log.get("chat_in_tokens", in_t)
+                                        if log.get("chat_in_tokens") is not None
+                                        else in_t
+                                    )
+                                    merged_logs[msg_id]["chat_out"] = (
+                                        log.get("chat_out_tokens", out_t)
+                                        if log.get("chat_out_tokens") is not None
+                                        else out_t
+                                    )
+                                    merged_logs[msg_id]["chat_cost"] = (cost)
+                                    merged_logs[msg_id]["search_time"] = (
+                                        log.get("search_processing_time", 0.0)
+                                        if log.get("search_processing_time") is not None
+                                        else 0.0
+                                    )
+                                    merged_logs[msg_id]["search_in"] = (
+                                        log.get("search_in_tokens", 0)
+                                        if log.get("search_in_tokens") is not None
+                                        else 0
+                                    )
+                                    merged_logs[msg_id]["search_out"] = (
+                                        log.get("search_out_tokens", 0)
+                                        if log.get("search_out_tokens") is not None
+                                        else 0
+                                    )
+                                    merged_logs[msg_id]["chat_details"] = (
+                                        compact_provider_details(
+                                            log.get("details", "")
+                                        )
+                                    )
+
+                                # 1会話単位の、全体の総実費合計コスト集計
+                                merged_logs[msg_id]["total_yen"] += cost
+                                
+                            st.markdown(
+                                """
+                                <style>
+                                .st-key-compact_audit_logs table {
+                                    font-size: 0.82rem;
+                                    line-height: 1.2;
+                                }
+
+                                .st-key-compact_audit_logs table th,
+                                .st-key-compact_audit_logs table td {
+                                    padding: 0.25rem 0.4rem !important;
+                                    vertical-align: middle;
+                                }
+
+                                .st-key-compact_audit_logs table p {
+                                    margin: 0 !important;
+                                    font-size: inherit;
+                                    line-height: 1.2;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stAlert"] {
+                                    padding: 0.45rem 0.75rem !important;
+                                    margin: 0.25rem 0 0.6rem 0 !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stAlert"] p {
+                                    margin: 0 !important;
+                                    font-size: 0.9rem !important;
+                                    line-height: 1.4 !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] {
+                                    margin-top: 0 !important;
+                                    margin-bottom: 0 !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] p {
+                                    margin-top: 0.2rem !important;
+                                    margin-bottom: 0.2rem !important;
+                                }
+
+                                .st-key-compact_audit_logs hr {
+                                    margin-top: 0.6rem !important;
+                                    margin-bottom: 0.6rem !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
+                                    padding-top: 0.4rem !important;
+                                    padding-bottom: 0.4rem !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stVerticalBlock"] {
+                                    gap: 0.35rem !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > p {
+                                    margin: 0.1rem 0 !important;
+                                    font-size: 0.82rem !important;
+                                    line-height: 1.2 !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stMarkdownContainer"] > hr {
+                                    margin: 0.35rem 0 !important;
+                                }
+
+                                .st-key-compact_audit_logs table {
+                                    margin-top: 0 !important;
+                                    margin-bottom: 0.25rem !important;
+                                }
+
+                                .st-key-compact_audit_logs div[data-testid="stExpanderDetails"] {
+                                    padding-top: 0.25rem !important;
+                                    padding-bottom: 0.25rem !important;
+                                }
+
+                                </style>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                            # 詳細ログ専用コンテナ
+                            with st.container(key="compact_audit_logs"):
+                                # アコーディオン出力
+                                for k, item in merged_logs.items():
+                                    
+                                    # 表示されている各処理時間を合計
+                                    item["total_time"] = sum([
+                                        float(item.get("judge_time",0.0) or 0.0),
+                                        float(item.get("search_exec_time",0.0) or 0.0),
+                                        float(item.get("chat_time",0.0) or 0.0),
+                                        float(item.get("reflection_time", 0.0) or 0.0),
+                                        float(item.get("sum_time",0.0) or 0.0),
+                                        float(item.get("search_time",0.0) or 0.0),
+                                        float(item.get("tool_time",0.0) or 0.0),
+                                        float(item.get("calc_time",0.0) or 0.0)
+                                    ])
+
+                                    msg_res = (
+                                        supabase
+                                        .table("messages")
+                                        .select(
+                                            "role,"
+                                            "content,"
+                                            "created_at,"
+                                            "message_id,"
+                                            "response_mode"
+                                        )
+                                        .eq("user_id", selected_audit_user)
+                                        .eq("message_id", item["id"])
+                                        .order("created_at", desc=False)
+                                        .execute()
+                                    )
+
+                                    user_msg = ""
+                                    ai_msg = ""
+
+                                    for row in (msg_res.data or []):
+                                        if row.get("role") == "user":
+                                            user_msg = row.get("content", "")
+                                        elif row.get("role") == "assistant":
+                                            ai_msg = row.get("content", "")
+                                    
+                                    c_plan = item["user_plan"]
+                                    t_yen = item["total_yen"]
+                                    t_time = item["total_time"]
+                                    chat_component_name = (
+                                        "📋 計画ルーム対話返答"
+                                        if item.get("event_type") == "PLAN_CHAT_SUCCESS"
+                                        else "💬 メインチャット対話返答"
+                                    )
+
+                                    if (not user_msg and not ai_msg):
+                                        continue
+
+                                    with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                        st.markdown(
+                                            '<div class="compact-audit-log">',
+                                            unsafe_allow_html=True
+                                        )
+                                        st.markdown(f"""
+
+                                        | ⚙️ 処理内訳コンポーネント | ⏱️ 処理時間 (秒) | 🪙 入力(In)token | 🪙 出力(Out)token |💰 原価 |🤖 Provider |
+                                        | :--- | :---: | :---: | :---: |:---: |:---: |
+                                        | 🔎 **Google検索の要否判定** | {item['judge_time']:.2f} 秒 | {item['judge_in']} t | {item['judge_out']} t | ¥{item['judge_cost']:.4f} | {item['judge_details']} |
+                                        | 🌐 Google検索実行 | {item['search_exec_time']:.2f} 秒 | {item['search_exec_in']} t | {item['search_exec_out']} t | ¥{item['search_exec_cost']:.4f} | {item['search_exec_details']} |
+                                        | **{chat_component_name}** | {item['chat_time']:.2f} 秒 | {item['chat_in']} t | {item['chat_out']} t | ¥{item['chat_cost']:.4f} | {item['chat_details']} |
+                                        | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
+                                        | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
+                                        | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
+                                        | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
+                                        | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
+
+                                        🔎 **【検索判定結果】** {item['judge_result']}
+
+                                        👑 **【この1メッセージに対する総実費原価】** ¥ {t_yen:.4f} 円  ||  **【ユーザー総待機ラグ】** {t_time:.2f} 秒
+                                        """)
+                                        st.markdown(
+                                            "</div>",
+                                            unsafe_allow_html=True
+                                        )
+                                        st.markdown("---")
+
+                                        st.markdown("**👤 ユーザー発言**")
+                                        st.info(user_msg)
+                                        if item.get(
+                                            "calculation_result"
+                                        ):
+                                            # st.warning(
+                                            #     "🏠 不動産計算結果\n\n"
+                                            #     + item[
+                                            #         "calculation_result"
+                                            #     ]
+                                            # )
+                                            st.code(item["calculation_result"])
+
+                                        st.markdown("**🧠 AI返答**")
+                                        st.success(ai_msg)
+                        else: 
+                            st.caption("このユーザーのシステムログはまだデータベースに記録されていません。")
+                except Exception as log_err:
+                    st.error(
+                        f"ユーザーログの取得に失敗しました: {log_err}"
+                    )
 
         # 📈 画面②：アプリ全体の統計アナリティクス画面
         elif admin_mode == "📈 全体アクティビティ・統計アナリティクス":
