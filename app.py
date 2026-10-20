@@ -10306,7 +10306,44 @@ def grant_initial_registration_points(user_id: str) -> dict:
     )
 #================================================
 
+# 処理区分別集計RPCを呼び出す関数
+def get_user_processing_type_summary(
+    user_id: str,
+    start_at=None,
+    end_at=None
+) -> list:
+    try:
+        rpc_params = {"p_user_id": str(user_id)}
 
+        if start_at is not None:
+            rpc_params["p_start_at"] = (
+                start_at.isoformat()
+                if hasattr(start_at, "isoformat")
+                else str(start_at)
+            )
+
+        if end_at is not None:
+            rpc_params["p_end_at"] = (
+                end_at.isoformat()
+                if hasattr(end_at, "isoformat")
+                else str(end_at)
+            )
+
+        response = (
+            supabase
+            .rpc("get_user_processing_type_summary", rpc_params)
+            .execute()
+        )
+
+        return response.data or []
+
+    except Exception as e:
+        print(
+            "処理区分別集計取得エラー: "
+            f"{type(e).__name__}: {e}"
+        )
+        return []
+#================================================
 
 # 🎨グラデーションカラーパレット
 THEMES = {
@@ -14798,7 +14835,10 @@ if is_admin:
 
             audit_real_instruction = "設定データなし"
 
-            # リアルタイムKPI自動計算            
+            # リアルタイムKPI自動計算
+            processing_type_summary = (
+                get_user_processing_type_summary(selected_audit_user)
+            )            
             total_chats = normal_chat_count + plan_chat_count
             start_date = "データなし"
             last_date = "データなし"
