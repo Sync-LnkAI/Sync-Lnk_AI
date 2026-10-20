@@ -15584,7 +15584,7 @@ if is_admin:
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
-                                    "total_yen": 0.0, "total_time": 0.0,
+                                    "total_yen": 0.0, "total_time": 0.0, "processing_type": "unclassified",
                                     "judge_details": "", "chat_details": "", "summary_details": "",
                                     "tool_details": "", "calc_details": "", "search_exec_details": "",
                                     "calculation_result": ""
@@ -15611,6 +15611,9 @@ if is_admin:
                                 merged_logs[msg_id]["judge_in"] = in_t
                                 merged_logs[msg_id]["judge_out"] = out_t
                                 merged_logs[msg_id]["judge_cost"] = cost
+                                merged_logs[msg_id]["processing_type"] = (
+                                    extract_processing_type(log.get("details", ""))
+                                )
                                 merged_logs[msg_id]["judge_result"] = (
                                     log.get("details", "")
                                 )
@@ -15851,8 +15854,28 @@ if is_admin:
 
                                 if (not user_msg and not ai_msg):
                                     continue
+                                
+                                processing_type = str(
+                                    item.get(
+                                        "processing_type",
+                                        "unclassified"
+                                    ) or "unclassified"
+                                ).strip()
 
-                                with st.expander(f"🟢 [{item['time']}] {c_plan} ➔ 💰 総原価: {t_yen:.4f} 円 || ⏱️ 総処理: {t_time:.2f} 秒"):
+                                processing_type_label = (
+                                    PROCESSING_TYPE_LABELS.get(
+                                        processing_type,
+                                        processing_type
+                                    )
+                                )
+
+                                with st.expander(
+                                    f"🟢 [{item['time']}]"
+                                    f"{processing_type_label}｜"
+                                    f"{c_plan} ➔ "
+                                    f"💰 総原価: {t_yen:.4f} 円 ||"
+                                    f"⏱️ 総処理: {t_time:.2f} 秒"
+                                ):
                                     st.markdown(
                                         '<div class="compact-audit-log">',
                                         unsafe_allow_html=True
