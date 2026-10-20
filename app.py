@@ -15113,7 +15113,9 @@ if is_admin:
                 )
 
             #  ユーザー設定情報、アクティビティ集計表示
-            col_info1, col_info2 = st.columns(2)
+            # col_info1, col_info2 = st.columns(2)
+            col_info1 = st.container()
+            col_info2 = st.container()
 
             if audit_display_section == "user_settings":
                 with col_info1:
