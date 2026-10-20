@@ -14845,9 +14845,39 @@ if is_admin:
                     f"{selected_audit_user}"
                 )
             )
+            processing_summary_now = datetime.now(JST)
+            processing_summary_start_at = None
+            processing_summary_end_at = None
+
+            if processing_summary_period == "直近7日":
+                processing_summary_start_at = (
+                    processing_summary_now
+                    - timedelta(days=7)
+                )
+            elif processing_summary_period == "直近30日":
+                processing_summary_start_at = (
+                    processing_summary_now
+                    - timedelta(days=30)
+                )
+            elif processing_summary_period == "今月":
+                processing_summary_start_at = (
+                    processing_summary_now.replace(
+                        day=1,
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        microsecond=0
+                    )
+                )
+
             processing_type_summary = (
-                get_user_processing_type_summary(selected_audit_user)
-            )            
+                get_user_processing_type_summary(
+                    selected_audit_user,
+                    start_at=processing_summary_start_at,
+                    end_at=processing_summary_end_at
+                )
+            )
+                        
             total_chats = normal_chat_count + plan_chat_count
             start_date = "データなし"
             last_date = "データなし"
