@@ -15150,6 +15150,91 @@ if is_admin:
                     unsafe_allow_html=True
                 )
             
+            st.markdown("##### 📊 処理区分別の利用・原価集計")
+
+            if processing_type_summary:
+                processing_summary_rows = []
+
+                for row in processing_type_summary:
+                    processing_type = str(
+                        row.get(
+                            "processing_type",
+                            "unclassified"
+                        ) or "unclassified"
+                    ).strip()
+
+                    processing_summary_rows.append({
+                        "処理区分": (
+                            PROCESSING_TYPE_LABELS.get(
+                                processing_type,
+                                processing_type
+                            )
+                        ),
+                        "実行回数": int(row.get("execution_count", 0) or 0),
+                        "入力token": int(row.get("total_in_tokens", 0) or 0),
+                        "出力token": int(row.get("total_out_tokens", 0) or 0),
+                        "総原価": float(row.get("total_yen_cost", 0) or 0),
+                        "平均原価": float(row.get("average_yen_cost", 0) or 0),
+                        "最大原価": float(row.get("maximum_yen_cost", 0) or 0),
+                        "平均処理時間": float(row.get("average_processing_time", 0) or 0)
+                    })
+
+                processing_summary_df = pd.DataFrame(processing_summary_rows)
+
+                st.dataframe(
+                    processing_summary_df,
+                    column_config={
+                        "処理区分": st.column_config.TextColumn("処理区分"),
+                        "実行回数": st.column_config.NumberColumn(
+                            "実行回数",
+                            format="%d 回"
+                        ),
+                        "入力token": st.column_config.NumberColumn(
+                            "入力token",
+                            format="%d"
+                        ),
+                        "出力token": st.column_config.NumberColumn(
+                            "出力token",
+                            format="%d"
+                        ),
+                        "総原価": st.column_config.NumberColumn(
+                            "総原価",
+                            format="¥ %.4f"
+                        ),
+                        "平均原価": st.column_config.NumberColumn(
+                            "平均原価",
+                            format="¥ %.4f"
+                        ),
+                        "最大原価": st.column_config.NumberColumn(
+                            "最大原価",
+                            format="¥ %.4f"
+                        ),
+                        "平均処理時間": (
+                            st.column_config.NumberColumn(
+                                "平均処理時間",
+                                format="%.2f 秒"
+                            )
+                        )
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+
+                if any(
+                    str(
+                        row.get("processing_type", "")
+                        or ""
+                    ).strip() == "unclassified"
+                    for row in processing_type_summary
+                ):
+                    st.caption(
+                        "区分未設定には、処理区分の記録を"
+                        "追加する前の過去ログが含まれます。"
+                    )
+
+            else:
+                st.info("処理区分別の集計データはありません。")
+
             # 計算メモ内容表示
             st.markdown("##### 📊 計算案件一覧")
             try:
