@@ -15611,9 +15611,13 @@ if is_admin:
                                 merged_logs[msg_id]["judge_in"] = in_t
                                 merged_logs[msg_id]["judge_out"] = out_t
                                 merged_logs[msg_id]["judge_cost"] = cost
-                                merged_logs[msg_id]["processing_type"] = (
+                                router_processing_type = (
                                     extract_processing_type(log.get("details", ""))
                                 )
+                                if router_processing_type != "unclassified":
+                                    merged_logs[msg_id][
+                                        "processing_type"
+                                    ] = router_processing_type
                                 merged_logs[msg_id]["judge_result"] = (
                                     log.get("details", "")
                                 )
