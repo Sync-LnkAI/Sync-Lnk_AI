@@ -14782,19 +14782,34 @@ if is_admin:
 
             audit_display_section = st.session_state.get("audit_display_section", "")
 
-            user_summary_res = (
-                supabase
-                .rpc("get_user_audit_summary", {"p_user_id": str(selected_audit_user)})
-                .execute()
-            )
+            user_summary = {}
 
-            user_summary = (
-                user_summary_res.data[0]
-                if user_summary_res.data
-                else {}
-            )
+            if audit_display_section == "usage_summary":
+                try:
+                    user_summary_res = (
+                        supabase
+                        .rpc(
+                            "get_user_audit_summary",{
+                                "p_user_id": str(selected_audit_user)
+                            }
+                        )
+                        .execute()
+                    )
 
-            normal_chat_count = int(user_summary.get("normal_chat_count", 0) or 0)
+                    user_summary = (
+                        user_summary_res.data[0]
+                        if user_summary_res.data
+                        else {}
+                    )
+
+                except Exception as e:
+                    print(
+                        "ユーザー監査集計取得エラー: "
+                        f"{type(e).__name__}: {e}"
+                    )
+                    user_summary = {}
+
+            normal_chat_count = inSt(user_summary.get("normal_chat_count", 0) or 0)
             plan_chat_count = int(user_summary.get("plan_chat_count", 0) or 0)
             plan_reflection_count = int(user_summary.get("plan_reflection_count", 0) or 0)
 
