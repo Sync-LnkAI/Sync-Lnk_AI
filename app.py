@@ -14809,7 +14809,7 @@ if is_admin:
                     )
                     user_summary = {}
 
-            normal_chat_count = inSt(user_summary.get("normal_chat_count", 0) or 0)
+            normal_chat_count = int(user_summary.get("normal_chat_count", 0) or 0)
             plan_chat_count = int(user_summary.get("plan_chat_count", 0) or 0)
             plan_reflection_count = int(user_summary.get("plan_reflection_count", 0) or 0)
 
