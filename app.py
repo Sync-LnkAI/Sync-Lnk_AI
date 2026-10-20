@@ -15115,28 +15115,29 @@ if is_admin:
             #  ユーザー設定情報、アクティビティ集計表示
             col_info1, col_info2 = st.columns(2)
 
-            with col_info1:
-                has_long_memory = "あり" if len(audit_facts) > 0 else "なし"
-                st.markdown(
-                    "<div style='background-color: rgba(2, 136, 209, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #0288d1;'>"
-                    "<h5 style='margin-top:0; color:#0288d1; font-weight:bold;'>🎨 【デザイン・外観・プラン設定】</h5>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>会員プラン：</b> {audit_plan}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>現在のAI名称：</b> {audit_concierge_name}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>カラーテーマ：</b> {audit_theme}</p>"
-                    "<br>"
-                    "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIからの呼び方：</b> {audit_user_honorific}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIの一人称：</b> {audit_first_person}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>絵文字の量：</b> {audit_emoji_setting}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>人格：</b> {audit_style_preset}</p>"
-                    f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶：</b> {has_long_memory}</p>"
-                    # f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶有無：</b> {len(audit_facts)} 件</p>"
-                    "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
-                    f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_real_instruction }</pre>"
-                    "</div>",
-                    unsafe_allow_html=True
-                )
+            if audit_display_section == "user_settings":
+                with col_info1:
+                    has_long_memory = "あり" if len(audit_facts) > 0 else "なし"
+                    st.markdown(
+                        "<div style='background-color: rgba(2, 136, 209, 0.08); padding: 16px; border-radius: 8px; border-left: 5px solid #0288d1;'>"
+                        "<h5 style='margin-top:0; color:#0288d1; font-weight:bold;'>🎨 【デザイン・外観・プラン設定】</h5>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>会員プラン：</b> {audit_plan}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>現在のAI名称：</b> {audit_concierge_name}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>カラーテーマ：</b> {audit_theme}</p>"
+                        "<br>"
+                        "<h5 style='color:#0288d1; font-weight:bold;'>👤 【ユーザー基本プロファイル】</h5>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>登録ユーザー名：</b> {audit_user_name}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIからの呼び方：</b> {audit_user_honorific}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>AIの一人称：</b> {audit_first_person}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>絵文字の量：</b> {audit_emoji_setting}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>人格：</b> {audit_style_preset}</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶：</b> {has_long_memory}</p>"
+                        # f"<p style='margin: 6px 0; font-size:14px;'>・<b>長期記憶有無：</b> {len(audit_facts)} 件</p>"
+                        "<h5 style='color:#0288d1; font-weight:bold;'>📝 具体的な口調・振る舞いの指示</h5>"
+                        f"<pre style='background-color: white; padding: 10px; border-radius: 4px; border: 1px solid #e0e0e0; white-space: pre-wrap; font-size:12px; color:#333;'>{audit_real_instruction }</pre>"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
 
             with col_info2:
                 st.markdown(
