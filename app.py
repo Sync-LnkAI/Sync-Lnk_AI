@@ -15236,19 +15236,16 @@ if is_admin:
 
                     kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
 
-                    kpi_col1.metric(
-                        "簡易機能の実行回数",
-                        f"{verification_count:,} 回"
+                    kpi_col1.markdown(
+                        f"**簡易機能の実行回数：{verification_count:,} 回**"
                     )
 
-                    kpi_col2.metric(
-                        "簡易機能の総原価",
-                        f"¥ {verification_total_cost:.4f}"
+                    kpi_col2.markdown(
+                        f"**簡易機能の総原価：¥ {verification_total_cost:.4f}**"
                     )
 
-                    kpi_col3.metric(
-                        "簡易機能の平均原価",
-                        f"¥ {verification_average_cost:.4f} / 回"
+                    kpi_col3.markdown(
+                        f"**簡易機能の平均原価：¥ {verification_average_cost:.4f} / 回**"
                     )
 
                 st.dataframe(
