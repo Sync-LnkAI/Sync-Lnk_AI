@@ -14835,49 +14835,7 @@ if is_admin:
 
             audit_real_instruction = "設定データなし"
 
-            # リアルタイムKPI自動計算
-            processing_summary_period = st.selectbox(
-                "処理区分集計の対象期間",
-                ["全期間", "直近7日", "直近30日", "今月"],
-                index=2,
-                key=(
-                    "processing_summary_period_"
-                    f"{selected_audit_user}"
-                )
-            )
-            processing_summary_now = datetime.now(JST)
-            processing_summary_start_at = None
-            processing_summary_end_at = None
-
-            if processing_summary_period == "直近7日":
-                processing_summary_start_at = (
-                    processing_summary_now
-                    - timedelta(days=7)
-                )
-            elif processing_summary_period == "直近30日":
-                processing_summary_start_at = (
-                    processing_summary_now
-                    - timedelta(days=30)
-                )
-            elif processing_summary_period == "今月":
-                processing_summary_start_at = (
-                    processing_summary_now.replace(
-                        day=1,
-                        hour=0,
-                        minute=0,
-                        second=0,
-                        microsecond=0
-                    )
-                )
-
-            processing_type_summary = (
-                get_user_processing_type_summary(
-                    selected_audit_user,
-                    start_at=processing_summary_start_at,
-                    end_at=processing_summary_end_at
-                )
-            )
-                        
+            # リアルタイムKPI自動計算     
             total_chats = normal_chat_count + plan_chat_count
             start_date = "データなし"
             last_date = "データなし"
@@ -15190,6 +15148,52 @@ if is_admin:
                 )
             
             st.markdown("##### 📊 処理区分別の利用・原価集計")
+            processing_summary_period = st.selectbox(
+                "集計期間",
+                [
+                    "全期間",
+                    "直近7日",
+                    "直近30日",
+                    "今月"
+                ],
+                index=2,
+                key=(
+                    "processing_summary_period_"
+                    f"{selected_audit_user}"
+                )
+            )
+            processing_summary_now = datetime.now(JST)
+            processing_summary_start_at = None
+            processing_summary_end_at = None
+
+            if processing_summary_period == "直近7日":
+                processing_summary_start_at = (
+                    processing_summary_now
+                    - timedelta(days=7)
+                )
+            elif processing_summary_period == "直近30日":
+                processing_summary_start_at = (
+                    processing_summary_now
+                    - timedelta(days=30)
+                )
+            elif processing_summary_period == "今月":
+                processing_summary_start_at = (
+                    processing_summary_now.replace(
+                        day=1,
+                        hour=0,
+                        minute=0,
+                        second=0,
+                        microsecond=0
+                    )
+                )
+
+            processing_type_summary = (
+                get_user_processing_type_summary(
+                    selected_audit_user,
+                    start_at=processing_summary_start_at,
+                    end_at=processing_summary_end_at
+                )
+            )
 
             if processing_type_summary:
                 processing_summary_rows = []
