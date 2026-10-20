@@ -15248,6 +15248,27 @@ if is_admin:
                         f"**簡易機能の平均原価：¥ {verification_average_cost:.4f} / 回**"
                     )
 
+                    for target_type in [
+                        "簡易検索",
+                        "簡易Analysis",
+                        "検索付き簡易Analysis"
+                    ]:
+                        target_rows = verification_df[
+                            verification_df["処理区分"] == target_type
+                        ]
+
+                        if target_rows.empty:
+                            continue
+
+                        target_row = target_rows.iloc[0]
+
+                        st.markdown(
+                            f"**{target_type}："
+                            f"{int(target_row['実行回数']):,} 回"
+                            f"｜平均原価 ¥ {float(target_row['平均原価']):.4f}"
+                            f"｜平均処理時間 {float(target_row['平均処理時間']):.2f} 秒**"
+                        )
+
                 st.dataframe(
                     processing_summary_df,
                     column_config={
