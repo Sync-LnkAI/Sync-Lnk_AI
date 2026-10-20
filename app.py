@@ -936,6 +936,21 @@ AVATAR_PRESETS_USER = {
     "⚡ サンダー": "⚡"
 }
 
+# 検索・分析の処理区分の詳細
+PROCESSING_TYPE_LABELS = {
+    "normal_chat": "通常会話",
+    "simple_search": "簡易検索",
+    "simple_analysis": "簡易Analysis",
+    "simple_search_analysis": ("検索付き簡易Analysis"),
+    "detailed_search": "詳細検索",
+    "detailed_analysis": "詳細Analysis",
+    "detailed_search_analysis": ("検索付き詳細Analysis"),
+    "plan_chat": "計画チャット",
+    "plan_reflection": "計画書反映",
+    "memory_summary": "記憶要約",
+    "unclassified": "区分未設定"
+}
+
 # 画面上の不要な ** 記号を除去する関数
 def clean_bold_markdown(text: str) -> str:
     if not text:
@@ -1002,45 +1017,6 @@ def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) 
             f"{type(e).__name__}: {e}"
         )
         return []
-
-    # """
-    # 💡 古いテーマIDによる細切れ処理（せき止め）を根底から完全に全消去！
-    # ユーザーIDに紐づく全てのチャット履歴を、1本の綺麗な大河（タイムライン）として
-    # エラーを200%絶対に起こさずにSupabaseから時系列順にガバッと取得します。
-    # """
-    # start_time = time.time()
-    # try:
-    #     # 🔒 古い theme_id でのフィルタリングを完全に撤廃し、CURRENT_USER_ID だけで一本釣りします！
-    #     res = (
-    #         supabase
-    #         .table("messages")
-    #         .select(
-    #         "id,"
-    #         "role,"
-    #         "content,"
-    #         "message_id,"
-    #         "response_mode,"
-    #         "created_at"
-    #         )
-    #         .eq("user_id", str(target_id))
-    #         .eq("chat_room", chat_room)
-    #         .order("created_at", desc=True)
-    #         .limit(100)
-    #         .execute()
-    #     ) 
-    #     messages = res.data or []
-    #     messages.reverse()
-
-    #     elapsed = time.time() - start_time
-
-    #     return messages
-  
-    # except Exception as e:
-    #     st.error(
-    #         f"get_messagesエラー: "
-    #         f"{type(e).__name__}: {e}"
-    #     )
-    #     return None
 
 def save_message(
     role: str,
@@ -1695,58 +1671,6 @@ def get_memories(source="manual"):
         print(f"設定データ取得エラー: {e}")
         return []
 
-# ==========================================
-# 旧設定保存関数
-# save_all_user_settings()移行後のため
-# 現在は未使用
-# 動作確認完了後に削除予定
-# ==========================================
-# def save_memory(fact: str, source="manual") -> bool:
-#     """設定情報をmessagesテーブルの検索とは別に、固定ファクトとして保存します"""
-#     try:
-#         embedding_data = get_embedding(
-#             fact,
-#             task_type="RETRIEVAL_DOCUMENT"
-#         )
-
-#         data = {
-#             "user_id": CURRENT_USER_ID,
-#             "category": "基本情報",
-#             "fact": fact,
-#             "source": source,
-#             "embedding": embedding_data
-#         }
-        
-#         result = (
-#             supabase.table(DB_MEMORIES_TABLE)
-#             .insert(data)
-#             .execute()
-#         )
-
-#         return True
-
-#     except Exception as e:
-#         st.error(
-#             f"save_memoryエラー: "
-#             f"{type(e).__name__}: {e}"
-#         )
-
-#         return False
-
-# def delete_memory(memory_id: int) -> bool:
-#     try:
-#         (
-#             supabase
-#             .table(DB_MEMORIES_TABLE)
-#             .delete()
-#             .eq("id", memory_id)
-#             .execute()
-#         )
-#         return True
-#     except Exception as e:
-#         print(f"❌ [DBメモリ削除エラー] {e}")
-#         return False
-
 # 要約の編集内容の保存関数
 def update_memory(memory_id: int, new_fact: str) -> bool:
     try:
@@ -1780,141 +1704,6 @@ def update_memory(memory_id: int, new_fact: str) -> bool:
         )
         return False
 # ==========================================
-
-# ==========================================
-# 旧設定保存関数
-# save_all_user_settings()移行後のため
-# 現在は未使用
-# 動作確認完了後に削除予定
-# ==========================================
-# def save_or_update_user_setting(setting_key: str, new_value: str) -> bool:
-#     """
-#     「AIの名前: タクミ」のような設定値の重複を防ぎ、
-#     古い設定を削除してから最新の設定を1件だけ保存する。
-#     """
-#     new_fact = f"{setting_key}: {new_value}"
-
-#     try:
-#         # 1. 既存の手動設定（source='manual'）をすべて取得
-#         res = supabase.table(DB_MEMORIES_TABLE).select("*").eq("user_id", CURRENT_USER_ID).eq("source", "manual").execute()
-        
-#         # 2. もし過去に同じ設定項目（例: 'AIの名前:'）が存在していれば、それらを物理削除
-#         if res.data:
-#             for item in res.data:
-#                 if item.get("fact", "").startswith(f"{setting_key}:"):
-#                     delete_memory(item["id"])
-#                     print(f"古い設定を上書き削除しました: {item['fact']}")
-                
-#         # 3. 古いゴミを掃除した上で、最新の設定値を保存
-#         return save_memory(fact=new_fact, source="manual")
-        
-#     except Exception as e:
-#         print(f"設定更新エラー: {e}")
-#         return False
-
-# def save_all_user_settings(
-#     settings_dict: dict
-# ) -> bool:
-#     """
-#     設定をまとめて保存する。
-#     settings_dict例:
-#     {
-#         "AIの名前": "ハヤト",
-#         "ユーザー名": "リュウ",
-#         "人格": "🤝 フランクな相棒",
-#         "会話長さ": "長め",
-#         "方言": "関西弁"
-#     }
-#     """
-
-#     try:
-#         save_start = time.time()
-
-#         res = (
-#             supabase
-#             .table(DB_MEMORIES_TABLE)
-#             .select("*")
-#             .eq(
-#                 "user_id",
-#                 CURRENT_USER_ID
-#             )
-#             .eq(
-#                 "source",
-#                 "manual"
-#             )
-#             .execute()
-#         )
-
-#         existing_rows = (
-#             res.data
-#             if res.data
-#             else []
-#         )
-
-#         target_keys = set(
-#             settings_dict.keys()
-#         )
-#         st.info(f"SELECT: {time.time() - save_start:.2f}秒")
-
-#         delete_start = time.time()
-
-#         # 古い設定削除
-#         for row in existing_rows:
-
-#             fact_text = str(
-#                 row.get(
-#                     "fact",
-#                     ""
-#                 )
-#             )
-
-#             for key in target_keys:
-
-#                 if fact_text.startswith(
-#                     f"{key}:"
-#                 ):
-#                     delete_memory(
-#                         row["id"]
-#                     )
-#                     break
-#         st.info(f"DELETE: {time.time() - delete_start:.2f}秒")
-
-#         insert_start = time.time()
-
-#         # 新しい設定保存
-#         for key, value in (
-#             settings_dict.items()
-#         ):
-
-#             data = {
-#                 "user_id": CURRENT_USER_ID,
-#                 "category": "基本情報",
-#                 "fact": f"{key}: {value}",
-#                 "source": "manual",
-#                 "embedding": None
-#             }
-
-#             (
-#                 supabase
-#                 .table(DB_MEMORIES_TABLE)
-#                 .insert(data)
-#                 .execute()
-#             )
-#         st.info(f"INSERT: {time.time() - insert_start:.2f}秒")
-#         st.warning(
-#             f"save_all_user_settings合計: "
-#             f"{time.time() - save_start:.2f}秒"
-#         )
-
-#         return True
-
-#     except Exception as e:
-
-#         print(
-#             f"一括設定保存エラー: {e}"
-#         )
-
-#         return False
 
 def save_all_user_settings(settings_dict: dict) -> bool:
     """
@@ -2567,6 +2356,132 @@ def save_system_audit_log(user_id: str, plan_type: str, event_type: str, process
 
     except Exception as e:
         print(f"⚠️ システム監査ログ保存処理エラー: {type(e).__name__}: {e}")
+
+# 検索や分析の処理区分を抽出する関数
+def extract_audit_detail_value(details: str, key: str) -> str:
+
+    normalized_details = str(details or "").strip()
+    normalized_key = str(key or "").strip()
+
+    if (not normalized_details or not normalized_key):
+        return ""
+
+    prefix = f"{normalized_key}="
+
+    for part in normalized_details.split("|"):
+        normalized_part = str(part or "").strip()
+
+        if normalized_part.startswith(prefix):
+            return normalized_part[len(prefix):].strip()
+
+    return ""
+
+def extract_processing_type(details: str) -> str:
+
+    processing_type = extract_audit_detail_value(details, "処理区分")
+
+    allowed_processing_types = {
+        "normal_chat",
+        "simple_search",
+        "simple_analysis",
+        "simple_search_analysis",
+        "detailed_search",
+        "detailed_analysis",
+        "detailed_search_analysis",
+        "plan_chat",
+        "plan_reflection",
+        "memory_summary"
+    }
+
+    if processing_type in allowed_processing_types:
+        return processing_type
+
+    return "unclassified"
+#===================================================
+
+# 管理画面用の集計関数
+def aggregate_processing_type_metrics(audit_logs: list) -> list[dict]:
+
+    aggregates = {}
+
+    for row in audit_logs or []:
+        event_type = str(row.get("event_type", "") or "").strip()
+
+        # 最終回答単位で回数と総原価を数える
+        if event_type != "CHAT_SUCCESS":
+            continue
+
+        details = str(row.get("details", "") or "")
+        processing_type = (extract_processing_type(details))
+
+        if processing_type not in aggregates:
+            aggregates[processing_type] = {
+                "processing_type": processing_type,
+                "label": PROCESSING_TYPE_LABELS.get(
+                    processing_type,
+                    processing_type
+                ),
+                "execution_count": 0,
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "processing_time": 0.0,
+                "api_cost": 0.0,
+                "total_yen_cost": 0.0
+            }
+
+        aggregate = aggregates[processing_type]
+        aggregate["execution_count"] += 1
+        aggregate["in_tokens"] += int(row.get("in_tokens", 0) or 0)
+        aggregate["out_tokens"] += int(row.get("out_tokens", 0) or 0)
+        aggregate["processing_time"] += float(row.get("processing_time", 0.0) or 0.0)
+        aggregate["api_cost"] += float(row.get("api_cost", 0.0) or 0.0)
+        aggregate["total_yen_cost"] += float(
+            row.get("total_yen_cost", 0.0)
+            or row.get("api_cost", 0.0)
+            or 0.0
+        )
+
+    results = []
+
+    display_order = [
+        "normal_chat",
+        "simple_search",
+        "simple_analysis",
+        "simple_search_analysis",
+        "detailed_search",
+        "detailed_analysis",
+        "detailed_search_analysis",
+        "unclassified"
+    ]
+
+    for processing_type in display_order:
+        aggregate = aggregates.get(processing_type)
+
+        if not aggregate:
+            continue
+
+        execution_count = int(aggregate["execution_count"])
+
+        if execution_count > 0:
+            average_cost = (aggregate["total_yen_cost"] / execution_count)
+            average_time = (aggregate["processing_time"] / execution_count)
+        else:
+            average_cost = 0.0
+            average_time = 0.0
+
+        results.append({
+            "処理区分": aggregate["label"],
+            "内部コード": processing_type,
+            "実行回数": execution_count,
+            "入力token": aggregate["in_tokens"],
+            "出力token": aggregate["out_tokens"],
+            "総原価（円）": round(aggregate["total_yen_cost"], 6),
+            "平均原価（円/回）": round(average_cost, 6),
+            "平均処理時間（秒）": round(average_time, 3)
+        })
+
+    return results
+#===================================================
 
 # ==================================================================
 # 🎨 【新設】 キャラクター自動憑依型・エラーメッセージ生成エンジン
