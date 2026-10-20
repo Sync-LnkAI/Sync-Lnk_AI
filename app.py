@@ -15180,6 +15180,36 @@ if is_admin:
                     })
 
                 processing_summary_df = pd.DataFrame(processing_summary_rows)
+                processing_type_display_order = {
+                    "通常会話": 1,
+                    "簡易検索": 2,
+                    "簡易Analysis": 3,
+                    "検索付き簡易Analysis": 4,
+                    "詳細検索": 5,
+                    "詳細Analysis": 6,
+                    "検索付き詳細Analysis": 7,
+                    "区分未設定": 99
+                }
+
+                processing_summary_df[
+                    "_display_order"
+                ] = (
+                    processing_summary_df["処理区分"]
+                    .map(processing_type_display_order)
+                    .fillna(98)
+                )
+
+                processing_summary_df = (
+                    processing_summary_df
+                    .sort_values(
+                        "_display_order",
+                        ascending=True
+                    )
+                    .drop(
+                        columns=["_display_order"]
+                    )
+                    .reset_index(drop=True)
+                )
 
                 st.dataframe(
                     processing_summary_df,
