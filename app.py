@@ -14748,8 +14748,39 @@ if is_admin:
 
             selected_audit_user = st.selectbox(
                 "🔍 対象のユーザーIDを選択してください：",
-                all_users
+                all_users,
+                key="selected_audit_user"
             )
+
+            previous_audit_user = st.session_state.get("previous_audit_user")
+
+            if previous_audit_user != selected_audit_user:
+                st.session_state["previous_audit_user"] = (selected_audit_user)
+                st.session_state["audit_display_section"] = ""
+
+            if "audit_display_section" not in st.session_state:
+                st.session_state["audit_display_section"] = ""
+
+            button_col1, button_col2, button_col3 = st.columns(3)
+
+            if button_col1.button("👤 ユーザー設定", use_container_width=True):
+                st.session_state["audit_display_section"] = ("user_settings")
+
+            if button_col2.button("📊 利用・原価集計", use_container_width=True):
+                st.session_state["audit_display_section"] = ("usage_summary")
+
+            if button_col3.button("📈 処理区分別集計", use_container_width=True):
+                st.session_state["audit_display_section"] = ("processing_summary")
+
+            button_col4, button_col5 = st.columns(2)
+
+            if button_col4.button("🏠 計算案件", use_container_width=True):
+                st.session_state["audit_display_section"] = ("calculation_cases")
+
+            if button_col5.button("💬 個別会話ログ", use_container_width=True):
+                st.session_state["audit_display_section"] = ("conversation_logs")
+
+            audit_display_section = st.session_state.get("audit_display_section", "")
 
             user_summary_res = (
                 supabase
