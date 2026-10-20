@@ -14900,14 +14900,15 @@ if is_admin:
             user_logs = []
 
             try:
-                user_logs = (
-                    supabase
-                    .table("messages")
-                    .select("created_at", "role")
-                    .eq("user_id", selected_audit_user)
-                    .execute()
-                    .data
-                )
+                if audit_display_section == "usage_summary":
+                    user_logs = (
+                        supabase
+                        .table("messages")
+                        .select("created_at", "role")
+                        .eq("user_id", selected_audit_user)
+                        .execute()
+                        .data
+                    )
                 
                 if user_logs:
                     # 使用開始日・最終会話日・総稼働日数を計算
