@@ -10331,7 +10331,7 @@ def get_user_processing_type_summary(
 
         response = (
             supabase
-            .rpc("get_user_processing_type_summary", rpc_params)
+            .rpc("get_user_processing_type_total_summary", rpc_params)
             .execute()
         )
 
