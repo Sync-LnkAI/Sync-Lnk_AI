@@ -15509,8 +15509,11 @@ if is_admin:
             st.markdown("##### ⏱️ このユーザーのタイムライン式システムログ（最新50件）")
             if audit_display_section == "conversation_logs":
                 show_timeline_logs = st.button(
-                    "📖 システムログを表示",
-                    key="show_timeline_logs"
+                    "システムログを表示",
+                    key=(
+                        "show_timeline_logs_"
+                        f"{selected_audit_user}"
+                    )
                 )
                 
                 try:
