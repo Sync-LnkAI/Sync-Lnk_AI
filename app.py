@@ -15214,6 +15214,43 @@ if is_admin:
                     .reset_index(drop=True)
                 )
 
+                verification_types = {
+                    "簡易検索",
+                    "簡易Analysis",
+                    "検索付き簡易Analysis"
+                }
+
+                verification_df = processing_summary_df[
+                    processing_summary_df["処理区分"].isin(verification_types)
+                ]
+
+                if not verification_df.empty:
+                    verification_count = int(verification_df["実行回数"].sum())
+                    verification_total_cost = float(verification_df["総原価"].sum())
+                    verification_average_cost = (
+                        verification_total_cost
+                        / verification_count
+                        if verification_count > 0
+                        else 0.0
+                    )
+
+                    kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+
+                    kpi_col1.metric(
+                        "簡易機能の実行回数",
+                        f"{verification_count:,} 回"
+                    )
+
+                    kpi_col2.metric(
+                        "簡易機能の総原価",
+                        f"¥ {verification_total_cost:.4f}"
+                    )
+
+                    kpi_col3.metric(
+                        "簡易機能の平均原価",
+                        f"¥ {verification_average_cost:.4f} / 回"
+                    )
+
                 st.dataframe(
                     processing_summary_df,
                     column_config={
