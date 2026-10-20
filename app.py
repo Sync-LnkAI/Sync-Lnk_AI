@@ -15173,6 +15173,9 @@ if is_admin:
                         "実行回数": int(row.get("execution_count", 0) or 0),
                         "入力token": int(row.get("total_in_tokens", 0) or 0),
                         "出力token": int(row.get("total_out_tokens", 0) or 0),
+                        "ルーター原価": float(row.get("router_yen_cost", 0) or 0),
+                        "検索原価": float(row.get("search_yen_cost", 0) or 0),
+                        "回答原価": float(row.get("answer_yen_cost", 0) or 0),
                         "総原価": float(row.get("total_yen_cost", 0) or 0),
                         "平均原価": float(row.get("average_yen_cost", 0) or 0),
                         "最大原価": float(row.get("maximum_yen_cost", 0) or 0),
@@ -15226,6 +15229,18 @@ if is_admin:
                         "出力token": st.column_config.NumberColumn(
                             "出力token",
                             format="%d"
+                        ),
+                        "ルーター原価": st.column_config.NumberColumn(
+                            "ルーター原価",
+                            format="¥ %.4f"
+                        ),
+                        "検索原価": st.column_config.NumberColumn(
+                            "検索原価",
+                            format="¥ %.4f"
+                        ),
+                        "回答原価": st.column_config.NumberColumn(
+                            "回答原価",
+                            format="¥ %.4f"
                         ),
                         "総原価": st.column_config.NumberColumn(
                             "総原価",
