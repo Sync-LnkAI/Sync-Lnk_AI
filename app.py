@@ -14726,7 +14726,8 @@ if is_admin:
     # 📊 【管理者専用・タブ3】 システム管理者管理ダッシュボード
     # ──────────────────────────────────────────
     with all_tabs[5]:
-        st.write("### 📊 システム管理者専用ダッシュボード")
+        # st.write("### 📊 システム管理者専用ダッシュボード")
+        st.markdown("**📊 システム管理者専用ダッシュボード**")
         admin_mode = st.radio(
             "表示する分析画面を選択してください", 
             ["👤 ユーザー別利用状況", "📈 全体アクティビティ・統計アナリティクス"], 
@@ -14737,7 +14738,8 @@ if is_admin:
 
         # 👤 画面①：ユーザー個別のカルテ表示および1メッセージ単位の詳細明細タイムライン
         if admin_mode == "👤 ユーザー別利用状況":
-            st.subheader("👤 ユーザー別・稼働状況およびタイムライン")
+            # st.subheader("👤 ユーザー別・稼働状況およびタイムライン")
+            st.markdown("**👤 ユーザー別・稼働状況およびタイムライン**")
             all_users = [ADMIN_USER_ID]
             try:
                 user_res = supabase.table("user_token_stats").select("user_id").execute()
@@ -14842,7 +14844,7 @@ if is_admin:
             
             st.markdown("---")
             
-            st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
+            # st.markdown(f"#### 📋 ユーザー [ `{selected_audit_user}` ] の現在の設定およびプロフィール")
             
             # データベースから監査対象ユーザーの最新マニュアル設定情報を抽出
             audit_concierge_name = "コンシェルジュ"
