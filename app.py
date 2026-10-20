@@ -15113,7 +15113,6 @@ if is_admin:
                 )
 
             #  ユーザー設定情報、アクティビティ集計表示
-            # col_info1, col_info2 = st.columns(2)
             col_info1 = st.container()
             col_info2 = st.container()
 
@@ -15199,236 +15198,237 @@ if is_admin:
                         unsafe_allow_html=True
                     )
             
-            st.markdown("##### 📊 処理区分別の利用・原価集計")
-            processing_summary_period = st.selectbox(
-                "集計期間",
-                [
-                    "全期間",
-                    "直近7日",
-                    "直近30日",
-                    "今月"
-                ],
-                index=2,
-                key=(
-                    "processing_summary_period_"
-                    f"{selected_audit_user}"
+            if audit_display_section == "processing_summary":
+                st.markdown("##### 📊 処理区分別の利用・原価集計")
+                processing_summary_period = st.selectbox(
+                    "集計期間",
+                    [
+                        "全期間",
+                        "直近7日",
+                        "直近30日",
+                        "今月"
+                    ],
+                    index=2,
+                    key=(
+                        "processing_summary_period_"
+                        f"{selected_audit_user}"
+                    )
                 )
-            )
-            processing_summary_now = datetime.now(JST)
-            processing_summary_start_at = None
-            processing_summary_end_at = None
+                processing_summary_now = datetime.now(JST)
+                processing_summary_start_at = None
+                processing_summary_end_at = None
 
-            if processing_summary_period == "直近7日":
-                processing_summary_start_at = (
-                    processing_summary_now
-                    - timedelta(days=7)
-                )
-            elif processing_summary_period == "直近30日":
-                processing_summary_start_at = (
-                    processing_summary_now
-                    - timedelta(days=30)
-                )
-            elif processing_summary_period == "今月":
-                processing_summary_start_at = (
-                    processing_summary_now.replace(
-                        day=1,
-                        hour=0,
-                        minute=0,
-                        second=0,
-                        microsecond=0
+                if processing_summary_period == "直近7日":
+                    processing_summary_start_at = (
+                        processing_summary_now
+                        - timedelta(days=7)
+                    )
+                elif processing_summary_period == "直近30日":
+                    processing_summary_start_at = (
+                        processing_summary_now
+                        - timedelta(days=30)
+                    )
+                elif processing_summary_period == "今月":
+                    processing_summary_start_at = (
+                        processing_summary_now.replace(
+                            day=1,
+                            hour=0,
+                            minute=0,
+                            second=0,
+                            microsecond=0
+                        )
+                    )
+
+                processing_type_summary = (
+                    get_user_processing_type_summary(
+                        selected_audit_user,
+                        start_at=processing_summary_start_at,
+                        end_at=processing_summary_end_at
                     )
                 )
 
-            processing_type_summary = (
-                get_user_processing_type_summary(
-                    selected_audit_user,
-                    start_at=processing_summary_start_at,
-                    end_at=processing_summary_end_at
-                )
-            )
+                if processing_type_summary:
+                    processing_summary_rows = []
 
-            if processing_type_summary:
-                processing_summary_rows = []
+                    for row in processing_type_summary:
+                        processing_type = str(
+                            row.get(
+                                "processing_type",
+                                "unclassified"
+                            ) or "unclassified"
+                        ).strip()
 
-                for row in processing_type_summary:
-                    processing_type = str(
-                        row.get(
-                            "processing_type",
-                            "unclassified"
-                        ) or "unclassified"
-                    ).strip()
+                        processing_summary_rows.append({
+                            "処理区分": (
+                                PROCESSING_TYPE_LABELS.get(
+                                    processing_type,
+                                    processing_type
+                                )
+                            ),
+                            "実行回数": int(row.get("execution_count", 0) or 0),
+                            "入力token": int(row.get("total_in_tokens", 0) or 0),
+                            "出力token": int(row.get("total_out_tokens", 0) or 0),
+                            "ルーター原価": float(row.get("router_yen_cost", 0) or 0),
+                            "検索原価": float(row.get("search_yen_cost", 0) or 0),
+                            "回答原価": float(row.get("answer_yen_cost", 0) or 0),
+                            "総原価": float(row.get("total_yen_cost", 0) or 0),
+                            "平均原価": float(row.get("average_yen_cost", 0) or 0),
+                            "最大原価": float(row.get("maximum_yen_cost", 0) or 0),
+                            "平均処理時間": float(row.get("average_processing_time", 0) or 0)
+                        })
 
-                    processing_summary_rows.append({
-                        "処理区分": (
-                            PROCESSING_TYPE_LABELS.get(
-                                processing_type,
-                                processing_type
-                            )
-                        ),
-                        "実行回数": int(row.get("execution_count", 0) or 0),
-                        "入力token": int(row.get("total_in_tokens", 0) or 0),
-                        "出力token": int(row.get("total_out_tokens", 0) or 0),
-                        "ルーター原価": float(row.get("router_yen_cost", 0) or 0),
-                        "検索原価": float(row.get("search_yen_cost", 0) or 0),
-                        "回答原価": float(row.get("answer_yen_cost", 0) or 0),
-                        "総原価": float(row.get("total_yen_cost", 0) or 0),
-                        "平均原価": float(row.get("average_yen_cost", 0) or 0),
-                        "最大原価": float(row.get("maximum_yen_cost", 0) or 0),
-                        "平均処理時間": float(row.get("average_processing_time", 0) or 0)
-                    })
+                    processing_summary_df = pd.DataFrame(processing_summary_rows)
+                    processing_type_display_order = {
+                        "通常会話": 1,
+                        "簡易検索": 2,
+                        "簡易Analysis": 3,
+                        "検索付き簡易Analysis": 4,
+                        "詳細検索": 5,
+                        "詳細Analysis": 6,
+                        "検索付き詳細Analysis": 7,
+                        "区分未設定": 99
+                    }
 
-                processing_summary_df = pd.DataFrame(processing_summary_rows)
-                processing_type_display_order = {
-                    "通常会話": 1,
-                    "簡易検索": 2,
-                    "簡易Analysis": 3,
-                    "検索付き簡易Analysis": 4,
-                    "詳細検索": 5,
-                    "詳細Analysis": 6,
-                    "検索付き詳細Analysis": 7,
-                    "区分未設定": 99
-                }
-
-                processing_summary_df[
-                    "_display_order"
-                ] = (
-                    processing_summary_df["処理区分"]
-                    .map(processing_type_display_order)
-                    .fillna(98)
-                )
-
-                processing_summary_df = (
-                    processing_summary_df
-                    .sort_values(
-                        "_display_order",
-                        ascending=True
-                    )
-                    .drop(
-                        columns=["_display_order"]
-                    )
-                    .reset_index(drop=True)
-                )
-
-                verification_types = {
-                    "簡易検索",
-                    "簡易Analysis",
-                    "検索付き簡易Analysis"
-                }
-
-                verification_df = processing_summary_df[
-                    processing_summary_df["処理区分"].isin(verification_types)
-                ]
-
-                if not verification_df.empty:
-                    verification_count = int(verification_df["実行回数"].sum())
-                    verification_total_cost = float(verification_df["総原価"].sum())
-                    verification_average_cost = (
-                        verification_total_cost
-                        / verification_count
-                        if verification_count > 0
-                        else 0.0
+                    processing_summary_df[
+                        "_display_order"
+                    ] = (
+                        processing_summary_df["処理区分"]
+                        .map(processing_type_display_order)
+                        .fillna(98)
                     )
 
-                    kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
-
-                    kpi_col1.markdown(
-                        f"**簡易機能の実行回数：{verification_count:,} 回**"
+                    processing_summary_df = (
+                        processing_summary_df
+                        .sort_values(
+                            "_display_order",
+                            ascending=True
+                        )
+                        .drop(
+                            columns=["_display_order"]
+                        )
+                        .reset_index(drop=True)
                     )
 
-                    kpi_col2.markdown(
-                        f"**簡易機能の総原価：¥ {verification_total_cost:.4f}**"
-                    )
-
-                    kpi_col3.markdown(
-                        f"**簡易機能の平均原価：¥ {verification_average_cost:.4f} / 回**"
-                    )
-
-                    for target_type in [
+                    verification_types = {
                         "簡易検索",
                         "簡易Analysis",
                         "検索付き簡易Analysis"
-                    ]:
-                        target_rows = verification_df[
-                            verification_df["処理区分"] == target_type
-                        ]
+                    }
 
-                        if target_rows.empty:
-                            continue
+                    verification_df = processing_summary_df[
+                        processing_summary_df["処理区分"].isin(verification_types)
+                    ]
 
-                        target_row = target_rows.iloc[0]
-
-                        st.markdown(
-                            f"**{target_type}："
-                            f"{int(target_row['実行回数']):,} 回"
-                            f"｜平均原価 ¥ {float(target_row['平均原価']):.4f}"
-                            f"｜平均処理時間 {float(target_row['平均処理時間']):.2f} 秒**"
+                    if not verification_df.empty:
+                        verification_count = int(verification_df["実行回数"].sum())
+                        verification_total_cost = float(verification_df["総原価"].sum())
+                        verification_average_cost = (
+                            verification_total_cost
+                            / verification_count
+                            if verification_count > 0
+                            else 0.0
                         )
 
-                st.dataframe(
-                    processing_summary_df,
-                    column_config={
-                        "処理区分": st.column_config.TextColumn("処理区分"),
-                        "実行回数": st.column_config.NumberColumn(
-                            "実行回数",
-                            format="%d 回"
-                        ),
-                        "入力token": st.column_config.NumberColumn(
-                            "入力token",
-                            format="%d"
-                        ),
-                        "出力token": st.column_config.NumberColumn(
-                            "出力token",
-                            format="%d"
-                        ),
-                        "ルーター原価": st.column_config.NumberColumn(
-                            "ルーター原価",
-                            format="¥ %.4f"
-                        ),
-                        "検索原価": st.column_config.NumberColumn(
-                            "検索原価",
-                            format="¥ %.4f"
-                        ),
-                        "回答原価": st.column_config.NumberColumn(
-                            "回答原価",
-                            format="¥ %.4f"
-                        ),
-                        "総原価": st.column_config.NumberColumn(
-                            "総原価",
-                            format="¥ %.4f"
-                        ),
-                        "平均原価": st.column_config.NumberColumn(
-                            "平均原価",
-                            format="¥ %.4f"
-                        ),
-                        "最大原価": st.column_config.NumberColumn(
-                            "最大原価",
-                            format="¥ %.4f"
-                        ),
-                        "平均処理時間": (
-                            st.column_config.NumberColumn(
-                                "平均処理時間",
-                                format="%.2f 秒"
+                        kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+
+                        kpi_col1.markdown(
+                            f"**簡易機能の実行回数：{verification_count:,} 回**"
+                        )
+
+                        kpi_col2.markdown(
+                            f"**簡易機能の総原価：¥ {verification_total_cost:.4f}**"
+                        )
+
+                        kpi_col3.markdown(
+                            f"**簡易機能の平均原価：¥ {verification_average_cost:.4f} / 回**"
+                        )
+
+                        for target_type in [
+                            "簡易検索",
+                            "簡易Analysis",
+                            "検索付き簡易Analysis"
+                        ]:
+                            target_rows = verification_df[
+                                verification_df["処理区分"] == target_type
+                            ]
+
+                            if target_rows.empty:
+                                continue
+
+                            target_row = target_rows.iloc[0]
+
+                            st.markdown(
+                                f"**{target_type}："
+                                f"{int(target_row['実行回数']):,} 回"
+                                f"｜平均原価 ¥ {float(target_row['平均原価']):.4f}"
+                                f"｜平均処理時間 {float(target_row['平均処理時間']):.2f} 秒**"
                             )
-                        )
-                    },
-                    hide_index=True,
-                    use_container_width=True
-                )
 
-                if any(
-                    str(
-                        row.get("processing_type", "")
-                        or ""
-                    ).strip() == "unclassified"
-                    for row in processing_type_summary
-                ):
-                    st.caption(
-                        "区分未設定には、処理区分の記録を"
-                        "追加する前の過去ログが含まれます。"
+                    st.dataframe(
+                        processing_summary_df,
+                        column_config={
+                            "処理区分": st.column_config.TextColumn("処理区分"),
+                            "実行回数": st.column_config.NumberColumn(
+                                "実行回数",
+                                format="%d 回"
+                            ),
+                            "入力token": st.column_config.NumberColumn(
+                                "入力token",
+                                format="%d"
+                            ),
+                            "出力token": st.column_config.NumberColumn(
+                                "出力token",
+                                format="%d"
+                            ),
+                            "ルーター原価": st.column_config.NumberColumn(
+                                "ルーター原価",
+                                format="¥ %.4f"
+                            ),
+                            "検索原価": st.column_config.NumberColumn(
+                                "検索原価",
+                                format="¥ %.4f"
+                            ),
+                            "回答原価": st.column_config.NumberColumn(
+                                "回答原価",
+                                format="¥ %.4f"
+                            ),
+                            "総原価": st.column_config.NumberColumn(
+                                "総原価",
+                                format="¥ %.4f"
+                            ),
+                            "平均原価": st.column_config.NumberColumn(
+                                "平均原価",
+                                format="¥ %.4f"
+                            ),
+                            "最大原価": st.column_config.NumberColumn(
+                                "最大原価",
+                                format="¥ %.4f"
+                            ),
+                            "平均処理時間": (
+                                st.column_config.NumberColumn(
+                                    "平均処理時間",
+                                    format="%.2f 秒"
+                                )
+                            )
+                        },
+                        hide_index=True,
+                        use_container_width=True
                     )
 
-            else:
-                st.info("処理区分別の集計データはありません。")
+                    if any(
+                        str(
+                            row.get("processing_type", "")
+                            or ""
+                        ).strip() == "unclassified"
+                        for row in processing_type_summary
+                    ):
+                        st.caption(
+                            "区分未設定には、処理区分の記録を"
+                            "追加する前の過去ログが含まれます。"
+                        )
+
+                else:
+                    st.info("処理区分別の集計データはありません。")
 
             # 計算メモ内容表示
             st.markdown("##### 📊 計算案件一覧")
