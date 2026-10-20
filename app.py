@@ -15697,6 +15697,13 @@ if is_admin:
                                     else out_t
                                 )
                                 merged_logs[msg_id]["chat_cost"] = (cost)
+                                chat_processing_type = (
+                                    extract_processing_type(log.get("details", ""))
+                                )
+                                if chat_processing_type != "unclassified":
+                                    merged_logs[msg_id][
+                                        "processing_type"
+                                    ] = chat_processing_type
                                 merged_logs[msg_id]["search_time"] = (
                                     log.get("search_processing_time", 0.0)
                                     if log.get("search_processing_time") is not None
