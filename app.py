@@ -4154,6 +4154,20 @@ MODE_PROMPTS = {
     """
 }
 
+SIMPLE_ANALYSIS_PROMPT = """
+    【簡易Analysisの回答ルール】
+    ・無料の簡易Analysisとして、重要な判断材料に絞って回答してください。
+    ・最初に結論または推奨案を短く示してください。
+    ・通常は、結論、主な理由、メリット・デメリット、注意点の順で簡潔に整理してください。
+    ・比較対象は、ユーザーが明示した対象を除き、原則として最大3案程度にしてください。
+    ・メリットとデメリットは、それぞれ重要なものを最大3点程度に絞ってください。
+    ・複数のシナリオや派生案を必要以上に広げないでください。
+    ・網羅的なレポート、長い背景説明、一般論の繰り返しは避けてください。
+    ・ユーザーが「詳しく」「内訳」「根拠」「計算式」などを求めていない場合は、短めから普通程度の長さにしてください。
+    ・検索結果を使用する場合も、すべての情報を列挙せず、結論に必要な違いだけを示してください。
+    ・正確性や重要な注意事項を、文章を短くするために省略してはいけません。
+    """.strip()
+
 # ==========================================
 # 不動産計算要否判定関数
 REAL_ESTATE_SALE_HINT_WORDS = {
@@ -13259,6 +13273,12 @@ with all_tabs[0]:
                             response_mode,
                             MODE_PROMPTS["default"]
                         )
+                        simple_analysis_prompt_block = ""
+                        if processing_type in {
+                            "simple_analysis",
+                            "simple_search_analysis"
+                        }:
+                            simple_analysis_prompt_block = (SIMPLE_ANALYSIS_PROMPT)
 
                         short_history_lines = recent_history_lines[-2:]
                         short_history_str = "\n".join(
@@ -13403,6 +13423,7 @@ with all_tabs[0]:
 
                             {selected_mode_prompt}
                             {numeric_estimate_instruction}
+                            {simple_analysis_prompt_block}
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
