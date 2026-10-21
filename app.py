@@ -3483,8 +3483,10 @@ def search_past_logs_parallel(
         return [
             {
                 "query": queries[0], 
-                "results": search_past_logs_hybrid(queries[0]),
-                excluded_message_ids = excluded_message_ids
+                "results": search_past_logs_hybrid(
+                    queries[0],
+                    excluded_message_ids=excluded_message_ids
+                )
             }
         ]
 
