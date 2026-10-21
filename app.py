@@ -3164,6 +3164,91 @@ def google_search(query: str, model_name: str = None):
         "out_tokens": search_out_tokens
     }
 
+# 検索＋回答の処理関数
+def build_grounded_response_config(
+    processing_type: str,
+    style_preset: str,
+    recent_history: str,
+    user_input: str
+) -> dict:
+    search_rules_prompt = """
+    【検索ルール】
+    ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
+    ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
+    ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
+    ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
+    ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
+    """.strip()
+
+    direct_processing_types = {"simple_search", "simple_search_analysis"}
+    use_direct_response = (processing_type in direct_processing_types)
+
+    if processing_type == "simple_search":
+        response_prompt = (SIMPLE_SEARCH_DIRECT_PROMPT)
+
+    elif processing_type == ("simple_search_analysis"):
+        response_prompt = (SIMPLE_SEARCH_ANALYSIS_DIRECT_PROMPT)
+
+    else:
+        response_prompt = """
+        直近の会話を踏まえて、最新ユーザー発言への回答に必要な情報を検索してください。
+        """.strip()
+
+    if use_direct_response:
+        style_prompt = (
+            SIMPLE_SEARCH_STYLE_PRESETS.get(
+                style_preset,
+                SIMPLE_SEARCH_STYLE_PRESETS[
+                    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+                ]
+            )
+        )
+
+        prompt = f"""
+        {response_prompt}
+
+        {search_rules_prompt}
+
+        【今回の話し方】
+        {style_prompt}
+
+        【直近の会話】
+        {recent_history}
+
+        【最新ユーザー発言】
+        {user_input}
+        """.strip()
+
+        model_name = (GROUNDED_RESPONSE_MODEL_NAME)
+
+    else:
+        prompt = f"""
+        {response_prompt}
+
+        {search_rules_prompt}
+
+        【直近の会話】
+        {recent_history}
+
+        【最新ユーザー発言】
+        {user_input}
+        """.strip()
+
+        model_name = GOOGLE_MODEL_NAME
+
+    return {
+        "prompt": prompt,
+        "model_name": model_name,
+        "use_direct_response": (
+            use_direct_response
+        ),
+        "response_route": (
+            "grounded_direct_response"
+            if use_direct_response
+            else "grounded_search_context"
+        )
+    }
+
 RESPONSE_MODES = {
     "micro_chat",
     "short_chat",
@@ -4208,6 +4293,21 @@ SIMPLE_SEARCH_DIRECT_PROMPT = """
     ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
     ・質問に必要のない背景、比較、経緯、感想、一般論を追加しないでください。
     ・確認できない情報は推測で補わず、確認できないことを明記してください。
+    ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
+    """.strip()
+
+SIMPLE_SEARCH_ANALYSIS_DIRECT_PROMPT = """
+    【処理区分：検索付き簡易Analysis】
+    Google検索で必要な情報を確認し、その結果を使ってユーザーへの完成した回答を作成してください。
+
+    【回答ルール】
+    ・無料の簡易版として、最初に結論または大まかな選び方を1〜2文で示してください。
+    ・ユーザーが指定した対象、条件、確認項目は省略しないでください。
+    ・対象が具体的に指定されていない場合は、代表的な最大3件に絞ってください。
+    ・各対象は、判断に必要な主な特徴を1〜2点程度で簡潔に説明してください。
+    ・詳細な料金表、契約条件、割引条件、例外、網羅的な比較は扱わないでください。
+    ・確認できた事実だけを使用し、不明な情報を推測で補完しないでください。
+    ・最後に、詳しい条件比較が必要な場合は詳細検索・詳細Analysisを利用できることを1文で案内してください。
     ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
     """.strip()
 
@@ -12241,76 +12341,22 @@ with all_tabs[0]:
                         )
 
                         if need_search:
-                            search_rules_prompt = """
-                            【検索ルール】
-                            ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
-                            ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
-                            ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
-                            ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
-                            ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
-                            """.strip()
-
-                            if processing_type == "simple_search":
-                                simple_search_style_prompt = (
-                                    SIMPLE_SEARCH_STYLE_PRESETS.get(
-                                        current_style_preset,
-                                        SIMPLE_SEARCH_STYLE_PRESETS[
-                                            "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
-                                        ]
-                                    )
+                            search_config = (
+                                build_grounded_response_config(
+                                    processing_type=processing_type,
+                                    style_preset=current_style_preset,
+                                    recent_history=recent_history_for_router,
+                                    user_input=user_input
                                 )
+                            )
 
-                                search_query = f"""
-                            {SIMPLE_SEARCH_DIRECT_PROMPT}
-
-                            {search_rules_prompt}
-
-                            【今回の話し方】
-                            {simple_search_style_prompt}
-
-                            【直近の会話】
-                            {recent_history_for_router}
-
-                            【最新ユーザー発言】
-                            {user_input}
-                            """.strip()
-
-                            else:
-                                search_query = f"""
-                            直近の会話を踏まえて、最新ユーザー発言への回答に必要な情報を検索してください。
-
-                            {search_rules_prompt}
-
-                            【直近の会話】
-                            {recent_history_for_router}
-
-                            【最新ユーザー発言】
-                            {user_input}
-                            """.strip()
-                            # search_query = f"""
-                            # 直近の会話を踏まえて、最新ユーザー発言への回答に必要な事実を検索してください。
-
-                            # 【検索ルール】
-                            # ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
-                            # ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
-                            # ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
-                            # ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
-                            # ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
-                            # ・結論やおすすめを作るのではなく、最終回答に必要な事実と比較材料を簡潔に整理してください。
-
-                            # 【直近の会話】
-                            # {recent_history_for_router}
-
-                            # 【最新ユーザー発言】
-                            # {user_input}
-                            # """
-
-                            # search_execution_start = time.time()
-                            # search_response = google_search(search_query)
-                            search_model_name = (
-                                GROUNDED_RESPONSE_MODEL_NAME
-                                if processing_type == "simple_search"
-                                else GOOGLE_MODEL_NAME
+                            search_query = search_config["prompt"]
+                            search_model_name = (search_config["model_name"])
+                            grounded_direct_response = bool(
+                                search_config["use_direct_response"]
+                            )
+                            grounded_response_route = str(
+                                search_config["response_route"]
                             )
 
                             search_execution_start = time.time()
@@ -13561,7 +13607,7 @@ with all_tabs[0]:
                             # ==========================================
                             api_start_time = time.time()
 
-                            if processing_type == "simple_search":
+                            if grounded_direct_response:
                                 chat_result = {
                                     "text": search_result,
                                     "in_tokens": 0,
