@@ -3211,6 +3211,7 @@ def build_grounded_response_config(
 
         【今回の話し方】
         {style_prompt}
+        ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
 
         【直近の会話】
         {recent_history}
