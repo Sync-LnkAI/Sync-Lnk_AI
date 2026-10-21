@@ -766,7 +766,7 @@ STYLE_PRESETS = {
 }
 
 # 簡易検索用の軽量人格定義
-SIMPLE_SEARCH_STYLE_PRESETS = {
+LIGHTWEIGHT_STYLE_PRESETS = {
     "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】": (
         "対等で親しみのある自然なタメ口で回答する。"
         "軽すぎる表現や長い前置きは避け、正確さを優先する。"
@@ -3208,9 +3208,9 @@ def build_grounded_response_config(
 
     if use_direct_response:
         style_prompt = (
-            SIMPLE_SEARCH_STYLE_PRESETS.get(
+            LIGHTWEIGHT_STYLE_PRESETS.get(
                 style_preset,
-                SIMPLE_SEARCH_STYLE_PRESETS[
+                LIGHTWEIGHT_STYLE_PRESETS[
                     "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
                 ]
             )
@@ -3261,6 +3261,36 @@ def build_grounded_response_config(
             else "grounded_search_context"
         )
     }
+#================================================
+
+# 検索なし簡易Analysis用の軽量プロンプト関数
+def build_simple_analysis_instruction(style_preset: str, recent_history: str) -> str:
+    style_prompt = (
+        LIGHTWEIGHT_STYLE_PRESETS.get(
+            style_preset,
+            LIGHTWEIGHT_STYLE_PRESETS[
+                "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+            ]
+        )
+    )
+
+    return f"""
+    {SIMPLE_ANALYSIS_PROMPT}
+
+    【今回の話し方】
+    {style_prompt}
+    ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
+    ・人格表現より、分析内容の正確さと分かりやすさを優先してください。
+
+    【直近の会話】
+    {recent_history}
+
+    【履歴の利用ルール】
+    ・直近の会話は、代名詞、省略された対象、直前の質問への続きだけを理解するために使用してください。
+    ・今回の質問と無関係な過去の話題を回答へ持ち込まないでください。
+    ・長期記憶や過去会話を参照したような事実を推測で追加しないでください。
+    """.strip()
+#================================================
 
 RESPONSE_MODES = {
     "micro_chat",
@@ -4324,6 +4354,45 @@ SIMPLE_SEARCH_ANALYSIS_DIRECT_PROMPT = """
     ・確認できた事実だけを使用し、不明な情報を推測で補完しないでください。
     ・最後に、詳しい条件比較が必要な場合は詳細検索・詳細Analysisを利用できることを1文で案内してください。
     ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
+    """.strip()
+
+DETAILED_SEARCH_DIRECT_PROMPT = """
+    【処理区分：詳細検索】
+    Google検索で必要な情報を十分に確認し、その結果を使ってユーザーへの完成した回答を作成してください。
+
+    【回答ルール】
+    ・最初に、調査結果の結論または確認できた内容の要点を示してください。
+    ・ユーザーが指定した対象、条件、確認項目は省略しないでください。
+    ・公式サイト、公的機関、一次情報を優先し、必要に応じて複数の情報源を確認してください。
+    ・金額、日付、場所、単位、対象期間、適用条件を明確にしてください。
+    ・複数の対象を扱う場合は、対象ごとに同じ確認項目を揃えてください。
+    ・情報源によって内容が異なる場合は、相違点と確認できた範囲を明記してください。
+    ・重要な例外、制限、対象外条件、注意事項は省略しないでください。
+    ・確認できない情報は推測で補わず、確認できなかった内容と確認方法を示してください。
+    ・必要に応じて見出し、箇条書き、比較表を使い、読みやすく整理してください。
+    ・検索過程の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
+    """.strip()
+
+DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT = """
+    【処理区分：検索付き詳細Analysis】
+    Google検索で必要な情報を十分に確認し、検索結果を分析したうえで、ユーザーへの完成した回答を作成してください。
+
+    【回答ルール】
+    ・最初に、分析結果の結論または推奨案を明確に示してください。
+    ・ユーザーが指定した対象、条件、比較項目、判断基準は省略しないでください。
+    ・公式サイト、公的機関、一次情報を優先し、必要に応じて複数の情報源を確認してください。
+    ・金額、日付、場所、単位、対象期間、適用条件を明確にしてください。
+    ・複数の対象を扱う場合は、対象ごとに同じ比較項目を揃えてください。
+    ・事実、推定、分析上の見立てを区別してください。
+    ・各選択肢の利点、欠点、リスク、適する条件を整理してください。
+    ・ユーザーが示した目的や条件に照らして、適合度と優先順位を分析してください。
+    ・推奨案を示す場合は、推奨理由と重要な判断材料を明記してください。
+    ・条件によって結論が変わる場合は、主要なシナリオごとに整理してください。
+    ・情報源によって内容が異なる場合は、相違点と確認できた範囲を明記してください。
+    ・重要な例外、制限、対象外条件、注意事項は省略しないでください。
+    ・確認できない情報は推測で補わず、不足情報と確認方法を示してください。
+    ・必要に応じて見出し、箇条書き、比較表を使い、読みやすく整理してください。
+    ・検索過程の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -12021,8 +12090,6 @@ with all_tabs[0]:
                         # Google検索時間
                         search_execution_elapsed = 0.0
 
-                        router_start_time = time.time()
-
                         # ==========================================
                         # ルーター用 長期記憶作成
                         # ==========================================
@@ -12040,6 +12107,12 @@ with all_tabs[0]:
 
                         calculation_pending = bool(st.session_state.get("real_estate_calculation_pending", False))
 
+                        past_logs_context = []
+                        search_elapsed = 0.0
+                        requires_estimation = False
+
+                        router_elapsed = 0.0
+
                         if is_micro_chat(user_input):
                             response_mode = "micro_chat"
                             route_source = "micro_chat"
@@ -12048,53 +12121,10 @@ with all_tabs[0]:
                             search_judge_in_t = 0
                             search_judge_out_t = 0
                             search_judge_cost = 0
+                            requires_estimation = False
 
                         else:
-                            # 会話の中からキーワードを抽出
-                            keywords = (build_memory_search_query(user_input))
-                            matched_keywords = filter_keywords_by_memory(
-                                    keywords.split(),
-                                    summary_memory_context_for_router
-                            )
-                            related_keywords = extract_related_memory_lines(
-                                    matched_keywords,
-                                    summary_memory_context_for_router
-                            )
-                            # related_keywords_text = " ".join(related_keywords)
-                            debug_text("DEBUG keywords", keywords)
-                            debug_text("DEBUG matched_keywords", matched_keywords)
-                            debug_text("DEBUG related_keywords", related_keywords)
-
-                            search_queries = (
-                                build_past_log_search_queries(
-                                    original_keywords=keywords,
-                                    related_memory_lines=related_keywords,
-                                    max_queries=3
-                                )
-                            )
-                            # debug_json("DEBUG past_log_search_queries",search_queries)
-
-                            search_start_time = time.time()
-
-                            parallel_past_log_results = (
-                                search_past_logs_parallel(
-                                    search_queries = search_queries,
-                                    excluded_message_ids = recent_context_message_ids,
-                                    max_workers=3
-                                )
-                            )
-                            # debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
-
-                            past_logs_context = (
-                                merge_parallel_past_log_results(
-                                    parallel_results=(parallel_past_log_results),
-                                    final_conversation_count=3
-                                )
-                            )
-                            debug_json("DEBUG past_logs_context", past_logs_context)
-
-                            search_elapsed = (time.time() - search_start_time)
-
+                            router_start_time = time.time()
                             (
                                 need_search,
                                 response_mode,
@@ -12107,9 +12137,57 @@ with all_tabs[0]:
                                 user_input=user_input,
                                 recent_history_str=recent_history_for_router
                             )
+                            router_elapsed = time.time() - router_start_time
                             route_source = "llm_router"
+                            
+                            # 通常会話・相談など、ユーザー固有の文脈が役立つ場合だけ
+                            # 関連する過去会話を検索する
+                            if response_mode in {"conversation", "support", "default"}:
+                                keywords = (build_memory_search_query(user_input))
+                                matched_keywords = filter_keywords_by_memory(
+                                        keywords.split(),
+                                        summary_memory_context_for_router
+                                )
+                                related_keywords = extract_related_memory_lines(
+                                        matched_keywords,
+                                        summary_memory_context_for_router
+                                )
+                          
+                                debug_text("DEBUG keywords", keywords)
+                                debug_text("DEBUG matched_keywords", matched_keywords)
+                                debug_text("DEBUG related_keywords", related_keywords)
 
-                        router_elapsed = time.time() - router_start_time
+                                search_queries = (
+                                    build_past_log_search_queries(
+                                        original_keywords=keywords,
+                                        related_memory_lines=related_keywords,
+                                        max_queries=3
+                                    )
+                                )
+                                # debug_json("DEBUG past_log_search_queries",search_queries)
+
+                                search_start_time = time.time()
+
+                                parallel_past_log_results = (
+                                    search_past_logs_parallel(
+                                        search_queries = search_queries,
+                                        excluded_message_ids = recent_context_message_ids,
+                                        max_workers=3
+                                    )
+                                )
+                                # debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
+
+                                past_logs_context = (
+                                    merge_parallel_past_log_results(
+                                        parallel_results=(parallel_past_log_results),
+                                        final_conversation_count=3
+                                    )
+                                )
+                                debug_json("DEBUG past_logs_context", past_logs_context)
+
+                                search_elapsed = (time.time() - search_start_time)                          
+
+                        
                         # debug_text("DEBUG requires_estimation", requires_estimation)
 
                         numeric_estimate_instruction = ""
@@ -13654,10 +13732,28 @@ with all_tabs[0]:
                                     "out_tokens": 0
                                 }
 
-                                chat_provider_used = (GOOGLE_SEARCH_PROVIDER)
-                                chat_model_used = (search_model_name)
-                                chat_route_name = ("grounded_direct_response")
+                                chat_provider_used = GOOGLE_SEARCH_PROVIDER
+                                chat_model_used = search_model_name
+                                chat_route_name = grounded_response_route
 
+                            elif processing_type == "simple_analysis":
+                                simple_analysis_instruction = (
+                                    build_simple_analysis_instruction(
+                                        style_preset=current_style_preset,
+                                        recent_history=recent_history_for_router
+                                    )
+                                )
+
+                                chat_result = generate_ai_response(
+                                    provider=CHAT_PROVIDER,
+                                    system_instruction=simple_analysis_instruction,
+                                    user_prompt=user_input,
+                                    model_name=CHAT_MODEL_NAME
+                                )
+
+                                chat_provider_used = CHAT_PROVIDER
+                                chat_model_used = CHAT_MODEL_NAME
+                                chat_route_name = "lightweight_analysis_response"
                             else:
                                 chat_result = generate_ai_response(
                                     provider=CHAT_PROVIDER,
