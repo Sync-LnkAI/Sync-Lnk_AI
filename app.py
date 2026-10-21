@@ -922,7 +922,6 @@ RESPONSE_LENGTH_PROMPTS = {
     """
 }
 
-
 DIALECT_PROMPTS = {
     "標準語": """
     自然な標準語で回答してください。
@@ -993,6 +992,26 @@ PROCESSING_TYPE_LABELS = {
     "unclassified": "区分未設定"
 }
 
+DETAIL_PROCESSING_TYPE_MAP = {
+    "simple_search": "detailed_search",
+    "simple_analysis": "detailed_analysis",
+    "simple_search_analysis": (
+        "detailed_search_analysis"
+    )
+}
+
+DETAIL_BUTTON_LABELS = {
+    "simple_search": ("🔎 詳しく調べる（10pt）"),
+    "simple_analysis": ("📊 詳しく分析する（10pt）"),
+    "simple_search_analysis": ("🔎📊 詳しく調べて分析する（15pt）")
+}
+
+DETAIL_POINT_COSTS = {
+    "detailed_search": 10,
+    "detailed_analysis": 10,
+    "detailed_search_analysis": 15
+}
+
 # 画面上の不要な ** 記号を除去する関数
 def clean_bold_markdown(text: str) -> str:
     if not text:
@@ -1027,6 +1046,8 @@ def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) 
                 "content,"
                 "message_id,"
                 "response_mode,"
+                "processing_type,"
+                "parent_message_id,"
                 "chat_room,"
                 "plan_project_id,"
                 "created_at"
@@ -1066,7 +1087,9 @@ def save_message(
     message_id: str = "",
     response_mode: str = "",
     chat_room: str = "talk",
-    plan_project_id=None
+    plan_project_id=None,
+    processing_type: str = "",
+    parent_message_id: str = ""
 ) -> bool:
     
     embedding_data = None
@@ -1094,6 +1117,8 @@ def save_message(
             "embedding": embedding_data,
             "message_id": message_id,
             "response_mode": (response_mode if response_mode else None),
+            "processing_type": (processing_type if processing_type else None),
+            "parent_message_id": (parent_message_id if parent_message_id else None),
             "chat_room": chat_room,
             "plan_project_id": plan_project_id
         }
@@ -3298,6 +3323,46 @@ def build_simple_analysis_instruction(style_preset: str, recent_history: str) ->
     """.strip()
 #================================================
 
+# 検索なし詳細Analysis用の指示生成関数
+def build_detailed_analysis_instruction(
+    style_preset: str,
+    original_user_message: str,
+    simple_answer: str
+) -> str:
+    style_prompt = (
+        LIGHTWEIGHT_STYLE_PRESETS.get(
+            style_preset,
+            LIGHTWEIGHT_STYLE_PRESETS[
+                "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+            ]
+        )
+    )
+
+    return f"""
+    {DETAILED_ANALYSIS_PROMPT}
+
+    【今回の話し方】
+    {style_prompt}
+    ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
+    ・人格表現より、分析内容の正確さと分かりやすさを優先してください。
+
+    【簡易回答の検証ルール】
+    ・簡易回答は参考情報として扱い、正しい前提で引き継がないでください。
+    ・元の質問を基準に、簡易回答の不足、矛盾、見落としを独立して再検討してください。
+    ・訂正が必要な場合は、訂正箇所と正しい内容を明確にしてください。
+    ・訂正が不要な場合は、無理に「訂正なし」などの項目を作らないでください。
+    ・詳細版で追加された判断材料を中心に回答してください。
+
+    【元のユーザー質問】
+    {original_user_message}
+
+    【直前の簡易回答】
+    {simple_answer}
+
+    {LIGHTWEIGHT_OUTPUT_FORMAT_PROMPT}
+    """.strip()
+#================================================
+
 RESPONSE_MODES = {
     "micro_chat",
     "short_chat",
@@ -4409,6 +4474,27 @@ DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT = """
     ・確認できない情報は推測で補わず、不足情報と確認方法を示してください。
     ・必要に応じて見出し、箇条書き、比較表を使い、読みやすく整理してください。
     ・検索過程の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
+    """.strip()
+
+DETAILED_ANALYSIS_PROMPT = """
+    【処理区分：詳細Analysis】
+    元のユーザー質問と直前の簡易回答を確認し、簡易回答を独立して検証したうえで、詳細な分析結果を作成してください。
+
+    【分析ルール】
+    ・最初に、分析結果の結論または推奨案を明確に示してください。
+    ・簡易回答を正しい前提として扱わず、不足、矛盾、見落としがないか再検討してください。
+    ・元のユーザー質問で指定された対象、条件、比較項目、判断基準は省略しないでください。
+    ・事実、前提、推定、分析上の見立てを区別してください。
+    ・目的、選択肢、利点、欠点、リスク、適する条件を必要に応じて整理してください。
+    ・複数の選択肢がある場合は、同じ判断基準で比較してください。
+    ・ユーザーが示した目的や条件に照らして、適合度と優先順位を分析してください。
+    ・推奨案を示す場合は、推奨理由と重要な判断材料を明記してください。
+    ・条件によって結論が変わる場合は、主要なシナリオごとに整理してください。
+    ・簡易回答に訂正が必要な場合は、訂正箇所と正しい内容を明確にしてください。
+    ・簡易回答で正しかった内容を必要以上に繰り返さず、詳細版で追加された判断材料を中心に示してください。
+    ・正確な分析に情報が不足する場合は、不足情報と、その情報によって結論がどう変わるかを示してください。
+    ・検索を使用しないため、現在の価格、制度、仕様、相場などを推測で補完しないでください。
+    ・必要に応じて短い見出しと「・」の箇条書きを使用し、読みやすく整理してください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -12236,15 +12322,35 @@ with all_tabs[0]:
 
                         # search_elapsed = time.time() - search_start_time
 
-                        # 判定済みのresponse_modeと一緒に
-                        # ユーザー発言をDBへ保存
-                        if not save_message("user", user_input, current_msg_id, response_mode):
+                        if need_search and response_mode == "analysis":
+                            processing_type = "simple_search_analysis"
+
+                        elif need_search:
+                            processing_type = "simple_search"
+
+                        elif response_mode == "analysis":
+                            processing_type = "simple_analysis"
+
+                        else:
+                            processing_type = "normal_chat"
+
+                        # 判定済みのresponse_modeと一緒にユーザー発言をDBへ保存
+
+                        if not save_message(
+                            role="user",
+                            content=user_input,
+                            message_id=current_msg_id,
+                            response_mode=response_mode,
+                            processing_type=processing_type
+                        ):
                             st.stop()
                         
                         all_messages.append({
                             "role": "user",
                             "content": user_input,
+                            "message_id": current_msg_id,
                             "response_mode": response_mode,
+                            "processing_type": processing_type,
                             "chat_room": "talk",
                             "created_at": datetime.now(JST).isoformat()
                         })
@@ -12437,18 +12543,6 @@ with all_tabs[0]:
                                     tool_router_in_t,
                                     tool_router_out_t
                                 )
-                        
-                        if need_search and response_mode == "analysis":
-                            processing_type = "simple_search_analysis"
-
-                        elif need_search:
-                            processing_type = "simple_search"
-
-                        elif response_mode == "analysis":
-                            processing_type = "simple_analysis"
-
-                        else:
-                            processing_type = "normal_chat"
 
                         save_system_audit_log(
                             user_id=CURRENT_USER_ID,
@@ -13090,15 +13184,17 @@ with all_tabs[0]:
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
                                         "response_mode": response_mode,
+                                        "processing_type": processing_type,
                                         "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
                                     save_message(
-                                        "assistant",
-                                        ai_reply,
-                                        current_msg_id,
-                                        response_mode,
+                                        role="assistant",
+                                        content=ai_reply,
+                                        message_id=current_msg_id,
+                                        response_mode=response_mode,
+                                        processing_type=processing_type
                                     )
 
                                     display_message(
@@ -13219,7 +13315,12 @@ with all_tabs[0]:
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
-                                save_message("assistant", ai_reply, current_msg_id, response_mode)
+                                save_message(
+                                    role="assistant",
+                                    content=ai_reply,
+                                    message_id=current_msg_id,
+                                    response_mode=response_mode
+                                )
 
                                 display_message(
                                     current_concierge_name,
@@ -13822,11 +13923,18 @@ with all_tabs[0]:
                                 "content": ai_reply,
                                 "message_id": current_msg_id,
                                 "response_mode": response_mode,
+                                "processing_type": processing_type,
                                 "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
                             
-                            save_message("assistant", ai_reply, current_msg_id, response_mode)
+                            save_message(
+                                role="assistant",
+                                content=ai_reply,
+                                message_id=current_msg_id,
+                                response_mode=response_mode,
+                                processing_type=processing_type
+                            )
                             st.session_state.force_message_reload = True
 
                             # add_permanent_tokens(CURRENT_USER_ID, "chat_count", 1, 0)
@@ -13894,14 +14002,23 @@ with all_tabs[0]:
 
             paired_user_message = None
             paired_assistant_message = None
+            paired_processing_type = ""
 
             if message_id:
                 for search_msg in all_messages:
                     if (search_msg.get("message_id") == message_id):
                         if (search_msg.get("role") == "user"):
                             paired_user_message = (search_msg.get("content", ""))
+                            if not paired_processing_type:
+                                paired_processing_type = str(
+                                    search_msg.get("processing_type", "") or ""
+                                ).strip()
                         elif (search_msg.get("role") == "assistant"):
                             paired_assistant_message = (search_msg.get("content", ""))
+                            if not paired_processing_type:
+                                paired_processing_type = str(
+                                    search_msg.get("processing_type", "") or ""
+                                ).strip()
 
             role_label = (
                 display_user_name
@@ -13994,6 +14111,51 @@ with all_tabs[0]:
                     else:
                         st.caption("🧠 不明")
 
+                detail_target_type = (
+                    DETAIL_PROCESSING_TYPE_MAP.get(paired_processing_type, "")
+                )
+                detail_point_cost = int(
+                    DETAIL_POINT_COSTS.get(detail_target_type, 0) or 0
+                )
+                detail_button_label = (
+                    DETAIL_BUTTON_LABELS.get(paired_processing_type, "")
+                )
+
+                can_request_detail = bool(
+                    message_id
+                    and paired_user_message
+                    and paired_assistant_message
+                    and detail_target_type
+                    and detail_button_label
+                    and detail_point_cost > 0
+                    and not str(msg.get("parent_message_id", "") or "").strip()
+                )
+
+                if can_request_detail:
+                    if st.button(
+                        detail_button_label,
+                        key=(
+                            f"request_detail_"
+                            f"{message_id}_"
+                            f"{index}"
+                        ),
+                        use_container_width=True
+                    ):
+                        st.session_state[
+                            "pending_detail_request"
+                        ] = {
+                            "original_message_id": (message_id),
+                            "original_user_message": (paired_user_message),
+                            "simple_answer": (paired_assistant_message),
+                            "simple_processing_type": (paired_processing_type),
+                            "detailed_processing_type": (detail_target_type),
+                            "point_cost": (detail_point_cost)
+                        }
+
+                        st.session_state["detail_request_processing"] = True
+
+                        st.rerun()
+                
                 st.write("")
 
 with all_tabs[1]:
