@@ -13270,16 +13270,16 @@ with all_tabs[0]:
                         # if calculation_prompt_block:
                         #     st.code(calculation_prompt_block, language="text")
 
-                        selected_mode_prompt = MODE_PROMPTS.get(
-                            response_mode,
-                            MODE_PROMPTS["default"]
-                        )
-                        simple_analysis_prompt_block = ""
                         if processing_type in {
                             "simple_analysis",
                             "simple_search_analysis"
                         }:
-                            simple_analysis_prompt_block = (SIMPLE_ANALYSIS_PROMPT)
+                            selected_mode_prompt = SIMPLE_ANALYSIS_PROMPT
+                        else:
+                            selected_mode_prompt = MODE_PROMPTS.get(
+                                response_mode,
+                                MODE_PROMPTS["default"]
+                            )
 
                         short_history_lines = recent_history_lines[-2:]
                         short_history_str = "\n".join(
@@ -13424,7 +13424,6 @@ with all_tabs[0]:
 
                             {selected_mode_prompt}
                             {numeric_estimate_instruction}
-                            {simple_analysis_prompt_block}
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
