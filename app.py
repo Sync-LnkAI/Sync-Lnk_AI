@@ -4208,12 +4208,7 @@ SIMPLE_SEARCH_DIRECT_PROMPT = """
     ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
     ・質問に必要のない背景、比較、経緯、感想、一般論を追加しないでください。
     ・確認できない情報は推測で補わず、確認できないことを明記してください。
-    ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な日本語の最終回答を作成してください。
-
-    【話し方】
-    ・上品で落ち着いた丁寧語を使用してください。
-    ・長い前置き、過度な労い、大げさな人格表現は避けてください。
-    ・人格表現より、正確性、簡潔さ、分かりやすさを優先してください。
+    ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な最終回答を作成してください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -12246,26 +12241,84 @@ with all_tabs[0]:
                         )
 
                         if need_search:
-                            search_query = f"""
-                            直近の会話を踏まえて、最新ユーザー発言への回答に必要な事実を検索してください。
-
+                            search_rules_prompt = """
                             【検索ルール】
                             ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
                             ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
                             ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
                             ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
                             ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
-                            ・結論やおすすめを作るのではなく、最終回答に必要な事実と比較材料を簡潔に整理してください。
+                            """.strip()
+
+                            if processing_type == "simple_search":
+                                simple_search_style_prompt = (
+                                    SIMPLE_SEARCH_STYLE_PRESETS.get(
+                                        current_style_preset,
+                                        SIMPLE_SEARCH_STYLE_PRESETS[
+                                            "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+                                        ]
+                                    )
+                                )
+
+                                search_query = f"""
+                            {SIMPLE_SEARCH_DIRECT_PROMPT}
+
+                            {search_rules_prompt}
+
+                            【今回の話し方】
+                            {simple_search_style_prompt}
 
                             【直近の会話】
                             {recent_history_for_router}
 
                             【最新ユーザー発言】
                             {user_input}
-                            """
+                            """.strip()
+
+                            else:
+                                search_query = f"""
+                            直近の会話を踏まえて、最新ユーザー発言への回答に必要な情報を検索してください。
+
+                            {search_rules_prompt}
+
+                            【直近の会話】
+                            {recent_history_for_router}
+
+                            【最新ユーザー発言】
+                            {user_input}
+                            """.strip()
+                            # search_query = f"""
+                            # 直近の会話を踏まえて、最新ユーザー発言への回答に必要な事実を検索してください。
+
+                            # 【検索ルール】
+                            # ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
+                            # ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
+                            # ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
+                            # ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
+                            # ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
+                            # ・結論やおすすめを作るのではなく、最終回答に必要な事実と比較材料を簡潔に整理してください。
+
+                            # 【直近の会話】
+                            # {recent_history_for_router}
+
+                            # 【最新ユーザー発言】
+                            # {user_input}
+                            # """
+
+                            # search_execution_start = time.time()
+                            # search_response = google_search(search_query)
+                            search_model_name = (
+                                GROUNDED_RESPONSE_MODEL_NAME
+                                if processing_type == "simple_search"
+                                else GOOGLE_MODEL_NAME
+                            )
 
                             search_execution_start = time.time()
-                            search_response = google_search(search_query)
+
+                            search_response = google_search(
+                                search_query,
+                                model_name=search_model_name
+                            )
                             search_execution_elapsed = (time.time() - search_execution_start)
                             search_result = (search_response.get("text", "なし"))
                             if CURRENT_USER_ID == ADMIN_USER_ID:
@@ -12291,7 +12344,7 @@ with all_tabs[0]:
                                 # details="Google Search Grounding",
                                 details=(
                                     f"provider={GOOGLE_SEARCH_PROVIDER}"
-                                    f" | model={GOOGLE_MODEL_NAME}"
+                                    f" | model={search_model_name}"
                                     f" | Google Search Grounding"
                                     f" | 処理区分={processing_type}"
                                     f" | 回答モード={response_mode}"
