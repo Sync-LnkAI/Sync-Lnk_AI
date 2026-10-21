@@ -1173,7 +1173,7 @@ def cleanup_old_micro_chats(
 ) -> int:
     """
     最新keep_conversations会話より古い
-    micro_chatsを会話単位で削除する。
+    micro_chatsのembeddingを会話単位でNULL化する。
 
     判定と削除はSupabase内で行うため、
     メッセージ本文をアプリへ取得しない。
@@ -1194,18 +1194,18 @@ def cleanup_old_micro_chats(
             .execute()
         )
 
-        deleted_count = int(
+        cleared_count = int(
             cleanup_response.data
             or 0
         )
 
-        if deleted_count > 0:
+        if cleared_count > 0:
             print(
-                "古いmicro_chatsを削除: "
-                f"{deleted_count}行"
+                "古いmicro_chatのベクトル解放: "
+                f"{cleared_count}行"
             )
 
-        return deleted_count
+        return cleared_count
 
     except Exception as cleanup_error:
         print(
@@ -2037,12 +2037,14 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             )
         )
 
-        # 最新100件より前のmicro_chatを削除
-        deleted_count = cleanup_old_micro_chats()
-        print(
-            f"micro_chat整理実行: "
-            f"{deleted_count}件削除"
-        )
+        # 最新100件より前のmicro_chatを意味検索対象から除外
+        cleared_embedding_count = cleanup_old_micro_chats()
+        
+        if cleared_embedding_count > 0:
+            print(
+                f"古いmicro_chatのベクトル解放: "
+                f"{cleared_embedding_count}行"
+            )
 
         # 期限切れ計算メモの削除
         expired_case_count = (cleanup_expired_calculation_cases())
