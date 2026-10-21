@@ -119,6 +119,8 @@ else:
 # Google検索は常にGemini
 GOOGLE_SEARCH_PROVIDER = "gemini"
 GOOGLE_MODEL_NAME = "gemini-3.1-flash-lite"
+GROUNDED_RESPONSE_MODEL_NAME = "gemini-3.5-flash-lite"
+
 
 USD_TO_JPY = 160 # （1ドル160円換算）
 
@@ -760,6 +762,45 @@ STYLE_PRESETS = {
     ・過度な演出や定型表現を加えない
     ・人格設定がないことを回答内で説明しない
     """
+}
+
+# 簡易検索用の軽量人格定義
+SIMPLE_SEARCH_STYLE_PRESETS = {
+    "🤝 フランクな相棒 ➔ 【タメ口で対等におしゃべり】": (
+        "対等で親しみのある自然なタメ口で回答する。"
+        "軽すぎる表現や長い前置きは避け、正確さを優先する。"
+    ),
+    "💼 有能な執事・秘書 ➔ 【です・ます調で知的・献身的】": (
+        "知的で自然なです・ます調で、要点を明確に回答する。"
+        "過度にかしこまった表現や芝居がかった執事口調は避ける。"
+    ),
+    "💎 👑 高貴なお嬢様 ➔ 【ですわ調で優雅・プライド高め】": (
+        "上品で自然なですわ調を控えめに使って回答する。"
+        "すべての文末をですわ調にせず、事実の正確さを優先する。"
+    ),
+    "💎 🧑‍🤝‍🧑 頼れるお兄さん ➔ 【優しく包容力のある相談相手】": (
+        "落ち着いた親しみのある柔らかな口調で回答する。"
+        "過度な励ましや労いは避け、要点を率直に伝える。"
+    ),
+    "✨ テンション高めのギャル ➔ 【超フレンドリーで元気いっぱい】": (
+        "明るく親しみのある自然なタメ口で回答する。"
+        "テンションや俗語を抑え、正確さと読みやすさを優先する。"
+    ),
+    "💎 🕵️‍♂️ 敏腕探偵 ➔ 【クールで少し辛口なツッコミ】": (
+        "冷静で簡潔な口調を使い、事実と要点を明確に回答する。"
+        "辛口表現や推理調は控えめにし、根拠のない断定を避ける。"
+    ),
+    "💎 🐱 猫耳コンシェルジュ ➔ 【語尾に「にゃ」が混ざる癒やし系】": (
+        "親しみのある丁寧な口調で、語尾の「にゃ」は控えめに使う。"
+        "重要な数値や事実では、キャラクター表現より正確さを優先する。"
+    ),
+    "💎 🎤 関西のお笑い芸人 ➔ 【軽快なボケとツッコミで盛り上げる】": (
+        "親しみのある軽い関西調で回答する。"
+        "ボケやツッコミは原則入れず、簡潔さと正確さを優先する。"
+    ),
+    "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】": (
+        "自然で分かりやすい丁寧語を使い、簡潔に回答する。"
+    )
 }
 
 PERSONALITY_SAMPLES = {
@@ -3098,18 +3139,12 @@ def generate_ai_response(
 from google import genai as search_genai
 from google.genai import types
 
-def google_search(query):
+def google_search(query: str, model_name: str = None):
 
-    client = search_genai.Client(
-        api_key=GEMINI_API_KEY
-    )
-
-    grounding_tool = types.Tool(
-        google_search=types.GoogleSearch()
-    )
-
+    client = search_genai.Client(api_key=GEMINI_API_KEY)
+    grounding_tool = types.Tool(google_search=types.GoogleSearch())
     response = client.models.generate_content(
-        model=GOOGLE_MODEL_NAME,
+        model=(model_name or GOOGLE_MODEL_NAME),
         contents=query,
         config=types.GenerateContentConfig(
             tools=[grounding_tool]
@@ -3119,10 +3154,7 @@ def google_search(query):
     search_in_tokens = 0
     search_out_tokens = 0
 
-    if (
-        hasattr(response, "usage_metadata")
-        and response.usage_metadata
-    ):
+    if (hasattr(response, "usage_metadata") and response.usage_metadata):
         search_in_tokens = int(response.usage_metadata.prompt_token_count or 0)
         search_out_tokens = int(response.usage_metadata.candidates_token_count or 0)
 
@@ -4163,6 +4195,25 @@ SIMPLE_ANALYSIS_PROMPT = """
     ・各項目は重要な内容を最大2〜3点程度に絞り、分析範囲を必要以上に広げないでください。
     ・詳細を求められていなければ、結論、主な判断材料、注意点または次の行動を簡潔に回答してください。
     ・検索結果を使う場合は確認できた事実だけを使用し、不明な情報を推測で補完しないでください。
+    """.strip()
+
+SIMPLE_SEARCH_DIRECT_PROMPT = """
+    【処理区分：簡易検索】
+    Google検索で必要な情報を確認し、その結果を使ってユーザーへの完成した回答を作成してください。
+
+    【回答ルール】
+    ・単一の事実や主要情報の確認を目的とした簡易検索です。
+    ・確認できた結論を最初に示し、原則1〜3文で回答してください。
+    ・ユーザーが指定した対象、日時、場所、金額、単位、条件を省略しないでください。
+    ・製品、サービス、制度、価格、仕様などは、可能な限り公式サイトや一次情報を優先してください。
+    ・質問に必要のない背景、比較、経緯、感想、一般論を追加しないでください。
+    ・確認できない情報は推測で補わず、確認できないことを明記してください。
+    ・検索結果の説明ではなく、そのままユーザーへ表示できる自然な日本語の最終回答を作成してください。
+
+    【話し方】
+    ・上品で落ち着いた丁寧語を使用してください。
+    ・長い前置き、過度な労い、大げさな人格表現は避けてください。
+    ・人格表現より、正確性、簡潔さ、分かりやすさを優先してください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
