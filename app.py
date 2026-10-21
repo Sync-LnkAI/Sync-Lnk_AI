@@ -23,8 +23,9 @@ JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 # ==========================================
 st.set_page_config(page_title="Sync-Lnk // AI", page_icon="🧠", layout="wide")
 
-MAX_CONTEXT_MESSAGES = 10  # 直近会話履歴件数の定義
-SUMMARY_INTERVAL_MESSAGES = 10 # 要約発動件数の定義
+MAX_CONTEXT_MESSAGES = 10  # 要約せず生の履歴として残す件数
+CHAT_CONTEXT_MESSAGES = 6 # 通常会話のメインプロンプトへ渡す件数
+SUMMARY_INTERVAL_MESSAGES = 20 # 要約発動件数の定義
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -1506,13 +1507,21 @@ def build_past_log_comparison_text(
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
 # ==================================================================
-def search_past_logs_hybrid(query_text: str):
+def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None):
     """
-    1. まずベクトル類似度検索（RPC）を走らせて、ふんわりとした「意味の近い過去ログ」を検索。
-    2. もしヒット数が最大値（3件）に満たない場合、裏口で『LIKE部分一致検索（文字の完全一致）』を自動で重ね、
-       文脈の角度のズレや固有名詞の不一致による大切な思い出の聞き逃しを完全に防衛します。
+    直近履歴を除外し、それ以前の会話から関連する過去会話を検索する。
     """
     start_time = time.time()
+
+    excluded_message_ids = [
+        str(message_id).strip()
+        for message_id in (
+            excluded_message_ids
+            or []
+        )
+        if str(message_id).strip()
+    ]
+
     if not query_text or not query_text.strip():
         return []
 
@@ -1532,7 +1541,8 @@ def search_past_logs_hybrid(query_text: str):
                 "query_embedding": query_embedding,
                 "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
                 "match_count": PAST_LOG_CANDIDATE_COUNT,
-                "filter_user_id": CURRENT_USER_ID
+                "filter_user_id": CURRENT_USER_ID,
+                "p_excluded_message_ids": excluded_message_ids
             }
         ).execute()
 
@@ -3419,6 +3429,7 @@ def build_past_log_search_queries(
 # 複数語での過去会話検索を並列実行する関数
 def search_past_logs_parallel(
     search_queries: list,
+    excluded_message_ids: list = None,
     max_workers: int = 3
 ) -> list:
     """
@@ -3442,7 +3453,8 @@ def search_past_logs_parallel(
         return [
             {
                 "query": queries[0], 
-                "results": search_past_logs_hybrid(queries[0])
+                "results": search_past_logs_hybrid(queries[0]),
+                excluded_message_ids = excluded_message_ids
             }
         ]
 
@@ -3452,7 +3464,7 @@ def search_past_logs_parallel(
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_to_query = {
-            executor.submit(search_past_logs_hybrid, query): query
+            executor.submit(search_past_logs_hybrid, query, excluded_message_ids): query
             for query in queries
         }
 
@@ -11961,6 +11973,26 @@ with all_tabs[0]:
                             if recent_history_lines
                             else "直近の会話履歴なし"
                         )
+                        chat_recent_messages = (
+                            recent_messages[-CHAT_CONTEXT_MESSAGES:]
+                        )
+                        chat_history_lines = (
+                            recent_history_lines[-CHAT_CONTEXT_MESSAGES:]
+                        )
+                        chat_history_str = (
+                            "\n".join(chat_history_lines)
+                            if chat_history_lines
+                            else "直近の会話履歴なし"
+                        )
+
+                        recent_context_message_ids = list(
+                            {
+                                str(message.get("message_id", "") or "").strip()
+                                for message
+                                in chat_recent_messages
+                                if str(message.get("message_id", "") or "").strip()
+                            }
+                        )
                         # 会話種別＆検索判定用の直近会話履歴作成
                         previous_messages = recent_messages[:-1]
 
@@ -12046,7 +12078,8 @@ with all_tabs[0]:
 
                             parallel_past_log_results = (
                                 search_past_logs_parallel(
-                                    search_queries=search_queries,
+                                    search_queries = search_queries,
+                                    excluded_message_ids = recent_context_message_ids,
                                     max_workers=3
                                 )
                             )
@@ -13466,7 +13499,7 @@ with all_tabs[0]:
                         if response_mode == "micro_chat":
                             use_recent_history = short_history_str
                         else:
-                            use_recent_history = recent_history_str
+                            use_recent_history = chat_history_str
 
                         summary_memories = get_memories(source="summary")
 
