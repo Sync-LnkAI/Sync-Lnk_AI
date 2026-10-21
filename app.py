@@ -12330,7 +12330,11 @@ with all_tabs[0]:
                             search_cost = calculate_ai_cost(
                                 provider=GOOGLE_SEARCH_PROVIDER,
                                 in_tokens=search_in_tokens,
-                                out_tokens=search_out_tokens
+                                out_tokens=search_out_tokens,
+                                is_chat=(
+                                    search_model_name
+                                    == GROUNDED_RESPONSE_MODEL_NAME
+                                )
                             )
 
                             save_system_audit_log(
@@ -13557,19 +13561,28 @@ with all_tabs[0]:
                             # ==========================================
                             api_start_time = time.time()
 
-                            # response_model = genai.GenerativeModel(
-                            #     model_name=CHAT_MODEL_NAME,
-                            #     system_instruction=system_instruction
-                            # )
+                            if processing_type == "simple_search":
+                                chat_result = {
+                                    "text": search_result,
+                                    "in_tokens": 0,
+                                    "out_tokens": 0
+                                }
 
-                            # response = response_model.generate_content([{"role": "user", "parts": [user_input]}])
-                            # debug_text("DEBUG before_chat_generation", True)
-                            chat_result = generate_ai_response(
-                                provider=CHAT_PROVIDER,
-                                system_instruction=system_instruction,
-                                user_prompt=user_input,
-                                model_name=CHAT_MODEL_NAME
-                            )
+                                chat_provider_used = (GOOGLE_SEARCH_PROVIDER)
+                                chat_model_used = (search_model_name)
+                                chat_route_name = ("grounded_direct_response")
+
+                            else:
+                                chat_result = generate_ai_response(
+                                    provider=CHAT_PROVIDER,
+                                    system_instruction=system_instruction,
+                                    user_prompt=user_input,
+                                    model_name=CHAT_MODEL_NAME
+                                )
+                                chat_provider_used = CHAT_PROVIDER
+                                chat_model_used = CHAT_MODEL_NAME
+                                chat_route_name = "main_chat_response"
+
                             debug_json("DEBUG chat_result", chat_result)
 
                             api_elapsed = (time.time() - api_start_time)
@@ -13645,8 +13658,9 @@ with all_tabs[0]:
                                 api_cost=current_通_cost, 
                                 # details=f"正常対話完了 (検索時間: {search_elapsed:.2f}秒)",
                                 details=(
-                                    f"provider={CHAT_PROVIDER}"
-                                    f" | model={CHAT_MODEL_NAME}"
+                                    f"provider={chat_provider_used}"
+                                    f" | model={chat_model_used}"
+                                    f" | response_route={chat_route_name}"
                                     f" | 処理区分={processing_type}"
                                     f" | 回答モード={response_mode}"
                                     f" | 過去会話検索時間="
@@ -15695,9 +15709,9 @@ if is_admin:
                             if model_match
                             else ""
                         )
-                        if provider and model:
-                            return f"{provider} / {model}"
-                        return provider or model
+                        if model:
+                            return model
+                        return provider
                 
                     if log_res.data:
                         # 🔑 【メッセージID完全紐付け・1会話全自動集約インフラ】
@@ -15806,7 +15820,7 @@ if is_admin:
                                 merged_logs[msg_id]["search_exec_cost"] = cost
                                 merged_logs[msg_id]["search_exec_time"] = proc_time
                                 merged_logs[msg_id]["search_exec_details"] = (
-                                    log.get("details", "")
+                                    compact_provider_details(log.get("details", ""))
                                 )
                             elif action == "PLAN_REFLECTION_SUCCESS":
                                 merged_logs[msg_id]["reflection_time"] = (
