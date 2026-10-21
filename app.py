@@ -12340,6 +12340,10 @@ with all_tabs[0]:
                             message_id=str(current_msg_id)
                         )
 
+                        grounded_direct_response = False
+                        grounded_response_route = ("main_chat_response")
+                        search_model_name = GOOGLE_MODEL_NAME
+
                         if need_search:
                             search_config = (
                                 build_grounded_response_config(
