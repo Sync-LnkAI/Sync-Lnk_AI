@@ -9954,7 +9954,7 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 #================================================
 
 # 詳細処理の確認ダイアログ関数
-@st.dialog("確認")
+@st.dialog("詳細な回答の作成確認")
 def show_detail_confirmation_dialog(detail_request: dict):
     detailed_processing_type = str(
         detail_request.get("detailed_processing_type", "") or ""
