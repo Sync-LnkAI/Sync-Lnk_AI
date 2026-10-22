@@ -14345,6 +14345,20 @@ with all_tabs[0]:
                                 message_id=str(current_msg_id if 'current_msg_id' in locals() else "")
                             )
 
+        completed_detail_parent_ids = {
+            str(message.get("parent_message_id", "") or "").strip()
+            for message in all_messages
+            if (
+                message.get("role") == "assistant"
+                and str(message.get("processing_type", "") or "").strip() in {
+                    "detailed_search",
+                    "detailed_analysis",
+                    "detailed_search_analysis"
+                }
+                and str(message.get("parent_message_id", "") or "").strip()
+            )
+        }
+
         for index, msg in enumerate(reversed(all_messages)):
             message_id = str(msg.get("message_id", ""))
 
@@ -14387,6 +14401,10 @@ with all_tabs[0]:
                     DETAIL_BUTTON_LABELS.get(paired_processing_type, "")
                 )
 
+                detail_already_completed = (
+                    message_id in completed_detail_parent_ids
+                )
+
                 can_request_detail = bool(
                     message_id
                     and paired_user_message
@@ -14394,28 +14412,26 @@ with all_tabs[0]:
                     and detail_target_type
                     and detail_button_label
                     and detail_point_cost > 0
+                    and not detail_already_completed
                     and not str(msg.get("parent_message_id", "") or "").strip()
                 )
 
-                if can_request_detail:
+                if detail_already_completed:
+                    st.caption("✅ 詳細回答を作成済みです")
+
+                elif can_request_detail:
                     if st.button(
                         detail_button_label,
-                        key=(
-                            f"request_detail_"
-                            f"{message_id}_"
-                            f"{index}"
-                        ),
-                        # use_container_width=True
+                        key=f"request_detail_{message_id}_{index}",
+                        use_container_width=True
                     ):
-                        st.session_state[
-                            "pending_detail_request"
-                        ] = {
-                            "original_message_id": (message_id),
-                            "original_user_message": (paired_user_message),
-                            "simple_answer": (paired_assistant_message),
-                            "simple_processing_type": (paired_processing_type),
-                            "detailed_processing_type": (detail_target_type),
-                            "point_cost": (detail_point_cost)
+                        st.session_state["pending_detail_request"] = {
+                            "original_message_id": message_id,
+                            "original_user_message": paired_user_message,
+                            "simple_answer": paired_assistant_message,
+                            "simple_processing_type": paired_processing_type,
+                            "detailed_processing_type": detail_target_type,
+                            "point_cost": detail_point_cost
                         }
 
                         st.session_state["detail_request_processing"] = True
