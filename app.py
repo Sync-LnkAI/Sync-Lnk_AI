@@ -961,15 +961,15 @@ DETAIL_PROCESSING_TYPE_MAP = {
 }
 
 DETAIL_BUTTON_LABELS = {
-    "simple_search": ("🔎 詳しく調べる（10pt）"),
-    "simple_analysis": ("📊 詳しく分析する（10pt）"),
-    "simple_search_analysis": ("🔎📊 詳しく調べて分析する（15pt）")
+    "simple_search": ("🔎 詳しく調べる（5pt）"),
+    "simple_analysis": ("📊 詳しく分析する（5pt）"),
+    "simple_search_analysis": ("🔎📊 詳しく調べて分析する（10pt）")
 }
 
 DETAIL_POINT_COSTS = {
-    "detailed_search": 10,
-    "detailed_analysis": 10,
-    "detailed_search_analysis": 15
+    "detailed_search": 5,
+    "detailed_analysis": 5,
+    "detailed_search_analysis": 10
 }
 
 # 画面上の不要な ** 記号を除去する関数
@@ -3389,7 +3389,7 @@ def build_detailed_search_analysis_instruction(
     {DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT}
 
     {current_datetime_prompt}
-    
+
     【今回の話し方】
     {style_prompt}
     ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
@@ -8533,7 +8533,7 @@ def get_current_datetime_prompt() -> str:
         f"{current_datetime.strftime('%Y年%m月%d日 %H:%M:%S')}\n"
         "・「現在」「今日」「最新」「今後」などは、"
         "この日時を基準に判断してください。\n"
-        "・現在適用中の情報と、将来開始予定の情報を区別してください。\n"
+        "・現在適用中の情報と、将来開始予定の情報を明確に区別してください。\n"
         "・将来の変更予定を現在の条件として扱わないでください。\n"
         "・日付によって内容が変わる場合は、基準日と適用開始日を明記してください。"
     )
