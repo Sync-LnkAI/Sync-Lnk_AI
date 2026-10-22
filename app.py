@@ -3362,6 +3362,120 @@ def build_detailed_search_instruction(
     """.strip()
 #================================================
 
+# 検索付き詳細Analysis用プロンプト生成関数
+def build_detailed_search_analysis_instruction(
+    style_preset: str,
+    original_user_message: str,
+    simple_answer: str
+) -> str:
+    style_prompt = LIGHTWEIGHT_STYLE_PRESETS.get(
+        style_preset,
+        LIGHTWEIGHT_STYLE_PRESETS[
+            "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+        ]
+    )
+
+    return f"""
+    {DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT}
+
+    【今回の話し方】
+    {style_prompt}
+    ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
+    ・人格表現より、調査と分析の正確さ、分かりやすさを優先してください。
+
+    【簡易回答の再調査・再分析ルール】
+    ・簡易回答は参考情報として扱い、正しい前提で引き継がないでください。
+    ・元の質問を基準に、最新の公式情報や一次情報をあらためて検索してください。
+    ・簡易回答に誤り、古い情報、条件不足、分析上の見落としがあれば、正しい内容を明確に示してください。
+    ・訂正が不要な場合は、無理に「訂正なし」などの項目を作らないでください。
+    ・簡易回答で省略された条件、例外、対象期間、注意点を重点的に確認してください。
+    ・検索で確認できた事実と、分析上の見立てを区別してください。
+    ・簡易回答と同じ内容を必要以上に繰り返さず、詳細版で追加確認・追加分析できた内容を中心に回答してください。
+
+    【分析軸の選択】
+    ・質問の目的に応じて、必要な分析軸だけを選んでください。
+    ・比較の場合：判断基準、メリット、デメリット、リスク、向いているケース、推奨案
+    ・原因分析の場合：主な原因、背景、影響、優先度、改善策
+    ・企画評価の場合：目的、期待効果、実現性、課題、必要条件、次の行動
+    ・業務改善の場合：現在の問題、ボトルネック、改善案、優先順位、実行手順
+    ・意思決定の場合：選択肢、判断基準、トレードオフ、条件別の結論、推奨案
+    ・複数の分析タイプに該当する場合は、質問への回答に重要な項目だけを組み合わせてください。
+    ・質問に不要な分析軸を機械的に追加しないでください。
+
+    【元のユーザー質問】
+    {original_user_message}
+
+    【直前の簡易回答】
+    {simple_answer}
+
+    {LIGHTWEIGHT_OUTPUT_FORMAT_PROMPT}
+    """.strip()
+#================================================
+
+# 検索付き詳細Analysisの実行関数
+def generate_detailed_search_analysis_response(
+    *,
+    style_preset: str,
+    original_user_message: str,
+    simple_answer: str
+) -> dict:
+    """
+    Google検索を使用し、再調査、詳細分析、完成回答の生成を
+    Gemini 3.5 Flash-Liteの1回の呼び出しで行う。
+    """
+
+    detailed_prompt = build_detailed_search_analysis_instruction(
+        style_preset=style_preset,
+        original_user_message=original_user_message,
+        simple_answer=simple_answer
+    )
+
+    search_start_time = time.time()
+
+    search_result = google_search(
+        detailed_prompt,
+        model_name=GROUNDED_RESPONSE_MODEL_NAME
+    )
+
+    search_elapsed = time.time() - search_start_time
+    detail_answer = str(search_result.get("text", "") or "").strip()
+
+    if not detail_answer:
+        return {
+            "success": False,
+            "answer": "",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "api_cost": 0.0,
+            "processing_time": search_elapsed,
+            "provider": GOOGLE_SEARCH_PROVIDER,
+            "model_name": GROUNDED_RESPONSE_MODEL_NAME,
+            "error_message": "検索付き詳細Analysisの回答が空でした。"
+        }
+
+    detail_in_tokens = int(search_result.get("in_tokens", 0) or 0)
+    detail_out_tokens = int(search_result.get("out_tokens", 0) or 0)
+
+    detail_api_cost = calculate_ai_cost(
+        provider=GOOGLE_SEARCH_PROVIDER,
+        in_tokens=detail_in_tokens,
+        out_tokens=detail_out_tokens,
+        is_chat=True
+    )
+
+    return {
+        "success": True,
+        "answer": detail_answer,
+        "in_tokens": detail_in_tokens,
+        "out_tokens": detail_out_tokens,
+        "api_cost": detail_api_cost,
+        "processing_time": search_elapsed,
+        "provider": GOOGLE_SEARCH_PROVIDER,
+        "model_name": GROUNDED_RESPONSE_MODEL_NAME,
+        "error_message": ""
+    }
+#================================================
+
 # 詳細検索の実行関数
 def generate_detailed_search_response(
     *,
@@ -12029,6 +12143,264 @@ with all_tabs[0]:
                 )
                 st.rerun()
         
+        if detail_request_ready and detailed_processing_type == "detailed_search_analysis":
+            original_message_id = str(
+                pending_detail_request.get("original_message_id", "") or ""
+            ).strip()
+            original_user_message = str(
+                pending_detail_request.get("original_user_message", "") or ""
+            ).strip()
+            simple_answer = str(
+                pending_detail_request.get("simple_answer", "") or ""
+            ).strip()
+
+            detail_user_message = (
+                "この質問について、最新情報を確認し、"
+                "重要な判断材料やリスク、結論の根拠を含めて"
+                "詳しく分析して。"
+            )
+            detail_message_id = f"detail_{original_message_id}_detailed_search_analysis"
+            detail_operation_id = (
+                f"detail_points:{CURRENT_USER_ID}:"
+                f"{original_message_id}:detailed_search_analysis"
+            )
+
+            if not original_message_id or not original_user_message or not simple_answer:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                st.error(
+                    "検索付き詳細分析に必要な元の質問または"
+                    "簡易回答を確認できませんでした。"
+                )
+                st.rerun()
+
+            existing_detail_response = (
+                supabase
+                .table("messages")
+                .select("id, role, content, message_id")
+                .eq("user_id", CURRENT_USER_ID)
+                .eq("message_id", detail_message_id)
+                .eq("role", "assistant")
+                .limit(1)
+                .execute()
+            )
+
+            if existing_detail_response.data:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                st.info(
+                    "この内容の検索付き詳細分析は、"
+                    "すでに会話履歴へ保存されています。"
+                )
+                st.rerun()
+
+            detail_start_time = time.time()
+
+            try:
+                with st.status(
+                    "最新情報を確認し、詳しい回答を作成しています...",
+                    expanded=False
+                ) as detail_status:
+                    detail_result = generate_detailed_search_analysis_response(
+                        style_preset=current_style_preset,
+                        original_user_message=original_user_message,
+                        simple_answer=simple_answer
+                    )
+
+                detail_elapsed = float(
+                    detail_result.get(
+                        "processing_time",
+                        time.time() - detail_start_time
+                    )
+                    or 0.0
+                )
+
+                if not detail_result.get("success", False):
+                    raise RuntimeError(
+                        detail_result.get(
+                            "error_message",
+                            "検索付き詳細分析に失敗しました。"
+                        )
+                    )
+
+                detail_answer = str(
+                    detail_result.get("answer", "") or ""
+                ).strip()
+                detail_in_tokens = int(
+                    detail_result.get("in_tokens", 0) or 0
+                )
+                detail_out_tokens = int(
+                    detail_result.get("out_tokens", 0) or 0
+                )
+                detail_api_cost = float(
+                    detail_result.get("api_cost", 0.0) or 0.0
+                )
+
+                detail_user_saved = save_message(
+                    role="user",
+                    content=detail_user_message,
+                    message_id=detail_message_id,
+                    response_mode="analysis",
+                    processing_type="detailed_search_analysis",
+                    parent_message_id=original_message_id
+                )
+
+                if not detail_user_saved:
+                    raise RuntimeError(
+                        "詳細化依頼を保存できませんでした。"
+                    )
+
+                detail_answer_saved = save_message(
+                    role="assistant",
+                    content=detail_answer,
+                    message_id=detail_message_id,
+                    response_mode="analysis",
+                    processing_type="detailed_search_analysis",
+                    parent_message_id=original_message_id
+                )
+
+                if not detail_answer_saved:
+                    raise RuntimeError(
+                        "詳細検索の回答を保存できませんでした。"
+                    )
+
+                point_use_result = use_points(
+                    user_id=CURRENT_USER_ID,
+                    points=detail_point_cost,
+                    reason_code="detailed_search_analysis",
+                    operation_id=detail_operation_id,
+                    description="検索付き詳細分析",
+                    reference_id=detail_message_id
+                )
+
+                point_result_status = str(
+                    point_use_result.get("result_status", "error") or "error"
+                )
+                point_consumed = point_result_status in {
+                    "used",
+                    "already_processed"
+                }
+
+                if not point_consumed:
+                    detail_status.update(
+                        label=(
+                            "詳細回答は作成されましたが、"
+                            "ポイント処理の確認が必要です"
+                        ),
+                        state="error",
+                        expanded=True
+                    )
+
+                add_permanent_tokens(
+                    CURRENT_USER_ID,
+                    "search_execution",
+                    detail_in_tokens,
+                    detail_out_tokens
+                )
+
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="SEARCH_EXECUTION",
+                    processing_time=detail_elapsed,
+                    in_t=detail_in_tokens,
+                    out_t=detail_out_tokens,
+                    api_cost=detail_api_cost,
+                    details=(
+                        f"provider={detail_result.get('provider', '')}"
+                        f" | model={detail_result.get('model_name', '')}"
+                        f" | Google Search Grounding"
+                        f" | 処理区分=detailed_search_analysis"
+                        f" | 回答モード=factual"
+                    ),
+                    message_id=detail_message_id
+                )
+
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="CHAT_SUCCESS",
+                    processing_time=0.0,
+                    in_t=0,
+                    out_t=0,
+                    api_cost=0.0,
+                    details=(
+                        f"provider={detail_result.get('provider', '')}"
+                        f" | model={detail_result.get('model_name', '')}"
+                        f" | response_route=detailed_search_direct"
+                        f" | 処理区分=detailed_search_analysis"
+                        f" | 回答モード=analysis"
+                        f" | point_cost={detail_point_cost}"
+                        f" | point_status={point_result_status}"
+                    ),
+                    message_id=detail_message_id
+                )
+
+                try:
+                    supabase.table("search_logs").insert({
+                        "user_id": CURRENT_USER_ID,
+                        "search_query": original_user_message
+                    }).execute()
+                except Exception as search_log_error:
+                    print(
+                        "詳細検索ログ保存エラー: "
+                        f"{type(search_log_error).__name__}: "
+                        f"{search_log_error}"
+                    )
+
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_confirmation_open"] = False
+                st.session_state["detail_request_processing"] = False
+                st.session_state.force_message_reload = True
+
+                if point_consumed:
+                    st.toast(
+                        f"検索付き詳細分析が完了しました。"
+                        f"{detail_point_cost}ポイントを使用しました。"
+                    )
+                else:
+                    st.warning(
+                        "詳細回答は保存されましたが、"
+                        "ポイント消費結果を確認できませんでした。"
+                        "管理者ログをご確認ください。"
+                    )
+
+                st.rerun()
+
+            except Exception as detail_error:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_confirmation_open"] = False
+                st.session_state["detail_request_processing"] = False
+
+                error_text = f"{type(detail_error).__name__}: {detail_error}"
+
+                if "detail_status" in locals():
+                    detail_status.update(
+                        label="詳細回答を作成できませんでした",
+                        state="error",
+                        expanded=False
+                    )
+
+                print(f"検索付き詳細分析処理エラー: {error_text}")
+
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="DETAILED_SEARCH_ANALYSIS_ERROR",
+                    processing_time=time.time() - detail_start_time,
+                    in_t=0,
+                    out_t=0,
+                    api_cost=0.0,
+                    details=error_text[:500],
+                    message_id=detail_message_id
+                )
+
+                st.error(
+                    "検索付き詳細分析を完了できませんでした。"
+                    "ポイントは消費されていません。"
+                )
+                st.rerun()
+
         typed_user_input = st.chat_input(
             f"{current_concierge_name}にメッセージを送信...",
             key="user_chat_input",
