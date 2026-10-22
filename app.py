@@ -3177,6 +3177,7 @@ def build_grounded_response_config(
     ・金額、日付、場所、対象、単位、適用条件がある情報は、確認できた範囲で明確にしてください。
     ・複数の対象を比較する質問では、対象ごとに同じ比較項目を揃えてください。
     ・確認できなかった項目は推測で補わず、確認できないことを明記してください。
+    ・現在の条件と将来予定の変更を比較する質問では、回答内に現在の基準日を明記してください。
     """.strip()
 
     direct_processing_types = {"simple_search", "simple_search_analysis"}
