@@ -4554,7 +4554,7 @@ DETAILED_ANALYSIS_PROMPT = """
     ・最初に、分析結果の結論または推奨案を明確に示してください。
     ・簡易回答を正しい前提として扱わず、不足、矛盾、見落としがないか再検討してください。
     ・元のユーザー質問で指定された対象、条件、比較項目、判断基準は省略しないでください。
-    ・事実、前提、推定、分析上の見立てを区別してください。
+    ・外部情報を確認していない一般論は「事実」と断定せず、「一般的な傾向」「想定されるリスク」「分析上の見立て」として示してください。
     ・目的、選択肢、利点、欠点、リスク、適する条件を必要に応じて整理してください。
     ・複数の選択肢がある場合は、同じ判断基準で比較してください。
     ・ユーザーが示した目的や条件に照らして、適合度と優先順位を分析してください。
@@ -14377,6 +14377,50 @@ with all_tabs[0]:
             display_message(role_label, msg["content"])
 
             if msg["role"] == "user":
+                detail_target_type = (
+                    DETAIL_PROCESSING_TYPE_MAP.get(paired_processing_type, "")
+                )
+                detail_point_cost = int(
+                    DETAIL_POINT_COSTS.get(detail_target_type, 0) or 0
+                )
+                detail_button_label = (
+                    DETAIL_BUTTON_LABELS.get(paired_processing_type, "")
+                )
+
+                can_request_detail = bool(
+                    message_id
+                    and paired_user_message
+                    and paired_assistant_message
+                    and detail_target_type
+                    and detail_button_label
+                    and detail_point_cost > 0
+                    and not str(msg.get("parent_message_id", "") or "").strip()
+                )
+
+                if can_request_detail:
+                    if st.button(
+                        detail_button_label,
+                        key=(
+                            f"request_detail_"
+                            f"{message_id}_"
+                            f"{index}"
+                        ),
+                        # use_container_width=True
+                    ):
+                        st.session_state[
+                            "pending_detail_request"
+                        ] = {
+                            "original_message_id": (message_id),
+                            "original_user_message": (paired_user_message),
+                            "simple_answer": (paired_assistant_message),
+                            "simple_processing_type": (paired_processing_type),
+                            "detailed_processing_type": (detail_target_type),
+                            "point_cost": (detail_point_cost)
+                        }
+
+                        st.session_state["detail_request_processing"] = True
+                        st.rerun()
+
                 st.markdown(
                     """
                     <hr style="
@@ -14458,51 +14502,6 @@ with all_tabs[0]:
                         )
                     else:
                         st.caption("🧠 不明")
-
-                detail_target_type = (
-                    DETAIL_PROCESSING_TYPE_MAP.get(paired_processing_type, "")
-                )
-                detail_point_cost = int(
-                    DETAIL_POINT_COSTS.get(detail_target_type, 0) or 0
-                )
-                detail_button_label = (
-                    DETAIL_BUTTON_LABELS.get(paired_processing_type, "")
-                )
-
-                can_request_detail = bool(
-                    message_id
-                    and paired_user_message
-                    and paired_assistant_message
-                    and detail_target_type
-                    and detail_button_label
-                    and detail_point_cost > 0
-                    and not str(msg.get("parent_message_id", "") or "").strip()
-                )
-
-                if can_request_detail:
-                    if st.button(
-                        detail_button_label,
-                        key=(
-                            f"request_detail_"
-                            f"{message_id}_"
-                            f"{index}"
-                        ),
-                        use_container_width=True
-                    ):
-                        st.session_state[
-                            "pending_detail_request"
-                        ] = {
-                            "original_message_id": (message_id),
-                            "original_user_message": (paired_user_message),
-                            "simple_answer": (paired_assistant_message),
-                            "simple_processing_type": (paired_processing_type),
-                            "detailed_processing_type": (detail_target_type),
-                            "point_cost": (detail_point_cost)
-                        }
-
-                        st.session_state["detail_request_processing"] = True
-
-                        st.rerun()
                 
                 st.write("")
 
