@@ -10146,7 +10146,7 @@ def show_detail_confirmation_dialog(detail_request: dict):
     balance_after = max(0, available_points - point_cost)
 
     st.write(
-        "より詳しい回答を作成しますか？<br>"
+        "より詳しい回答を作成しますか？ <br>"
         " 実行するにはポイントを消費します。"
     )
 
