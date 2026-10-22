@@ -13803,9 +13803,9 @@ with all_tabs[0]:
                             )
                             search_execution_elapsed = (time.time() - search_execution_start)
                             search_result = (search_response.get("text", "なし"))
-                            if CURRENT_USER_ID == ADMIN_USER_ID:
-                                st.markdown("##### 🔎 Google検索結果デバッグ")
-                                st.code(search_result, language="text")
+                            # if CURRENT_USER_ID == ADMIN_USER_ID:
+                            #     st.markdown("##### 🔎 Google検索結果デバッグ")
+                            #     st.code(search_result, language="text")
                             search_in_tokens = int(search_response.get("in_tokens", 0))
                             search_out_tokens = int(search_response.get("out_tokens", 0))
                             # search_cost = (search_in_tokens * PRICE_GOOGLESEARCH_IN + search_out_tokens * PRICE_GOOGLESEARCH_OUT)
