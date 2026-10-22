@@ -9953,6 +9953,152 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
         return []
 #================================================
 
+# 詳細処理の確認ダイアログ関数
+@st.dialog("詳細回答の確認")
+def show_detail_confirmation_dialog(detail_request: dict):
+    detailed_processing_type = str(
+        detail_request.get("detailed_processing_type", "") or ""
+    ).strip()
+    point_cost = int(detail_request.get("point_cost", 0) or 0)
+
+    point_balance = get_user_point_balance(CURRENT_USER_ID)
+    available_points = int(
+        point_balance.get("available_points", 0) or 0
+    )
+    balance_after = max(0, available_points - point_cost)
+
+    detail_type_labels = {
+        "detailed_search": "詳細検索",
+        "detailed_analysis": "詳細Analysis",
+        "detailed_search_analysis": "検索付き詳細Analysis"
+    }
+    detail_type_label = detail_type_labels.get(
+        detailed_processing_type,
+        "詳細回答"
+    )
+
+    st.write(f"{detail_type_label}を実行しますか？")
+    st.caption(
+        "元の質問と簡易回答をもとに、"
+        "より詳しい回答を作成します。"
+    )
+
+    point_col_1, point_col_2 = st.columns(2)
+
+    with point_col_1:
+        st.metric("必要ポイント", f"{point_cost:,}pt")
+
+    with point_col_2:
+        st.metric("現在のポイント", f"{available_points:,}pt")
+
+    st.divider()
+    st.markdown("##### 🎬 ポイントを増やす")
+
+    reward_ad_status = check_reward_ad_eligibility(
+        user_id=CURRENT_USER_ID,
+        placement_code="detail_confirmation_reward"
+    )
+
+    reward_ad_result_status = str(
+        reward_ad_status.get("result_status", "error") or "error"
+    )
+    placement_rewarded_count = int(
+        reward_ad_status.get("placement_rewarded_count", 0) or 0
+    )
+    placement_daily_limit = int(
+        reward_ad_status.get("placement_daily_limit", 10) or 10
+    )
+    cooldown_remaining_seconds = int(
+        reward_ad_status.get("cooldown_remaining_seconds", 0) or 0
+    )
+
+    st.caption(
+        f"動画広告を最後まで視聴すると、"
+        f"{POINT_REWARDED_AD}pt獲得できます。"
+    )
+
+    st.caption(
+        f"本日の視聴："
+        f"{placement_rewarded_count} / "
+        f"{placement_daily_limit}回"
+    )
+
+    if reward_ad_result_status == "cooldown_active":
+        cooldown_minutes = cooldown_remaining_seconds // 60
+        cooldown_seconds = cooldown_remaining_seconds % 60
+
+        st.caption(
+            f"次回視聴まで："
+            f"{cooldown_minutes:02d}:"
+            f"{cooldown_seconds:02d}"
+        )
+
+    elif reward_ad_result_status == "placement_daily_limit_reached":
+        st.caption("この画面からの本日の視聴上限に達しています。")
+
+    elif reward_ad_result_status == "total_daily_limit_reached":
+        st.caption("本日の動画広告の視聴上限に達しています。")
+
+    elif reward_ad_result_status == "error":
+        st.caption("広告の視聴状況を確認できませんでした。")
+
+    st.button(
+        f"🎬 動画を視聴して{POINT_REWARDED_AD}pt獲得",
+        key="watch_reward_ad_detail_confirmation",
+        use_container_width=True,
+        disabled=True,
+        help="リワード広告はFlutter移植時に接続予定です。"
+    )
+
+    st.caption("現在は広告機能の準備中です。")
+    st.divider()
+
+    if available_points >= point_cost:
+        st.info(f"処理後の残高は{balance_after:,}ptです。")
+
+        cancel_col, start_col = st.columns(2)
+
+        with cancel_col:
+            if st.button(
+                "キャンセル",
+                key="cancel_detail_confirmation",
+                use_container_width=True
+            ):
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_confirmation_open"] = False
+                st.session_state["detail_request_processing"] = False
+                st.rerun()
+
+        with start_col:
+            if st.button(
+                f"{point_cost:,}ptを使って開始",
+                key="start_detail_processing",
+                type="primary",
+                use_container_width=True
+            ):
+                st.session_state["detail_confirmation_open"] = False
+                st.session_state["detail_request_processing"] = True
+                st.rerun()
+
+    else:
+        shortage_points = point_cost - available_points
+
+        st.warning(
+            f"ポイントが不足しています。"
+            f"あと{shortage_points:,}pt必要です。"
+        )
+
+        if st.button(
+            "閉じる",
+            key="close_detail_confirmation",
+            use_container_width=True
+        ):
+            st.session_state["pending_detail_request"] = {}
+            st.session_state["detail_confirmation_open"] = False
+            st.session_state["detail_request_processing"] = False
+            st.rerun()
+#================================================
+
 # ポイント詳細・履歴ダイアログ関数
 @st.dialog("ポイント詳細")
 def show_point_detail_dialog():
@@ -11296,9 +11442,17 @@ with all_tabs[0]:
         pending_detail_request = dict(
             st.session_state.get("pending_detail_request", {}) or {}
         )
+        detail_confirmation_open = bool(
+            st.session_state.get("detail_confirmation_open", False)
+        )
+
+        if detail_confirmation_open and pending_detail_request:
+            show_detail_confirmation_dialog(pending_detail_request)
+            
         detail_request_processing = bool(
             st.session_state.get("detail_request_processing", False)
         )
+
         detail_request_ready = False
 
         if (detail_request_processing and pending_detail_request):
@@ -11414,7 +11568,11 @@ with all_tabs[0]:
             detail_start_time = time.time()
 
             try:
-                with st.spinner("詳しく分析しています..."):
+                with st.status(
+                    "詳しい回答を作成しています...",
+                    expanded=False
+                ) as detail_status:
+
                     detail_result = generate_detailed_analysis_response(
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
@@ -11481,6 +11639,13 @@ with all_tabs[0]:
                     "already_processed"
                 }
 
+                if not point_consumed:
+                    detail_status.update(
+                        label="詳細回答は作成されましたが、ポイント処理の確認が必要です",
+                        state="error",
+                        expanded=True
+                    )
+
                 add_permanent_tokens(
                     CURRENT_USER_ID,
                     "chat",
@@ -11530,13 +11695,16 @@ with all_tabs[0]:
                 st.session_state["pending_detail_request"] = {}
                 st.session_state["detail_request_processing"] = False
 
-                error_text = (
-                    f"{type(detail_error).__name__}: {detail_error}"
-                )
+                error_text = (f"{type(detail_error).__name__}: {detail_error}")
 
-                print(
-                    f"詳細Analysis処理エラー: {error_text}"
-                )
+                if "detail_status" in locals():
+                    detail_status.update(
+                        label="詳細回答を作成できませんでした",
+                        state="error",
+                        expanded=True
+                    )
+
+                print(f"詳細Analysis処理エラー: {error_text}")
 
                 save_system_audit_log(
                     user_id=CURRENT_USER_ID,
@@ -14434,7 +14602,8 @@ with all_tabs[0]:
                             "point_cost": detail_point_cost
                         }
 
-                        st.session_state["detail_request_processing"] = True
+                        st.session_state["detail_confirmation_open"] = True
+                        st.session_state["detail_request_processing"] = False
                         st.rerun()
 
                 st.markdown(
