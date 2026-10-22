@@ -8453,6 +8453,15 @@ def display_message(
     st.markdown(f"{speaker}:<br>{display_content}", unsafe_allow_html=True)
 #================================================
 
+# 改行表示変換関数(話者名なし)
+def display_text(content: str):
+    display_content = (
+        clean_bold_markdown(content)
+        .replace("\n", "<br>")
+    )
+    st.markdown(display_content, unsafe_allow_html=True)
+#================================================
+
 # 計算モード終了判定関数
 def should_exit_real_estate_calculation(
     user_input: str
@@ -10145,9 +10154,15 @@ def show_detail_confirmation_dialog(detail_request: dict):
     )
     balance_after = max(0, available_points - point_cost)
 
-    st.write(
-        "より詳しい回答を作成しますか？<br>"
-        " 実行するにはポイントを消費します。"
+    # st.write(
+    #     "より詳しい回答を作成しますか？<br>"
+    #     " 実行するにはポイントを消費します。"
+    # )
+    # st.write("より詳しい回答を作成しますか？")
+    # st.write("実行するにはポイントを消費します。")
+    display_text(
+        "より詳しい回答を作成しますか？\n"
+        "実行するにはポイントを消費します。"
     )
 
     st.markdown(f"**必要ポイント：{point_cost:,}pt**")
