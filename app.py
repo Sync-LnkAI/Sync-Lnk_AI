@@ -9954,7 +9954,7 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 #================================================
 
 # 詳細処理の確認ダイアログ関数
-@st.dialog("詳細回答の確認")
+@st.dialog("確認")
 def show_detail_confirmation_dialog(detail_request: dict):
     detailed_processing_type = str(
         detail_request.get("detailed_processing_type", "") or ""
@@ -9967,29 +9967,24 @@ def show_detail_confirmation_dialog(detail_request: dict):
     )
     balance_after = max(0, available_points - point_cost)
 
-    detail_type_labels = {
-        "detailed_search": "詳細検索",
-        "detailed_analysis": "詳細Analysis",
-        "detailed_search_analysis": "検索付き詳細Analysis"
-    }
-    detail_type_label = detail_type_labels.get(
-        detailed_processing_type,
-        "詳細回答"
+    st.write(
+        "より詳しい回答を作成しますか？"
+        " 実行するにはポイントを消費します。"
     )
 
-    st.write(f"{detail_type_label}を実行しますか？")
-    st.caption(
-        "元の質問と簡易回答をもとに、"
-        "より詳しい回答を作成します。"
-    )
+    st.markdown(f"**必要ポイント：{point_cost:,}pt**")
+    st.markdown(f"**現在のポイント：{available_points:,}pt**")
 
-    point_col_1, point_col_2 = st.columns(2)
-
-    with point_col_1:
-        st.metric("必要ポイント", f"{point_cost:,}pt")
-
-    with point_col_2:
-        st.metric("現在のポイント", f"{available_points:,}pt")
+    if available_points >= point_cost:
+        st.caption(
+            f"実行後のポイント残高：{balance_after:,}pt"
+        )
+    else:
+        shortage_points = point_cost - available_points
+        st.warning(
+            f"ポイントが不足しています。"
+            f"あと{shortage_points:,}pt必要です。"
+        )
 
     st.divider()
     st.markdown("##### 🎬 ポイントを増やす")
@@ -10016,7 +10011,6 @@ def show_detail_confirmation_dialog(detail_request: dict):
         f"動画広告を最後まで視聴すると、"
         f"{POINT_REWARDED_AD}pt獲得できます。"
     )
-
     st.caption(
         f"本日の視聴："
         f"{placement_rewarded_count} / "
@@ -10054,8 +10048,6 @@ def show_detail_confirmation_dialog(detail_request: dict):
     st.divider()
 
     if available_points >= point_cost:
-        st.info(f"処理後の残高は{balance_after:,}ptです。")
-
         cancel_col, start_col = st.columns(2)
 
         with cancel_col:
@@ -10073,7 +10065,6 @@ def show_detail_confirmation_dialog(detail_request: dict):
             if st.button(
                 f"{point_cost:,}ptを使って開始",
                 key="start_detail_processing",
-                type="primary",
                 use_container_width=True
             ):
                 st.session_state["detail_confirmation_open"] = False
@@ -10081,13 +10072,6 @@ def show_detail_confirmation_dialog(detail_request: dict):
                 st.rerun()
 
     else:
-        shortage_points = point_cost - available_points
-
-        st.warning(
-            f"ポイントが不足しています。"
-            f"あと{shortage_points:,}pt必要です。"
-        )
-
         if st.button(
             "閉じる",
             key="close_detail_confirmation",
