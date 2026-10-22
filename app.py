@@ -3168,6 +3168,8 @@ def build_grounded_response_config(
     recent_history: str,
     user_input: str
 ) -> dict:
+    current_datetime_prompt = get_current_datetime_prompt()
+
     search_rules_prompt = """
     【検索ルール】
     ・ユーザーが指定した確認項目や比較項目を漏れなく確認してください。
@@ -3203,6 +3205,8 @@ def build_grounded_response_config(
 
         prompt = f"""
         {response_prompt}
+
+        {current_datetime_prompt}
 
         {search_rules_prompt}
 
@@ -3329,6 +3333,8 @@ def build_detailed_search_instruction(
     original_user_message: str,
     simple_answer: str
 ) -> str:
+    current_datetime_prompt = get_current_datetime_prompt()
+
     style_prompt = LIGHTWEIGHT_STYLE_PRESETS.get(
         style_preset,
         LIGHTWEIGHT_STYLE_PRESETS[
@@ -3338,6 +3344,8 @@ def build_detailed_search_instruction(
 
     return f"""
     {DETAILED_SEARCH_DIRECT_PROMPT}
+
+    {current_datetime_prompt}
 
     【今回の話し方】
     {style_prompt}
@@ -3368,6 +3376,8 @@ def build_detailed_search_analysis_instruction(
     original_user_message: str,
     simple_answer: str
 ) -> str:
+    current_datetime_prompt = get_current_datetime_prompt()
+
     style_prompt = LIGHTWEIGHT_STYLE_PRESETS.get(
         style_preset,
         LIGHTWEIGHT_STYLE_PRESETS[
@@ -3378,6 +3388,8 @@ def build_detailed_search_analysis_instruction(
     return f"""
     {DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT}
 
+    {current_datetime_prompt}
+    
     【今回の話し方】
     {style_prompt}
     ・選択中の人格が自然に分かる表現を、回答内に少なくとも1回は反映してください。
@@ -8510,6 +8522,21 @@ def should_exit_real_estate_calculation(
     # }
 
     return text in exact_exit_phrases
+#================================================
+
+# 現在時刻取得関数
+def get_current_datetime_prompt() -> str:
+    current_datetime = datetime.now(JST)
+
+    return (
+        "【現在の日本日時】\n"
+        f"{current_datetime.strftime('%Y年%m月%d日 %H:%M:%S')}\n"
+        "・「現在」「今日」「最新」「今後」などは、"
+        "この日時を基準に判断してください。\n"
+        "・現在適用中の情報と、将来開始予定の情報を区別してください。\n"
+        "・将来の変更予定を現在の条件として扱わないでください。\n"
+        "・日付によって内容が変わる場合は、基準日と適用開始日を明記してください。"
+    )
 #================================================
 
 # 会話保存件数のカウント関数
