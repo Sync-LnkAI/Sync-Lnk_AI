@@ -3363,6 +3363,78 @@ def build_detailed_analysis_instruction(
     """.strip()
 #================================================
 
+# 詳細Analysisの実行関数
+def generate_detailed_analysis_response(
+    *,
+    style_preset: str,
+    original_user_message: str,
+    simple_answer: str
+) -> dict:
+    """
+    検索なしの詳細Analysisを生成する。
+    ルーター、Google検索、長期記憶、過去会話検索は使用しない。
+    """
+
+    detailed_instruction = (
+        build_detailed_analysis_instruction(
+            style_preset=style_preset,
+            original_user_message=original_user_message,
+            simple_answer=simple_answer
+        )
+    )
+
+    detail_result = generate_ai_response(
+        provider=CHAT_PROVIDER,
+        system_instruction=detailed_instruction,
+        user_prompt=(
+            "元の質問について、"
+            "簡易回答を独立して再検討し、"
+            "判断材料、利点、欠点、リスク、"
+            "適する条件を含めて"
+            "詳しく分析してください。"
+        ),
+        model_name=CHAT_MODEL_NAME
+    )
+
+    detail_answer = str(detail_result.get("text","") or "").strip()
+
+    if not detail_answer:
+        return {
+            "success": False,
+            "answer": "",
+            "in_tokens": 0,
+            "out_tokens": 0,
+            "api_cost": 0.0,
+            "provider": CHAT_PROVIDER,
+            "model_name": CHAT_MODEL_NAME,
+            "error_message": (
+                "詳細Analysisの回答が"
+                "空でした。"
+            )
+        }
+
+    detail_in_tokens = int(detail_result.get("in_tokens", 0) or 0)
+    detail_out_tokens = int(detail_result.get("out_tokens", 0) or 0)
+
+    detail_api_cost = calculate_ai_cost(
+        provider=CHAT_PROVIDER,
+        in_tokens=detail_in_tokens,
+        out_tokens=detail_out_tokens,
+        is_chat=True
+    )
+
+    return {
+        "success": True,
+        "answer": detail_answer,
+        "in_tokens": detail_in_tokens,
+        "out_tokens": detail_out_tokens,
+        "api_cost": detail_api_cost,
+        "provider": CHAT_PROVIDER,
+        "model_name": CHAT_MODEL_NAME,
+        "error_message": ""
+    }
+#================================================
+
 RESPONSE_MODES = {
     "micro_chat",
     "short_chat",
@@ -11214,7 +11286,276 @@ with all_tabs[0]:
             ):
                 show_point_detail_dialog()
 
-        if user_input := st.chat_input(f"{current_concierge_name}にメッセージを送信...", key="user_chat_input"):
+        pending_detail_request = dict(
+            st.session_state.get("pending_detail_request", {}) or {}
+        )
+        detail_request_processing = bool(
+            st.session_state.get("detail_request_processing", False)
+        )
+        detail_request_ready = False
+
+        if (detail_request_processing and pending_detail_request):
+            detailed_processing_type = str(
+                pending_detail_request.get("detailed_processing_type", "") or ""
+            ).strip()
+
+            detail_point_cost = int(pending_detail_request.get("point_cost", 0) or 0)
+
+            detail_point_balance = (get_user_point_balance(CURRENT_USER_ID))
+
+            detail_available_points = int(
+                detail_point_balance.get("available_points", 0) or 0
+            )
+
+            valid_detail_types = {
+                "detailed_search",
+                "detailed_analysis",
+                "detailed_search_analysis"
+            }
+
+            if (detailed_processing_type not in valid_detail_types):
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                st.error(
+                    "詳細処理の種類を確認できませんでした。"
+                    "簡易回答から、もう一度お試しください。"
+                )
+
+            elif detail_point_cost <= 0:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                st.error(
+                    "詳細処理のポイント設定を確認できませんでした。"
+                )
+
+            elif (detail_available_points < detail_point_cost):
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                shortage_points = (detail_point_cost - detail_available_points)
+
+                st.warning(
+                    f"詳細処理には"
+                    f"{detail_point_cost:,}ポイント必要です。"
+                    f"現在は{detail_available_points:,}ポイントのため、"
+                    f"あと{shortage_points:,}ポイント必要です。"
+                )
+
+            else:
+                detail_request_ready = True
+
+        if detail_request_ready and detailed_processing_type == "detailed_analysis":
+            original_message_id = str(
+                pending_detail_request.get("original_message_id", "") or ""
+            ).strip()
+
+            original_user_message = str(
+                pending_detail_request.get("original_user_message", "") or ""
+            ).strip()
+
+            simple_answer = str(
+                pending_detail_request.get("simple_answer", "") or ""
+            ).strip()
+
+            detail_user_message = (
+                "この内容について、判断材料、利点、欠点、リスク、"
+                "適する条件を含めて詳しく分析して。"
+            )
+
+            # 元の簡易回答ごとに固定IDを使用し、
+            # 二重生成・二重ポイント消費を防止
+            detail_message_id = (
+                f"detail_{original_message_id}_detailed_analysis"
+            )
+
+            detail_operation_id = (
+                f"detail_points:{CURRENT_USER_ID}:"
+                f"{original_message_id}:detailed_analysis"
+            )
+
+            if not original_message_id or not original_user_message or not simple_answer:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+
+                st.error(
+                    "詳細分析に必要な元の質問または"
+                    "簡易回答を確認できませんでした。"
+                )
+                st.rerun()
+
+            # 同じ詳細回答がすでに保存されている場合は再実行しない
+            existing_detail_response = (
+                supabase
+                .table("messages")
+                .select("id, role, content, message_id")
+                .eq("user_id", CURRENT_USER_ID)
+                .eq("message_id", detail_message_id)
+                .eq("role", "assistant")
+                .limit(1)
+                .execute()
+            )
+
+            if existing_detail_response.data:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+
+                st.info(
+                    "この内容の詳細分析は、"
+                    "すでに会話履歴へ保存されています。"
+                )
+                st.rerun()
+
+            detail_start_time = time.time()
+
+            try:
+                with st.spinner("詳しく分析しています..."):
+                    detail_result = generate_detailed_analysis_response(
+                        style_preset=current_style_preset,
+                        original_user_message=original_user_message,
+                        simple_answer=simple_answer
+                    )
+
+                detail_elapsed = time.time() - detail_start_time
+
+                if not detail_result.get("success", False):
+                    raise RuntimeError(
+                        detail_result.get(
+                            "error_message",
+                            "詳細Analysisに失敗しました。"
+                        )
+                    )
+
+                detail_answer = str(detail_result.get("answer", "") or "").strip()
+                detail_in_tokens = int(detail_result.get("in_tokens", 0) or 0)
+                detail_out_tokens = int(detail_result.get("out_tokens", 0) or 0)
+                detail_api_cost = float(detail_result.get("api_cost", 0.0) or 0.0)
+
+                # 詳細化依頼を新しいユーザー会話として保存
+                detail_user_saved = save_message(
+                    role="user",
+                    content=detail_user_message,
+                    message_id=detail_message_id,
+                    response_mode="analysis",
+                    processing_type="detailed_analysis",
+                    parent_message_id=original_message_id
+                )
+
+                if not detail_user_saved:
+                    raise RuntimeError("詳細化依頼を保存できませんでした。")
+
+                # 詳細回答を同じ新規会話へ保存
+                detail_answer_saved = save_message(
+                    role="assistant",
+                    content=detail_answer,
+                    message_id=detail_message_id,
+                    response_mode="analysis",
+                    processing_type="detailed_analysis",
+                    parent_message_id=original_message_id
+                )
+
+                if not detail_answer_saved:
+                    raise RuntimeError("詳細回答を保存できませんでした。")
+
+                # 回答保存成功後にポイントを消費
+                point_use_result = use_points(
+                    user_id=CURRENT_USER_ID,
+                    points=detail_point_cost,
+                    reason_code="detailed_analysis",
+                    operation_id=detail_operation_id,
+                    description="検索なし詳細Analysis",
+                    reference_id=detail_message_id
+                )
+
+                point_result_status = str(
+                    point_use_result.get("result_status", "error") or "error"
+                )
+
+                point_consumed = point_result_status in {
+                    "used",
+                    "already_processed"
+                }
+
+                add_permanent_tokens(
+                    CURRENT_USER_ID,
+                    "chat",
+                    detail_in_tokens,
+                    detail_out_tokens
+                )
+
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="CHAT_SUCCESS",
+                    processing_time=detail_elapsed,
+                    in_t=detail_in_tokens,
+                    out_t=detail_out_tokens,
+                    api_cost=detail_api_cost,
+                    details=(
+                        f"provider={detail_result.get('provider', '')}"
+                        f" | model={detail_result.get('model_name', '')}"
+                        f" | response_route=detailed_analysis_direct"
+                        f" | 処理区分=detailed_analysis"
+                        f" | 回答モード=analysis"
+                        f" | point_cost={detail_point_cost}"
+                        f" | point_status={point_result_status}"
+                    ),
+                    message_id=detail_message_id
+                )
+
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+                st.session_state.force_message_reload = True
+
+                if point_consumed:
+                    st.toast(
+                        f"詳細分析が完了しました。"
+                        f"{detail_point_cost}ポイントを使用しました。"
+                    )
+                else:
+                    st.warning(
+                        "詳細回答は保存されましたが、"
+                        "ポイント消費結果を確認できませんでした。"
+                        "管理者ログをご確認ください。"
+                    )
+
+                st.rerun()
+
+            except Exception as detail_error:
+                st.session_state["pending_detail_request"] = {}
+                st.session_state["detail_request_processing"] = False
+
+                error_text = (
+                    f"{type(detail_error).__name__}: {detail_error}"
+                )
+
+                print(
+                    f"詳細Analysis処理エラー: {error_text}"
+                )
+
+                save_system_audit_log(
+                    user_id=CURRENT_USER_ID,
+                    plan_type=current_plan_type,
+                    event_type="DETAILED_ANALYSIS_ERROR",
+                    processing_time=time.time() - detail_start_time,
+                    in_t=0,
+                    out_t=0,
+                    api_cost=0.0,
+                    details=error_text[:500],
+                    message_id=detail_message_id
+                )
+
+                st.error(
+                    "詳細分析を完了できませんでした。"
+                    "ポイントは消費されていません。"
+                )
+                st.rerun()
+        
+        typed_user_input = st.chat_input(
+            f"{current_concierge_name}にメッセージを送信...",
+            key="user_chat_input",
+            disabled=detail_request_ready
+        )
+        if typed_user_input:
+            user_input = typed_user_input
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
