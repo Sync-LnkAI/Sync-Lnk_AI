@@ -14591,7 +14591,7 @@ with all_tabs[0]:
                     if st.button(
                         detail_button_label,
                         key=f"request_detail_{message_id}_{index}",
-                        use_container_width=True
+                        # use_container_width=True
                     ):
                         st.session_state["pending_detail_request"] = {
                             "original_message_id": message_id,
