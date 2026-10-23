@@ -12450,6 +12450,12 @@ with all_tabs[0]:
             disabled=detail_request_ready
         )
         if typed_user_input:
+            # 通常入力が送信された場合は、
+            # 未確定の詳細処理状態を引き継がない
+            st.session_state["pending_detail_request"] = {}
+            st.session_state["detail_confirmation_open"] = False
+            st.session_state["detail_request_processing"] = False
+            
             user_input = typed_user_input
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
