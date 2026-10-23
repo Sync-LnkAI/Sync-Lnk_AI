@@ -3166,7 +3166,8 @@ def build_grounded_response_config(
     processing_type: str,
     style_preset: str,
     recent_history: str,
-    user_input: str
+    user_input: str,
+    calc_prompt: str = ""
 ) -> dict:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3206,6 +3207,7 @@ def build_grounded_response_config(
 
         prompt = f"""
         {response_prompt}
+        {calc_prompt}
 
         {current_datetime_prompt}
 
@@ -3229,6 +3231,7 @@ def build_grounded_response_config(
     else:
         prompt = f"""
         {response_prompt}
+        {calc_prompt}
 
         {search_rules_prompt}
 
@@ -3246,9 +3249,7 @@ def build_grounded_response_config(
     return {
         "prompt": prompt,
         "model_name": model_name,
-        "use_direct_response": (
-            use_direct_response
-        ),
+        "use_direct_response": use_direct_response,
         "response_route": (
             "grounded_direct_response"
             if use_direct_response
@@ -3258,7 +3259,7 @@ def build_grounded_response_config(
 #================================================
 
 # 検索なし簡易Analysis用の軽量プロンプト関数
-def build_simple_analysis_instruction(style_preset: str, recent_history: str) -> str:
+def build_simple_analysis_instruction(style_preset: str, recent_history: str, calc_prompt: str = "") -> str:
     style_prompt = (
         LIGHTWEIGHT_STYLE_PRESETS.get(
             style_preset,
@@ -3270,6 +3271,7 @@ def build_simple_analysis_instruction(style_preset: str, recent_history: str) ->
 
     return f"""
     {SIMPLE_ANALYSIS_PROMPT}
+    {calc_prompt}
 
     【今回の話し方】
     {style_prompt}
@@ -4620,13 +4622,6 @@ MODE_PROMPTS = {
     ・「詳しく」「内訳」「計算式」などを求められた場合は、詳細を提示してください。
     ・既存条件の一部だけが変わった場合は、変更後の結果と前回との差分を優先してください。
 
-    【数値試算】
-    ・Pythonによる計算結果がある場合は、その数値を正確に使用してください。
-    ・Pythonによる計算結果を独自に計算し直したり、別の数値へ変更したりしないでください。
-    ・確認できない料率、係数、相場、割合、契約条件を作らないでください。
-    ・参考値、概算値、確定値を明確に区別してください。
-    ・正確な計算に不足する条件がある場合は、不足条件と確認方法を説明してください。
-
     【出力形式】
     ・複数の条件や選択肢がある場合は、必要に応じて比較表や箇条書きで整理してください。
     """,
@@ -4766,6 +4761,39 @@ DETAILED_ANALYSIS_PROMPT = """
     ・業務改善の場合：現在の問題、ボトルネック、改善案、優先順位、実行手順
     ・意思決定の場合：選択肢、判断基準、トレードオフ、条件別の結論、推奨案
     ・質問に不要な分析軸を機械的に追加しないでください。
+    """.strip()
+
+CALC_PROMPT = """
+    【今回の処理：数値計算・試算】
+
+    【使用する情報】
+    ・ユーザーが提示した数値、検索結果で確認できる事実、Pythonによる計算結果だけを使用してください。
+    ・確認できない料率、係数、相場、割合、契約条件を推測して、計算結果へ追加または補正してはいけません。
+
+    【Python計算結果がある場合】
+    ・Pythonによる計算結果を正確に使用してください。
+    ・Pythonによる計算結果を独自に再計算、変更、補正してはいけません。
+    ・Pythonによる計算結果と推測による数値を混在させないでください。
+
+    【Python計算結果がない場合】
+    ・現在の情報で正式な計算が可能かを最初に判断してください。
+    ・再現可能な単純計算ができる場合は、計算式を明示して計算してください。
+    ・単純計算による結果は、正式な結果と区別し、「単純計算による参考値」または「概算」と明示してください。
+    ・正式な結果に必要な条件が不足している場合は、不足条件と正確な確認方法を説明してください。
+    ・再現可能な計算ができない場合は、無理に数値を作らないでください。
+
+    【計算確認】
+    ・使用する数値、単位、期間、割合を計算前に確認してください。
+    ・計算式と計算結果が一致しているか、回答を作成する前に再確認してください。
+    ・日付や期間を使用する場合は、開始日、終了日、経過期間、残存期間の関係を再確認してください。
+    ・冒頭の結果、計算式、内訳、合計、まとめに記載する数値をすべて一致させてください。
+    ・計算途中で丸める場合は、その方法を明示してください。
+
+    【回答順】
+    1. 計算結果または現時点で計算できる範囲
+    2. 使用した数値、計算式、前提
+    3. 概算または正式な結果との差が生じる要因
+    4. 不足条件または正確な確認方法
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -13555,24 +13583,28 @@ with all_tabs[0]:
                         
                         # debug_text("DEBUG requires_estimation", requires_estimation)
 
-                        numeric_estimate_instruction = ""
-                        if requires_estimation:
-                            numeric_estimate_instruction = """
-                            【数値試算のルール】
-                            ・Pythonによる計算結果が提供されている場合は、その数値を正確に使用し、独自に再計算や補正をしないでください。
-                            ・Pythonによる計算結果がない場合は、ユーザーが提示した情報と検索結果で確認できる事実だけを使用してください。
-                            ・再現可能な単純計算ができる場合は、その結果を「単純計算による参考値」と明示してください。
-                            ・確認できない料率、係数、相場、割合、契約条件を推測してはいけません。
-                            ・正式な結果に必要な条件が不足している場合は、参考値と確定値を区別し、不足条件と確認方法を説明してください。
-                            ・再現可能な計算ができない場合は、無理に数値を作らないでください。
-                            ・冒頭の結果、計算式、内訳、まとめの数値を一致させてください。
+                        # numeric_estimate_instruction = ""
+                        # if requires_estimation:
+                        #     numeric_estimate_instruction = """
+                        #     【数値試算のルール】
+                        #     ・Pythonによる計算結果が提供されている場合は、その数値を正確に使用し、独自に再計算や補正をしないでください。
+                        #     ・Pythonによる計算結果がない場合は、ユーザーが提示した情報と検索結果で確認できる事実だけを使用してください。
+                        #     ・再現可能な単純計算ができる場合は、その結果を「単純計算による参考値」と明示してください。
+                        #     ・確認できない料率、係数、相場、割合、契約条件を推測してはいけません。
+                        #     ・正式な結果に必要な条件が不足している場合は、参考値と確定値を区別し、不足条件と確認方法を説明してください。
+                        #     ・再現可能な計算ができない場合は、無理に数値を作らないでください。
+                        #     ・冒頭の結果、計算式、内訳、まとめの数値を一致させてください。
 
-                            回答順:
-                            1. Python計算結果または再現可能な参考値
-                            2. 計算方法と前提
-                            3. 正式な結果との差が生じる要因
-                            4. 正確な確認方法
-                            """
+                        #     回答順:
+                        #     1. Python計算結果または再現可能な参考値
+                        #     2. 計算方法と前提
+                        #     3. 正式な結果との差が生じる要因
+                        #     4. 正確な確認方法
+                        #     """
+
+                        # 計算が必要な場合の専用プロンプトの代入
+                        active_calc_prompt = CALC_PROMPT if requires_estimation else ""
+
                         # search_start_time = time.time()
                         
                         # enhanced_memory_search_query = (
@@ -13832,14 +13864,13 @@ with all_tabs[0]:
                         search_model_name = GOOGLE_MODEL_NAME
 
                         if need_search:
-                            search_config = (
-                                build_grounded_response_config(
+                            search_config = build_grounded_response_config(
                                     processing_type=processing_type,
                                     style_preset=current_style_preset,
                                     recent_history=recent_history_for_router,
-                                    user_input=user_input
+                                    user_input=user_input,
+                                    calc_prompt=active_calc_prompt
                                 )
-                            )
 
                             search_query = search_config["prompt"]
                             search_model_name = (search_config["model_name"])
@@ -15092,7 +15123,7 @@ with all_tabs[0]:
                             ・太字装飾記号は使用しないでください。
 
                             {selected_mode_prompt}
-                            {numeric_estimate_instruction}
+                            {active_calc_prompt}
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
@@ -15120,7 +15151,8 @@ with all_tabs[0]:
                                 simple_analysis_instruction = (
                                     build_simple_analysis_instruction(
                                         style_preset=current_style_preset,
-                                        recent_history=recent_history_for_router
+                                        recent_history=recent_history_for_router,
+                                        calc_prompt=active_calc_prompt
                                     )
                                 )
 
