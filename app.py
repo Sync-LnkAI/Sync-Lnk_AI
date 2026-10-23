@@ -13400,7 +13400,7 @@ with all_tabs[0]:
                             }
                         )
                         # 会話種別＆検索判定用の直近会話履歴作成
-                        previous_messages = recent_messages[:-1]
+                        # previous_messages = recent_messages[:-1]
 
                         router_history_lines = []
 
