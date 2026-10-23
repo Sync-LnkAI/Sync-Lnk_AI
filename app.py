@@ -13404,7 +13404,7 @@ with all_tabs[0]:
 
                         router_history_lines = []
 
-                        for m in previous_messages[-2:]:
+                        for m in recent_messages[-2:]:
                             role_name = (
                                 display_user_name
                                 if m.get("role") == "user"
