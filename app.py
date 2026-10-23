@@ -5070,8 +5070,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -10168,8 +10168,15 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
         return []
 #================================================
 
+# 詳細確認ダイアログが閉じられた場合処理関数
+def clear_detail_confirmation_state():
+    st.session_state["pending_detail_request"] = {}
+    st.session_state["detail_confirmation_open"] = False
+    st.session_state["detail_request_processing"] = False
+#================================================
+
 # 詳細処理の確認ダイアログ関数
-@st.dialog("詳細な回答の作成確認")
+@st.dialog("詳細な回答の作成確認", on_dismiss=clear_detail_confirmation_state)
 def show_detail_confirmation_dialog(detail_request: dict):
     detailed_processing_type = str(
         detail_request.get("detailed_processing_type", "") or ""
@@ -10277,9 +10284,7 @@ def show_detail_confirmation_dialog(detail_request: dict):
                 key="cancel_detail_confirmation",
                 use_container_width=True
             ):
-                st.session_state["pending_detail_request"] = {}
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = False
+                clear_detail_confirmation_state()
                 st.rerun()
 
         with start_col:
@@ -10298,9 +10303,7 @@ def show_detail_confirmation_dialog(detail_request: dict):
             key="close_detail_confirmation",
             use_container_width=True
         ):
-            st.session_state["pending_detail_request"] = {}
-            st.session_state["detail_confirmation_open"] = False
-            st.session_state["detail_request_processing"] = False
+            clear_detail_confirmation_state()
             st.rerun()
 #================================================
 
@@ -12133,9 +12136,7 @@ with all_tabs[0]:
                         f"{search_log_error}"
                     )
 
-                st.session_state["pending_detail_request"] = {}
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = False
+                clear_detail_confirmation_state()
                 st.session_state.force_message_reload = True
 
                 if point_consumed:
@@ -12153,9 +12154,7 @@ with all_tabs[0]:
                 st.rerun()
 
             except Exception as detail_error:
-                st.session_state["pending_detail_request"] = {}
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = False
+                clear_detail_confirmation_state()
 
                 error_text = f"{type(detail_error).__name__}: {detail_error}"
 
@@ -12391,9 +12390,7 @@ with all_tabs[0]:
                         f"{search_log_error}"
                     )
 
-                st.session_state["pending_detail_request"] = {}
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = False
+                clear_detail_confirmation_state()
                 st.session_state.force_message_reload = True
 
                 if point_consumed:
@@ -12411,9 +12408,7 @@ with all_tabs[0]:
                 st.rerun()
 
             except Exception as detail_error:
-                st.session_state["pending_detail_request"] = {}
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = False
+                clear_detail_confirmation_state()
 
                 error_text = f"{type(detail_error).__name__}: {detail_error}"
 
@@ -12452,10 +12447,8 @@ with all_tabs[0]:
         if typed_user_input:
             # 通常入力が送信された場合は、
             # 未確定の詳細処理状態を引き継がない
-            st.session_state["pending_detail_request"] = {}
-            st.session_state["detail_confirmation_open"] = False
-            st.session_state["detail_request_processing"] = False
-            
+            clear_detail_confirmation_state()
+
             user_input = typed_user_input
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
@@ -13468,6 +13461,33 @@ with all_tabs[0]:
                             requires_estimation = False
 
                         else:
+                            if DEBUG_MODE:
+                                debug_json(
+                                    "DEBUG router_input",
+                                    {
+                                        "latest_user_input": user_input,
+                                        "recent_history_for_router": recent_history_for_router,
+                                        "pending_detail_request": dict(
+                                            st.session_state.get(
+                                                "pending_detail_request",
+                                                {}
+                                            )
+                                            or {}
+                                        ),
+                                        "detail_confirmation_open": bool(
+                                            st.session_state.get(
+                                                "detail_confirmation_open",
+                                                False
+                                            )
+                                        ),
+                                        "detail_request_processing": bool(
+                                            st.session_state.get(
+                                                "detail_request_processing",
+                                                False
+                                            )
+                                        )
+                                    }
+                                )
                             router_start_time = time.time()
                             (
                                 need_search,
