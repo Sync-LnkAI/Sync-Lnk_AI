@@ -4791,9 +4791,10 @@ CALC_PROMPT = """
 
     【回答順】
     1. 計算結果または現時点で計算できる範囲
-    2. 使用した数値、計算式、前提
-    3. 概算または正式な結果との差が生じる要因
-    4. 不足条件または正確な確認方法
+    2. 使用した数値、計算式、必要な前提
+    3. 正式な結果との差が生じる要因がある場合だけ、その要因
+    4. 不足条件がある場合だけ、不足条件と正確な確認方法
+    ・単純計算だけで質問へ正確に回答できる場合は、不要な注意事項や確認方法を追加しないでください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -13850,9 +13851,9 @@ with all_tabs[0]:
                             details=(
                                 f"provider={BACKGROUND_PROVIDER}"
                                 f" | model={SEARCH_MODEL_NAME}"
-                                f"検索要否: "
-                                f"{'YES' if need_search else 'NO'}"
-                                f" | 回答モード: {response_mode}"
+                                f"検索要否:{'YES' if need_search else 'NO'}"
+                                f" | 回答モード:{response_mode}"
+                                f" | 試算要否:{'YES' if requires_estimation else 'NO'}"
                                 f" | ルート: {route_source}"
                                 f" | 信頼度: {route_confidence:.2f}"
                             ),
