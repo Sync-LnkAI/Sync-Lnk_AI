@@ -4600,6 +4600,8 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・数値の対象や適用条件を確認できない場合は、その数値を使用せずnullにしてください。
     ・参照情報に計算結果が含まれていても、その計算結果は抽出しないでください。
     ・参照情報から抽出してよいのは、Python計算に必要な入力条件だけです。
+    ・税金、社会保険、手数料、補助金などの制度項目が文章に含まれていても、「考慮しない」「含めない」「除外する」と明示されている場合は、制度依存計算として対象外にしてはいけません。
+    ・制度項目を計算する依頼ではなく、制度項目を除外した一般計算を求めている場合は、should_calculateをtrueにしてください。
 
     【共通の数値正規化ルール】
     ・金額や数値から、カンマ、円、￥、¥、空白を除去してください。
@@ -4691,7 +4693,7 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     【抽出ルール】
     ・毎月、毎年など、一定額を定期的に追加投資する場合に使用してください。
     ・初期元本が不明な場合はnullにしてください。
-    ・「初期投資なし」「元本0円」などと明示された場合だけinitial_principalを0にしてください。
+    ・「初期元本なし」「初期投資なし」「元本なし」「元本0円」などと明示された場合はinitial_principalを0にしてください。
     ・「毎月3万円」はcontribution_amountを30000、contributions_per_yearを12にしてください。
     ・「毎年50万円」はcontribution_amountを500000、contributions_per_yearを1にしてください。
     ・積立頻度が明示されていない場合はcontributions_per_yearをnullにしてください。
@@ -4703,7 +4705,9 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・積立タイミングが明示されていない場合はnullにしてください。
     ・複数の年利、積立額、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
     ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。
+    ・「手数料と税金は考慮しない」「手数料・税金を含めない」などは除外条件であり、should_calculateをfalseにする理由ではありません。
+    ・積立額、期間、年利、積立頻度、複利頻度、積立タイミングを確認できる場合はshould_calculateをtrueにしてください。
+    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。    
 
     【parametersの形式】
     {
