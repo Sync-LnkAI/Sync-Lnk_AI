@@ -19159,6 +19159,7 @@ if is_admin:
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
+                                    "general_calc_time": 0.0, "general_calc_in": 0, "general_calc_out": 0, "general_calc_cost": 0.0, "general_calc_details": "",
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
                                     "total_yen": 0.0, "total_time": 0.0, "processing_type": "unclassified",
@@ -19210,6 +19211,35 @@ if is_admin:
                                 merged_logs[msg_id]["tool_details"] = (
                                     log.get("details", "")
                                 )
+
+                            elif action == "GENERAL_CALCULATION_EXTRACTION":
+                                merged_logs[msg_id]["general_calc_time"] += proc_time
+                                merged_logs[msg_id]["general_calc_in"] += in_t
+                                merged_logs[msg_id]["general_calc_out"] += out_t
+                                merged_logs[msg_id]["general_calc_cost"] += cost
+
+                                general_calc_detail = str(
+                                    log.get("details", "") or ""
+                                ).strip()
+
+                                if general_calc_detail:
+                                    existing_general_calc_details = str(
+                                        merged_logs[msg_id].get(
+                                            "general_calc_details",
+                                            ""
+                                        )
+                                        or ""
+                                    ).strip()
+
+                                    if existing_general_calc_details:
+                                        merged_logs[msg_id]["general_calc_details"] = (
+                                            f"{existing_general_calc_details}"
+                                            f" / {general_calc_detail}"
+                                        )
+                                    else:
+                                        merged_logs[msg_id]["general_calc_details"] = (
+                                            general_calc_detail
+                                        )
 
                             elif action == "CALCULATION_EXTRACTION":
                                 merged_logs[msg_id]["calc_time"] = proc_time
@@ -19479,6 +19509,7 @@ if is_admin:
                                     | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
                                     | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
                                     | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
+                                    | 🔢 **汎用計算条件抽出** | {item['general_calc_time']:.2f} 秒 | {item['general_calc_in']} t | {item['general_calc_out']} t | ¥{item['general_calc_cost']:.4f} | {item['general_calc_details']} |
                                     | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
 
                                     🔎 **【検索判定結果】** {item['judge_result']}
