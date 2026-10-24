@@ -15182,6 +15182,10 @@ with all_tabs[0]:
                         calculation_tool = "none"
                         general_calculation_type = None
                         unmatched_calculation_category = None
+                        general_type_confidence = 0.0
+                        general_type_in_tokens = 0
+                        general_type_out_tokens = 0
+                        general_type_cost = 0.0
 
                         general_calculation_extraction_result = {
                             "should_calculate": False,
@@ -15288,23 +15292,23 @@ with all_tabs[0]:
                                     recent_history_str=recent_history_for_router
                                 )
 
-                            save_system_audit_log(
-                                user_id=CURRENT_USER_ID,
-                                plan_type=current_plan_type,
-                                event_type="GENERAL_CALCULATION_TYPE_ROUTER",
-                                processing_time=0.0,
-                                in_t=general_type_in_tokens,
-                                out_t=general_type_out_tokens,
-                                api_cost=general_type_cost,
-                                details=(
-                                    f"provider={BACKGROUND_PROVIDER}"
-                                    f" | model={SEARCH_MODEL_NAME}"
-                                    f" | calculation_type={general_calculation_type or 'none'}"
-                                    f" | unmatched_category={unmatched_calculation_category or 'none'}"
-                                    f" | confidence={general_type_confidence:.2f}"
-                                ),
-                                message_id=str(current_msg_id)
-                            )
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type="GENERAL_CALCULATION_TYPE_ROUTER",
+                                    processing_time=0.0,
+                                    in_t=general_type_in_tokens,
+                                    out_t=general_type_out_tokens,
+                                    api_cost=general_type_cost,
+                                    details=(
+                                        f"provider={BACKGROUND_PROVIDER}"
+                                        f" | model={SEARCH_MODEL_NAME}"
+                                        f" | calculation_type={general_calculation_type or 'none'}"
+                                        f" | unmatched_category={unmatched_calculation_category or 'none'}"
+                                        f" | confidence={general_type_confidence:.2f}"
+                                    ),
+                                    message_id=str(current_msg_id)
+                                )
 
                             if general_type_in_tokens > 0 or general_type_out_tokens > 0:
                                 add_permanent_tokens(
