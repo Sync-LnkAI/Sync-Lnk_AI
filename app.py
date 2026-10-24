@@ -5689,8 +5689,8 @@ def classify_general_calculation_type(
     ユーザーが単利と明示している場合に選んでください。
 
     percentage_calculation:
-    単発の割合、構成比、増減率、差額、割引後の値、割合を加算した値を求める計算。
-    一定期間の運用結果やローン返済には使用しないでください。
+    期間運用やローン返済ではない、割合に関する計算の上位タイプ。
+    割合、構成比、増減率、差額、割引後の値、割合を加算した値などを含み、同じ質問内に複数の計算方法が含まれる場合も選択できます。
 
     【判定ルール】
     ・計算タイプは上記5種類から1つだけ選んでください。
@@ -5698,7 +5698,7 @@ def classify_general_calculation_type(
     ・定期的な積立額がある場合はrecurring_investmentにしてください。
     ・借入金の返済額を求める場合はloan_paymentにしてください。
     ・単利と明示されている場合はsimple_interestにしてください。
-    ・期間を伴わない単発の割合計算はpercentage_calculationにしてください。
+    ・期間運用やローン返済ではない割合、構成比、増減率、差額、割引などの計算は、件数や内部の計算方法にかかわらずpercentage_calculationにしてください。
     ・単に年利や割合が含まれているだけでpercentage_calculationにしてはいけません。
     ・複数の計算依頼が含まれる場合は、各依頼を個別に分類したうえで、すべてが同じ上位計算タイプに属するなら、その計算タイプを選んでください。
     ・同じ計算タイプの内部に複数の計算方法や条件が存在しても、それを理由にcalculation_typeをnullにしてはいけません。
@@ -15296,6 +15296,10 @@ with all_tabs[0]:
                                     recent_history_str=recent_history_for_router
                                 )
 
+                                debug_text("DEBUG general_calculation_type", general_calculation_type)
+                                debug_text("DEBUG unmatched_calculation_category", unmatched_calculation_category)
+                                debug_text("DEBUG general_type_confidence", general_type_confidence)
+
                                 save_system_audit_log(
                                     user_id=CURRENT_USER_ID,
                                     plan_type=current_plan_type,
@@ -15322,7 +15326,6 @@ with all_tabs[0]:
                                     general_type_out_tokens
                                 )
 
-                            debug_text("DEBUG general_calculation_type", general_calculation_type)
                             debug_text("DEBUG tool_route_confidence", tool_route_confidence)
 
                             tool_router_elapsed = (time.time() - tool_router_start_time)
