@@ -15272,17 +15272,17 @@ with all_tabs[0]:
                             debug_text("DEBUG calculation_tool", calculation_tool)
 
                             if calculation_tool == "general_calculation":
-                            (
-                                general_calculation_type,
-                                unmatched_calculation_category,
-                                general_type_confidence,
-                                general_type_in_tokens,
-                                general_type_out_tokens,
-                                general_type_cost
-                            ) = classify_general_calculation_type(
-                                user_input=user_input,
-                                recent_history_str=recent_history_for_router
-                            )
+                                (
+                                    general_calculation_type,
+                                    unmatched_calculation_category,
+                                    general_type_confidence,
+                                    general_type_in_tokens,
+                                    general_type_out_tokens,
+                                    general_type_cost
+                                ) = classify_general_calculation_type(
+                                    user_input=user_input,
+                                    recent_history_str=recent_history_for_router
+                                )
 
                             save_system_audit_log(
                                 user_id=CURRENT_USER_ID,
