@@ -15393,6 +15393,60 @@ with all_tabs[0]:
                                 general_calculation_extraction_result
                             )
 
+                            general_extraction_in_tokens = int(
+                                general_calculation_extraction_result.get(
+                                    "in_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            general_extraction_out_tokens = int(
+                                general_calculation_extraction_result.get(
+                                    "out_tokens",
+                                    0
+                                )
+                                or 0
+                            )
+
+                            general_extraction_cost = float(
+                                general_calculation_extraction_result.get(
+                                    "cost",
+                                    0.0
+                                )
+                                or 0.0
+                            )
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type="GENERAL_CALCULATION_EXTRACTION",
+                                processing_time=0.0,
+                                in_t=general_extraction_in_tokens,
+                                out_t=general_extraction_out_tokens,
+                                api_cost=general_extraction_cost,
+                                details=(
+                                    f"provider={BACKGROUND_PROVIDER}"
+                                    f" | model={SEARCH_MODEL_NAME}"
+                                    f" | calculation_type={general_calculation_type}"
+                                    f" | phase=before_search"
+                                    f" | status="
+                                    f"{general_calculation_extraction_result.get('extraction_status')}"
+                                ),
+                                message_id=str(current_msg_id)
+                            )
+
+                            if (
+                                general_extraction_in_tokens > 0
+                                or general_extraction_out_tokens > 0
+                            ):
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "general_calculation_extraction",
+                                    general_extraction_in_tokens,
+                                    general_extraction_out_tokens
+                                )
+
                             general_calculation_execution_result = (
                                 execute_general_calculation(
                                     general_calculation_extraction_result
@@ -15518,6 +15572,60 @@ with all_tabs[0]:
                                     "DEBUG general_calculation_search_extraction_result",
                                     general_calculation_extraction_result
                                 )
+
+                                search_general_extraction_in_tokens = int(
+                                    general_calculation_extraction_result.get(
+                                        "in_tokens",
+                                        0
+                                    )
+                                    or 0
+                                )
+
+                                search_general_extraction_out_tokens = int(
+                                    general_calculation_extraction_result.get(
+                                        "out_tokens",
+                                        0
+                                    )
+                                    or 0
+                                )
+
+                                search_general_extraction_cost = float(
+                                    general_calculation_extraction_result.get(
+                                        "cost",
+                                        0.0
+                                    )
+                                    or 0.0
+                                )
+
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type="GENERAL_CALCULATION_EXTRACTION",
+                                    processing_time=0.0,
+                                    in_t=search_general_extraction_in_tokens,
+                                    out_t=search_general_extraction_out_tokens,
+                                    api_cost=search_general_extraction_cost,
+                                    details=(
+                                        f"provider={BACKGROUND_PROVIDER}"
+                                        f" | model={SEARCH_MODEL_NAME}"
+                                        f" | calculation_type={general_calculation_type}"
+                                        f" | phase=after_search"
+                                        f" | status="
+                                        f"{general_calculation_extraction_result.get('extraction_status')}"
+                                    ),
+                                    message_id=str(current_msg_id)
+                                )
+
+                                if (
+                                    search_general_extraction_in_tokens > 0
+                                    or search_general_extraction_out_tokens > 0
+                                ):
+                                    add_permanent_tokens(
+                                        CURRENT_USER_ID,
+                                        "general_calculation_search_extraction",
+                                        search_general_extraction_in_tokens,
+                                        search_general_extraction_out_tokens
+                                    )
 
                                 general_calculation_execution_result = (
                                     execute_general_calculation(
