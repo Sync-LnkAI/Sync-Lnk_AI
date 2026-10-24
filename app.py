@@ -5426,25 +5426,18 @@ def classify_search_and_response_mode(
             False
         )
 
+# 計算ルータ関数
 def classify_calculation_tool(
     user_input: str,
     recent_history_str: str = "",
     pending_tool: str = "none"
-) -> tuple[
-    str,
-    str | None,
-    float,
-    int,
-    int,
-    float
-]:
+) -> tuple[str, float, int, int, float]:
     """
     ユーザー発言に対して、
     Python計算ツールが必要かを判定する。
 
     戻り値:
         calculation_tool
-        general_calculation_type
         confidence
         in_tokens
         out_tokens
@@ -5455,14 +5448,9 @@ def classify_calculation_tool(
         real_estate_sale
     """
     try:
-        normalized_pending_tool = str(
-            pending_tool or "none"
-        ).strip().lower()
+        normalized_pending_tool = str(pending_tool or "none").strip().lower()
 
-        if (
-            normalized_pending_tool
-            not in CALCULATION_TOOLS
-        ):
+        if normalized_pending_tool not in CALCULATION_TOOLS:
             normalized_pending_tool = "none"
 
         tool_prompt = f"""
@@ -5477,14 +5465,9 @@ def classify_calculation_tool(
         Python計算ツールを使用しない。
 
         general_calculation:
-        一般的な数式で完結する次の計算を求めている場合に使用する。
-        ・元本を一定期間運用する複利計算
-        ・一定額を定期的に積み立てる積立運用計算
-        ・元利均等返済によるローン返済額計算
-        ・元本、利率、期間を使った単利計算
-        ・割合、構成比、増減率、差額の計算
-        ・複数の利率や条件を使ったケース比較
-        税金、社会保険、年金、補助金、給付金、控除など、制度や適用年度で計算方法が変わるものには使用しない。
+        一般的な数式で完結する数値計算、試算、シミュレーション、複数条件の数値比較を求めている場合に使用する。
+        不動産売却専用計算および制度依存計算には使用しない。
+        具体的な計算方法の分類は別の専用処理で行うため、この段階では判定しない。
 
         real_estate_sale:
         不動産売却に関する次の計算を求めている場合に使用する。
@@ -5496,7 +5479,7 @@ def classify_calculation_tool(
         ・不動産売却の試算
         ・不動産売却のシミュレーション
 
-        以下のような「計算開始依頼」もreal_estate_sale と判定してください。
+        以下のような「計算開始依頼」もreal_estate_saleと判定してください。
         ・不動産計算して
         ・新規で不動産計算して
         ・新規で不動産売却計算して
@@ -5507,21 +5490,15 @@ def classify_calculation_tool(
         ・手残りを計算したい
 
         ユーザーが不動産売却計算を開始したい意図を明確に示している場合は、
-        具体的な条件が不足していてもreal_estate_sale を選んでください。
+        具体的な条件が不足していてもreal_estate_saleを選んでください。
         条件不足の確認は、計算ツール側で行います。
 
         【初回判定ルール】
         general_calculationは、ユーザーが一般的な数値計算、試算、シミュレーション、複数条件の数値比較を明確に求めている場合に選んでください。
-        例:
-        ・200万円を年利4%で10年間運用した場合を計算して
-        ・年利4%、6%、8%の複利運用結果を比較して
-        ・毎月3万円を20年間積み立てた場合を試算して
-        ・3000万円を35年、年利1.2%で借りた場合の返済額を計算して
-        ・売上が500万円から650万円になった場合の増加率を計算して
-
-        金額、割合、利率、期間などが書かれていても、計算、試算、比較、シミュレーションを求めていない場合はgeneral_calculationを選ばないでください。
+        金額、割合、利率、期間などが書かれていても、計算、試算、比較、シミュレーションを求めていない場合は選ばないでください。
         税金、社会保険、年金、補助金、給付金、控除などの制度依存計算はgeneral_calculationを選ばず、noneにしてください。
-        不動産売却の譲渡所得、税額、手残りなどの計算は、general_calculationではなくreal_estate_saleを選んでください。
+        不動産売却の譲渡所得、税額、手残りなどの計算はgeneral_calculationではなくreal_estate_saleを選んでください。
+        general_calculationの具体的な計算タイプは、この判定では決定しないでください。
 
         次のような状態説明、雑談、予定、検討だけでは、
         real_estate_saleを選んではいけません。
@@ -5593,17 +5570,6 @@ def classify_calculation_tool(
         ・JSON以外の説明文を出力してはいけません。
         ・コードブロックの囲み記号を付けてはいけません。
 
-        【general_calculation_typeのルール】
-        ・calculation_toolがgeneral_calculationの場合だけ、general_calculation_typeへ次のいずれかを設定してください。
-        ・compound_interest
-        ・recurring_investment
-        ・loan_payment
-        ・simple_interest
-        ・percentage_calculation
-        ・calculation_toolがgeneral_calculation以外の場合は、general_calculation_typeをnullにしてください。
-        ・未実装の計算タイプを作ってはいけません。
-        ・計算タイプを特定できない場合は、calculation_toolをnone、general_calculation_typeをnullにしてください。
-
         【現在継続中の計算ツール】
         {normalized_pending_tool}
 
@@ -5616,7 +5582,6 @@ def classify_calculation_tool(
         【出力形式】
         {{
             "calculation_tool": "none",
-            "general_calculation_type": null,
             "confidence": 0.90
         }}
         """
@@ -5628,24 +5593,7 @@ def classify_calculation_tool(
             response_format_json=True,
             model_name=SEARCH_MODEL_NAME
         )
-        # tool_model = genai.GenerativeModel(
-        #     model_name=SEARCH_MODEL_NAME
-        # )
-        # tool_response = (
-        #     tool_model.generate_content(
-        #         tool_prompt,
-        #         generation_config={
-        #             "temperature": 0,
-        #             "max_output_tokens": 50,
-        #             "response_mime_type":
-        #                 "application/json"
-        #         }
-        #     )
-        # )
-
-        # raw_text = str(
-        #     tool_response.text or ""
-        # ).strip()
+        
         raw_text = str(tool_result.get("text", "") or "").strip()
 
         clean_text = (
@@ -5656,111 +5604,43 @@ def classify_calculation_tool(
             .strip()
         )
 
-        tool_data = json.loads(
-            clean_text
-        )
+        tool_data = json.loads(clean_text)
 
-        if not isinstance(
-            tool_data,
-            dict
-        ):
+        if not isinstance(tool_data, dict):
             raise ValueError(
                 "計算ツール判定結果が"
                 "object形式ではありません"
             )
 
         calculation_tool = str(
-            tool_data.get(
-                "calculation_tool",
-                "none"
-            )
-            or "none"
+            tool_data.get("calculation_tool", "none") or "none"
         ).strip().lower()
 
         if calculation_tool not in CALCULATION_TOOLS:
             calculation_tool = "none"
-        
-        general_calculation_type = tool_data.get("general_calculation_type")
-        if general_calculation_type is not None:
-            general_calculation_type = str(general_calculation_type).strip().lower()
-        if general_calculation_type not in GENERAL_CALCULATION_TYPES:
-            general_calculation_type = None
-        if calculation_tool != "general_calculation":
-            general_calculation_type = None
-        if calculation_tool == "general_calculation" and general_calculation_type is None:
-            calculation_tool = "none"
 
         try:
-            confidence = float(
-                tool_data.get(
-                    "confidence",
-                    0.0
-                )
-                or 0.0
-            )
-        except (
-            TypeError,
-            ValueError
-        ):
+            confidence = float(tool_data.get("confidence", 0.0) or 0.0)
+        except (TypeError, ValueError):
             confidence = 0.0
 
-        confidence = max(
-            0.0,
-            min(
-                confidence,
-                1.0
-            )
-        )
+        confidence = max(0.0, min(confidence, 1.0))
 
         # 誤作動防止。
         # 継続中ではない初回判定の信頼度が低い場合は、
         # 計算ツールを使用しない。
-        if (
-            normalized_pending_tool == "none"
-            and confidence < 0.75
-        ):
+        if (normalized_pending_tool == "none" and confidence < 0.75):
             calculation_tool = "none"
 
-        # in_tokens = 0
-        # out_tokens = 0
-
-        # if (
-        #     hasattr(
-        #         tool_response,
-        #         "usage_metadata"
-        #     )
-        #     and tool_response.usage_metadata
-        # ):
-        #     in_tokens = int(
-        #         tool_response
-        #         .usage_metadata
-        #         .prompt_token_count
-        #         or 0
-        #     )
-
-        #     out_tokens = int(
-        #         tool_response
-        #         .usage_metadata
-        #         .candidates_token_count
-        #         or 0
-        #     )
         in_tokens = int(tool_result.get("in_tokens", 0) or 0)
         out_tokens = int(tool_result.get("out_tokens", 0) or 0)
-        # api_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
         api_cost = calculate_ai_cost(
             provider=BACKGROUND_PROVIDER,
             in_tokens=in_tokens,
             out_tokens=out_tokens
         )
 
-        return (
-            calculation_tool,
-            general_calculation_type,
-            confidence,
-            in_tokens,
-            out_tokens,
-            api_cost
-        )
+        return (calculation_tool, confidence, in_tokens, out_tokens, api_cost)
 
     except Exception as tool_error:
         print(
@@ -5769,14 +5649,145 @@ def classify_calculation_tool(
             f"{tool_error}"
         )
 
-        return (
-            "none",
-            None,
-            0.0,
-            0,
-            0,
-            0.0
+        return ("none", 0.0, 0, 0, 0.0)
+#=======================================
+
+# 汎用計算判定関数
+def classify_general_calculation_type(
+    user_input: str,
+    recent_history_str: str = ""
+) -> tuple[str | None, str | None, float, int, int, float]:
+    default_result = (None, "分類不能", 0.0, 0, 0, 0.0)
+    normalized_user_input = str(user_input or "").strip()
+
+    if not normalized_user_input:
+        return default_result
+
+    type_prompt = f"""
+    あなたは、一般的なPython計算の種類を判定するシステムです。
+    最新ユーザー発言と直近の会話を読み、今回使用する計算タイプを1つだけ選んでください。
+
+    【利用可能な計算タイプ】
+    compound_interest:
+    初期元本を一定期間、複利で運用した場合の最終金額や利益を求める計算。
+    追加投資や定期積立を行わない場合に使用してください。
+    複数の年利による将来金額の比較も含みます。
+
+    recurring_investment:
+    毎月、毎年など、一定額を定期的に積み立てる運用計算。
+    初期元本があっても、定期的な追加投資があればこちらを選んでください。
+
+    loan_payment:
+    借入額、年利、返済期間から、元利均等返済の返済額や総返済額を求める計算。
+
+    simple_interest:
+    初期元本を一定期間、単利で運用する計算。
+    ユーザーが単利と明示している場合に選んでください。
+
+    percentage_calculation:
+    単発の割合、構成比、増減率、差額、割引後の値、割合を加算した値を求める計算。
+    一定期間の運用結果やローン返済には使用しないでください。
+
+    【判定ルール】
+    ・計算タイプは上記5種類から1つだけ選んでください。
+    ・元本、年利、運用期間、複利条件から将来金額や利益を求める場合はcompound_interestにしてください。
+    ・定期的な積立額がある場合はrecurring_investmentにしてください。
+    ・借入金の返済額を求める場合はloan_paymentにしてください。
+    ・単利と明示されている場合はsimple_interestにしてください。
+    ・期間を伴わない単発の割合計算はpercentage_calculationにしてください。
+    ・単に年利や割合が含まれているだけでpercentage_calculationにしてはいけません。
+    ・計算タイプを特定できない場合はcalculation_typeをnullにしてください。
+    ・未実装の計算タイプを作ってはいけません。
+    ・計算は行わないでください。
+    ・JSON以外の文章を出力しないでください。
+    ・コードブロックの囲み記号を付けないでください。
+
+    【判定例】
+    「200万円を年利4%で10年間、毎月複利で運用」→ compound_interest
+    「200万円を年利4%、6%、8%で10年間運用して比較」→ compound_interest
+    「毎月3万円を年利5%で20年間積み立てる」→ recurring_investment
+    「3000万円を年利1.2%、35年で借りた場合の返済額」→ loan_payment
+    「100万円を年利3%の単利で5年間運用」→ simple_interest
+    「200万円の4%はいくら」→ percentage_calculation
+    「500万円から650万円への増加率」→ percentage_calculation
+
+    【未対応計算の記録ルール】
+    ・既存の5種類に該当しない計算依頼はcalculation_typeをnullにしてください。
+    ・calculation_typeがnullの場合だけ、unmatched_calculation_categoryへ要求された計算内容を短い一般カテゴリ名で設定してください。
+    ・カテゴリ名は「為替換算」「損益分岐点」「平均値計算」「単位換算」のように15文字以内を目安にしてください。
+    ・ユーザーの文章、氏名、会社名、商品名、住所、具体的な金額、日付、口座情報を転載してはいけません。
+    ・計算式や計算結果を出力してはいけません。
+    ・既存の計算タイプに該当する場合はunmatched_calculation_categoryをnullにしてください。
+    ・計算内容を特定できない場合は「分類不能」にしてください。
+
+    【直近の会話】
+    {recent_history_str}
+
+    【最新ユーザー発言】
+    {normalized_user_input}
+
+    【出力形式】
+    {{
+        "calculation_type": "compound_interest",
+        "unmatched_calculation_category": null,
+        "confidence": 0.95
+    }}
+    """.strip()
+
+    try:
+        type_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=type_prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
         )
+
+        raw_text = str(type_result.get("text", "") or "").strip()
+        if not raw_text:
+            return default_result
+
+        clean_text = raw_text.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
+        type_data = json.loads(clean_text)
+
+        if not isinstance(type_data, dict):
+            return default_result
+
+        calculation_type = type_data.get("calculation_type")
+        if calculation_type is not None:
+            calculation_type = str(calculation_type).strip().lower()
+        if calculation_type not in GENERAL_CALCULATION_TYPES:
+            calculation_type = None
+        
+        unmatched_category = type_data.get("unmatched_calculation_category")
+        if unmatched_category is not None:
+            unmatched_category = str(unmatched_category).strip()
+        if calculation_type is not None:
+            unmatched_category = None
+        elif not unmatched_category:
+            unmatched_category = "分類不能"
+        else:
+            unmatched_category = unmatched_category[:30]
+
+        confidence = float(type_data.get("confidence", 0.0) or 0.0)
+        confidence = max(0.0, min(confidence, 1.0))
+        in_tokens = int(type_result.get("in_tokens", 0) or 0)
+        out_tokens = int(type_result.get("out_tokens", 0) or 0)
+        api_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
+
+        return calculation_type, unmatched_category, confidence, in_tokens, out_tokens, api_cost
+
+    except (json.JSONDecodeError, ValueError, TypeError) as classification_error:
+        print(f"汎用計算タイプ判定エラー: {type(classification_error).__name__}: {classification_error}")
+        return default_result
+    except Exception as unexpected_error:
+        print(f"汎用計算タイプ判定の予期しないエラー: {type(unexpected_error).__name__}: {unexpected_error}")
+        return default_result
+#=======================================
 
 def save_debug_log(
     event_type: str,
@@ -15166,6 +15177,7 @@ with all_tabs[0]:
 
                         calculation_tool = "none"
                         general_calculation_type = None
+                        unmatched_calculation_category = None
 
                         general_calculation_extraction_result = {
                             "should_calculate": False,
@@ -15246,7 +15258,6 @@ with all_tabs[0]:
 
                             (
                                 calculation_tool,
-                                general_calculation_type,
                                 tool_route_confidence,
                                 tool_router_in_t,
                                 tool_router_out_t,
@@ -15257,7 +15268,48 @@ with all_tabs[0]:
                                     recent_history_for_router,
                                 pending_tool=pending_tool
                             )
+
                             debug_text("DEBUG calculation_tool", calculation_tool)
+
+                            if calculation_tool == "general_calculation":
+                            (
+                                general_calculation_type,
+                                unmatched_calculation_category,
+                                general_type_confidence,
+                                general_type_in_tokens,
+                                general_type_out_tokens,
+                                general_type_cost
+                            ) = classify_general_calculation_type(
+                                user_input=user_input,
+                                recent_history_str=recent_history_for_router
+                            )
+
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type="GENERAL_CALCULATION_TYPE_ROUTER",
+                                processing_time=0.0,
+                                in_t=general_type_in_tokens,
+                                out_t=general_type_out_tokens,
+                                api_cost=general_type_cost,
+                                details=(
+                                    f"provider={BACKGROUND_PROVIDER}"
+                                    f" | model={SEARCH_MODEL_NAME}"
+                                    f" | calculation_type={general_calculation_type or 'none'}"
+                                    f" | unmatched_category={unmatched_calculation_category or 'none'}"
+                                    f" | confidence={general_type_confidence:.2f}"
+                                ),
+                                message_id=str(current_msg_id)
+                            )
+
+                            if general_type_in_tokens > 0 or general_type_out_tokens > 0:
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "general_calculation_type_router",
+                                    general_type_in_tokens,
+                                    general_type_out_tokens
+                                )
+
                             debug_text("DEBUG general_calculation_type", general_calculation_type)
                             debug_text("DEBUG tool_route_confidence", tool_route_confidence)
 
@@ -15379,7 +15431,10 @@ with all_tabs[0]:
                         # ==========================================
                         # Python汎用計算
                         # ==========================================
-                        if calculation_tool == "general_calculation":
+                        if (
+                            calculation_tool == "general_calculation"
+                            and general_calculation_type in GENERAL_CALCULATION_TYPES
+                        ):
                             general_calculation_extraction_result = (
                                 extract_general_calculation_parameters(
                                     user_input=user_input,
@@ -15468,6 +15523,21 @@ with all_tabs[0]:
                                 "DEBUG general_calculation_context",
                                 general_calculation_context
                             )
+                        
+                        elif calculation_tool == "general_calculation":
+                            general_calculation_execution_result = {
+                                "status": "unsupported_type",
+                                "calculation_type": None,
+                                "results": [],
+                                "missing_fields": [],
+                                "error": (
+                                    "現在未対応の計算です。分類: "
+                                    f"{unmatched_calculation_category or '分類不能'}"
+                                )
+                            }
+                            general_calculation_context = build_general_calculation_context(
+                                general_calculation_execution_result
+                            )
 
                         grounded_direct_response = False
                         grounded_response_route = ("main_chat_response")
@@ -15554,6 +15624,7 @@ with all_tabs[0]:
                             # 検索結果から入力条件を再抽出してPython計算する
                             if (
                                 calculation_tool == "general_calculation"
+                                and general_calculation_type in GENERAL_CALCULATION_TYPES
                                 and general_calculation_execution_result.get("status")
                                 in {"missing_fields", "extraction_error"}
                                 and search_result
@@ -19159,6 +19230,7 @@ if is_admin:
                                     "judge_time": 0.0, "judge_in": 0, "judge_out": 0, "judge_cost": 0.0, "judge_result": "",
                                     "tool_time": 0.0, "tool_in": 0, "tool_out": 0, "tool_cost": 0.0,
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
+                                    "general_type_time": 0.0, "general_type_in": 0, "general_type_out": 0, "general_type_cost": 0.0, "general_type_details": "",
                                     "general_calc_time": 0.0, "general_calc_in": 0, "general_calc_out": 0, "general_calc_cost": 0.0, "general_calc_details": "",
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
@@ -19209,6 +19281,15 @@ if is_admin:
                                 merged_logs[msg_id]["tool_out"] = out_t
                                 merged_logs[msg_id]["tool_cost"] = cost
                                 merged_logs[msg_id]["tool_details"] = (
+                                    log.get("details", "")
+                                )
+                            
+                            elif action == "GENERAL_CALCULATION_TYPE_ROUTER":
+                                merged_logs[msg_id]["general_type_time"] = proc_time
+                                merged_logs[msg_id]["general_type_in"] = in_t
+                                merged_logs[msg_id]["general_type_out"] = out_t
+                                merged_logs[msg_id]["general_type_cost"] = cost
+                                merged_logs[msg_id]["general_type_details"] = (
                                     log.get("details", "")
                                 )
 
@@ -19509,6 +19590,7 @@ if is_admin:
                                     | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
                                     | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
                                     | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
+                                    | 🧭 **汎用計算タイプ判定** | {item['general_type_time']:.2f} 秒 | {item['general_type_in']} t | {item['general_type_out']} t | ¥{item['general_type_cost']:.4f} | {item['general_type_details']} |
                                     | 🔢 **汎用計算条件抽出** | {item['general_calc_time']:.2f} 秒 | {item['general_calc_in']} t | {item['general_calc_out']} t | ¥{item['general_calc_cost']:.4f} | {item['general_calc_details']} |
                                     | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
 
