@@ -1008,6 +1008,7 @@ def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) 
                 "response_mode,"
                 "processing_type,"
                 "requires_estimation,"
+                "general_calculation_result,"
                 "parent_message_id,"
                 "chat_room,"
                 "plan_project_id,"
@@ -1051,7 +1052,8 @@ def save_message(
     plan_project_id=None,
     processing_type: str = "",
     parent_message_id: str = "",
-    requires_estimation: bool = False
+    requires_estimation: bool = False,
+    general_calculation_result: dict | None = None
 ) -> bool:
     
     embedding_data = None
@@ -1081,6 +1083,11 @@ def save_message(
             "response_mode": (response_mode if response_mode else None),
             "processing_type": (processing_type if processing_type else None),
             "requires_estimation": bool(requires_estimation),
+            "general_calculation_result": (
+                make_json_safe(general_calculation_result)
+                if isinstance(general_calculation_result, dict)
+                else None
+            ),
             "parent_message_id": (parent_message_id if parent_message_id else None),
             "chat_room": chat_room,
             "plan_project_id": plan_project_id
@@ -3170,7 +3177,8 @@ def build_grounded_response_config(
     style_preset: str,
     recent_history: str,
     user_input: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> dict:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3211,7 +3219,7 @@ def build_grounded_response_config(
         prompt = f"""
         {response_prompt}
         {calc_prompt}
-
+        {general_calculation_context}
         {current_datetime_prompt}
 
         {search_rules_prompt}
@@ -3262,7 +3270,12 @@ def build_grounded_response_config(
 #================================================
 
 # 検索なし簡易Analysis用の軽量プロンプト関数
-def build_simple_analysis_instruction(style_preset: str, recent_history: str, calc_prompt: str = "") -> str:
+def build_simple_analysis_instruction(
+    style_preset: str,
+    recent_history: str,
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
+) -> str:
     style_prompt = (
         LIGHTWEIGHT_STYLE_PRESETS.get(
             style_preset,
@@ -3275,6 +3288,7 @@ def build_simple_analysis_instruction(style_preset: str, recent_history: str, ca
     return f"""
     {SIMPLE_ANALYSIS_PROMPT}
     {calc_prompt}
+    {general_calculation_context}
 
     【今回の話し方】
     {style_prompt}
@@ -3298,7 +3312,8 @@ def build_detailed_analysis_instruction(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> str:
     style_prompt = (
         LIGHTWEIGHT_STYLE_PRESETS.get(
@@ -3312,6 +3327,7 @@ def build_detailed_analysis_instruction(
     return f"""
     {DETAILED_ANALYSIS_PROMPT}
     {calc_prompt}
+    {general_calculation_context}
 
     【今回の話し方】
     {style_prompt}
@@ -3340,7 +3356,8 @@ def build_detailed_search_instruction(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> str:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3354,6 +3371,7 @@ def build_detailed_search_instruction(
     return f"""
     {DETAILED_SEARCH_DIRECT_PROMPT}
     {calc_prompt}
+    {general_calculation_context}
     {current_datetime_prompt}
 
     【今回の話し方】
@@ -3384,7 +3402,8 @@ def build_detailed_search_analysis_instruction(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> str:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3398,6 +3417,7 @@ def build_detailed_search_analysis_instruction(
     return f"""
     {DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT}
     {calc_prompt}
+    {general_calculation_context}
     {current_datetime_prompt}
 
     【今回の話し方】
@@ -3440,7 +3460,8 @@ def generate_detailed_search_analysis_response(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> dict:
     """
     Google検索を使用し、再調査、詳細分析、完成回答の生成を
@@ -3451,7 +3472,8 @@ def generate_detailed_search_analysis_response(
         style_preset=style_preset,
         original_user_message=original_user_message,
         simple_answer=simple_answer,
-        calc_prompt=calc_prompt
+        calc_prompt=calc_prompt,
+        general_calculation_context=general_calculation_context
     )
 
     search_start_time = time.time()
@@ -3506,7 +3528,8 @@ def generate_detailed_search_response(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> dict:
     """
     Google検索を使用し、詳細検索と完成回答の生成を
@@ -3517,7 +3540,8 @@ def generate_detailed_search_response(
         style_preset=style_preset,
         original_user_message=original_user_message,
         simple_answer=simple_answer,
-        calc_prompt=calc_prompt
+        calc_prompt=calc_prompt,
+        general_calculation_context=general_calculation_context
     )
 
     search_start_time = time.time()
@@ -3573,7 +3597,8 @@ def generate_detailed_analysis_response(
     style_preset: str,
     original_user_message: str,
     simple_answer: str,
-    calc_prompt: str = ""
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
 ) -> dict:
     """
     検索なしの詳細Analysisを生成する。
@@ -3585,7 +3610,8 @@ def generate_detailed_analysis_response(
             style_preset=style_preset,
             original_user_message=original_user_message,
             simple_answer=simple_answer,
-            calc_prompt=calc_prompt
+            calc_prompt=calc_prompt,
+            general_calculation_context=general_calculation_context
         )
     )
 
@@ -3648,24 +3674,1161 @@ RESPONSE_MODES = {
     "factual",
     "default"
 }
-
-CALCULATION_TOOLS = {
-    "none",
-    "real_estate_sale"
-}
-
 # short_chat: 挨拶、相づち、短い呼びかけ
 # conversation: 日常会話、趣味、出来事の共有
 # support: 悩み、愚痴、体調、感情的な相談
 # analysis: 壁打ち、比較、企画、仕事、原因分析
 # factual: 事実質問、検索結果を使う回答
 # default: 判断困難、複数用途、従来ルールを使う場合
+#================================================
 
+CALCULATION_TOOLS = {
+    "none",
+    "general_calculation",
+    "real_estate_sale"
+}
 
-#----------------------------------------
+GENERAL_CALCULATION_TYPES = {
+    "compound_interest",
+    "recurring_investment",
+    "loan_payment",
+    "simple_interest",
+    "percentage_calculation"
+}
+# compound_interest：元本の複利運用
+# recurring_investment：定期積立の運用
+# loan_payment：元利均等返済
+# simple_interest：単利計算
+# percentage_calculation：割合、構成比、増減率、差額
+
+# 計算タイプごとの必須項目定義(AIから受け取ってよい項目の一覧)
+GENERAL_CALCULATION_PARAMETER_FIELDS = {
+    "compound_interest": {
+        "principal",
+        "annual_rate",
+        "years",
+        "compounding_per_year"
+    },
+    "recurring_investment": {
+        "initial_principal",
+        "contribution_amount",
+        "contributions_per_year",
+        "annual_rate",
+        "years",
+        "compounding_per_year",
+        "contribution_timing"
+    },
+    "loan_payment": {
+        "principal",
+        "annual_rate",
+        "years",
+        "payments_per_year",
+        "repayment_method",
+        "bonus_payment"
+    },
+    "simple_interest": {
+        "principal",
+        "annual_rate",
+        "years"
+    },
+    "percentage_calculation": {
+        "base_value",
+        "comparison_value",
+        "rate",
+        "calculation_mode"
+    }
+}
+
+# 計算タイプごとの必須項目定義(計算実行に必須となる項目の一覧)
+GENERAL_CALCULATION_REQUIRED_FIELDS = {
+    "compound_interest": {
+        "principal",
+        "annual_rate",
+        "years",
+        "compounding_per_year"
+    },
+    "recurring_investment": {
+        "contribution_amount",
+        "contributions_per_year",
+        "annual_rate",
+        "years",
+        "compounding_per_year",
+        "contribution_timing"
+    },
+    "loan_payment": {
+        "principal",
+        "annual_rate",
+        "years",
+        "payments_per_year",
+        "repayment_method",
+        "bonus_payment"
+    },
+    "simple_interest": {
+        "principal",
+        "annual_rate",
+        "years"
+    },
+    "percentage_calculation": set()
+}
+
+GENERAL_CALCULATION_NUMERIC_FIELDS = {
+    "principal",
+    "annual_rate",
+    "years",
+    "compounding_per_year",
+    "initial_principal",
+    "contribution_amount",
+    "contributions_per_year",
+    "payments_per_year",
+    "bonus_payment",
+    "base_value",
+    "comparison_value",
+    "rate"
+}
+
+GENERAL_CALCULATION_FIELD_LABELS = {
+    "principal": "元本または借入額",
+    "annual_rate": "年利",
+    "years": "期間（年）",
+    "compounding_per_year": "1年間の複利回数",
+    "initial_principal": "初期元本",
+    "contribution_amount": "1回あたりの積立額",
+    "contributions_per_year": "1年間の積立回数",
+    "contribution_timing": "積立タイミング（月初または月末）",
+    "payments_per_year": "1年間の返済回数",
+    "repayment_method": "返済方式（元利均等返済）",
+    "bonus_payment": "ボーナス返済額（なければ0円）",
+    "base_value": "基準となる値",
+    "comparison_value": "比較対象の値",
+    "rate": "割合",
+    "calculation_mode": "計算方法",
+    "calculation_type": "計算タイプ",
+    "parameters": "計算条件"
+}
+
+# 共通正規化関数
+def normalize_general_calculation_parameters(parameters: dict) -> dict:
+    if not isinstance(parameters, dict):
+        raise TypeError("parametersはdict形式で指定してください")
+
+    normalized = {}
+
+    for key, value in parameters.items():
+        if value is None:
+            normalized[key] = None
+            continue
+
+        if key in GENERAL_CALCULATION_NUMERIC_FIELDS:
+            try:
+                normalized[key] = to_decimal(value)
+            except (ValueError, TypeError, ArithmeticError):
+                normalized[key] = None
+            continue
+
+        normalized[key] = str(value).strip().lower() if isinstance(value, str) else value
+
+    return normalized
+#================================================
+
+# 不足項目判定関数
+def get_general_calculation_missing_fields(calculation_type: str, parameters: dict) -> list:
+    normalized_type = str(calculation_type or "").strip().lower()
+
+    if normalized_type not in GENERAL_CALCULATION_TYPES:
+        return ["calculation_type"]
+
+    if not isinstance(parameters, dict):
+        return ["parameters"]
+
+    required_fields = GENERAL_CALCULATION_REQUIRED_FIELDS.get(normalized_type, set())
+    missing_fields = [
+        field
+        for field in required_fields
+        if parameters.get(field) is None
+    ]
+
+    if normalized_type == "percentage_calculation":
+        calculation_mode = parameters.get("calculation_mode")
+
+        if not calculation_mode:
+            missing_fields.append("calculation_mode")
+        elif calculation_mode in {"percentage_of_value", "discounted_value", "increased_value"}:
+            if parameters.get("base_value") is None:
+                missing_fields.append("base_value")
+            if parameters.get("rate") is None:
+                missing_fields.append("rate")
+        elif calculation_mode in {"ratio", "percentage_change", "difference"}:
+            if parameters.get("base_value") is None:
+                missing_fields.append("base_value")
+            if parameters.get("comparison_value") is None:
+                missing_fields.append("comparison_value")
+        else:
+            missing_fields.append("calculation_mode")
+
+    return list(dict.fromkeys(missing_fields))
+#================================================
+
+# 複利運用のPython計算関数
+def calculate_compound_interest(
+    principal,
+    annual_rate,
+    years,
+    compounding_per_year
+) -> dict:
+    principal_d = to_decimal(principal)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+    compounding_per_year_d = to_decimal(compounding_per_year)
+
+    if principal_d < 0:
+        raise ValueError("principalは0以上にしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+    if compounding_per_year_d <= 0:
+        raise ValueError("compounding_per_yearは0より大きくしてください")
+    if compounding_per_year_d != compounding_per_year_d.to_integral_value():
+        raise ValueError("compounding_per_yearは整数にしてください")
+
+    period_count = years_d * compounding_per_year_d
+    if period_count != period_count.to_integral_value():
+        raise ValueError("運用期間と複利回数から求めた期間数が整数になりません")
+
+    periodic_rate = annual_rate_d / compounding_per_year_d
+    final_amount = principal_d * (
+        Decimal("1") + periodic_rate
+    ) ** int(period_count)
+    profit = final_amount - principal_d
+
+    return {
+        "principal": round_yen(principal_d),
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "compounding_per_year": int(compounding_per_year_d),
+        "period_count": int(period_count),
+        "final_amount": round_yen(final_amount),
+        "profit": round_yen(profit)
+    }
+#================================================
+
+# 定期積立のPython計算関数
+def calculate_recurring_investment(
+    initial_principal,
+    contribution_amount,
+    contributions_per_year,
+    annual_rate,
+    years,
+    compounding_per_year,
+    contribution_timing
+) -> dict:
+    initial_principal_d = to_decimal(initial_principal or 0)
+    contribution_amount_d = to_decimal(contribution_amount)
+    contributions_per_year_d = to_decimal(contributions_per_year)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+    compounding_per_year_d = to_decimal(compounding_per_year)
+    normalized_timing = str(contribution_timing or "").strip().lower()
+
+    if initial_principal_d < 0:
+        raise ValueError("initial_principalは0以上にしてください")
+    if contribution_amount_d < 0:
+        raise ValueError("contribution_amountは0以上にしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+    if contributions_per_year_d <= 0:
+        raise ValueError("contributions_per_yearは0より大きくしてください")
+    if compounding_per_year_d <= 0:
+        raise ValueError("compounding_per_yearは0より大きくしてください")
+    if contributions_per_year_d != contributions_per_year_d.to_integral_value():
+        raise ValueError("contributions_per_yearは整数にしてください")
+    if compounding_per_year_d != compounding_per_year_d.to_integral_value():
+        raise ValueError("compounding_per_yearは整数にしてください")
+    if normalized_timing not in {"beginning", "end"}:
+        raise ValueError("contribution_timingはbeginningまたはendにしてください")
+
+    contributions_per_year_i = int(contributions_per_year_d)
+    compounding_per_year_i = int(compounding_per_year_d)
+
+    if compounding_per_year_i % contributions_per_year_i != 0:
+        raise ValueError("複利回数は積立回数の整数倍にしてください")
+
+    contribution_count = years_d * contributions_per_year_d
+    compounding_period_count = years_d * compounding_per_year_d
+
+    if contribution_count != contribution_count.to_integral_value():
+        raise ValueError("積立期間から求めた積立回数が整数になりません")
+    if compounding_period_count != compounding_period_count.to_integral_value():
+        raise ValueError("運用期間から求めた複利回数が整数になりません")
+
+    contribution_count_i = int(contribution_count)
+    compounding_period_count_i = int(compounding_period_count)
+    periodic_rate = annual_rate_d / compounding_per_year_d
+    compound_periods_per_contribution = (
+        compounding_per_year_i // contributions_per_year_i
+    )
+    contribution_period_rate = (
+        Decimal("1") + periodic_rate
+    ) ** compound_periods_per_contribution - Decimal("1")
+
+    initial_principal_final = initial_principal_d * (
+        Decimal("1") + periodic_rate
+    ) ** compounding_period_count_i
+
+    if contribution_period_rate == 0:
+        contributions_final = contribution_amount_d * contribution_count_i
+    else:
+        contributions_final = contribution_amount_d * (
+            (
+                Decimal("1") + contribution_period_rate
+            ) ** contribution_count_i
+            - Decimal("1")
+        ) / contribution_period_rate
+
+        if normalized_timing == "beginning":
+            contributions_final *= Decimal("1") + contribution_period_rate
+
+    total_contributions = (
+        initial_principal_d
+        + contribution_amount_d * contribution_count_i
+    )
+    final_amount = initial_principal_final + contributions_final
+    profit = final_amount - total_contributions
+
+    return {
+        "initial_principal": round_yen(initial_principal_d),
+        "contribution_amount": round_yen(contribution_amount_d),
+        "contributions_per_year": contributions_per_year_i,
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "compounding_per_year": compounding_per_year_i,
+        "contribution_timing": normalized_timing,
+        "contribution_count": contribution_count_i,
+        "total_contributions": round_yen(total_contributions),
+        "final_amount": round_yen(final_amount),
+        "profit": round_yen(profit)
+    }
+#================================================
+
+# 元利均等返済のPython計算関数
+def calculate_loan_payment(
+    principal,
+    annual_rate,
+    years,
+    payments_per_year,
+    repayment_method,
+    bonus_payment
+) -> dict:
+    principal_d = to_decimal(principal)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+    payments_per_year_d = to_decimal(payments_per_year)
+    bonus_payment_d = to_decimal(bonus_payment)
+    normalized_method = str(repayment_method or "").strip().lower()
+
+    if principal_d <= 0:
+        raise ValueError("principalは0より大きくしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+    if payments_per_year_d <= 0:
+        raise ValueError("payments_per_yearは0より大きくしてください")
+    if payments_per_year_d != payments_per_year_d.to_integral_value():
+        raise ValueError("payments_per_yearは整数にしてください")
+    if normalized_method != "equal_payment":
+        raise ValueError("現在対応している返済方式は元利均等返済だけです")
+    if bonus_payment_d != 0:
+        raise ValueError("現在はボーナス返済なしの計算だけに対応しています")
+
+    payment_count = years_d * payments_per_year_d
+
+    if payment_count != payment_count.to_integral_value():
+        raise ValueError("返済期間から求めた返済回数が整数になりません")
+
+    payment_count_i = int(payment_count)
+    payments_per_year_i = int(payments_per_year_d)
+    periodic_rate = annual_rate_d / payments_per_year_d
+
+    if periodic_rate == 0:
+        payment_amount = principal_d / payment_count_i
+    else:
+        growth_factor = (
+            Decimal("1") + periodic_rate
+        ) ** payment_count_i
+
+        payment_amount = (
+            principal_d
+            * periodic_rate
+            * growth_factor
+            / (growth_factor - Decimal("1"))
+        )
+
+    total_payment = payment_amount * payment_count_i
+    total_interest = total_payment - principal_d
+
+    return {
+        "principal": round_yen(principal_d),
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "payments_per_year": payments_per_year_i,
+        "repayment_method": normalized_method,
+        "bonus_payment": round_yen(bonus_payment_d),
+        "payment_count": payment_count_i,
+        "payment_amount": round_yen(payment_amount),
+        "total_payment": round_yen(total_payment),
+        "total_interest": round_yen(total_interest)
+    }
+#================================================
+
+# 単利計算関数
+def calculate_simple_interest(
+    principal,
+    annual_rate,
+    years
+) -> dict:
+    principal_d = to_decimal(principal)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+
+    if principal_d < 0:
+        raise ValueError("principalは0以上にしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+
+    interest = principal_d * annual_rate_d * years_d
+    final_amount = principal_d + interest
+
+    return {
+        "principal": round_yen(principal_d),
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "interest": round_yen(interest),
+        "final_amount": round_yen(final_amount)
+    }
+#================================================
+
+# 割合・増減率・差額の計算関数
+def calculate_percentage_calculation(
+    base_value,
+    comparison_value,
+    rate,
+    calculation_mode
+) -> dict:
+    normalized_mode = str(calculation_mode or "").strip().lower()
+    allowed_modes = {
+        "percentage_of_value",
+        "ratio",
+        "percentage_change",
+        "difference",
+        "discounted_value",
+        "increased_value"
+    }
+
+    if normalized_mode not in allowed_modes:
+        raise ValueError("対応していないcalculation_modeです")
+
+    base_value_d = (
+        to_decimal(base_value)
+        if base_value is not None
+        else None
+    )
+    comparison_value_d = (
+        to_decimal(comparison_value)
+        if comparison_value is not None
+        else None
+    )
+    rate_d = (
+        to_decimal(rate)
+        if rate is not None
+        else None
+    )
+
+    if base_value_d is not None and base_value_d < 0:
+        raise ValueError("base_valueは0以上にしてください")
+    if comparison_value_d is not None and comparison_value_d < 0:
+        raise ValueError("comparison_valueは0以上にしてください")
+    if rate_d is not None and rate_d < 0:
+        raise ValueError("rateは0以上にしてください")
+
+    if normalized_mode in {
+        "percentage_of_value",
+        "discounted_value",
+        "increased_value"
+    }:
+        if base_value_d is None or rate_d is None:
+            raise ValueError("base_valueとrateが必要です")
+
+    if normalized_mode in {
+        "ratio",
+        "percentage_change",
+        "difference"
+    }:
+        if base_value_d is None or comparison_value_d is None:
+            raise ValueError("base_valueとcomparison_valueが必要です")
+
+    if normalized_mode == "percentage_of_value":
+        result_value = base_value_d * rate_d
+
+    elif normalized_mode == "ratio":
+        if base_value_d == 0:
+            raise ValueError("割合計算のbase_valueを0にはできません")
+        result_value = comparison_value_d / base_value_d
+
+    elif normalized_mode == "percentage_change":
+        if base_value_d == 0:
+            raise ValueError("増減率計算のbase_valueを0にはできません")
+        result_value = (
+            comparison_value_d - base_value_d
+        ) / base_value_d
+
+    elif normalized_mode == "difference":
+        result_value = comparison_value_d - base_value_d
+
+    elif normalized_mode == "discounted_value":
+        if rate_d > 1:
+            raise ValueError("割引率は0から1の範囲にしてください")
+        result_value = base_value_d * (
+            Decimal("1") - rate_d
+        )
+
+    else:
+        result_value = base_value_d * (
+            Decimal("1") + rate_d
+        )
+
+    result_type = (
+        "rate"
+        if normalized_mode in {
+            "ratio",
+            "percentage_change"
+        }
+        else "value"
+    )
+
+    return {
+        "calculation_mode": normalized_mode,
+        "base_value": (
+            float(base_value_d)
+            if base_value_d is not None
+            else None
+        ),
+        "comparison_value": (
+            float(comparison_value_d)
+            if comparison_value_d is not None
+            else None
+        ),
+        "rate": (
+            float(rate_d)
+            if rate_d is not None
+            else None
+        ),
+        "result_type": result_type,
+        "result": (
+            float(result_value)
+            if result_type == "rate"
+            else round_yen(result_value)
+        ),
+        "result_percent": (
+            float(result_value * Decimal("100"))
+            if result_type == "rate"
+            else None
+        )
+    }
+
+# 計算タイプとPython関数を対応させるディスパッチ定義
+GENERAL_CALCULATORS = {
+    "compound_interest": calculate_compound_interest,
+    "recurring_investment": calculate_recurring_investment,
+    "loan_payment": calculate_loan_payment,
+    "simple_interest": calculate_simple_interest,
+    "percentage_calculation": calculate_percentage_calculation
+}
+
+def execute_general_calculation(extraction_result: dict) -> dict:
+    if not isinstance(extraction_result, dict):
+        return {
+            "status": "extraction_error",
+            "calculation_type": None,
+            "results": [],
+            "missing_fields": [],
+            "error": "汎用計算条件の抽出結果がdict形式ではありません"
+        }
+
+    if not extraction_result.get("should_calculate", False):
+        return {
+            "status": "not_applicable",
+            "calculation_type": None,
+            "results": [],
+            "missing_fields": [],
+            "error": None
+        }
+
+    if extraction_result.get("extraction_status") != "extracted":
+        return {
+            "status": "extraction_error",
+            "calculation_type": None,
+            "results": [],
+            "missing_fields": [],
+            "error": "汎用計算の条件を正しく抽出できませんでした"
+        }
+
+    calculation_type = str(
+        extraction_result.get("calculation_type", "") or ""
+    ).strip().lower()
+
+    if calculation_type not in GENERAL_CALCULATION_TYPES:
+        return {
+            "status": "unsupported_type",
+            "calculation_type": calculation_type or None,
+            "results": [],
+            "missing_fields": [],
+            "error": "対応していない汎用計算タイプです"
+        }
+
+    calculation_function = GENERAL_CALCULATORS.get(calculation_type)
+
+    if calculation_function is None:
+        return {
+            "status": "unsupported_type",
+            "calculation_type": calculation_type,
+            "results": [],
+            "missing_fields": [],
+            "error": "汎用計算関数を確認できませんでした"
+        }
+
+    cases = extraction_result.get("cases", [])
+
+    if not isinstance(cases, list) or not cases:
+        return {
+            "status": "extraction_error",
+            "calculation_type": calculation_type,
+            "results": [],
+            "missing_fields": [],
+            "error": "汎用計算のケースを確認できませんでした"
+        }
+    
+    normalized_cases = []
+    all_missing_fields = []
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            return {
+                "status": "extraction_error",
+                "calculation_type": calculation_type,
+                "results": [],
+                "missing_fields": [],
+                "error": "汎用計算のケースがdict形式ではありません"
+            }
+        case_name = str(
+            case.get("case_name", "") or ""
+        ).strip()
+
+        if not case_name:
+            case_name = (
+                "基本ケース"
+                if len(cases) == 1
+                else f"ケース{index + 1}"
+            )
+        raw_parameters = case.get("parameters", {})
+        if not isinstance(raw_parameters, dict):
+            return {
+                "status": "extraction_error",
+                "calculation_type": calculation_type,
+                "results": [],
+                "missing_fields": [],
+                "error": f"{case_name}のparametersがdict形式ではありません"
+            }
+        normalized_parameters = (
+            normalize_general_calculation_parameters(
+                raw_parameters
+            )
+        )
+        if calculation_type == "recurring_investment":
+            normalized_parameters.setdefault(
+                "initial_principal",
+                Decimal("0")
+            )
+        missing_fields = (
+            get_general_calculation_missing_fields(
+                calculation_type=calculation_type,
+                parameters=normalized_parameters
+            )
+        )
+        normalized_cases.append({
+            "case_name": case_name,
+            "parameters": normalized_parameters,
+            "missing_fields": missing_fields
+        })
+        if missing_fields:
+            all_missing_fields.append({
+                "case_name": case_name,
+                "fields": missing_fields
+            })
+    
+    if all_missing_fields:
+        return {
+            "status": "missing_fields",
+            "calculation_type": calculation_type,
+            "results": [],
+            "missing_fields": all_missing_fields,
+            "error": None
+        }
+    
+    calculation_results = []
+    try:
+        for case in normalized_cases:
+            case_name = case["case_name"]
+            parameters = case["parameters"]
+            calculation_result = calculation_function(**parameters)
+
+            calculation_results.append({
+                "case_name": case_name,
+                "parameters": make_json_safe(parameters),
+                "result": make_json_safe(calculation_result)
+            })
+
+    except (ValueError, TypeError, ArithmeticError) as calculation_error:
+        return {
+            "status": "calculation_error",
+            "calculation_type": calculation_type,
+            "results": [],
+            "missing_fields": [],
+            "error": str(calculation_error)
+        }
+
+    except Exception as unexpected_error:
+        return {
+            "status": "calculation_error",
+            "calculation_type": calculation_type,
+            "results": [],
+            "missing_fields": [],
+            "error": (
+                f"{type(unexpected_error).__name__}: "
+                f"{unexpected_error}"
+            )
+        }
+
+    return {
+        "status": "success",
+        "calculation_type": calculation_type,
+        "results": calculation_results,
+        "missing_fields": [],
+        "error": None
+    }
+#================================================
+
+# Python計算結果を最終回答へ渡す関数
+def build_general_calculation_context(execution_result: dict) -> str:
+    if not isinstance(execution_result, dict):
+        return ""
+
+    status = str(
+        execution_result.get("status", "not_applicable") or "not_applicable"
+    ).strip().lower()
+
+    if status == "not_applicable":
+        return ""
+    
+    if status == "missing_fields":
+        calculation_type = execution_result.get("calculation_type")
+        missing_fields = execution_result.get("missing_fields", [])
+
+        missing_lines = []
+        for case in missing_fields:
+            case_name = str(case.get("case_name", "基本ケース") or "基本ケース")
+            field_labels = [
+                GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                for field in case.get("fields", [])
+            ]
+            missing_lines.append(
+                f"・{case_name}: {', '.join(field_labels)}"
+            )
+
+        missing_text = "\n".join(missing_lines)
+
+        return f"""
+        【Python汎用計算】
+        計算に必要な条件が不足しているため、Python計算はまだ実行していません。
+
+        【計算タイプ】
+        {calculation_type}
+
+        【不足項目】
+        {missing_text}
+
+        【回答ルール】
+        ・不足している項目だけをユーザーへ確認してください。
+        ・確認済みの条件を再質問しないでください。
+        ・不足している数値や条件を推測してはいけません。
+        ・条件がそろうまで独自の概算結果を作ってはいけません。
+        """.strip()
+    
+    if status in {"extraction_error", "unsupported_type"}:
+        error_message = str(
+            execution_result.get(
+                "error",
+                "計算条件を正しく確認できませんでした"
+            )
+            or "計算条件を正しく確認できませんでした"
+        )
+
+        return f"""
+        【Python汎用計算】
+        計算条件を正しく確認できなかったため、Python計算は実行していません。
+
+        【確認内容】
+        {error_message}
+
+        【回答ルール】
+        ・計算条件を確認できなかったことを簡潔に伝えてください。
+        ・ユーザーが明示していない数値や条件を推測してはいけません。
+        ・独自の概算結果を作ってはいけません。
+        ・必要な場合は、計算に必要な条件を整理して再入力してもらってください。
+        """.strip()
+
+    if status == "calculation_error":
+        calculation_type = execution_result.get("calculation_type")
+        error_message = str(
+            execution_result.get(
+                "error",
+                "計算条件に問題があります"
+            )
+            or "計算条件に問題があります"
+        )
+
+        return f"""
+        【Python汎用計算エラー】
+        Python計算を実行しましたが、入力条件に問題があるため結果を確定できませんでした。
+
+        【計算タイプ】
+        {calculation_type}
+
+        【エラー内容】
+        {error_message}
+
+        【回答ルール】
+        ・エラー内容をユーザー向けに分かりやすく説明してください。
+        ・修正が必要な条件だけを確認してください。
+        ・ユーザーが明示していない数値や条件を推測してはいけません。
+        ・エラーが解消されるまで独自の概算結果を作ってはいけません。
+        ・Pythonの内部処理やプログラムコードの説明は不要です。
+        """.strip()
+    
+    if status == "success":
+        calculation_type = execution_result.get("calculation_type")
+        results = execution_result.get("results", [])
+
+        if not isinstance(results, list) or not results:
+            return """
+            【Python汎用計算エラー】
+            Python計算の結果を取得できませんでした。
+
+            【回答ルール】
+            ・独自に再計算してはいけません。
+            ・存在しない数値を作ってはいけません。
+            ・計算結果を取得できなかったことを簡潔に伝えてください。
+            """.strip()
+
+        result_json = json.dumps(
+            results,
+            ensure_ascii=False,
+            indent=2
+        )
+
+        return f"""
+        【Python汎用計算結果】
+        以下はPythonで計算済みの結果です。
+
+        【計算タイプ】
+        {calculation_type}
+
+        【計算結果】
+        {result_json}
+
+        【回答ルール】
+        ・上記のPython計算結果を最優先してください。
+        ・数値を変更、補正、再計算してはいけません。
+        ・簡易回答や過去の回答と数値が異なる場合は、今回のPython計算結果を使用してください。
+        ・結果に存在しない数値を推測して追加してはいけません。
+        ・各ケースのcase_name、parameters、resultを正しく対応させてください。
+        ・複数ケースの数値を混同してはいけません。
+        ・ユーザー向けには内部キー名をそのまま並べず、自然な日本語で説明してください。
+        ・金額は読みやすいように円または万円で表示してください。
+        ・割合は必要に応じてパーセント表示へ変換してください。
+        ・元の質問で除外された税金、手数料、制度などを勝手に追加してはいけません。
+        ・計算は既に完了しています。「これから計算します」などの表現は禁止です。
+        ・計算結果、使用条件、必要な注意点の順で簡潔に回答してください。
+        """.strip()
+
+    return """
+    【Python汎用計算】
+    計算状態を確認できなかったため、今回は計算結果を使用できません。
+
+    【回答ルール】
+    ・独自に再計算してはいけません。
+    ・存在しない数値を作ってはいけません。
+    ・計算状態を確認できなかったことを簡潔に伝えてください。
+    """.strip()
+
+#================================================
+
+GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
+    あなたは、一般的な数値計算に必要な入力条件を構造化して抽出するシステムです。
+
+    【最重要ルール】
+    ・計算は行わないでください。
+    ・ユーザーが明示していない数値や条件を推測しないでください。
+    ・一般的、平均的、代表的と思われる数値を補完しないでください。
+    ・AIが過去に推測した数値を、ユーザーが提示した条件として使用しないでください。
+    ・最新のユーザー発言で条件が変更された場合は、最新条件を優先してください。
+    ・単一ケースでもcases配列へ1件として格納してください。
+    ・複数条件が指定された場合は、ケースごとに分けてください。
+    ・確認できない項目はnullにしてください。
+    ・0と未入力を区別し、ユーザーが0と明示した場合だけ0を設定してください。
+    ・計算結果は出力しないでください。
+    ・JSON以外の文章を出力しないでください。
+    ・コードブロックの囲み記号を付けないでください。
+    ・参照情報が「なし」ではない場合、参照情報に明記された数値と条件だけを抽出してください。
+    ・参照情報にある数値を、ユーザー自身が指定した数値として扱ってはいけません。
+    ・ユーザー指定の条件と参照情報が異なる場合は、ユーザー指定の条件を優先してください。
+    ・参照情報に複数の候補値がある場合は、条件の対応関係を確認し、必要に応じてcasesを分けてください。
+    ・金融機関、商品、金利タイプ、適用期間、融資率などが異なる数値を、同じケースへ混在させてはいけません。
+    ・数値の対象や適用条件を確認できない場合は、その数値を使用せずnullにしてください。
+    ・参照情報に計算結果が含まれていても、その計算結果は抽出しないでください。
+    ・参照情報から抽出してよいのは、Python計算に必要な入力条件だけです。
+
+    【共通の数値正規化ルール】
+    ・金額や数値から、カンマ、円、￥、¥、空白を除去してください。
+    ・1万円は10000、200万円は2000000、1億円は100000000に変換してください。
+    ・1.5万円は15000、1.5億円は150000000に変換してください。
+    ・4%は0.04、1.2%は0.012、20%は0.20に変換してください。
+    ・年数は年単位の数値にしてください。
+    ・10年6ヶ月は10.5年、120ヶ月は10年に変換してください。
+    ・数値を確認できない場合はnullにしてください。
+    ・小数を整数へ勝手に丸めないでください。
+    ・複数ケースでは、共通条件も各caseのparametersへ設定してください。
+
+    【case_nameのルール】
+    ・ユーザーがケース名を指定した場合は、その名前を使用してください。
+    ・指定がない場合は、条件の違いが分かる短い名前にしてください。
+    ・年利が異なる場合は「年利4%」のようにしてください。
+    ・積立額が異なる場合は「毎月3万円」のようにしてください。
+    ・単一ケースで適切な名前がない場合は「基本ケース」にしてください。
+    ・case_nameへ計算結果を含めてはいけません。
+
+    【共通出力形式】
+    {
+        "should_calculate": true,
+        "calculation_type": "計算タイプ",
+        "cases": [
+            {
+                "case_name": "基本ケース",
+                "parameters": {}
+            }
+        ]
+    }
+
+    【共通出力ルール】
+    ・should_calculateはtrueまたはfalseにしてください。
+    ・calculation_typeには指定された計算タイプを設定してください。
+    ・casesは必ず配列にしてください。
+    ・各caseにはcase_nameとparametersを必ず含めてください。
+    ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
+    ・確認できない項目も省略せず、nullを設定してください。
+    ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、casesを空配列にしてください。
+    ・計算結果、利益、返済額、総額などは出力してはいけません。
+    """.strip()
+
+GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
+    "compound_interest": """
+    【今回の計算タイプ】
+    compound_interest
+
+    【抽出項目】
+    ・principal：初期元本。円単位の数値
+    ・annual_rate：年利。0から1の小数
+    ・years：運用期間。年単位
+    ・compounding_per_year：1年間の複利回数
+
+    【抽出ルール】
+    ・追加投資や定期積立がなく、初期元本だけを複利運用する場合に使用してください。
+    ・「毎月複利」はcompounding_per_yearを12にしてください。
+    ・「年1回複利」「年複利」はcompounding_per_yearを1にしてください。
+    ・「半年複利」はcompounding_per_yearを2にしてください。
+    ・「四半期複利」はcompounding_per_yearを4にしてください。
+    ・「毎日複利」はcompounding_per_yearを365にしてください。
+    ・複利回数が明示されていない場合はnullにしてください。
+    ・複数の年利が指定された場合は、年利ごとにcasesを分けてください。
+    ・複数ケースで共通する元本、期間、複利回数も、各caseのparametersへ設定してください。
+    ・追加投資額や定期積立額がある場合はshould_calculateをfalseにしてください。
+
+    【parametersの形式】
+    {
+        "principal": null,
+        "annual_rate": null,
+        "years": null,
+        "compounding_per_year": null
+    }
+    """.strip(),
+
+    "recurring_investment": """
+    【今回の計算タイプ】
+    recurring_investment
+
+    【抽出項目】
+    ・initial_principal：積立開始時の初期元本。円単位の数値
+    ・contribution_amount：1回あたりの積立額。円単位の数値
+    ・contributions_per_year：1年間の積立回数
+    ・annual_rate：年利。0から1の小数
+    ・years：積立期間。年単位
+    ・compounding_per_year：1年間の複利回数
+    ・contribution_timing：積立タイミング
+
+    【抽出ルール】
+    ・毎月、毎年など、一定額を定期的に追加投資する場合に使用してください。
+    ・初期元本が不明な場合はnullにしてください。
+    ・「初期投資なし」「元本0円」などと明示された場合だけinitial_principalを0にしてください。
+    ・「毎月3万円」はcontribution_amountを30000、contributions_per_yearを12にしてください。
+    ・「毎年50万円」はcontribution_amountを500000、contributions_per_yearを1にしてください。
+    ・積立頻度が明示されていない場合はcontributions_per_yearをnullにしてください。
+    ・「毎月複利」はcompounding_per_yearを12にしてください。
+    ・「年1回複利」「年複利」はcompounding_per_yearを1にしてください。
+    ・複利回数が明示されていない場合はnullにしてください。
+    ・積立タイミングが月初、期首、積立期間の開始時ならcontribution_timingをbeginningにしてください。
+    ・積立タイミングが月末、期末、積立期間の終了時ならcontribution_timingをendにしてください。
+    ・積立タイミングが明示されていない場合はnullにしてください。
+    ・複数の年利、積立額、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。
+
+    【parametersの形式】
+    {
+        "initial_principal": null,
+        "contribution_amount": null,
+        "contributions_per_year": null,
+        "annual_rate": null,
+        "years": null,
+        "compounding_per_year": null,
+        "contribution_timing": null
+    }
+    """.strip(),
+
+    "loan_payment": """
+    【今回の計算タイプ】
+    loan_payment
+
+    【抽出項目】
+    ・principal：借入元金。円単位の数値
+    ・annual_rate：年利。0から1の小数
+    ・years：返済期間。年単位
+    ・payments_per_year：1年間の返済回数
+    ・repayment_method：返済方式
+    ・bonus_payment：ボーナス返済額
+
+    【抽出ルール】
+    ・借入額、利率、返済期間から返済額を求める場合に使用してください。
+    ・初期対応する返済方式は元利均等返済だけです。
+    ・「元利均等返済」はrepayment_methodをequal_paymentにしてください。
+    ・元金均等返済、残価設定、リボ払い、繰上返済を含む場合はshould_calculateをfalseにしてください。
+    ・返済方式が明示されていない場合はrepayment_methodをnullにしてください。
+    ・「毎月返済」はpayments_per_yearを12にしてください。
+    ・「年1回返済」はpayments_per_yearを1にしてください。
+    ・返済頻度が明示されていない場合はpayments_per_yearをnullにしてください。
+    ・「ボーナス返済なし」「ボーナス払いなし」はbonus_paymentを0にしてください。
+    ・ボーナス返済について明示されていない場合はbonus_paymentをnullにしてください。
+    ・bonus_paymentが0より大きい場合はshould_calculateをfalseにしてください。
+    ・複数の金利、借入額、返済期間が指定された場合は、比較する条件ごとにcasesを分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料は計算条件へ含めないでください。
+    ・検索結果から金利を確認する必要がある場合、未確認の金利を推測して設定してはいけません。
+
+    【parametersの形式】
+    {
+        "principal": null,
+        "annual_rate": null,
+        "years": null,
+        "payments_per_year": null,
+        "repayment_method": null,
+        "bonus_payment": null
+    }
+    """.strip(),
+
+    "simple_interest": """
+    【今回の計算タイプ】
+    simple_interest
+
+    【抽出項目】
+    ・principal：初期元本。円単位の数値
+    ・annual_rate：年利。0から1の小数
+    ・years：運用期間。年単位
+
+    【抽出ルール】
+    ・初期元本を一定期間、単利で運用する場合に使用してください。
+    ・「単利」と明示されている場合だけ計算対象にしてください。
+    ・複利と単利の指定がない場合はshould_calculateをfalseにしてください。
+    ・定期的な追加投資がある場合はshould_calculateをfalseにしてください。
+    ・複数の年利、元本、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・税金や手数料を推測して追加してはいけません。
+
+    【parametersの形式】
+    {
+        "principal": null,
+        "annual_rate": null,
+        "years": null
+    }
+    """.strip(),
+
+    "percentage_calculation": """
+    【今回の計算タイプ】
+    percentage_calculation
+
+    【抽出項目】
+    ・base_value：基準となる値
+    ・comparison_value：比較対象の値
+    ・rate：計算に使用する割合。0から1の小数
+    ・calculation_mode：計算方法
+
+    【calculation_mode】
+    ・percentage_of_value：基準値に割合を掛けた値
+    ・ratio：基準値に対する比較値の割合
+    ・percentage_change：基準値から比較値への増減率
+    ・difference：基準値と比較値の差額
+    ・discounted_value：割引後の値
+    ・increased_value：割合を加算した後の値
+
+    【抽出ルール】
+    ・「500万円の20%」はbase_valueを5000000、rateを0.20、calculation_modeをpercentage_of_valueにしてください。
+    ・「200人のうち50人の割合」はbase_valueを200、comparison_valueを50、calculation_modeをratioにしてください。
+    ・「500万円から650万円への増加率」はbase_valueを5000000、comparison_valueを6500000、calculation_modeをpercentage_changeにしてください。
+    ・「500万円と650万円の差額」はbase_valueを5000000、comparison_valueを6500000、calculation_modeをdifferenceにしてください。
+    ・「1万円の20%引き」はbase_valueを10000、rateを0.20、calculation_modeをdiscounted_valueにしてください。
+    ・「1万円を20%増やす」はbase_valueを10000、rateを0.20、calculation_modeをincreased_valueにしてください。
+    ・増減率では、変更前の値をbase_value、変更後の値をcomparison_valueにしてください。
+    ・割合では、全体をbase_value、部分をcomparison_valueにしてください。
+    ・差額はcomparison_valueからbase_valueを引く計算として扱ってください。
+    ・複数条件が指定された場合は、比較する条件ごとにcasesを分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・税金、社会保険料、補助金、給付金などの制度依存計算はshould_calculateをfalseにしてください。
+    ・ユーザーが税率などを明示していても、税額計算へ置き換えてはいけません。
+
+    【parametersの形式】
+    {
+        "base_value": null,
+        "comparison_value": null,
+        "rate": null,
+        "calculation_mode": null
+    }
+    """.strip()
+}
+#================================================
+
 # 会話から名刺を切り出す
 tokenizer = Tokenizer()
-
 MEMORY_SEARCH_STOP_WORDS = {
     "前",
     "以前",
@@ -4254,6 +5417,7 @@ def classify_calculation_tool(
     pending_tool: str = "none"
 ) -> tuple[
     str,
+    str | None,
     float,
     int,
     int,
@@ -4265,6 +5429,7 @@ def classify_calculation_tool(
 
     戻り値:
         calculation_tool
+        general_calculation_type
         confidence
         in_tokens
         out_tokens
@@ -4296,9 +5461,18 @@ def classify_calculation_tool(
         none:
         Python計算ツールを使用しない。
 
+        general_calculation:
+        一般的な数式で完結する次の計算を求めている場合に使用する。
+        ・元本を一定期間運用する複利計算
+        ・一定額を定期的に積み立てる積立運用計算
+        ・元利均等返済によるローン返済額計算
+        ・元本、利率、期間を使った単利計算
+        ・割合、構成比、増減率、差額の計算
+        ・複数の利率や条件を使ったケース比較
+        税金、社会保険、年金、補助金、給付金、控除など、制度や適用年度で計算方法が変わるものには使用しない。
+
         real_estate_sale:
         不動産売却に関する次の計算を求めている場合に使用する。
-
         ・売却後の現金手残り
         ・譲渡所得
         ・概算税額
@@ -4308,7 +5482,6 @@ def classify_calculation_tool(
         ・不動産売却のシミュレーション
 
         以下のような「計算開始依頼」もreal_estate_sale と判定してください。
-
         ・不動産計算して
         ・新規で不動産計算して
         ・新規で不動産売却計算して
@@ -4323,10 +5496,20 @@ def classify_calculation_tool(
         条件不足の確認は、計算ツール側で行います。
 
         【初回判定ルール】
+        general_calculationは、ユーザーが一般的な数値計算、試算、シミュレーション、複数条件の数値比較を明確に求めている場合に選んでください。
+        例:
+        ・200万円を年利4%で10年間運用した場合を計算して
+        ・年利4%、6%、8%の複利運用結果を比較して
+        ・毎月3万円を20年間積み立てた場合を試算して
+        ・3000万円を35年、年利1.2%で借りた場合の返済額を計算して
+        ・売上が500万円から650万円になった場合の増加率を計算して
+
+        金額、割合、利率、期間などが書かれていても、計算、試算、比較、シミュレーションを求めていない場合はgeneral_calculationを選ばないでください。
+        税金、社会保険、年金、補助金、給付金、控除などの制度依存計算はgeneral_calculationを選ばず、noneにしてください。
+        不動産売却の譲渡所得、税額、手残りなどの計算は、general_calculationではなくreal_estate_saleを選んでください。
 
         次のような状態説明、雑談、予定、検討だけでは、
         real_estate_saleを選んではいけません。
-
         ・家を売る予定
         ・5000万円で売却予定
         ・不動産売却を検討している
@@ -4338,11 +5521,9 @@ def classify_calculation_tool(
         real_estate_saleを選んでください。
 
         【継続中の計算に関するルール】
-
         現在継続中の計算ツールがreal_estate_saleの場合、
         最新発言が次のような不足条件への回答であれば、
         real_estate_saleを選んでください。
-
         ・個人または法人
         ・売却額
         ・取得日
@@ -4379,10 +5560,8 @@ def classify_calculation_tool(
         real_estate_sale
 
         【継続を終了する発言】
-
         現在継続中の計算ツールが存在していても、
         最新発言が次のような内容ならnoneを選んでください。
-
         ・ありがとう
         ・もう大丈夫
         ・計算はやめる
@@ -4392,13 +5571,23 @@ def classify_calculation_tool(
         ・不動産売却計算と無関係な新しい話題
 
         【重要】
-
         ・短い発言は、直近の会話と現在継続中の計算ツールを踏まえて判定してください。
         ・ユーザーが計算を求めているか不明な場合はnoneにしてください。
         ・状態説明だけで計算を開始してはいけません。
         ・未実装のツール名を作ってはいけません。
         ・JSON以外の説明文を出力してはいけません。
         ・コードブロックの囲み記号を付けてはいけません。
+
+        【general_calculation_typeのルール】
+        ・calculation_toolがgeneral_calculationの場合だけ、general_calculation_typeへ次のいずれかを設定してください。
+        ・compound_interest
+        ・recurring_investment
+        ・loan_payment
+        ・simple_interest
+        ・percentage_calculation
+        ・calculation_toolがgeneral_calculation以外の場合は、general_calculation_typeをnullにしてください。
+        ・未実装の計算タイプを作ってはいけません。
+        ・計算タイプを特定できない場合は、calculation_toolをnone、general_calculation_typeをnullにしてください。
 
         【現在継続中の計算ツール】
         {normalized_pending_tool}
@@ -4408,10 +5597,11 @@ def classify_calculation_tool(
 
         【最新ユーザー発言】
         {user_input}
-
+        
         【出力形式】
         {{
             "calculation_tool": "none",
+            "general_calculation_type": null,
             "confidence": 0.90
         }}
         """
@@ -4472,10 +5662,17 @@ def classify_calculation_tool(
             or "none"
         ).strip().lower()
 
-        if (
-            calculation_tool
-            not in CALCULATION_TOOLS
-        ):
+        if calculation_tool not in CALCULATION_TOOLS:
+            calculation_tool = "none"
+        
+        general_calculation_type = tool_data.get("general_calculation_type")
+        if general_calculation_type is not None:
+            general_calculation_type = str(general_calculation_type).strip().lower()
+        if general_calculation_type not in GENERAL_CALCULATION_TYPES:
+            general_calculation_type = None
+        if calculation_tool != "general_calculation":
+            general_calculation_type = None
+        if calculation_tool == "general_calculation" and general_calculation_type is None:
             calculation_tool = "none"
 
         try:
@@ -4543,6 +5740,7 @@ def classify_calculation_tool(
 
         return (
             calculation_tool,
+            general_calculation_type,
             confidence,
             in_tokens,
             out_tokens,
@@ -4558,6 +5756,7 @@ def classify_calculation_tool(
 
         return (
             "none",
+            None,
             0.0,
             0,
             0,
@@ -5943,6 +7142,189 @@ def calculate_real_estate_sale(
         ),
         "tax_calculation_status": tax_calculation_status
     }
+
+# 計算処理の共通抽出関数
+def extract_general_calculation_parameters(
+    user_input: str,
+    calculation_type: str,
+    recent_history: str = "",
+    reference_context: str = ""
+) -> dict:
+
+    default_result = {
+        "should_calculate": False,
+        "calculation_type": None,
+        "cases": [],
+        "extraction_status": "not_applicable",
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "cost": 0.0
+    }
+
+    normalized_calculation_type = str(calculation_type or "").strip().lower()
+    if normalized_calculation_type not in GENERAL_CALCULATION_TYPES:
+        return {
+            **default_result,
+            "extraction_status": "unsupported_type"
+        }
+    if not str(user_input or "").strip():
+        return default_result
+    
+    type_extraction_prompt = GENERAL_CALCULATION_EXTRACTION_PROMPTS.get(
+        normalized_calculation_type,
+        ""
+    )
+
+    if not type_extraction_prompt:
+        return {
+            **default_result,
+            "extraction_status": "unsupported_type"
+        }
+
+    extraction_prompt = f"""
+    {GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT}
+
+    {type_extraction_prompt}
+
+    【今回指定された計算タイプ】
+    {normalized_calculation_type}
+
+    【直近の会話】
+    {recent_history}
+
+    【参照情報】
+    {reference_context if reference_context else "なし"}
+
+    【最新ユーザー発言】
+    {user_input}
+    """.strip()
+
+    try:
+        extraction_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=extraction_prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        raw_text = str(extraction_result.get("text", "") or "").strip()
+        if not raw_text:
+            raise ValueError("汎用計算条件の抽出結果が空です")
+
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        extracted_data = json.loads(clean_text)
+        if not isinstance(extracted_data, dict):
+            raise ValueError("汎用計算条件の抽出結果がobject形式ではありません")
+        
+        should_calculate = bool(extracted_data.get("should_calculate", False))
+        extracted_calculation_type = extracted_data.get("calculation_type")
+        if extracted_calculation_type is not None:
+            extracted_calculation_type = str(extracted_calculation_type).strip().lower()
+        if not should_calculate:
+            extracted_calculation_type = None
+        elif extracted_calculation_type != normalized_calculation_type:
+            raise ValueError("判定済みの計算タイプと抽出結果の計算タイプが一致しません")
+        
+        raw_cases = extracted_data.get("cases", [])
+        if not isinstance(raw_cases, list):
+            raise ValueError("汎用計算条件のcasesが配列形式ではありません")
+        if should_calculate and not raw_cases:
+            raise ValueError("汎用計算条件のcasesが空です")
+        
+        normalized_cases = []
+        for index, raw_case in enumerate(raw_cases):
+            if not isinstance(raw_case, dict):
+                raise ValueError("汎用計算条件のcaseがobject形式ではありません")
+
+            case_name = str(raw_case.get("case_name", "") or "").strip()
+            parameters = raw_case.get("parameters", {})
+
+            if not case_name:
+                case_name = "基本ケース" if len(raw_cases) == 1 else f"ケース{index + 1}"
+
+            if not isinstance(parameters, dict):
+                raise ValueError("汎用計算条件のparametersがobject形式ではありません")
+
+            normalized_cases.append({
+                "case_name": case_name,
+                "parameters": parameters
+            })
+        
+        allowed_fields = GENERAL_CALCULATION_PARAMETER_FIELDS.get(
+            normalized_calculation_type,
+            set()
+        )
+        filtered_cases = []
+        for case in normalized_cases:
+            parameters = case.get("parameters", {})
+            filtered_parameters = {
+                key: value
+                for key, value in parameters.items()
+                if key in allowed_fields
+            }
+            filtered_cases.append({
+                "case_name": case.get("case_name", "基本ケース"),
+                "parameters": filtered_parameters
+            })
+        
+        in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
+        out_tokens = int(extraction_result.get("out_tokens", 0) or 0)
+        extraction_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
+
+        if not should_calculate:
+            return {
+                "should_calculate": False,
+                "calculation_type": None,
+                "cases": [],
+                "extraction_status": "not_applicable",
+                "in_tokens": in_tokens,
+                "out_tokens": out_tokens,
+                "cost": extraction_cost
+            }
+
+        return {
+            "should_calculate": True,
+            "calculation_type": normalized_calculation_type,
+            "cases": filtered_cases,
+            "extraction_status": "extracted",
+            "in_tokens": in_tokens,
+            "out_tokens": out_tokens,
+            "cost": extraction_cost
+        }
+    
+    except (json.JSONDecodeError, ValueError, TypeError) as extraction_error:
+        print(
+            "汎用計算条件の抽出エラー: "
+            f"{type(extraction_error).__name__}: {extraction_error}"
+        )
+        return {
+            **default_result,
+            "extraction_status": "extraction_error"
+        }
+
+    except Exception as unexpected_error:
+        print(
+            "汎用計算条件抽出の予期しないエラー: "
+            f"{type(unexpected_error).__name__}: {unexpected_error}"
+        )
+        return {
+            **default_result,
+            "extraction_status": "extraction_error"
+        }
+# ==========================================
+
 
 # ==========================================
 # 🏠 不動産売却計算 呼び出し判定
@@ -11771,6 +13153,20 @@ with all_tabs[0]:
                 pending_detail_request.get("requires_estimation", False)
             )
             detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
+            detail_general_calculation_result = (
+                pending_detail_request.get("general_calculation_result")
+            )
+
+            if not isinstance(detail_general_calculation_result, dict):
+                detail_general_calculation_result = None
+
+            detail_general_calculation_context = (
+                build_general_calculation_context(
+                    detail_general_calculation_result
+                )
+                if detail_general_calculation_result
+                else ""
+            )
 
             detail_user_message = (
                 "この質問について、重要な判断材料やリスク、"
@@ -11832,7 +13228,8 @@ with all_tabs[0]:
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
                         simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt
+                        calc_prompt=detail_calc_prompt,
+                        general_calculation_context=detail_general_calculation_context
                     )
 
                 detail_elapsed = time.time() - detail_start_time
@@ -11858,7 +13255,8 @@ with all_tabs[0]:
                     response_mode="analysis",
                     processing_type="detailed_analysis",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_user_saved:
@@ -11872,7 +13270,8 @@ with all_tabs[0]:
                     response_mode="analysis",
                     processing_type="detailed_analysis",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_answer_saved:
@@ -11997,6 +13396,21 @@ with all_tabs[0]:
             )
             detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
 
+            detail_general_calculation_result = (
+                pending_detail_request.get("general_calculation_result")
+            )
+
+            if not isinstance(detail_general_calculation_result, dict):
+                detail_general_calculation_result = None
+
+            detail_general_calculation_context = (
+                build_general_calculation_context(
+                    detail_general_calculation_result
+                )
+                if detail_general_calculation_result
+                else ""
+            )
+
             detail_user_message = (
                 "この質問について、公式情報や適用条件、"
                 "例外、注意点を含めて詳しく調べて。"
@@ -12047,7 +13461,8 @@ with all_tabs[0]:
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
                         simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt
+                        calc_prompt=detail_calc_prompt,
+                        general_calculation_context=detail_general_calculation_context
                     )
 
                 detail_elapsed = float(
@@ -12086,7 +13501,8 @@ with all_tabs[0]:
                     response_mode="factual",
                     processing_type="detailed_search",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_user_saved:
@@ -12101,7 +13517,8 @@ with all_tabs[0]:
                     response_mode="factual",
                     processing_type="detailed_search",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_answer_saved:
@@ -12257,6 +13674,21 @@ with all_tabs[0]:
             )
             detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
 
+            detail_general_calculation_result = (
+                pending_detail_request.get("general_calculation_result")
+            )
+
+            if not isinstance(detail_general_calculation_result, dict):
+                detail_general_calculation_result = None
+
+            detail_general_calculation_context = (
+                build_general_calculation_context(
+                    detail_general_calculation_result
+                )
+                if detail_general_calculation_result
+                else ""
+            )
+
             detail_user_message = (
                 "この質問について、最新情報を確認し、"
                 "重要な判断材料やリスク、結論の根拠を含めて"
@@ -12308,7 +13740,8 @@ with all_tabs[0]:
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
                         simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt
+                        calc_prompt=detail_calc_prompt,
+                        general_calculation_context=detail_general_calculation_context
                     )
 
                 detail_elapsed = float(
@@ -12347,7 +13780,8 @@ with all_tabs[0]:
                     response_mode="analysis",
                     processing_type="detailed_search_analysis",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_user_saved:
@@ -12362,7 +13796,8 @@ with all_tabs[0]:
                     response_mode="analysis",
                     processing_type="detailed_search_analysis",
                     parent_message_id=original_message_id,
-                    requires_estimation=detail_requires_estimation
+                    requires_estimation=detail_requires_estimation,
+                    general_calculation_result=detail_general_calculation_result
                 )
 
                 if not detail_answer_saved:
@@ -13672,7 +15107,8 @@ with all_tabs[0]:
                             message_id=current_msg_id,
                             response_mode=response_mode,
                             processing_type=processing_type,
-                            requires_estimation=requires_estimation
+                            requires_estimation=requires_estimation,
+                            general_calculation_result=None
                         ):
                             st.stop()
                         
@@ -13683,6 +15119,7 @@ with all_tabs[0]:
                             "response_mode": response_mode,
                             "processing_type": processing_type,
                             "requires_estimation": requires_estimation,
+                            "general_calculation_result": None,
                             "chat_room": "talk",
                             "created_at": datetime.now(JST).isoformat()
                         })
@@ -13711,6 +15148,29 @@ with all_tabs[0]:
                         tool_router_in_t = 0
                         tool_router_out_t = 0
                         tool_router_cost = 0.0
+
+                        calculation_tool = "none"
+                        general_calculation_type = None
+
+                        general_calculation_extraction_result = {
+                            "should_calculate": False,
+                            "calculation_type": None,
+                            "cases": [],
+                            "extraction_status": "not_applicable",
+                            "in_tokens": 0,
+                            "out_tokens": 0,
+                            "cost": 0.0
+                        }
+
+                        general_calculation_execution_result = {
+                            "status": "not_applicable",
+                            "calculation_type": None,
+                            "results": [],
+                            "missing_fields": [],
+                            "error": None
+                        }
+
+                        general_calculation_context = ""
 
                         pending_tool = (
                             "real_estate_sale"
@@ -13758,10 +15218,11 @@ with all_tabs[0]:
                         # 不動産計算継続中
                         if pending_tool == "real_estate_sale":
                             calculation_tool = "real_estate_sale"
+                            general_calculation_type = None
                             should_run_tool_router = False
                         
                         # 計算関連ワードがあれば優先
-                        elif contains_real_estate_hint:
+                        elif contains_real_estate_hint or requires_estimation:
                             # debug_text("DEBUG entered_contains_calculation_hint", True)
 
                             should_run_tool_router = True
@@ -13770,6 +15231,7 @@ with all_tabs[0]:
 
                             (
                                 calculation_tool,
+                                general_calculation_type,
                                 tool_route_confidence,
                                 tool_router_in_t,
                                 tool_router_out_t,
@@ -13781,6 +15243,7 @@ with all_tabs[0]:
                                 pending_tool=pending_tool
                             )
                             debug_text("DEBUG calculation_tool", calculation_tool)
+                            debug_text("DEBUG general_calculation_type", general_calculation_type)
                             debug_text("DEBUG tool_route_confidence", tool_route_confidence)
 
                             tool_router_elapsed = (time.time() - tool_router_start_time)
@@ -13788,6 +15251,7 @@ with all_tabs[0]:
                         # 検索系質問
                         elif need_search:
                             calculation_tool = "none"
+                            general_calculation_type = None
                             should_run_tool_router = False
                         
                         # # 計算がありそうな会話だけ判定
@@ -13817,6 +15281,7 @@ with all_tabs[0]:
                         # 計算ヒントがない通常会話・分析
                         else:
                             calculation_tool = "none"
+                            general_calculation_type = None
                             should_run_tool_router = False
 
                         # 案件選択が成功した場合は、
@@ -13896,6 +15361,45 @@ with all_tabs[0]:
                             message_id=str(current_msg_id)
                         )
 
+                        # ==========================================
+                        # Python汎用計算
+                        # ==========================================
+                        if calculation_tool == "general_calculation":
+                            general_calculation_extraction_result = (
+                                extract_general_calculation_parameters(
+                                    user_input=user_input,
+                                    calculation_type=general_calculation_type,
+                                    recent_history=recent_history_for_router
+                                )
+                            )
+
+                            debug_json(
+                                "DEBUG general_calculation_extraction_result",
+                                general_calculation_extraction_result
+                            )
+
+                            general_calculation_execution_result = (
+                                execute_general_calculation(
+                                    general_calculation_extraction_result
+                                )
+                            )
+
+                            debug_json(
+                                "DEBUG general_calculation_execution_result",
+                                general_calculation_execution_result
+                            )
+
+                            general_calculation_context = (
+                                build_general_calculation_context(
+                                    general_calculation_execution_result
+                                )
+                            )
+
+                            debug_text(
+                                "DEBUG general_calculation_context",
+                                general_calculation_context
+                            )
+
                         grounded_direct_response = False
                         grounded_response_route = ("main_chat_response")
                         search_model_name = GOOGLE_MODEL_NAME
@@ -13906,7 +15410,8 @@ with all_tabs[0]:
                                     style_preset=current_style_preset,
                                     recent_history=recent_history_for_router,
                                     user_input=user_input,
-                                    calc_prompt=active_calc_prompt
+                                    calc_prompt=active_calc_prompt,
+                                    general_calculation_context=general_calculation_context
                                 )
 
                             search_query = search_config["prompt"]
@@ -13925,7 +15430,7 @@ with all_tabs[0]:
                                 model_name=search_model_name
                             )
                             search_execution_elapsed = (time.time() - search_execution_start)
-                            search_result = (search_response.get("text", "なし"))
+                            search_result = search_response.get("text", "なし")
                             # if CURRENT_USER_ID == ADMIN_USER_ID:
                             #     st.markdown("##### 🔎 Google検索結果デバッグ")
                             #     st.code(search_result, language="text")
@@ -13975,6 +15480,49 @@ with all_tabs[0]:
                                     }).execute()
                             except Exception as e:
                                 print(f"検索ログ取得エラー {CURRENT_USER_ID}: {e}")
+                            
+                            # 検索前計算で条件不足だった場合だけ、
+                            # 検索結果から入力条件を再抽出してPython計算する
+                            if (
+                                calculation_tool == "general_calculation"
+                                and general_calculation_execution_result.get("status")
+                                in {"missing_fields", "extraction_error"}
+                                and search_result
+                                and search_result != "なし"
+                            ):
+                                general_calculation_extraction_result = (
+                                    extract_general_calculation_parameters(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        recent_history=recent_history_for_router,
+                                        reference_context=search_result
+                                    )
+                                )
+
+                                debug_json(
+                                    "DEBUG general_calculation_search_extraction_result",
+                                    general_calculation_extraction_result
+                                )
+
+                                general_calculation_execution_result = (
+                                    execute_general_calculation(
+                                        general_calculation_extraction_result
+                                    )
+                                )
+
+                                debug_json(
+                                    "DEBUG general_calculation_search_execution_result",
+                                    general_calculation_execution_result
+                                )
+
+                                general_calculation_context = (
+                                    build_general_calculation_context(
+                                        general_calculation_execution_result
+                                    )
+                                )
+
+                                grounded_direct_response = False
+                                grounded_response_route = "main_chat_response"
 
                         else:
                             search_result = "なし"
@@ -13982,7 +15530,6 @@ with all_tabs[0]:
                         # ==========================================
                         # Python不動産売却計算
                         # ==========================================
-
                         calculation_extraction_result = {
                             "should_calculate": False,
                             "arguments": {},
@@ -14001,7 +15548,10 @@ with all_tabs[0]:
                         }
 
                         calculation_pending = bool(
-                            st.session_state.get("real_estate_calculation_pending", False)
+                            st.session_state.get(
+                                "real_estate_calculation_pending",
+                                False
+                            )
                         )
                         debug_text(
                             "DEBUG exit_calculation_check",
@@ -15161,6 +16711,7 @@ with all_tabs[0]:
 
                             {selected_mode_prompt}
                             {active_calc_prompt}
+                            {general_calculation_context}
                             """
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
@@ -15189,7 +16740,8 @@ with all_tabs[0]:
                                     build_simple_analysis_instruction(
                                         style_preset=current_style_preset,
                                         recent_history=recent_history_for_router,
-                                        calc_prompt=active_calc_prompt
+                                        calc_prompt=active_calc_prompt,
+                                        general_calculation_context=general_calculation_context
                                     )
                                 )
 
@@ -15257,6 +16809,11 @@ with all_tabs[0]:
                                 "response_mode": response_mode,
                                 "processing_type": processing_type,
                                 "requires_estimation": requires_estimation,
+                                "general_calculation_result": (
+                                    general_calculation_execution_result
+                                    if calculation_tool == "general_calculation"
+                                    else None
+                                ),
                                 "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
@@ -15267,7 +16824,12 @@ with all_tabs[0]:
                                 message_id=current_msg_id,
                                 response_mode=response_mode,
                                 processing_type=processing_type,
-                                requires_estimation=requires_estimation
+                                requires_estimation=requires_estimation,
+                                general_calculation_result=(
+                                    general_calculation_execution_result
+                                    if calculation_tool == "general_calculation"
+                                    else None
+)
                             )
                             st.session_state.force_message_reload = True
 
@@ -15352,6 +16914,7 @@ with all_tabs[0]:
             paired_assistant_message = None
             paired_processing_type = ""
             paired_requires_estimation = False
+            paired_general_calculation_result = None
 
             if message_id:
                 for search_msg in all_messages:
@@ -15360,6 +16923,18 @@ with all_tabs[0]:
                             paired_requires_estimation 
                             or bool(search_msg.get("requires_estimation", False))
                         )
+                        search_general_calculation_result = search_msg.get(
+                            "general_calculation_result"
+                        )
+
+                        if (
+                            paired_general_calculation_result is None
+                            and isinstance(search_general_calculation_result, dict)
+                        ):
+                            paired_general_calculation_result = (
+                                search_general_calculation_result
+                            )
+                        
                         if search_msg.get("role") == "user":
                             paired_user_message = (search_msg.get("content", ""))
                             if not paired_processing_type:
@@ -15423,6 +16998,7 @@ with all_tabs[0]:
                             "simple_processing_type": paired_processing_type,
                             "detailed_processing_type": detail_target_type,
                             "requires_estimation": paired_requires_estimation,
+                            "general_calculation_result": paired_general_calculation_result,
                             "point_cost": detail_point_cost
                         }
 
