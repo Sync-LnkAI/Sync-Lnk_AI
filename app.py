@@ -5700,6 +5700,10 @@ def classify_general_calculation_type(
     ・単利と明示されている場合はsimple_interestにしてください。
     ・期間を伴わない単発の割合計算はpercentage_calculationにしてください。
     ・単に年利や割合が含まれているだけでpercentage_calculationにしてはいけません。
+    ・複数の計算依頼が含まれる場合は、各依頼を個別に分類したうえで、すべてが同じ上位計算タイプに属するなら、その計算タイプを選んでください。
+    ・同じ計算タイプの内部に複数の計算方法や条件が存在しても、それを理由にcalculation_typeをnullにしてはいけません。
+    ・各依頼の違いは、後続の条件抽出処理でcasesとparametersへ分けてください。
+    ・複数の依頼が異なる上位計算タイプに分かれる場合だけ、calculation_typeをnullにしてください。
     ・計算タイプを特定できない場合はcalculation_typeをnullにしてください。
     ・未実装の計算タイプを作ってはいけません。
     ・計算は行わないでください。
