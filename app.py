@@ -1007,6 +1007,7 @@ def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) 
                 "message_id,"
                 "response_mode,"
                 "processing_type,"
+                "requires_estimation,"
                 "parent_message_id,"
                 "chat_room,"
                 "plan_project_id,"
@@ -1049,7 +1050,8 @@ def save_message(
     chat_room: str = "talk",
     plan_project_id=None,
     processing_type: str = "",
-    parent_message_id: str = ""
+    parent_message_id: str = "",
+    requires_estimation: bool = False
 ) -> bool:
     
     embedding_data = None
@@ -1078,6 +1080,7 @@ def save_message(
             "message_id": message_id,
             "response_mode": (response_mode if response_mode else None),
             "processing_type": (processing_type if processing_type else None),
+            "requires_estimation": bool(requires_estimation),
             "parent_message_id": (parent_message_id if parent_message_id else None),
             "chat_room": chat_room,
             "plan_project_id": plan_project_id
@@ -3294,7 +3297,8 @@ def build_simple_analysis_instruction(style_preset: str, recent_history: str, ca
 def build_detailed_analysis_instruction(
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> str:
     style_prompt = (
         LIGHTWEIGHT_STYLE_PRESETS.get(
@@ -3307,6 +3311,7 @@ def build_detailed_analysis_instruction(
 
     return f"""
     {DETAILED_ANALYSIS_PROMPT}
+    {calc_prompt}
 
     【今回の話し方】
     {style_prompt}
@@ -3334,7 +3339,8 @@ def build_detailed_analysis_instruction(
 def build_detailed_search_instruction(
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> str:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3347,7 +3353,7 @@ def build_detailed_search_instruction(
 
     return f"""
     {DETAILED_SEARCH_DIRECT_PROMPT}
-
+    {calc_prompt}
     {current_datetime_prompt}
 
     【今回の話し方】
@@ -3377,7 +3383,8 @@ def build_detailed_search_instruction(
 def build_detailed_search_analysis_instruction(
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> str:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3390,7 +3397,7 @@ def build_detailed_search_analysis_instruction(
 
     return f"""
     {DETAILED_SEARCH_ANALYSIS_DIRECT_PROMPT}
-
+    {calc_prompt}
     {current_datetime_prompt}
 
     【今回の話し方】
@@ -3432,7 +3439,8 @@ def generate_detailed_search_analysis_response(
     *,
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> dict:
     """
     Google検索を使用し、再調査、詳細分析、完成回答の生成を
@@ -3442,7 +3450,8 @@ def generate_detailed_search_analysis_response(
     detailed_prompt = build_detailed_search_analysis_instruction(
         style_preset=style_preset,
         original_user_message=original_user_message,
-        simple_answer=simple_answer
+        simple_answer=simple_answer,
+        calc_prompt=calc_prompt
     )
 
     search_start_time = time.time()
@@ -3496,7 +3505,8 @@ def generate_detailed_search_response(
     *,
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> dict:
     """
     Google検索を使用し、詳細検索と完成回答の生成を
@@ -3506,7 +3516,8 @@ def generate_detailed_search_response(
     detailed_search_prompt = build_detailed_search_instruction(
         style_preset=style_preset,
         original_user_message=original_user_message,
-        simple_answer=simple_answer
+        simple_answer=simple_answer,
+        calc_prompt=calc_prompt
     )
 
     search_start_time = time.time()
@@ -3561,7 +3572,8 @@ def generate_detailed_analysis_response(
     *,
     style_preset: str,
     original_user_message: str,
-    simple_answer: str
+    simple_answer: str,
+    calc_prompt: str = ""
 ) -> dict:
     """
     検索なしの詳細Analysisを生成する。
@@ -3572,7 +3584,8 @@ def generate_detailed_analysis_response(
         build_detailed_analysis_instruction(
             style_preset=style_preset,
             original_user_message=original_user_message,
-            simple_answer=simple_answer
+            simple_answer=simple_answer,
+            calc_prompt=calc_prompt
         )
     )
 
@@ -11754,6 +11767,10 @@ with all_tabs[0]:
             simple_answer = str(
                 pending_detail_request.get("simple_answer", "") or ""
             ).strip()
+            detail_requires_estimation = bool(
+                pending_detail_request.get("requires_estimation", False)
+            )
+            detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
 
             detail_user_message = (
                 "この質問について、重要な判断材料やリスク、"
@@ -11814,7 +11831,8 @@ with all_tabs[0]:
                     detail_result = generate_detailed_analysis_response(
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
-                        simple_answer=simple_answer
+                        simple_answer=simple_answer,
+                        calc_prompt=detail_calc_prompt
                     )
 
                 detail_elapsed = time.time() - detail_start_time
@@ -11839,7 +11857,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="analysis",
                     processing_type="detailed_analysis",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_user_saved:
@@ -11852,7 +11871,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="analysis",
                     processing_type="detailed_analysis",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_answer_saved:
@@ -11972,6 +11992,10 @@ with all_tabs[0]:
             simple_answer = str(
                 pending_detail_request.get("simple_answer", "") or ""
             ).strip()
+            detail_requires_estimation = bool(
+                pending_detail_request.get("requires_estimation", False)
+            )
+            detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
 
             detail_user_message = (
                 "この質問について、公式情報や適用条件、"
@@ -12022,7 +12046,8 @@ with all_tabs[0]:
                     detail_result = generate_detailed_search_response(
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
-                        simple_answer=simple_answer
+                        simple_answer=simple_answer,
+                        calc_prompt=detail_calc_prompt
                     )
 
                 detail_elapsed = float(
@@ -12060,7 +12085,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="factual",
                     processing_type="detailed_search",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_user_saved:
@@ -12074,7 +12100,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="factual",
                     processing_type="detailed_search",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_answer_saved:
@@ -12225,6 +12252,10 @@ with all_tabs[0]:
             simple_answer = str(
                 pending_detail_request.get("simple_answer", "") or ""
             ).strip()
+            detail_requires_estimation = bool(
+                pending_detail_request.get("requires_estimation", False)
+            )
+            detail_calc_prompt = CALC_PROMPT if detail_requires_estimation else ""
 
             detail_user_message = (
                 "この質問について、最新情報を確認し、"
@@ -12276,7 +12307,8 @@ with all_tabs[0]:
                     detail_result = generate_detailed_search_analysis_response(
                         style_preset=current_style_preset,
                         original_user_message=original_user_message,
-                        simple_answer=simple_answer
+                        simple_answer=simple_answer,
+                        calc_prompt=detail_calc_prompt
                     )
 
                 detail_elapsed = float(
@@ -12314,7 +12346,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="analysis",
                     processing_type="detailed_search_analysis",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_user_saved:
@@ -12328,7 +12361,8 @@ with all_tabs[0]:
                     message_id=detail_message_id,
                     response_mode="analysis",
                     processing_type="detailed_search_analysis",
-                    parent_message_id=original_message_id
+                    parent_message_id=original_message_id,
+                    requires_estimation=detail_requires_estimation
                 )
 
                 if not detail_answer_saved:
@@ -13637,7 +13671,8 @@ with all_tabs[0]:
                             content=user_input,
                             message_id=current_msg_id,
                             response_mode=response_mode,
-                            processing_type=processing_type
+                            processing_type=processing_type,
+                            requires_estimation=requires_estimation
                         ):
                             st.stop()
                         
@@ -13647,6 +13682,7 @@ with all_tabs[0]:
                             "message_id": current_msg_id,
                             "response_mode": response_mode,
                             "processing_type": processing_type,
+                            "requires_estimation": requires_estimation,
                             "chat_room": "talk",
                             "created_at": datetime.now(JST).isoformat()
                         })
@@ -15220,6 +15256,7 @@ with all_tabs[0]:
                                 "message_id": current_msg_id,
                                 "response_mode": response_mode,
                                 "processing_type": processing_type,
+                                "requires_estimation": requires_estimation,
                                 "chat_room": "talk",
                                 "created_at": datetime.now(JST).isoformat()
                             })
@@ -15229,7 +15266,8 @@ with all_tabs[0]:
                                 content=ai_reply,
                                 message_id=current_msg_id,
                                 response_mode=response_mode,
-                                processing_type=processing_type
+                                processing_type=processing_type,
+                                requires_estimation=requires_estimation
                             )
                             st.session_state.force_message_reload = True
 
@@ -15313,18 +15351,23 @@ with all_tabs[0]:
             paired_user_message = None
             paired_assistant_message = None
             paired_processing_type = ""
+            paired_requires_estimation = False
 
             if message_id:
                 for search_msg in all_messages:
-                    if (search_msg.get("message_id") == message_id):
-                        if (search_msg.get("role") == "user"):
+                    if search_msg.get("message_id") == message_id:
+                        paired_requires_estimation = (
+                            paired_requires_estimation 
+                            or bool(search_msg.get("requires_estimation", False))
+                        )
+                        if search_msg.get("role") == "user":
                             paired_user_message = (search_msg.get("content", ""))
                             if not paired_processing_type:
                                 paired_processing_type = str(
                                     search_msg.get("processing_type", "") or ""
                                 ).strip()
-                        elif (search_msg.get("role") == "assistant"):
-                            paired_assistant_message = (search_msg.get("content", ""))
+                        elif search_msg.get("role") == "assistant":
+                            paired_assistant_message = search_msg.get("content", "")
                             if not paired_processing_type:
                                 paired_processing_type = str(
                                     search_msg.get("processing_type", "") or ""
@@ -15379,6 +15422,7 @@ with all_tabs[0]:
                             "simple_answer": paired_assistant_message,
                             "simple_processing_type": paired_processing_type,
                             "detailed_processing_type": detail_target_type,
+                            "requires_estimation": paired_requires_estimation,
                             "point_cost": detail_point_cost
                         }
 
