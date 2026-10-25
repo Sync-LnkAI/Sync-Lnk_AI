@@ -15170,6 +15170,14 @@ with all_tabs[0]:
                             else "直近の会話履歴なし"
                         )
 
+                        general_type_history = ""
+                        for message in reversed(recent_messages):
+                            if message.get("role") == "user":
+                                general_type_history = str(
+                                    message.get("content", "") or ""
+                                ).strip()
+                                break
+
                         # 過去会話検索時間
                         search_elapsed = 0.0
 
@@ -15510,7 +15518,7 @@ with all_tabs[0]:
                                     general_type_cost
                                 ) = classify_general_calculation_type(
                                     user_input=user_input,
-                                    recent_history_str=recent_history_for_router
+                                    recent_history_str=general_type_history
                                 )
                                 general_type_elapsed = time.time() - general_type_start_time
 
