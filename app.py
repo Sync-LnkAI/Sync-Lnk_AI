@@ -3713,6 +3713,27 @@ GENERAL_CALCULATION_TYPES = {
 # simple_interest：単利計算
 # percentage_calculation：割合、構成比、増減率、差額
 
+# 計算タイプ別名の定数定義
+GENERAL_CALCULATION_TYPE_ALIASES = {
+    "複利": "compound_interest",
+    "複利計算": "compound_interest",
+    "複利運用": "compound_interest",
+    "積立": "recurring_investment",
+    "積立計算": "recurring_investment",
+    "積立運用": "recurring_investment",
+    "ローン": "loan_payment",
+    "ローン計算": "loan_payment",
+    "ローン返済": "loan_payment",
+    "返済額計算": "loan_payment",
+    "単利": "simple_interest",
+    "単利計算": "simple_interest",
+    "単利運用": "simple_interest",
+    "割合": "percentage_calculation",
+    "割合計算": "percentage_calculation",
+    "比率計算": "percentage_calculation",
+    "パーセント計算": "percentage_calculation"
+}
+
 # 計算タイプごとの必須項目定義(AIから受け取ってよい項目の一覧)
 GENERAL_CALCULATION_PARAMETER_FIELDS = {
     "compound_interest": {
@@ -5934,12 +5955,24 @@ def classify_general_calculation_type(
         calculation_type = type_data.get("calculation_type")
         if calculation_type is not None:
             calculation_type = str(calculation_type).strip().lower()
+        
         if calculation_type not in GENERAL_CALCULATION_TYPES:
             calculation_type = None
-        
+
         unmatched_category = type_data.get("unmatched_calculation_category")
+
         if unmatched_category is not None:
             unmatched_category = str(unmatched_category).strip()
+
+        if calculation_type is None and unmatched_category:
+            aliased_type = GENERAL_CALCULATION_TYPE_ALIASES.get(
+                unmatched_category
+            )
+
+            if aliased_type in GENERAL_CALCULATION_TYPES:
+                calculation_type = aliased_type
+                unmatched_category = None
+
         if calculation_type is not None:
             unmatched_category = None
         elif not unmatched_category:
