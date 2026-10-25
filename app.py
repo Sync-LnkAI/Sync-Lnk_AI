@@ -4400,13 +4400,20 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 parameters=normalized_parameters
             )
         )
+        raw_inherited_fields = case.get("inherited_fields", [])
+        if not isinstance(raw_inherited_fields, list):
+            raw_inherited_fields = []
+        inherited_fields = [
+            str(field_name or "").strip()
+            for field_name in raw_inherited_fields
+            if str(field_name or "").strip() in normalized_parameters
+        ]
         normalized_cases.append({
             "case_name": case_name,
             "parameters": normalized_parameters,
             "missing_fields": missing_fields,
-            "compounding_per_year_defaulted": (
-               compounding_per_year_defaulted
-            )
+            "inherited_fields": inherited_fields,
+            "compounding_per_year_defaulted": compounding_per_year_defaulted
         })
         if missing_fields:
             all_missing_fields.append({
@@ -4439,9 +4446,8 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 "case_name": case_name,
                 "parameters": make_json_safe(parameters),
                 "result": make_json_safe(calculation_result),
-                "compounding_per_year_defaulted": (
-                    compounding_per_year_defaulted
-                )
+                "inherited_fields": case.get("inherited_fields", []),
+                "compounding_per_year_defaulted": compounding_per_year_defaulted
             })
 
     except (ValueError, TypeError, ArithmeticError) as calculation_error:
@@ -4512,6 +4518,9 @@ def compress_general_calculation_results(
             result = {}
 
         compressed_item = {"case_name": case_name}
+        inherited_fields = item.get("inherited_fields", [])
+        if isinstance(inherited_fields, list) and inherited_fields:
+            compressed_item["inherited_fields"] = inherited_fields
 
         if calculation_type == "compound_interest":
             compressed_item.update({
@@ -4790,6 +4799,10 @@ def build_general_calculation_context(
         ・質問で除外された条件を追加しないでください。
         ・compounding_per_year_defaultedがtrueの場合は、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
         ・compounding_per_year_defaultedがfalseの場合は、複利回数を既定値として補ったという説明を追加しないでください。
+        ・inherited_fieldsが存在する場合は、その項目が直前の同種計算から引き継がれた条件であることを、結果の前に簡潔に説明してください。
+        ・引き継いだ条件は、内部キー名ではなく、ユーザー向けの自然な単位と表現で示してください。
+        ・例えばyearsが20の場合は、「前回と同じ20年間として計算しました」と説明してください。
+        ・inherited_fieldsが存在しない場合は、前回の条件を引き継いだという説明を追加しないでください。
         """.strip()
 
     return """
@@ -4813,6 +4826,14 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・一般的、平均的、代表的と思われる数値を補完しないでください。
     ・AIが過去に推測した数値を、ユーザーが提示した条件として使用しないでください。
     ・最新のユーザー発言で条件が変更された場合は、最新条件を優先してください。
+    ・直近の会話が同じ種類の計算で、最新ユーザー発言が一部条件だけを変更した再計算依頼と明確に判断できる場合は、最新ユーザー発言で省略された条件を直前の計算条件から引き継いでください。
+    ・引き継げるのは、直前の1件の計算に明示された条件だけです。
+    ・最新ユーザー発言で明示された条件は、直前条件より必ず優先してください。
+    ・計算タイプ、計算対象、計算目的が異なる場合は、条件を引き継いではいけません。
+    ・新しい話題、別の商品、別のケースと判断できる場合は、条件を引き継いではいけません。
+    ・複数ケースがあり、どのケースから引き継ぐか一意に決められない場合は、条件を引き継がずnullにしてください。
+    ・直前条件を引き継いだ場合は、caseのinherited_fields配列へ、引き継いだparametersのキー名を設定してください。
+    ・条件を引き継いでいない場合は、inherited_fieldsを空配列にしてください。
     ・単一ケースでもcases配列へ1件として格納してください。
     ・複数条件が指定された場合は、ケースごとに分けてください。
     ・確認できない項目はnullにしてください。
@@ -4857,7 +4878,8 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
         "cases": [
             {
                 "case_name": "基本ケース",
-                "parameters": {}
+                "parameters": {},
+                "inherited_fields": []
             }
         ]
     }
@@ -4866,7 +4888,9 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・should_calculateはtrueまたはfalseにしてください。
     ・calculation_typeには指定された計算タイプを設定してください。
     ・casesは必ず配列にしてください。
-    ・各caseにはcase_nameとparametersを必ず含めてください。
+    ・各caseにはcase_name、parameters、inherited_fieldsを必ず含めてください。
+    ・inherited_fieldsには、直前の計算から引き継いだparametersのキー名だけを配列で設定してください。
+    ・最新ユーザー発言に明示された項目は、inherited_fieldsへ含めないでください。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、casesを空配列にしてください。
@@ -7544,6 +7568,7 @@ def extract_general_calculation_parameters(
 
             case_name = str(raw_case.get("case_name", "") or "").strip()
             parameters = raw_case.get("parameters", {})
+            inherited_fields = raw_case.get("inherited_fields", [])
 
             if not case_name:
                 case_name = "基本ケース" if len(raw_cases) == 1 else f"ケース{index + 1}"
@@ -7551,15 +7576,28 @@ def extract_general_calculation_parameters(
             if not isinstance(parameters, dict):
                 raise ValueError("汎用計算条件のparametersがobject形式ではありません")
 
+            if not isinstance(inherited_fields, list):
+                inherited_fields = []
+
+            normalized_inherited_fields = []
+
+            for field_name in inherited_fields:
+                normalized_field_name = str(field_name or "").strip()
+
+                if normalized_field_name and normalized_field_name not in normalized_inherited_fields:
+                    normalized_inherited_fields.append(normalized_field_name)
+
             normalized_cases.append({
                 "case_name": case_name,
-                "parameters": parameters
+                "parameters": parameters,
+                "inherited_fields": normalized_inherited_fields
             })
-        
+                    
         allowed_fields = GENERAL_CALCULATION_PARAMETER_FIELDS.get(
             normalized_calculation_type,
             set()
         )
+
         filtered_cases = []
         for case in normalized_cases:
             parameters = case.get("parameters", {})
@@ -7568,9 +7606,18 @@ def extract_general_calculation_parameters(
                 for key, value in parameters.items()
                 if key in allowed_fields
             }
+
+            inherited_fields = case.get("inherited_fields", [])
+            filtered_inherited_fields = [
+                field_name
+                for field_name in inherited_fields
+                if field_name in allowed_fields and field_name in filtered_parameters
+            ]
+
             filtered_cases.append({
                 "case_name": case.get("case_name", "基本ケース"),
-                "parameters": filtered_parameters
+                "parameters": filtered_parameters,
+                "inherited_fields": filtered_inherited_fields
             })
         
         in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
