@@ -6247,11 +6247,12 @@ CALC_PROMPT = """
 PYTHON_SIMPLE_RESULT_PROMPT = """
     【Python計算済みの簡易回答】
     ・Python計算結果だけを使用してください。
-    ・各結果は、ユーザーが指定した対象が分かる表現で、1件につき1行で示してください。
-    ・共有する重要な前提条件がある場合だけ、結果の後に1行で示してください。
+    ・最初に「計算結果です。」程度の短い一文を入れてください。
+    ・各結果は、ユーザーが指定した対象と条件が分かる表現で、1件につき1行で示してください。
+    ・複数ケースを比較する質問では、結果の違いが分かる短い一文を必要に応じて追加してください。
     ・計算式、詳細分析、判断材料、注意点、推奨案、一般論は、ユーザーが求めていない限り省略してください。
     ・同じ結果を、結論、概要、まとめなどで繰り返してはいけません。
-    ・簡潔で自然な一文から始めても構いませんが、長い前置きは不要です。
+    ・長い前置きや定型的な締めの文章は不要です。
     """.strip()
 
 PYTHON_DETAILED_RESULT_PROMPT = """
@@ -11867,6 +11868,7 @@ def clear_detail_confirmation_state():
 def start_detail_processing():
     st.session_state["detail_confirmation_open"] = False
     st.session_state["detail_request_processing"] = True
+    st.rerun(scope="app")
 #================================================
 
 # 詳細処理の確認ダイアログ関数
