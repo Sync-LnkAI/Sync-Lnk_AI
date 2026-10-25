@@ -4385,6 +4385,12 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 "initial_principal",
                 Decimal("0")
             )
+        # 複利回数が未指定の場合は、年1回複利を既定値とする
+        if (
+            calculation_type == "compound_interest"
+            and normalized_parameters.get("compounding_per_year") is None
+        ):
+            normalized_parameters["compounding_per_year"] = Decimal("1")
         missing_fields = (
             get_general_calculation_missing_fields(
                 calculation_type=calculation_type,
