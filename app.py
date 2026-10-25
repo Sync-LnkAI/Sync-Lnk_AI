@@ -4421,10 +4421,142 @@ def execute_general_calculation(extraction_result: dict) -> dict:
     }
 #================================================
 
+# 回答生成用に計算結果を圧縮する関数
+def compress_general_calculation_results(
+    execution_result: dict,
+    detail_level: str = "simple"
+) -> list:
+    calculation_type = str(
+        execution_result.get("calculation_type", "") or ""
+    ).strip().lower()
+    results = execution_result.get("results", [])
+
+    if not isinstance(results, list):
+        return []
+
+    normalized_detail_level = str(detail_level or "simple").strip().lower()
+
+    if normalized_detail_level not in {"simple", "detailed"}:
+        normalized_detail_level = "simple"
+
+    compressed_results = []
+
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+
+        case_name = str(
+            item.get("case_name", "基本ケース")
+            or "基本ケース"
+        ).strip()
+        parameters = item.get("parameters", {})
+        result = item.get("result", {})
+
+        if not isinstance(parameters, dict):
+            parameters = {}
+
+        if not isinstance(result, dict):
+            result = {}
+
+        compressed_item = {"case_name": case_name}
+
+        if calculation_type == "compound_interest":
+            compressed_item.update({
+                "principal": parameters.get("principal"),
+                "annual_rate": parameters.get("annual_rate"),
+                "years": parameters.get("years"),
+                "final_amount": result.get("final_amount"),
+                "profit": result.get("profit")
+            })
+
+            if normalized_detail_level == "detailed":
+                compressed_item.update({
+                    "compounding_per_year": parameters.get("compounding_per_year"),
+                    "period_count": result.get("period_count")
+                })
+
+        elif calculation_type == "recurring_investment":
+            compressed_item.update({
+                "contribution_amount": parameters.get("contribution_amount"),
+                "annual_rate": parameters.get("annual_rate"),
+                "years": parameters.get("years"),
+                "total_contributions": result.get("total_contributions"),
+                "final_amount": result.get("final_amount"),
+                "profit": result.get("profit")
+            })
+
+            if normalized_detail_level == "detailed":
+                compressed_item.update({
+                    "initial_principal": parameters.get("initial_principal"),
+                    "contributions_per_year": parameters.get("contributions_per_year"),
+                    "compounding_per_year": parameters.get("compounding_per_year"),
+                    "contribution_timing": parameters.get("contribution_timing"),
+                    "contribution_count": result.get("contribution_count")
+                })
+
+        elif calculation_type == "loan_payment":
+            compressed_item.update({
+                "principal": parameters.get("principal"),
+                "annual_rate": parameters.get("annual_rate"),
+                "years": parameters.get("years"),
+                "payment_amount": result.get("payment_amount"),
+                "total_payment": result.get("total_payment"),
+                "total_interest": result.get("total_interest")
+            })
+
+            if normalized_detail_level == "detailed":
+                compressed_item.update({
+                    "payments_per_year": parameters.get("payments_per_year"),
+                    "repayment_method": parameters.get("repayment_method"),
+                    "bonus_payment": parameters.get("bonus_payment"),
+                    "payment_count": result.get("payment_count")
+                })
+
+        elif calculation_type == "simple_interest":
+            compressed_item.update({
+                "principal": parameters.get("principal"),
+                "annual_rate": parameters.get("annual_rate"),
+                "years": parameters.get("years"),
+                "interest": result.get("interest"),
+                "final_amount": result.get("final_amount")
+            })
+
+        elif calculation_type == "percentage_calculation":
+            compressed_item.update({
+                "calculation_mode": parameters.get("calculation_mode"),
+                "result_type": result.get("result_type"),
+                "result": result.get("result"),
+                "result_percent": result.get("result_percent")
+            })
+
+            if normalized_detail_level == "detailed":
+                compressed_item.update({
+                    "base_value": parameters.get("base_value"),
+                    "comparison_value": parameters.get("comparison_value"),
+                    "rate": parameters.get("rate")
+                })
+
+        else:
+            compressed_item["result"] = result
+
+        compressed_results.append(
+            make_json_safe(compressed_item)
+        )
+
+    return compressed_results
+#================================================
+
 # Python計算結果を最終回答へ渡す関数
-def build_general_calculation_context(execution_result: dict) -> str:
+def build_general_calculation_context(
+    execution_result: dict,
+    detail_level: str = "simple"
+) -> str:
     if not isinstance(execution_result, dict):
         return ""
+    
+    normalized_detail_level = str(detail_level or "simple").strip().lower()
+    if normalized_detail_level not in {"simple", "detailed"}:
+        normalized_detail_level = "simple"
 
     status = str(
         execution_result.get("status", "not_applicable") or "not_applicable"
@@ -4523,9 +4655,12 @@ def build_general_calculation_context(execution_result: dict) -> str:
     
     if status == "success":
         calculation_type = execution_result.get("calculation_type")
-        results = execution_result.get("results", [])
+        results = compress_general_calculation_results(
+            execution_result,
+            detail_level=normalized_detail_level
+        )
 
-        if not isinstance(results, list) or not results:
+        if not results:
             return """
             【Python汎用計算エラー】
             Python計算の結果を取得できませんでした。
@@ -4542,6 +4677,22 @@ def build_general_calculation_context(execution_result: dict) -> str:
             indent=2
         )
 
+        if normalized_detail_level == "detailed":
+            answer_rules = """
+            ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
+            ・結果、使用条件、計算方法、ケース間の違い、結果に影響する条件を説明してください。
+            ・簡易回答と数値が異なる場合は、Python計算結果を基準に訂正してください。
+            ・結果に存在しない数値や条件を推測しないでください。
+            ・不要な一般論や質問と無関係な注意事項は省略してください。
+            """.strip()
+        else:
+            answer_rules = """
+            ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
+            ・主要な結果と主要な前提条件だけを簡潔に示してください。
+            ・計算式、詳細分析、ケース間の差額分析、一般的な注意事項は省略してください。
+            ・結果に存在しない数値や条件を推測しないでください。
+            """.strip()
+
         return f"""
         【Python汎用計算結果】
         以下はPythonで計算済みの結果です。
@@ -4553,18 +4704,15 @@ def build_general_calculation_context(execution_result: dict) -> str:
         {result_json}
 
         【回答ルール】
-        ・上記のPython計算結果を最優先してください。
-        ・数値を変更、補正、再計算してはいけません。
-        ・簡易回答や過去の回答と数値が異なる場合は、今回のPython計算結果を使用してください。
-        ・結果に存在しない数値を推測して追加してはいけません。
-        ・各ケースのcase_name、parameters、resultを正しく対応させてください。
-        ・複数ケースの数値を混同してはいけません。
-        ・ユーザー向けには内部キー名をそのまま並べず、自然な日本語で説明してください。
-        ・金額は読みやすいように円または万円で表示してください。
-        ・割合は必要に応じてパーセント表示へ変換してください。
-        ・元の質問で除外された税金、手数料、制度などを勝手に追加してはいけません。
-        ・計算は既に完了しています。「これから計算します」などの表現は禁止です。
-        ・計算結果、使用条件、必要な注意点の順で簡潔に回答してください。
+        {answer_rules}
+        ・各ケースのcase_nameと結果を正しく対応させてください。
+        ・複数ケースの数値を混同しないでください。
+        ・内部キー名をそのまま表示せず、自然な日本語で説明してください。
+        ・同じ意味の数値を異なる形式で重複表示しないでください。
+        ・ユーザーの質問と単位に合った自然な表示形式を1つだけ使用してください。
+        ・単位換算や比較が質問の目的である場合は、必要な複数形式を表示して構いません。
+        ・質問で除外された税金、手数料、制度などを追加しないでください。
+        ・計算は完了済みです。「これから計算します」などの表現は禁止です。
         """.strip()
 
     return """
@@ -13196,10 +13344,16 @@ with all_tabs[0]:
 
             if not isinstance(detail_general_calculation_result, dict):
                 detail_general_calculation_result = None
+            if (
+                    detail_general_calculation_result
+                    and detail_general_calculation_result.get("status") == "success"
+                ):
+                    detail_calc_prompt = ""
 
             detail_general_calculation_context = (
                 build_general_calculation_context(
-                    detail_general_calculation_result
+                    detail_general_calculation_result,
+                    detail_level="detailed"
                 )
                 if detail_general_calculation_result
                 else ""
@@ -13439,10 +13593,16 @@ with all_tabs[0]:
 
             if not isinstance(detail_general_calculation_result, dict):
                 detail_general_calculation_result = None
+            if (
+                    detail_general_calculation_result
+                    and detail_general_calculation_result.get("status") == "success"
+                ):
+                    detail_calc_prompt = ""
 
             detail_general_calculation_context = (
                 build_general_calculation_context(
-                    detail_general_calculation_result
+                    detail_general_calculation_result,
+                    detail_level="detailed"
                 )
                 if detail_general_calculation_result
                 else ""
@@ -13717,10 +13877,16 @@ with all_tabs[0]:
 
             if not isinstance(detail_general_calculation_result, dict):
                 detail_general_calculation_result = None
+            if (
+                    detail_general_calculation_result
+                    and detail_general_calculation_result.get("status") == "success"
+                ):
+                    detail_calc_prompt = ""
 
             detail_general_calculation_context = (
                 build_general_calculation_context(
-                    detail_general_calculation_result
+                    detail_general_calculation_result,
+                    detail_level="detailed"
                 )
                 if detail_general_calculation_result
                 else ""
@@ -15111,6 +15277,8 @@ with all_tabs[0]:
 
                         # 計算が必要な場合の専用プロンプトの代入
                         active_calc_prompt = CALC_PROMPT if requires_estimation else ""
+                        if general_calculation_execution_result.get("status") == "success":
+                            active_calc_prompt = ""
 
                         # search_start_time = time.time()
                         
@@ -15287,6 +15455,7 @@ with all_tabs[0]:
                             debug_text("DEBUG calculation_tool", calculation_tool)
 
                             if calculation_tool == "general_calculation":
+                                general_type_start_time = time.time()
                                 (
                                     general_calculation_type,
                                     unmatched_calculation_category,
@@ -15298,6 +15467,7 @@ with all_tabs[0]:
                                     user_input=user_input,
                                     recent_history_str=recent_history_for_router
                                 )
+                                general_type_elapsed = time.time() - general_type_start_time
 
                                 debug_text("DEBUG general_calculation_type", general_calculation_type)
                                 debug_text("DEBUG unmatched_calculation_category", unmatched_calculation_category)
@@ -15307,7 +15477,7 @@ with all_tabs[0]:
                                     user_id=CURRENT_USER_ID,
                                     plan_type=current_plan_type,
                                     event_type="GENERAL_CALCULATION_TYPE_ROUTER",
-                                    processing_time=0.0,
+                                    processing_time=general_type_elapsed,
                                     in_t=general_type_in_tokens,
                                     out_t=general_type_out_tokens,
                                     api_cost=general_type_cost,
@@ -15453,6 +15623,7 @@ with all_tabs[0]:
                             calculation_tool == "general_calculation"
                             and general_calculation_type in GENERAL_CALCULATION_TYPES
                         ):
+                            general_extraction_start_time = time.time()
                             general_calculation_extraction_result = (
                                 extract_general_calculation_parameters(
                                     user_input=user_input,
@@ -15460,6 +15631,7 @@ with all_tabs[0]:
                                     recent_history=recent_history_for_router
                                 )
                             )
+                            general_extraction_elapsed = time.time() - general_extraction_start_time
 
                             debug_json(
                                 "DEBUG general_calculation_extraction_result",
@@ -15494,7 +15666,7 @@ with all_tabs[0]:
                                 user_id=CURRENT_USER_ID,
                                 plan_type=current_plan_type,
                                 event_type="GENERAL_CALCULATION_EXTRACTION",
-                                processing_time=0.0,
+                                processing_time=general_extraction_elapsed,
                                 in_t=general_extraction_in_tokens,
                                 out_t=general_extraction_out_tokens,
                                 api_cost=general_extraction_cost,
@@ -15648,6 +15820,7 @@ with all_tabs[0]:
                                 and search_result
                                 and search_result != "なし"
                             ):
+                                search_general_extraction_start_time = time.time()
                                 general_calculation_extraction_result = (
                                     extract_general_calculation_parameters(
                                         user_input=user_input,
@@ -15655,6 +15828,9 @@ with all_tabs[0]:
                                         recent_history=recent_history_for_router,
                                         reference_context=search_result
                                     )
+                                )
+                                search_general_extraction_elapsed = (
+                                    time.time() - search_general_extraction_start_time
                                 )
 
                                 debug_json(
@@ -15690,7 +15866,7 @@ with all_tabs[0]:
                                     user_id=CURRENT_USER_ID,
                                     plan_type=current_plan_type,
                                     event_type="GENERAL_CALCULATION_EXTRACTION",
-                                    processing_time=0.0,
+                                    processing_time=search_general_extraction_elapsed,
                                     in_t=search_general_extraction_in_tokens,
                                     out_t=search_general_extraction_out_tokens,
                                     api_cost=search_general_extraction_cost,
