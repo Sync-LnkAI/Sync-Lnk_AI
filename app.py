@@ -4707,6 +4707,18 @@ def build_general_calculation_context(
             ・存在しない数値を作ってはいけません。
             ・計算結果を取得できなかったことを簡潔に伝えてください。
             """.strip()
+        
+        for result_item in results:
+            if not isinstance(result_item, dict):
+                continue
+
+            if result_item.get("result_type") != "rate":
+                continue
+
+            result_value = result_item.get("result")
+
+            if isinstance(result_value, float) and result_value.is_integer():
+                result_item["result"] = int(result_value)
 
         result_json = json.dumps(
             results,
