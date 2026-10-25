@@ -4714,24 +4714,24 @@ def build_general_calculation_context(
             indent=2
         )
 
-        if normalized_detail_level == "detailed":
-            answer_rules = """
-            ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
-            ・結果、使用条件、計算方法、ケース間の違い、結果に影響する条件を説明してください。
-            ・簡易回答と数値が異なる場合は、Python計算結果を基準に訂正してください。
-            ・結果に存在しない数値や条件を推測しないでください。
-            ・説明の詳しさは計算内容の複雑さに合わせてください。
-            ・単純な計算では、計算方法と結果の意味だけを説明し、存在しないリスクや判断材料を無理に作らないでください。
-            ・実質的なリスクや条件差がない場合は、その旨を簡潔に示してください。
-            ・不要な一般論や質問と無関係な注意事項は省略してください。
-            """.strip()
-        else:
-            answer_rules = """
-            ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
-            ・主要な結果と主要な前提条件だけを簡潔に示してください。
-            ・計算式、詳細分析、ケース間の差額分析、一般的な注意事項は省略してください。
-            ・結果に存在しない数値や条件を推測しないでください。
-            """.strip()
+        # if normalized_detail_level == "detailed":
+        #     answer_rules = """
+        #     ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
+        #     ・結果、使用条件、計算方法、ケース間の違い、結果に影響する条件を説明してください。
+        #     ・簡易回答と数値が異なる場合は、Python計算結果を基準に訂正してください。
+        #     ・結果に存在しない数値や条件を推測しないでください。
+        #     ・説明の詳しさは計算内容の複雑さに合わせてください。
+        #     ・単純な計算では、計算方法と結果の意味だけを説明し、存在しないリスクや判断材料を無理に作らないでください。
+        #     ・実質的なリスクや条件差がない場合は、その旨を簡潔に示してください。
+        #     ・不要な一般論や質問と無関係な注意事項は省略してください。
+        #     """.strip()
+        # else:
+        #     answer_rules = """
+        #     ・Python計算結果を最優先し、数値を変更、補正、再計算しないでください。
+        #     ・主要な結果と主要な前提条件だけを簡潔に示してください。
+        #     ・計算式、詳細分析、ケース間の差額分析、一般的な注意事項は省略してください。
+        #     ・結果に存在しない数値や条件を推測しないでください。
+        #     """.strip()
 
         return f"""
         【Python汎用計算結果】
@@ -4743,16 +4743,15 @@ def build_general_calculation_context(
         【計算結果】
         {result_json}
 
-        【回答ルール】
-        {answer_rules}
+        【計算結果の使用ルール】
+        ・Python計算結果を変更、補正、再計算しないでください。
         ・各ケースのcase_nameと結果を正しく対応させてください。
         ・複数ケースの数値を混同しないでください。
-        ・内部キー名をそのまま表示せず、自然な日本語で説明してください。
+        ・結果に存在しない数値や条件を追加しないでください。
+        ・内部キー名をそのまま表示しないでください。
+        ・質問に合った単位と表記を使用してください。
         ・同じ意味の数値を異なる形式で重複表示しないでください。
-        ・ユーザーの質問と単位に合った自然な表示形式を1つだけ使用してください。
-        ・単位換算や比較が質問の目的である場合は、必要な複数形式を表示して構いません。
-        ・質問で除外された税金、手数料、制度などを追加しないでください。
-        ・計算は完了済みです。「これから計算します」などの表現は禁止です。
+        ・質問で除外された条件を追加しないでください。
         """.strip()
 
     return """
@@ -4896,7 +4895,6 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・積立タイミングが明示されていない場合はnullにしてください。
     ・複数の年利、積立額、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
     ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・「手数料と税金は考慮しない」「手数料・税金を含めない」などは除外条件であり、should_calculateをfalseにする理由ではありません。
     ・積立額、期間、年利、積立頻度、複利頻度、積立タイミングを確認できる場合はshould_calculateをtrueにしてください。
     ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。    
 
@@ -13347,6 +13345,13 @@ with all_tabs[0]:
             st.session_state.get("detail_request_processing", False)
         )
 
+        detail_processing_status = None
+        if detail_request_processing and pending_detail_request:
+            detail_processing_status = st.status(
+                "詳しい回答を作成しています...",
+                expanded=False
+            )
+
         detail_request_ready = False
 
         if (detail_request_processing and pending_detail_request):
@@ -13437,9 +13442,7 @@ with all_tabs[0]:
 
             if detail_general_calculation_result:
                 detail_user_message = (
-                    "この計算について、使用条件、計算方法、結果の意味を"
-                    "分かりやすく説明して。内容の複雑さに応じた詳しさとし、"
-                    "実質的でないリスクや一般論は追加しないで。"
+                    "この計算の条件、計算方法、結果の意味を詳しく説明して。"
                 )
             else:
                 detail_user_message = (
@@ -13493,18 +13496,15 @@ with all_tabs[0]:
             detail_start_time = time.time()
 
             try:
-                with st.status(
-                    "詳しい回答を作成しています...",
-                    expanded=False
-                ) as detail_status:
+                detail_status = detail_processing_status
 
-                    detail_result = generate_detailed_analysis_response(
-                        style_preset=current_style_preset,
-                        original_user_message=original_user_message,
-                        simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt,
-                        general_calculation_context=detail_general_calculation_context
-                    )
+                detail_result = generate_detailed_analysis_response(
+                    style_preset=current_style_preset,
+                    original_user_message=original_user_message,
+                    simple_answer=simple_answer,
+                    calc_prompt=detail_calc_prompt,
+                    general_calculation_context=detail_general_calculation_context
+                )
 
                 detail_elapsed = time.time() - detail_start_time
 
@@ -13570,9 +13570,12 @@ with all_tabs[0]:
                     "already_processed"
                 }
 
-                if not point_consumed:
+                if not point_consumed and detail_status is not None:
                     detail_status.update(
-                        label="詳細回答は作成されましたが、ポイント処理の確認が必要です",
+                        label=(
+                            "詳細回答は作成されましたが、"
+                            "ポイント処理の確認が必要です"
+                        ),
                         state="error",
                         expanded=True
                     )
@@ -13628,11 +13631,11 @@ with all_tabs[0]:
 
                 error_text = (f"{type(detail_error).__name__}: {detail_error}")
 
-                if "detail_status" in locals():
+                if "detail_status" in locals() and detail_status is not None:
                     detail_status.update(
                         label="詳細回答を作成できませんでした",
                         state="error",
-                        expanded=True
+                        expanded=False
                     )
 
                 print(f"詳細Analysis処理エラー: {error_text}")
@@ -13733,17 +13736,15 @@ with all_tabs[0]:
             detail_start_time = time.time()
 
             try:
-                with st.status(
-                    "最新情報を確認し、詳しい回答を作成しています...",
-                    expanded=False
-                ) as detail_status:
-                    detail_result = generate_detailed_search_response(
-                        style_preset=current_style_preset,
-                        original_user_message=original_user_message,
-                        simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt,
-                        general_calculation_context=detail_general_calculation_context
-                    )
+                detail_status = detail_processing_status
+
+                detail_result = generate_detailed_search_response(
+                    style_preset=current_style_preset,
+                    original_user_message=original_user_message,
+                    simple_answer=simple_answer,
+                    calc_prompt=detail_calc_prompt,
+                    general_calculation_context=detail_general_calculation_context
+                )
 
                 detail_elapsed = float(
                     detail_result.get(
@@ -13823,7 +13824,7 @@ with all_tabs[0]:
                     "already_processed"
                 }
 
-                if not point_consumed:
+                if not point_consumed and detail_status is not None:
                     detail_status.update(
                         label=(
                             "詳細回答は作成されましたが、"
@@ -13912,7 +13913,7 @@ with all_tabs[0]:
 
                 error_text = f"{type(detail_error).__name__}: {detail_error}"
 
-                if "detail_status" in locals():
+                if "detail_status" in locals() and detail_status is not None:
                     detail_status.update(
                         label="詳細回答を作成できませんでした",
                         state="error",
@@ -14018,17 +14019,15 @@ with all_tabs[0]:
             detail_start_time = time.time()
 
             try:
-                with st.status(
-                    "最新情報を確認し、詳しい回答を作成しています...",
-                    expanded=False
-                ) as detail_status:
-                    detail_result = generate_detailed_search_analysis_response(
-                        style_preset=current_style_preset,
-                        original_user_message=original_user_message,
-                        simple_answer=simple_answer,
-                        calc_prompt=detail_calc_prompt,
-                        general_calculation_context=detail_general_calculation_context
-                    )
+                detail_status = detail_processing_status
+
+                detail_result = generate_detailed_search_analysis_response(
+                    style_preset=current_style_preset,
+                    original_user_message=original_user_message,
+                    simple_answer=simple_answer,
+                    calc_prompt=detail_calc_prompt,
+                    general_calculation_context=detail_general_calculation_context
+                )
 
                 detail_elapsed = float(
                     detail_result.get(
@@ -14108,7 +14107,7 @@ with all_tabs[0]:
                     "already_processed"
                 }
 
-                if not point_consumed:
+                if not point_consumed and detail_status is not None:
                     detail_status.update(
                         label=(
                             "詳細回答は作成されましたが、"
@@ -14197,7 +14196,7 @@ with all_tabs[0]:
 
                 error_text = f"{type(detail_error).__name__}: {detail_error}"
 
-                if "detail_status" in locals():
+                if "detail_status" in locals() and detail_status is not None:
                     detail_status.update(
                         label="詳細回答を作成できませんでした",
                         state="error",
