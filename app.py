@@ -4522,11 +4522,15 @@ def compress_general_calculation_results(
             })
 
         elif calculation_type == "percentage_calculation":
+            result_type = result.get("result_type")
             compressed_item.update({
                 "calculation_mode": parameters.get("calculation_mode"),
-                "result_type": result.get("result_type"),
-                "result": result.get("result"),
-                "result_percent": result.get("result_percent")
+                "result_type": result_type,
+                "result": (
+                    result.get("result_percent")
+                    if result_type == "rate"
+                    else result.get("result")
+                )
             })
 
             if normalized_detail_level == "detailed":
@@ -4683,6 +4687,9 @@ def build_general_calculation_context(
             ・結果、使用条件、計算方法、ケース間の違い、結果に影響する条件を説明してください。
             ・簡易回答と数値が異なる場合は、Python計算結果を基準に訂正してください。
             ・結果に存在しない数値や条件を推測しないでください。
+            ・説明の詳しさは計算内容の複雑さに合わせてください。
+            ・単純な計算では、計算方法と結果の意味だけを説明し、存在しないリスクや判断材料を無理に作らないでください。
+            ・実質的なリスクや条件差がない場合は、その旨を簡潔に示してください。
             ・不要な一般論や質問と無関係な注意事項は省略してください。
             """.strip()
         else:
