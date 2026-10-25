@@ -4376,21 +4376,24 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 "error": f"{case_name}のparametersがdict形式ではありません"
             }
         normalized_parameters = (
-            normalize_general_calculation_parameters(
-                raw_parameters
-            )
+            normalize_general_calculation_parameters(raw_parameters)
         )
         if calculation_type == "recurring_investment":
             normalized_parameters.setdefault(
                 "initial_principal",
                 Decimal("0")
             )
+        
+        # 複利回数の既定値を適用したか記録する
+        compounding_per_year_defaulted = False
         # 複利回数が未指定の場合は、年1回複利を既定値とする
         if (
             calculation_type == "compound_interest"
             and normalized_parameters.get("compounding_per_year") is None
         ):
             normalized_parameters["compounding_per_year"] = Decimal("1")
+            compounding_per_year_defaulted = True
+        
         missing_fields = (
             get_general_calculation_missing_fields(
                 calculation_type=calculation_type,
@@ -4400,7 +4403,10 @@ def execute_general_calculation(extraction_result: dict) -> dict:
         normalized_cases.append({
             "case_name": case_name,
             "parameters": normalized_parameters,
-            "missing_fields": missing_fields
+            "missing_fields": missing_fields,
+            "compounding_per_year_defaulted": (
+               compounding_per_year_defaulted
+            )
         })
         if missing_fields:
             all_missing_fields.append({
@@ -4422,12 +4428,20 @@ def execute_general_calculation(extraction_result: dict) -> dict:
         for case in normalized_cases:
             case_name = case["case_name"]
             parameters = case["parameters"]
+
+            compounding_per_year_defaulted = bool(
+                case.get("compounding_per_year_defaulted", False)
+            )
+
             calculation_result = calculation_function(**parameters)
 
             calculation_results.append({
                 "case_name": case_name,
                 "parameters": make_json_safe(parameters),
-                "result": make_json_safe(calculation_result)
+                "result": make_json_safe(calculation_result),
+                "compounding_per_year_defaulted": (
+                    compounding_per_year_defaulted
+                )
             })
 
     except (ValueError, TypeError, ArithmeticError) as calculation_error:
@@ -4504,6 +4518,10 @@ def compress_general_calculation_results(
                 "principal": parameters.get("principal"),
                 "annual_rate": parameters.get("annual_rate"),
                 "years": parameters.get("years"),
+                "compounding_per_year": parameters.get("compounding_per_year"),
+                "compounding_per_year_defaulted": bool(
+                    item.get("compounding_per_year_defaulted", False)
+                ),
                 "final_amount": result.get("final_amount"),
                 "profit": result.get("profit")
             })
@@ -4770,6 +4788,8 @@ def build_general_calculation_context(
         ・質問に合った単位と表記を使用してください。
         ・同じ意味の数値を異なる形式で重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
+        ・compounding_per_year_defaultedがtrueの場合は、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
+        ・compounding_per_year_defaultedがfalseの場合は、複利回数を既定値として補ったという説明を追加しないでください。
         """.strip()
 
     return """
