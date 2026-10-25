@@ -3285,8 +3285,14 @@ def build_simple_analysis_instruction(
         )
     )
 
+    selected_simple_prompt = (
+        PYTHON_SIMPLE_RESULT_PROMPT
+        if general_calculation_context
+        else SIMPLE_ANALYSIS_PROMPT
+    )
+
     return f"""
-    {SIMPLE_ANALYSIS_PROMPT}
+    {selected_simple_prompt}
     {calc_prompt}
     {general_calculation_context}
 
