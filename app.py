@@ -6247,11 +6247,11 @@ CALC_PROMPT = """
 PYTHON_SIMPLE_RESULT_PROMPT = """
     【Python計算済みの簡易回答】
     ・Python計算結果だけを使用してください。
-    ・主要な結果を1回だけ、短い箇条書きで示してください。
-    ・前提条件は、結果の理解に不可欠なものだけ簡潔に示してください。
-    ・計算式、詳細分析、判断材料、注意点、推奨案、一般論は、ユーザーが明示的に求めていない限り省略してください。
+    ・各結果は、ユーザーが指定した対象が分かる表現で、1件につき1行で示してください。
+    ・共有する重要な前提条件がある場合だけ、結果の後に1行で示してください。
+    ・計算式、詳細分析、判断材料、注意点、推奨案、一般論は、ユーザーが求めていない限り省略してください。
     ・同じ結果を、結論、概要、まとめなどで繰り返してはいけません。
-    ・挨拶や前置きは最小限にしてください。
+    ・簡潔で自然な一文から始めても構いませんが、長い前置きは不要です。
     """.strip()
 
 PYTHON_DETAILED_RESULT_PROMPT = """
@@ -11854,9 +11854,19 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
 
 # 詳細確認ダイアログが閉じられた場合処理関数
 def clear_detail_confirmation_state():
+    if st.session_state.get("detail_request_processing", False):
+        st.session_state["detail_confirmation_open"] = False
+        return
+
     st.session_state["pending_detail_request"] = {}
     st.session_state["detail_confirmation_open"] = False
     st.session_state["detail_request_processing"] = False
+#================================================
+
+# 開始用コールバック関数
+def start_detail_processing():
+    st.session_state["detail_confirmation_open"] = False
+    st.session_state["detail_request_processing"] = True
 #================================================
 
 # 詳細処理の確認ダイアログ関数
@@ -11972,14 +11982,12 @@ def show_detail_confirmation_dialog(detail_request: dict):
                 st.rerun()
 
         with start_col:
-            if st.button(
+            st.button(
                 f"{point_cost:,}ptを使って開始",
                 key="start_detail_processing",
-                use_container_width=True
-            ):
-                st.session_state["detail_confirmation_open"] = False
-                st.session_state["detail_request_processing"] = True
-                st.rerun()
+                use_container_width=True,
+                on_click=start_detail_processing
+            )
 
     else:
         if st.button(
