@@ -15277,8 +15277,6 @@ with all_tabs[0]:
 
                         # 計算が必要な場合の専用プロンプトの代入
                         active_calc_prompt = CALC_PROMPT if requires_estimation else ""
-                        if general_calculation_execution_result.get("status") == "success":
-                            active_calc_prompt = ""
 
                         # search_start_time = time.time()
                         
@@ -15729,6 +15727,9 @@ with all_tabs[0]:
                                 general_calculation_execution_result
                             )
 
+                        if general_calculation_execution_result.get("status") == "success":
+                            active_calc_prompt = ""
+                        
                         grounded_direct_response = False
                         grounded_response_route = ("main_chat_response")
                         search_model_name = GOOGLE_MODEL_NAME
