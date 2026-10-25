@@ -3324,8 +3324,14 @@ def build_detailed_analysis_instruction(
         )
     )
 
+    selected_detail_prompt = (
+        PYTHON_DETAILED_RESULT_PROMPT
+        if general_calculation_context
+        else DETAILED_ANALYSIS_PROMPT
+    )
+
     return f"""
-    {DETAILED_ANALYSIS_PROMPT}
+    {selected_detail_prompt}
     {calc_prompt}
     {general_calculation_context}
 
@@ -6199,6 +6205,27 @@ CALC_PROMPT = """
     3. 正式な結果との差が生じる要因がある場合だけ、その要因
     4. 不足条件がある場合だけ、不足条件と正確な確認方法
     ・単純計算だけで質問へ正確に回答できる場合は、不要な注意事項や確認方法を追加しないでください。
+    """.strip()
+
+PYTHON_SIMPLE_RESULT_PROMPT = """
+    【Python計算済みの簡易回答】
+    ・Python計算結果だけを使用してください。
+    ・主要な結果を1回だけ、短い箇条書きで示してください。
+    ・前提条件は、結果の理解に不可欠なものだけ簡潔に示してください。
+    ・計算式、詳細分析、判断材料、注意点、推奨案、一般論は、ユーザーが明示的に求めていない限り省略してください。
+    ・同じ結果を、結論、概要、まとめなどで繰り返してはいけません。
+    ・挨拶や前置きは最小限にしてください。
+    """.strip()
+
+PYTHON_DETAILED_RESULT_PROMPT = """
+    【Python計算済みの詳細回答】
+    ・Python計算結果だけを使用してください。
+    ・結果、使用条件、計算方法、結果の意味を分かりやすく説明してください。
+    ・説明量は計算内容の複雑さに合わせてください。
+    ・単純な計算では、不要な推奨案、判断材料、リスク、一般論を追加しないでください。
+    ・複雑な計算や複数ケースでは、結果に実質的な影響を与える条件や違いを説明してください。
+    ・同じ結果を、結論、概要、まとめなどで繰り返してはいけません。
+    ・挨拶や前置きは最小限にしてください。
     """.strip()
 
 # SIMPLE_ANALYSIS_PROMPT = """
@@ -16960,7 +16987,15 @@ with all_tabs[0]:
                         # if calculation_prompt_block:
                         #     st.code(calculation_prompt_block, language="text")
 
-                        if processing_type in {
+                        if (
+                            general_calculation_execution_result.get("status") == "success"
+                            and processing_type in {
+                                "simple_analysis",
+                                "simple_search_analysis"
+                            }
+                        ):
+                            selected_mode_prompt = PYTHON_SIMPLE_RESULT_PROMPT
+                        elif processing_type in {
                             "simple_analysis",
                             "simple_search_analysis"
                         }:
