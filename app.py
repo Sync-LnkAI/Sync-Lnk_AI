@@ -5,6 +5,7 @@ import re
 import time
 import json
 import threading
+import copy
 from datetime import date, datetime, timezone, timedelta
 import zoneinfo
 import pandas as pd
@@ -4276,6 +4277,57 @@ def calculate_percentage_calculation(
     }
 #================================================
 
+# 複数ケースの共通条件変更関数
+def merge_general_calculation_case(
+    current_case: dict,
+    previous_case: dict
+) -> dict:
+    if not isinstance(current_case, dict):
+        return current_case
+
+    if not isinstance(previous_case, dict):
+        return current_case
+
+    parameters = current_case.get("parameters", {})
+    previous_parameters = previous_case.get("parameters", {})
+    explicit_fields = current_case.get("explicit_fields", [])
+
+    if not isinstance(parameters, dict):
+        return current_case
+
+    if not isinstance(previous_parameters, dict):
+        return current_case
+
+    if not isinstance(explicit_fields, list):
+        explicit_fields = []
+
+    explicit_field_set = {
+        str(field_name or "").strip()
+        for field_name in explicit_fields
+        if str(field_name or "").strip()
+    }
+
+    inherited_fields = []
+
+    for field_name in parameters.keys():
+        if field_name in explicit_field_set:
+            continue
+
+        previous_value = previous_parameters.get(field_name)
+
+        if previous_value is None:
+            continue
+
+        parameters[field_name] = previous_value
+        inherited_fields.append(field_name)
+
+    current_case["parameters"] = parameters
+    current_case["explicit_fields"] = list(explicit_field_set)
+    current_case["inherited_fields"] = inherited_fields
+
+    return current_case
+#================================================
+
 # 直前条件を補完する関数
 def apply_inherited_general_calculation_fields(
     extraction_result: dict,
@@ -4316,50 +4368,39 @@ def apply_inherited_general_calculation_fields(
     ):
         return extraction_result
 
-    # まずは単一ケース同士を処理する
+    # 単一ケース処理
     if len(cases) == 1 and len(previous_cases) == 1:
-        case = cases[0]
-        previous_case = previous_cases[0]
+        cases[0] = merge_general_calculation_case(
+            current_case=cases[0],
+            previous_case=previous_cases[0]
+        )
+        extraction_result["cases"] = cases
+    
+    if len(cases) == 1 and len(previous_cases) > 1:
+        current_case = cases[0]
 
-        if (not isinstance(case, dict) or not isinstance(previous_case, dict)):
+        if not isinstance(current_case, dict):
             return extraction_result
 
-        parameters = case.get("parameters", {})
-        previous_parameters = previous_case.get("parameters", {})
-        explicit_fields = case.get("explicit_fields", [])
+        expanded_cases = []
 
-        if not isinstance(parameters, dict):
-            return extraction_result
+        for previous_case in previous_cases:
+            copied_current_case = copy.deepcopy(current_case)
 
-        if not isinstance(previous_parameters, dict):
-            return extraction_result
+            previous_case_name = str(
+                previous_case.get("case_name", "") or ""
+            ).strip()
 
-        if not isinstance(explicit_fields, list):
-            explicit_fields = []
+            if previous_case_name:
+                copied_current_case["case_name"] = previous_case_name
 
-        explicit_field_set = {
-            str(field_name or "").strip()
-            for field_name in explicit_fields
-            if str(field_name or "").strip()
-        }
+            merged_case = merge_general_calculation_case(
+                current_case=copied_current_case,
+                previous_case=previous_case
+            )
+            expanded_cases.append(merged_case)
 
-        inherited_fields = []
-
-        for field_name in parameters.keys():
-            if field_name in explicit_field_set:
-                continue
-
-            previous_value = previous_parameters.get(field_name)
-
-            if previous_value is None:
-                continue
-
-            parameters[field_name] = previous_value
-            inherited_fields.append(field_name)
-
-        case["parameters"] = parameters
-        case["explicit_fields"] = list(explicit_field_set)
-        case["inherited_fields"] = inherited_fields
+        extraction_result["cases"] = expanded_cases
 
     return extraction_result
 #================================================
