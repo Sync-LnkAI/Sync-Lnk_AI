@@ -4969,8 +4969,6 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・各caseにはcase_name、parameters、inherited_fieldsを必ず含めてください。
     ・inherited_fieldsには、直前の計算から引き継いだparametersのキー名だけを配列で設定してください。
     ・最新ユーザー発言に明示された項目は、inherited_fieldsへ含めないでください。
-    ・inherited_fieldsへ項目名を設定した場合は、parametersの対応する項目へ直前の計算から引き継いだ値を必ず設定し、nullにしてはいけません。
-    ・parametersの値がnullの項目は、inherited_fieldsへ含めてはいけません。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、casesを空配列にしてください。
