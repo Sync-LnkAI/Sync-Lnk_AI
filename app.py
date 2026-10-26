@@ -5501,7 +5501,7 @@ def classify_search_and_response_mode(
     try:
         judge_prompt = f"""
         あなたはAIチャットの振り分けシステムです。
-        直近の会話と最新ユーザー発言を読み、検索要否、回答モード、試算意図、直前計算の条件継承要否を判定してください。
+        直近の会話と最新ユーザー発言を読み、検索要否と回答モード、試算意図を判定してください。
 
         【検索要否】
         ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
@@ -5544,13 +5544,6 @@ def classify_search_and_response_mode(
         明示的に「試算」「計算」と書かれていなくても、回答するために新しい数値結果を算出する必要があれば requires_estimation を true にしてください。
         同一または類似の質問へ過去に回答していても、最新ユーザー発言が再度数値計算を求めている場合は、requires_estimationをtrueにしてください。
 
-        【直前計算の条件継承】
-        ・最新ユーザー発言が、直前の計算と同じ種類・同じ対象について、一部条件を変更または省略した再計算依頼なら、inherit_previous_calculationをtrueにしてください。
-        ・「変更した場合」「それなら」「では」「同じ条件で」など、直前計算の続きであることが明確な場合もtrueにしてください。
-        ・最新ユーザー発言だけで必要な計算条件がすべて指定され、独立して計算できる場合はfalseにしてください。
-        ・新しい計算、異なる計算種類、異なる対象、計算と無関係な内容の場合はfalseにしてください。
-        ・直近の会話に同種の計算が存在するだけではtrueにせず、最新ユーザー発言がその続きと判断できる場合だけtrueにしてください。
-
         【同一または類似質問の再実行ルール】
         ・最新ユーザー発言が計算、試算、概算、シミュレーション、数値比較を明確に求めている場合は、直近の会話に同一または類似の質問と回答が存在していても、最新の依頼を新しい計算依頼として判定してください。
         ・過去に回答済みであることだけを理由に、response_modeをconversationへ変更してはいけません。
@@ -5588,7 +5581,6 @@ def classify_search_and_response_mode(
             "need_search": false,
             "response_mode": "conversation",
             "requires_estimation": false,
-            "inherit_previous_calculation": false,
             "confidence": 0.90
         }}
         """
@@ -5721,14 +5713,7 @@ def classify_search_and_response_mode(
         need_search = bool(judge_data.get("need_search", False))
         response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
         requires_estimation = bool(judge_data.get("requires_estimation", False))
-        inherit_previous_calculation = bool(
-            judge_data.get(
-                "inherit_previous_calculation",
-                False
-            )
-        )
-        debug_text("DEBUG inherit_previous_calculation", inherit_previous_calculation)
-
+        
         try:
             confidence = float(judge_data.get("confidence", 0.0))
         except (TypeError, ValueError):
@@ -5797,6 +5782,52 @@ def classify_search_and_response_mode(
             0.0,
             False
         )
+#=======================================
+
+# Pythonで明確な継続表現を判定する関数
+def should_inherit_previous_calculation(
+    user_input: str,
+    calculation_type: str,
+    previous_state: dict
+) -> bool:
+    if not isinstance(previous_state, dict) or not previous_state:
+        return False
+
+    current_type = str(calculation_type or "").strip().lower()
+    previous_type = str(
+        previous_state.get("calculation_type", "") or ""
+    ).strip().lower()
+
+    if not current_type or current_type != previous_type:
+        return False
+
+    normalized_input = str(user_input or "").strip()
+
+    continuation_phrases = (
+        "変更した場合",
+        "変更して",
+        "に変更",
+        "変えた場合",
+        "変えて",
+        "にして",
+        "で計算",
+        "で再計算",
+        "再計算して",
+        "同じ条件で",
+        "前回と同じ",
+        "先ほどと同じ",
+        "その条件で",
+        "この条件で",
+        "の条件で",
+        "それなら",
+        "その場合"
+    )
+
+    return any(
+        phrase in normalized_input
+        for phrase in continuation_phrases
+    )
+#=======================================
 
 # 計算ルータ関数
 def classify_calculation_tool(
@@ -15956,6 +15987,21 @@ with all_tabs[0]:
                             calculation_tool == "general_calculation"
                             and general_calculation_type in GENERAL_CALCULATION_TYPES
                         ):
+                            inherit_previous_calculation = (
+                                should_inherit_previous_calculation(
+                                    user_input=user_input,
+                                    calculation_type=general_calculation_type,
+                                    previous_state=st.session_state.get(
+                                        "last_general_calculation_state",
+                                        {}
+                                    )
+                                )
+                            )
+
+                            debug_text(
+                                "DEBUG inherit_previous_calculation",
+                                inherit_previous_calculation
+                            )
                             general_extraction_start_time = time.time()
                             general_calculation_extraction_result = (
                                 extract_general_calculation_parameters(
@@ -16175,6 +16221,21 @@ with all_tabs[0]:
                                 and search_result
                                 and search_result != "なし"
                             ):
+                                inherit_previous_calculation = (
+                                    should_inherit_previous_calculation(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        previous_state=st.session_state.get(
+                                            "last_general_calculation_state",
+                                            {}
+                                        )
+                                    )
+                                )
+
+                                debug_text(
+                                    "DEBUG inherit_previous_calculation",
+                                    inherit_previous_calculation
+                                )
                                 search_general_extraction_start_time = time.time()
                                 general_calculation_extraction_result = (
                                     extract_general_calculation_parameters(
