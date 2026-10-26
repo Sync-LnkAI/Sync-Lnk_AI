@@ -473,6 +473,8 @@ if "active_calculation_case_id" not in st.session_state:
 if "active_calculation_case_name" not in st.session_state:
     st.session_state["active_calculation_case_name"] = ""
 
+if "last_general_calculation_state" not in st.session_state:
+    st.session_state["last_general_calculation_state"] = {}
 
 STYLE_PRESETS = {
 
@@ -4272,6 +4274,82 @@ def calculate_percentage_calculation(
             else None
         )
     }
+#================================================
+
+# 直前条件を補完する関数
+def apply_inherited_general_calculation_fields(
+    extraction_result: dict,
+    previous_state: dict
+) -> dict:
+    if not isinstance(extraction_result, dict):
+        return extraction_result
+
+    if not isinstance(previous_state, dict):
+        return extraction_result
+
+    calculation_type = str(
+        extraction_result.get("calculation_type", "") or ""
+    ).strip()
+
+    previous_calculation_type = str(
+        previous_state.get("calculation_type", "") or ""
+    ).strip()
+
+    if not calculation_type or calculation_type != previous_calculation_type:
+        return extraction_result
+
+    cases = extraction_result.get("cases", [])
+    previous_cases = previous_state.get("cases", [])
+
+    if (
+        not isinstance(cases, list)
+        or not isinstance(previous_cases, list)
+        or len(cases) != 1
+        or len(previous_cases) != 1
+    ):
+        return extraction_result
+
+    case = cases[0]
+    previous_case = previous_cases[0]
+
+    if not isinstance(case, dict) or not isinstance(previous_case, dict):
+        return extraction_result
+
+    parameters = case.get("parameters", {})
+    previous_parameters = previous_case.get("parameters", {})
+    inherited_fields = case.get("inherited_fields", [])
+
+    if (
+        not isinstance(parameters, dict)
+        or not isinstance(previous_parameters, dict)
+        or not isinstance(inherited_fields, list)
+    ):
+        return extraction_result
+
+    applied_inherited_fields = []
+
+    for field_name in inherited_fields:
+        field_name = str(field_name or "").strip()
+
+        if not field_name:
+            continue
+
+        if parameters.get(field_name) is not None:
+            continue
+
+        previous_value = previous_parameters.get(field_name)
+
+        if previous_value is None:
+            continue
+
+        parameters[field_name] = previous_value
+        applied_inherited_fields.append(field_name)
+
+    case["parameters"] = parameters
+    case["inherited_fields"] = applied_inherited_fields
+
+    return extraction_result
+#================================================
 
 # 計算タイプとPython関数を対応させるディスパッチ定義
 GENERAL_CALCULATORS = {
@@ -6641,8 +6719,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -15821,6 +15899,15 @@ with all_tabs[0]:
                                     recent_history=recent_history_for_router
                                 )
                             )
+                            general_calculation_extraction_result = (
+                                apply_inherited_general_calculation_fields(
+                                    extraction_result=general_calculation_extraction_result,
+                                    previous_state=st.session_state.get(
+                                        "last_general_calculation_state",
+                                        {}
+                                    )
+                                )
+                            )
                             general_extraction_elapsed = time.time() - general_extraction_start_time
 
                             debug_json(
@@ -15920,6 +16007,12 @@ with all_tabs[0]:
                             )
 
                         if general_calculation_execution_result.get("status") == "success":
+                            st.session_state["last_general_calculation_state"] = {
+                                "calculation_type": general_calculation_extraction_result.get(
+                                    "calculation_type"
+                                ),
+                                "cases": general_calculation_extraction_result.get("cases", [])
+                            }
                             active_calc_prompt = ""
                         
                         grounded_direct_response = False
