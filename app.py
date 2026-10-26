@@ -15964,6 +15964,10 @@ with all_tabs[0]:
                                     inherit_previous_conditions=inherit_previous_calculation,
                                 )
                             )
+                            general_calculation_extraction_result[
+                                "inherit_previous_conditions"
+                            ] = inherit_previous_calculation
+
                             general_calculation_extraction_result = (
                                 apply_inherited_general_calculation_fields(
                                     extraction_result=general_calculation_extraction_result,
@@ -16180,6 +16184,9 @@ with all_tabs[0]:
                                         reference_context=search_result
                                     )
                                 )
+                                general_calculation_extraction_result[
+                                    "inherit_previous_conditions"
+                                ] = inherit_previous_calculation
                                 search_general_extraction_elapsed = (
                                     time.time() - search_general_extraction_start_time
                                 )
