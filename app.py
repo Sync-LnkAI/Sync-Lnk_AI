@@ -5781,6 +5781,7 @@ def classify_calculation_tool(
 
     現在対応するツール:
         none
+        general_calculation
         real_estate_sale
     """
     try:
@@ -5802,6 +5803,9 @@ def classify_calculation_tool(
 
         general_calculation:
         一般的な数式で完結する数値計算、試算、シミュレーション、複数条件の数値比較を求めている場合に使用する。
+        複利運用、定期積立、単利、割合、構成比、増減率、割引計算、借入返済、ローン返済額などを含む。
+        借入額、年利、返済期間から、毎月返済額、総返済額、利息総額を求める依頼はgeneral_calculationにする。
+        「元利均等返済」「住宅ローン」「借入返済」「毎月の返済額」「ボーナス返済なし」などを含む計算依頼もgeneral_calculationにする。
         不動産売却専用計算および制度依存計算には使用しない。
         具体的な計算方法の分類は別の専用処理で行うため、この段階では判定しない。
 
@@ -5834,6 +5838,7 @@ def classify_calculation_tool(
         金額、割合、利率、期間などが書かれていても、計算、試算、比較、シミュレーションを求めていない場合は選ばないでください。
         税金、社会保険、年金、補助金、給付金、控除などの制度依存計算はgeneral_calculationを選ばず、noneにしてください。
         不動産売却の譲渡所得、税額、手残りなどの計算はgeneral_calculationではなくreal_estate_saleを選んでください。
+        住宅ローンや借入金の毎月返済額、総返済額、利息総額の計算だけを求めている場合は、不動産売却計算ではないためgeneral_calculationを選んでください。
         general_calculationの具体的な計算タイプは、この判定では決定しないでください。
 
         次のような状態説明、雑談、予定、検討だけでは、
