@@ -4967,7 +4967,7 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・calculation_typeには指定された計算タイプを設定してください。
     ・casesは必ず配列にしてください。
     ・各caseにはcase_name、parameters、inherited_fieldsを必ず含めてください。
-    ・inherited_fieldsには、直前の計算から引き継いだparametersのキー名だけを配列で設定してください。
+    ・最新ユーザー発言に明示されていない値を直近の会話から取得してparametersへ設定した場合は、その項目名を必ずinherited_fieldsへ設定してください。
     ・最新ユーザー発言に明示された項目は、inherited_fieldsへ含めないでください。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
