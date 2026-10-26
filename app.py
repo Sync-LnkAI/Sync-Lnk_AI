@@ -4287,6 +4287,13 @@ def apply_inherited_general_calculation_fields(
     if not isinstance(previous_state, dict):
         return extraction_result
 
+    inherit_previous_conditions = bool(
+        extraction_result.get("inherit_previous_conditions", False)
+    )
+
+    if not inherit_previous_conditions:
+        return extraction_result
+
     calculation_type = str(
         extraction_result.get("calculation_type", "") or ""
     ).strip()
@@ -4295,7 +4302,7 @@ def apply_inherited_general_calculation_fields(
         previous_state.get("calculation_type", "") or ""
     ).strip()
 
-    if not calculation_type or calculation_type != previous_calculation_type:
+    if (not calculation_type or calculation_type != previous_calculation_type):
         return extraction_result
 
     cases = extraction_result.get("cases", [])
@@ -4304,49 +4311,58 @@ def apply_inherited_general_calculation_fields(
     if (
         not isinstance(cases, list)
         or not isinstance(previous_cases, list)
-        or len(cases) != 1
-        or len(previous_cases) != 1
+        or not cases
+        or not previous_cases
     ):
         return extraction_result
 
-    case = cases[0]
-    previous_case = previous_cases[0]
+    # まずは単一ケース同士を処理する
+    if len(cases) == 1 and len(previous_cases) == 1:
+        case = cases[0]
+        previous_case = previous_cases[0]
 
-    if not isinstance(case, dict) or not isinstance(previous_case, dict):
-        return extraction_result
+        if (not isinstance(case, dict) or not isinstance(previous_case, dict)):
+            return extraction_result
 
-    parameters = case.get("parameters", {})
-    previous_parameters = previous_case.get("parameters", {})
-    inherited_fields = case.get("inherited_fields", [])
+        parameters = case.get("parameters", {})
+        previous_parameters = previous_case.get("parameters", {})
+        explicit_fields = case.get("explicit_fields", [])
 
-    if (
-        not isinstance(parameters, dict)
-        or not isinstance(previous_parameters, dict)
-        or not isinstance(inherited_fields, list)
-    ):
-        return extraction_result
+        if not isinstance(parameters, dict):
+            return extraction_result
 
-    applied_inherited_fields = []
+        if not isinstance(previous_parameters, dict):
+            return extraction_result
 
-    for field_name in inherited_fields:
-        field_name = str(field_name or "").strip()
+        if not isinstance(explicit_fields, list):
+            explicit_fields = []
 
-        if not field_name:
-            continue
+        explicit_field_set = {
+            str(field_name or "").strip()
+            for field_name in explicit_fields
+            if str(field_name or "").strip()
+        }
 
-        if parameters.get(field_name) is not None:
-            continue
+        inherited_fields = []
 
-        previous_value = previous_parameters.get(field_name)
+        for field_name in parameters.keys():
+            if field_name in explicit_field_set:
+                continue
 
-        if previous_value is None:
-            continue
+            if parameters.get(field_name) is not None:
+                continue
 
-        parameters[field_name] = previous_value
-        applied_inherited_fields.append(field_name)
+            previous_value = previous_parameters.get(field_name)
 
-    case["parameters"] = parameters
-    case["inherited_fields"] = applied_inherited_fields
+            if previous_value is None:
+                continue
+
+            parameters[field_name] = previous_value
+            inherited_fields.append(field_name)
+
+        case["parameters"] = parameters
+        case["explicit_fields"] = list(explicit_field_set)
+        case["inherited_fields"] = inherited_fields
 
     return extraction_result
 #================================================
@@ -4904,14 +4920,14 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・一般的、平均的、代表的と思われる数値を補完しないでください。
     ・AIが過去に推測した数値を、ユーザーが提示した条件として使用しないでください。
     ・最新のユーザー発言で条件が変更された場合は、最新条件を優先してください。
-    ・直近の会話が同じ種類の計算で、最新ユーザー発言が一部条件だけを変更した再計算依頼と明確に判断できる場合は、最新ユーザー発言で省略された条件を直前の計算条件から引き継いでください。
-    ・引き継げるのは、直前の1件の計算に明示された条件だけです。
-    ・最新ユーザー発言で明示された条件は、直前条件より必ず優先してください。
-    ・計算タイプ、計算対象、計算目的が異なる場合は、条件を引き継いではいけません。
-    ・新しい話題、別の商品、別のケースと判断できる場合は、条件を引き継いではいけません。
-    ・複数ケースがあり、どのケースから引き継ぐか一意に決められない場合は、条件を引き継がずnullにしてください。
-    ・直前条件を引き継いだ場合は、caseのinherited_fields配列へ、引き継いだparametersのキー名を設定してください。
-    ・条件を引き継いでいない場合は、inherited_fieldsを空配列にしてください。
+    ・直近の会話が同じ種類の計算で、最新ユーザー発言がその計算の続きまたは条件変更と明確に判断できる場合は、inherit_previous_conditionsをtrueにしてください。
+    ・新しい計算、新しい話題、異なる計算タイプ、異なる計算対象と判断できる場合は、inherit_previous_conditionsをfalseにしてください。
+    ・直近の会話から数値や条件をparametersへコピーしてはいけません。
+    ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
+    ・最新ユーザー発言で確認できた項目名をexplicit_fieldsへ設定してください。
+    ・この段階ではinherited_fieldsを空配列にしてください。継承項目の確定と値の補完は後続のPython処理で行います。
+    ・直前の結果が複数ケースで、最新ユーザー発言がケースを指定せず共通条件だけを変更している場合も、inherit_previous_conditionsをtrueにしてください。
+    ・特定ケースだけの変更、ケース追加、ケース削除が明示されている場合は、その意図が分かるようにcasesを構成してください。
     ・単一ケースでもcases配列へ1件として格納してください。
     ・複数条件が指定された場合は、ケースごとに分けてください。
     ・確認できない項目はnullにしてください。
@@ -4953,25 +4969,31 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     {
         "should_calculate": true,
         "calculation_type": "計算タイプ",
+        "inherit_previous_conditions": false,
         "cases": [
             {
                 "case_name": "基本ケース",
                 "parameters": {},
+                "explicit_fields": [],
                 "inherited_fields": []
             }
         ]
     }
-
+    
     【共通出力ルール】
     ・should_calculateはtrueまたはfalseにしてください。
     ・calculation_typeには指定された計算タイプを設定してください。
+    ・inherit_previous_conditionsは、最新ユーザー発言が直前の同種計算の続きまたは条件変更ならtrue、新しい計算ならfalseにしてください。
     ・casesは必ず配列にしてください。
-    ・各caseにはcase_name、parameters、inherited_fieldsを必ず含めてください。
-    ・最新ユーザー発言に明示されていない値を直近の会話から取得してparametersへ設定した場合は、その項目名を必ずinherited_fieldsへ設定してください。
-    ・最新ユーザー発言に明示された項目は、inherited_fieldsへ含めないでください。
+    ・各caseにはcase_name、parameters、explicit_fields、inherited_fieldsを必ず含めてください。
+    ・explicit_fieldsには、最新ユーザー発言だけで値を確認できるparametersの項目名を設定してください。
+    ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
+    ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
+    ・直近の会話から取得した値をparametersへ直接設定してはいけません。
+    ・この段階ではinherited_fieldsを空配列にしてください。継承項目の確定と値の補完は後続のPython処理で行います。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
-    ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、casesを空配列にしてください。
+    ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
     ・計算結果、利益、返済額、総額などは出力してはいけません。
     """.strip()
 
@@ -5035,9 +5057,6 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・積立タイミングが明示されていない場合はnullにしてください。
     ・複数の年利、積立額、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
     ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・直前の計算もrecurring_investmentで、最新ユーザー発言が同じ積立計算の一部条件だけを変更した再計算依頼と判断できる場合は、最新発言で省略された条件を直前から引き継ぐ対象としてinherited_fieldsへ設定してください。
-    ・最新ユーザー発言で値を確認できる項目は、直前と同じ値であっても最新発言の指定として扱い、inherited_fieldsへ含めてはいけません。
-    ・最新ユーザー発言で省略され、直前の同種計算から引き継ぐべき項目名だけをinherited_fieldsへ設定してください。値の設定は不要で、parametersの該当項目はnullのままで構いません。
     ・積立額、期間、年利、積立頻度、複利頻度、積立タイミングを確認できる場合はshould_calculateをtrueにしてください。
     ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。    
 
@@ -5079,9 +5098,6 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・bonus_paymentが0より大きい場合はshould_calculateをfalseにしてください。
     ・複数の金利、借入額、返済期間が指定された場合は、比較する条件ごとにcasesを分けてください。
     ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・直前の計算もloan_paymentで、最新ユーザー発言が同じ借入返済計算の一部条件だけを変更した再計算依頼と判断できる場合は、最新発言で省略された条件を直前から引き継ぐ対象としてinherited_fieldsへ設定してください。
-    ・最新ユーザー発言で値を確認できる項目は、直前と同じ値であっても最新発言の指定として扱い、inherited_fieldsへ含めてはいけません。
-    ・最新ユーザー発言で省略され、直前の同種計算から引き継ぐべき項目名だけをinherited_fieldsへ設定してください。値の設定は不要で、parametersの該当項目はnullのままで構いません。
     ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料は計算条件へ含めないでください。
     ・検索結果から金利を確認する必要がある場合、未確認の金利を推測して設定してはいけません。
 
@@ -7636,6 +7652,9 @@ def extract_general_calculation_parameters(
             raise ValueError("汎用計算条件の抽出結果がobject形式ではありません")
         
         should_calculate = bool(extracted_data.get("should_calculate", False))
+        inherit_previous_conditions = bool(
+            extracted_data.get("inherit_previous_conditions", False)
+        )
         extracted_calculation_type = extracted_data.get("calculation_type")
         if extracted_calculation_type is not None:
             extracted_calculation_type = str(extracted_calculation_type).strip().lower()
@@ -7657,7 +7676,17 @@ def extract_general_calculation_parameters(
 
             case_name = str(raw_case.get("case_name", "") or "").strip()
             parameters = raw_case.get("parameters", {})
+            explicit_fields = raw_case.get("explicit_fields", [])
             inherited_fields = raw_case.get("inherited_fields", [])
+
+            if not isinstance(explicit_fields, list):
+                explicit_fields = []
+
+            normalized_explicit_fields = []
+            for field_name in explicit_fields:
+                normalized_field_name = str(field_name or "").strip()
+                if normalized_field_name and normalized_field_name not in normalized_explicit_fields:
+                    normalized_explicit_fields.append(normalized_field_name)
 
             if not case_name:
                 case_name = "基本ケース" if len(raw_cases) == 1 else f"ケース{index + 1}"
@@ -7679,6 +7708,7 @@ def extract_general_calculation_parameters(
             normalized_cases.append({
                 "case_name": case_name,
                 "parameters": parameters,
+                "explicit_fields": normalized_explicit_fields,
                 "inherited_fields": normalized_inherited_fields
             })
                     
@@ -7695,6 +7725,12 @@ def extract_general_calculation_parameters(
                 for key, value in parameters.items()
                 if key in allowed_fields
             }
+            explicit_fields = case.get("explicit_fields", [])
+            filtered_explicit_fields = [
+                field_name
+                for field_name in explicit_fields
+                if field_name in allowed_fields
+            ]
 
             inherited_fields = case.get("inherited_fields", [])
             filtered_inherited_fields = [
@@ -7706,6 +7742,7 @@ def extract_general_calculation_parameters(
             filtered_cases.append({
                 "case_name": case.get("case_name", "基本ケース"),
                 "parameters": filtered_parameters,
+                "explicit_fields": filtered_explicit_fields,
                 "inherited_fields": filtered_inherited_fields
             })
         
@@ -7731,6 +7768,7 @@ def extract_general_calculation_parameters(
         return {
             "should_calculate": True,
             "calculation_type": normalized_calculation_type,
+            "inherit_previous_conditions": inherit_previous_conditions,
             "cases": filtered_cases,
             "extraction_status": "extracted",
             "in_tokens": in_tokens,
