@@ -4608,7 +4608,10 @@ def compress_general_calculation_results(
         if not isinstance(result, dict):
             result = {}
 
-        compressed_item = {"case_name": case_name}
+        compressed_item = {}
+        if case_name != "基本ケース":
+            compressed_item["case_name"] = case_name
+
         inherited_fields = item.get("inherited_fields", [])
         if isinstance(inherited_fields, list) and inherited_fields:
             compressed_item["inherited_fields"] = inherited_fields
