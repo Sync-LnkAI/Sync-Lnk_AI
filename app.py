@@ -5720,6 +5720,14 @@ def classify_search_and_response_mode(
         judge_data = json.loads(clean_text)
         need_search = bool(judge_data.get("need_search", False))
         response_mode = str(judge_data.get("response_mode", "default")).strip().lower()
+        requires_estimation = bool(judge_data.get("requires_estimation", False))
+        inherit_previous_calculation = bool(
+            judge_data.get(
+                "inherit_previous_calculation",
+                False
+            )
+        )
+        debug_text("DEBUG inherit_previous_calculation", inherit_previous_calculation)
 
         try:
             confidence = float(judge_data.get("confidence", 0.0))
@@ -5737,15 +5745,11 @@ def classify_search_and_response_mode(
         if confidence < 0.65:
             response_mode = "default"
         
-        requires_estimation = bool(judge_data.get("requires_estimation", False))
+
         # if requires_estimation:
         #     response_mode = "analysis"
-        inherit_previous_calculation = bool(
-            judge_data.get("inherit_previous_calculation", False)
-        )
 
-        debug_text("DEBUG inherit_previous_calculation", inherit_previous_calculation)
-
+        
         # 共通関数が返したトークン数を取得
         judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
         judge_out_t = int(judge_result.get("out_tokens", 0) or 0)
@@ -15479,6 +15483,7 @@ with all_tabs[0]:
                         past_logs_context = []
                         search_elapsed = 0.0
                         requires_estimation = False
+                        inherit_previous_calculation = False
 
                         router_elapsed = 0.0
 
