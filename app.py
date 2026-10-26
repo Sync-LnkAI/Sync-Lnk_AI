@@ -4875,8 +4875,8 @@ def build_general_calculation_context(
         ・質問に合った単位と表記を使用してください。
         ・同じ意味の数値を異なる形式で重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
-        ・compounding_per_year_defaultedがtrueの場合は、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
-        ・compounding_per_year_defaultedがfalseの場合は、複利回数を既定値として補ったという説明を追加しないでください。
+        ・計算タイプがcompound_interestで、計算結果にcompounding_per_year_defaultedが存在し、その値がtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
+        ・計算タイプがcompound_interest以外の場合、またはcompounding_per_year_defaultedが存在しない場合は、年1回複利を既定値として補ったという説明を追加してはいけません。
         ・inherited_fieldsが存在する場合は、その項目が直前の同種計算から引き継がれた条件であることを、結果の前に簡潔に説明してください。
         ・引き継いだ条件は、内部キー名ではなく、ユーザー向けの自然な単位と表現で示してください。
         ・例えばyearsが20の場合は、「前回と同じ20年間として計算しました」と説明してください。
