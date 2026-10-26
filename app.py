@@ -4349,9 +4349,6 @@ def apply_inherited_general_calculation_fields(
             if field_name in explicit_field_set:
                 continue
 
-            if parameters.get(field_name) is not None:
-                continue
-
             previous_value = previous_parameters.get(field_name)
 
             if previous_value is None:
@@ -4986,7 +4983,9 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・inherit_previous_conditionsは、最新ユーザー発言が直前の同種計算の続きまたは条件変更ならtrue、新しい計算ならfalseにしてください。
     ・casesは必ず配列にしてください。
     ・各caseにはcase_name、parameters、explicit_fields、inherited_fieldsを必ず含めてください。
-    ・explicit_fieldsには、最新ユーザー発言だけで値を確認できるparametersの項目名を設定してください。
+    ・explicit_fieldsには、最新ユーザー発言だけから明示的に確認できるparametersの項目名をすべて設定してください。
+    ・数値だけでなく、頻度、方式、タイミング、あり・なし、0として明示された条件もexplicit_fieldsへ含めてください。
+    ・最新ユーザー発言に明示されていない項目は、parametersに値が入っていてもexplicit_fieldsへ含めないでください。
     ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
     ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
     ・直近の会話から取得した値をparametersへ直接設定してはいけません。
