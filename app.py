@@ -4966,7 +4966,6 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     {
         "should_calculate": true,
         "calculation_type": "計算タイプ",
-        "inherit_previous_conditions": false,
         "cases": [
             {
                 "case_name": "基本ケース",
@@ -5502,7 +5501,7 @@ def classify_search_and_response_mode(
     try:
         judge_prompt = f"""
         あなたはAIチャットの振り分けシステムです。
-        直近の会話と最新ユーザー発言を読み、検索要否と回答モード、試算意図を判定してください。
+        直近の会話と最新ユーザー発言を読み、検索要否、回答モード、試算意図、直前計算の条件継承要否を判定してください。
 
         【検索要否】
         ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
@@ -5545,6 +5544,13 @@ def classify_search_and_response_mode(
         明示的に「試算」「計算」と書かれていなくても、回答するために新しい数値結果を算出する必要があれば requires_estimation を true にしてください。
         同一または類似の質問へ過去に回答していても、最新ユーザー発言が再度数値計算を求めている場合は、requires_estimationをtrueにしてください。
 
+        【直前計算の条件継承】
+        ・最新ユーザー発言が、直前の計算と同じ種類・同じ対象について、一部条件を変更または省略した再計算依頼なら、inherit_previous_calculationをtrueにしてください。
+        ・「変更した場合」「それなら」「では」「同じ条件で」など、直前計算の続きであることが明確な場合もtrueにしてください。
+        ・最新ユーザー発言だけで必要な計算条件がすべて指定され、独立して計算できる場合はfalseにしてください。
+        ・新しい計算、異なる計算種類、異なる対象、計算と無関係な内容の場合はfalseにしてください。
+        ・直近の会話に同種の計算が存在するだけではtrueにせず、最新ユーザー発言がその続きと判断できる場合だけtrueにしてください。
+
         【同一または類似質問の再実行ルール】
         ・最新ユーザー発言が計算、試算、概算、シミュレーション、数値比較を明確に求めている場合は、直近の会話に同一または類似の質問と回答が存在していても、最新の依頼を新しい計算依頼として判定してください。
         ・過去に回答済みであることだけを理由に、response_modeをconversationへ変更してはいけません。
@@ -5582,6 +5588,7 @@ def classify_search_and_response_mode(
             "need_search": false,
             "response_mode": "conversation",
             "requires_estimation": false,
+            "inherit_previous_calculation": false,
             "confidence": 0.90
         }}
         """
@@ -5733,6 +5740,11 @@ def classify_search_and_response_mode(
         requires_estimation = bool(judge_data.get("requires_estimation", False))
         # if requires_estimation:
         #     response_mode = "analysis"
+        inherit_previous_calculation = bool(
+            judge_data.get("inherit_previous_calculation", False)
+        )
+
+        debug_text("DEBUG inherit_previous_calculation", inherit_previous_calculation)
 
         # 共通関数が返したトークン数を取得
         judge_in_t = int(judge_result.get("in_tokens", 0) or 0)
@@ -7575,6 +7587,7 @@ def calculate_real_estate_sale(
 def extract_general_calculation_parameters(
     user_input: str,
     calculation_type: str,
+    inherit_previous_conditions: bool = False,
     recent_history: str = "",
     reference_context: str = ""
 ) -> dict:
@@ -7590,6 +7603,7 @@ def extract_general_calculation_parameters(
     }
 
     normalized_calculation_type = str(calculation_type or "").strip().lower()
+    normalized_inherit_previous_conditions = bool(inherit_previous_conditions)
     if normalized_calculation_type not in GENERAL_CALCULATION_TYPES:
         return {
             **default_result,
@@ -7617,8 +7631,11 @@ def extract_general_calculation_parameters(
     【今回指定された計算タイプ】
     {normalized_calculation_type}
 
+    【直前条件の継承判定】
+    {str(bool(inherit_previous_conditions)).lower()}
+
     【直近の会話】
-    {recent_history}
+    なし
 
     【参照情報】
     {reference_context if reference_context else "なし"}
@@ -7653,9 +7670,9 @@ def extract_general_calculation_parameters(
             raise ValueError("汎用計算条件の抽出結果がobject形式ではありません")
         
         should_calculate = bool(extracted_data.get("should_calculate", False))
-        inherit_previous_conditions = bool(
-            extracted_data.get("inherit_previous_conditions", False)
-        )
+        # inherit_previous_conditions = bool(
+        #     extracted_data.get("inherit_previous_conditions", False)
+        # )
         extracted_calculation_type = extracted_data.get("calculation_type")
         if extracted_calculation_type is not None:
             extracted_calculation_type = str(extracted_calculation_type).strip().lower()
@@ -7769,7 +7786,7 @@ def extract_general_calculation_parameters(
         return {
             "should_calculate": True,
             "calculation_type": normalized_calculation_type,
-            "inherit_previous_conditions": inherit_previous_conditions,
+            "inherit_previous_conditions": normalized_inherit_previous_conditions,
             "cases": filtered_cases,
             "extraction_status": "extracted",
             "in_tokens": in_tokens,
@@ -15939,7 +15956,7 @@ with all_tabs[0]:
                                 extract_general_calculation_parameters(
                                     user_input=user_input,
                                     calculation_type=general_calculation_type,
-                                    recent_history=recent_history_for_router
+                                    inherit_previous_conditions=inherit_previous_calculation,
                                 )
                             )
                             general_calculation_extraction_result = (
@@ -16154,7 +16171,7 @@ with all_tabs[0]:
                                     extract_general_calculation_parameters(
                                         user_input=user_input,
                                         calculation_type=general_calculation_type,
-                                        recent_history=recent_history_for_router,
+                                        inherit_previous_conditions=inherit_previous_calculation,
                                         reference_context=search_result
                                     )
                                 )
