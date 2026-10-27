@@ -4434,6 +4434,49 @@ def apply_inherited_general_calculation_fields(
 
     if not isinstance(previous_state, dict):
         return extraction_result
+    
+    case_operation = detect_general_calculation_case_operation(
+        user_input
+    )
+
+    previous_calculation_type = str(
+        previous_state.get("calculation_type", "") or ""
+    ).strip()
+
+    previous_cases = previous_state.get("cases", [])
+
+    if (
+        case_operation == "delete"
+        and previous_calculation_type
+        and isinstance(previous_cases, list)
+        and len(previous_cases) > 1
+    ):
+        target_indexes = find_target_previous_case_indexes(
+            user_input=user_input,
+            previous_cases=previous_cases
+        )
+
+        if target_indexes:
+            remaining_cases = [
+                copy.deepcopy(previous_case)
+                for index, previous_case in enumerate(previous_cases)
+                if index not in target_indexes
+            ]
+
+            if remaining_cases:
+                for remaining_case in remaining_cases:
+                    remaining_case["explicit_fields"] = []
+                    remaining_case["inherited_fields"] = []
+
+                extraction_result["should_calculate"] = True
+                extraction_result["calculation_type"] = (
+                    previous_calculation_type
+                )
+                extraction_result["inherit_previous_conditions"] = True
+                extraction_result["cases"] = remaining_cases
+                extraction_result["extraction_status"] = "extracted"
+
+                return extraction_result
 
     inherit_previous_conditions = bool(
         extraction_result.get("inherit_previous_conditions", False)
@@ -4471,35 +4514,6 @@ def apply_inherited_general_calculation_fields(
             previous_case=previous_cases[0]
         )
         extraction_result["cases"] = cases
-    
-    case_operation = detect_general_calculation_case_operation(
-        user_input
-    )
-
-    if case_operation == "delete" and len(previous_cases) > 1:
-        target_indexes = find_target_previous_case_indexes(
-            user_input=user_input,
-            previous_cases=previous_cases
-        )
-
-        if not target_indexes:
-            return extraction_result
-
-        remaining_cases = [
-            copy.deepcopy(previous_case)
-            for index, previous_case in enumerate(previous_cases)
-            if index not in target_indexes
-        ]
-
-        if not remaining_cases:
-            return extraction_result
-
-        for remaining_case in remaining_cases:
-            remaining_case["explicit_fields"] = []
-            remaining_case["inherited_fields"] = []
-
-        extraction_result["cases"] = remaining_cases
-        return extraction_result
 
     if (
         case_operation == "add"
