@@ -4277,6 +4277,51 @@ def calculate_percentage_calculation(
     }
 #================================================
 
+# ケース追加の意図を判定する関数
+def detect_general_calculation_case_operation(user_input: str) -> str:
+    normalized_input = str(user_input or "").strip()
+
+    add_phrases = (
+        "ケースも追加",
+        "ケースを追加",
+        "条件も追加",
+        "条件を追加",
+        "パターンも追加",
+        "パターンを追加",
+        "ケースを増やして",
+        "条件を増やして",
+        "パターンを増やして",
+        "もう1ケース",
+        "もう一つのケース",
+        "もう1パターン",
+        "もう一つのパターン",
+        "追加で計算",
+        "追加して計算",
+        "も加えて",
+        "を加えて",
+        "も含めて",
+        "も比較して",
+        "も計算して"
+    )
+
+    if any(phrase in normalized_input for phrase in add_phrases):
+        return "add"
+
+    if "増やして" in normalized_input and any(
+        word in normalized_input
+        for word in ("ケース", "条件", "パターン", "比較")
+    ):
+        return "add"
+
+    if any(
+        phrase in normalized_input
+        for phrase in ("だけ", "のみ")
+    ):
+        return "update_target"
+
+    return "update_all"
+#================================================
+
 # 特定ケース名を検出する関数
 def find_target_previous_case_indexes(
     user_input: str,
@@ -4403,6 +4448,30 @@ def apply_inherited_general_calculation_fields(
         )
         extraction_result["cases"] = cases
     
+    case_operation = detect_general_calculation_case_operation(
+        user_input
+    )
+
+    if (
+        case_operation == "add"
+        and len(cases) == 1
+        and previous_cases
+    ):
+        new_case = cases[0]
+        base_previous_case = previous_cases[0]
+
+        merged_new_case = merge_general_calculation_case(
+            current_case=copy.deepcopy(new_case),
+            previous_case=base_previous_case
+        )
+
+        extraction_result["cases"] = (
+            copy.deepcopy(previous_cases)
+            + [merged_new_case]
+        )
+
+        return extraction_result
+
     if len(cases) == 1 and len(previous_cases) > 1:
         current_case = cases[0]
 
