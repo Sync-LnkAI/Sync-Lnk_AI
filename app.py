@@ -16239,8 +16239,66 @@ with all_tabs[0]:
                                 )
                                 general_type_elapsed = time.time() - general_type_start_time
 
-                                debug_text("DEBUG general_calculation_type", general_calculation_type)
+                                # 計算条件は引き継がないが、
+                                # 計算タイプだけ直前の計算から補助取得する
+                                previous_general_calculation_state = (
+                                    st.session_state.get(
+                                        "last_general_calculation_state",
+                                        {}
+                                    )
+                                )
+
+                                if (
+                                    general_calculation_type is None
+                                    and requires_estimation
+                                    and isinstance(
+                                        previous_general_calculation_state,
+                                        dict
+                                    )
+                                ):
+                                    previous_calculation_type = str(
+                                        previous_general_calculation_state.get(
+                                            "calculation_type",
+                                            ""
+                                        )
+                                        or ""
+                                    ).strip().lower()
+
+                                    independent_phrases = (
+                                        "新しく計算",
+                                        "新しい計算",
+                                        "別の計算",
+                                        "別条件で",
+                                        "前回とは別",
+                                        "前回と別",
+                                        "引き継がず",
+                                        "条件を引き継がず",
+                                        "リセットして",
+                                        "最初から計算"
+                                    )
+
+                                    has_independent_calculation_intent = any(
+                                        phrase in str(user_input or "")
+                                        for phrase in independent_phrases
+                                    )
+
+                                    if (
+                                        has_independent_calculation_intent
+                                        and previous_calculation_type
+                                        in GENERAL_CALCULATION_TYPES
+                                    ):
+                                        general_calculation_type = (
+                                            previous_calculation_type
+                                        )
+                                        unmatched_calculation_category = None
+
+                                        debug_text(
+                                            "DEBUG calculation_type_context_fallback",
+                                            general_calculation_type
+                                        )
+
                                 debug_text("DEBUG unmatched_calculation_category", unmatched_calculation_category)
+                                debug_text("DEBUG general_calculation_type", general_calculation_type)
                                 debug_text("DEBUG general_type_confidence", general_type_confidence)
 
                                 save_system_audit_log(
