@@ -5185,14 +5185,11 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・calculation_typeには指定された計算タイプを設定してください。
     ・casesは必ず配列にしてください。
     ・各caseにはcase_name、parameters、explicit_fieldsを必ず含めてください。
-    ・explicit_fieldsには、最新ユーザー発言だけから明示的に確認できるparametersの項目名をすべて設定してください。
-    ・数値だけでなく、頻度、方式、タイミング、あり・なし、0として明示された条件もexplicit_fieldsへ含めてください。
-    ・出力前にparametersの各項目を確認し、最新ユーザー発言の数値、単位、語句、あり・なしの指定から値を決定した項目が、すべてexplicit_fieldsに含まれていることを確認してください。
-    ・文字列を内部値へ正規化した項目も、元になる語句が最新ユーザー発言にあればexplicit_fieldsへ含めてください。
-    ・最新ユーザー発言に明示されていない項目は、parametersに値が入っていてもexplicit_fieldsへ含めないでください。
+    ・explicit_fieldsには、最新ユーザー発言から明示的に確認できるparametersの項目名をすべて設定してください。
+    ・数値だけでなく、頻度、方式、タイミング、あり・なし、0、および内部値へ正規化した条件も含めてください。
+    ・最新ユーザー発言に明示されていない項目はexplicit_fieldsへ含めず、parametersではnullにしてください。
+    ・出力前に、値を設定した項目とexplicit_fieldsの対応を確認してください。
     ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
-    ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
-    ・直近の会話から取得した値をparametersへ直接設定してはいけません。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
