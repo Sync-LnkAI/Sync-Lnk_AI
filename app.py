@@ -16493,9 +16493,7 @@ with all_tabs[0]:
                                 should_inherit_previous_calculation(
                                     user_input=user_input,
                                     calculation_type=general_calculation_type,
-                                    previous_state=st.session_state.get(
-                                        previous_general_calculation_state
-                                    )
+                                    previous_state=previous_general_calculation_state
                                 )
                             )
 
@@ -16513,7 +16511,7 @@ with all_tabs[0]:
                             )
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
-                            ] = inherit_previous_calculation
+                            ] = inherit_previous_calculation                        
 
                             if not inherit_previous_calculation:
                                 inherit_previous_calculation = (
