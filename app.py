@@ -4277,6 +4277,32 @@ def calculate_percentage_calculation(
     }
 #================================================
 
+# 特定ケース名を検出する関数
+def find_target_previous_case_indexes(
+    user_input: str,
+    previous_cases: list
+) -> list:
+    normalized_input = str(user_input or "").replace("％", "%").strip()
+
+    if not normalized_input or not isinstance(previous_cases, list):
+        return []
+
+    target_indexes = []
+
+    for index, previous_case in enumerate(previous_cases):
+        if not isinstance(previous_case, dict):
+            continue
+
+        case_name = str(
+            previous_case.get("case_name", "") or ""
+        ).replace("％", "%").strip()
+
+        if case_name and case_name in normalized_input:
+            target_indexes.append(index)
+
+    return target_indexes
+#================================================
+
 # 複数ケースの共通条件変更関数
 def merge_general_calculation_case(
     current_case: dict,
@@ -4331,7 +4357,8 @@ def merge_general_calculation_case(
 # 直前条件を補完する関数
 def apply_inherited_general_calculation_fields(
     extraction_result: dict,
-    previous_state: dict
+    previous_state: dict,
+    user_input: str = ""
 ) -> dict:
     if not isinstance(extraction_result, dict):
         return extraction_result
@@ -4382,11 +4409,22 @@ def apply_inherited_general_calculation_fields(
         if not isinstance(current_case, dict):
             return extraction_result
 
+        target_indexes = find_target_previous_case_indexes(
+            user_input=user_input,
+            previous_cases=previous_cases
+        )
+
         expanded_cases = []
 
-        for previous_case in previous_cases:
-            copied_current_case = copy.deepcopy(current_case)
+        for index, previous_case in enumerate(previous_cases):
+            if target_indexes and index not in target_indexes:
+                unchanged_case = copy.deepcopy(previous_case)
+                unchanged_case["explicit_fields"] = []
+                unchanged_case["inherited_fields"] = []
+                expanded_cases.append(unchanged_case)
+                continue
 
+            copied_current_case = copy.deepcopy(current_case)
             previous_case_name = str(
                 previous_case.get("case_name", "") or ""
             ).strip()
@@ -16064,7 +16102,8 @@ with all_tabs[0]:
                                     previous_state=st.session_state.get(
                                         "last_general_calculation_state",
                                         {}
-                                    )
+                                    ),
+                                    user_input=user_input
                                 )
                             )
                             general_extraction_elapsed = time.time() - general_extraction_start_time
@@ -16289,9 +16328,22 @@ with all_tabs[0]:
                                         reference_context=search_result
                                     )
                                 )
+
                                 general_calculation_extraction_result[
                                     "inherit_previous_conditions"
                                 ] = inherit_previous_calculation
+
+                                general_calculation_extraction_result = (
+                                    apply_inherited_general_calculation_fields(
+                                        extraction_result=general_calculation_extraction_result,
+                                        previous_state=st.session_state.get(
+                                            "last_general_calculation_state",
+                                            {}
+                                        ),
+                                        user_input=user_input
+                                    )
+                                )
+
                                 search_general_extraction_elapsed = (
                                     time.time() - search_general_extraction_start_time
                                 )
