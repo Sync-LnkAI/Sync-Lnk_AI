@@ -16112,6 +16112,18 @@ with all_tabs[0]:
 
                             debug_text("DEBUG calculation_tool", calculation_tool)
 
+                            if (
+                                calculation_tool == "none"
+                                and requires_estimation
+                                and not need_search
+                            ):
+                                calculation_tool = "general_calculation"
+
+                                debug_text(
+                                    "DEBUG calculation_tool_fallback",
+                                    "general_calculation"
+                                )
+
                             if calculation_tool == "general_calculation":
                                 general_type_start_time = time.time()
                                 (
