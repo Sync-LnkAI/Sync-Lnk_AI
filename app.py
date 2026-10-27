@@ -3734,7 +3734,11 @@ GENERAL_CALCULATION_TYPE_ALIASES = {
     "割合": "percentage_calculation",
     "割合計算": "percentage_calculation",
     "比率計算": "percentage_calculation",
-    "パーセント計算": "percentage_calculation"
+    "パーセント計算": "percentage_calculation",
+    "割引": "percentage_calculation",
+    "割引計算": "percentage_calculation",
+    "値引き": "percentage_calculation",
+    "値引き計算": "percentage_calculation"
 }
 
 # 計算タイプごとの必須項目定義(AIから受け取ってよい項目の一覧)
@@ -5131,14 +5135,6 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・一般的、平均的、代表的と思われる数値を補完しないでください。
     ・AIが過去に推測した数値を、ユーザーが提示した条件として使用しないでください。
     ・最新のユーザー発言で条件が変更された場合は、最新条件を優先してください。
-    ・直近の会話が同じ種類の計算で、最新ユーザー発言がその計算の続きまたは条件変更と明確に判断できる場合は、inherit_previous_conditionsをtrueにしてください。
-    ・新しい計算、新しい話題、異なる計算タイプ、異なる計算対象と判断できる場合は、inherit_previous_conditionsをfalseにしてください。
-    ・直近の会話から数値や条件をparametersへコピーしてはいけません。
-    ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
-    ・最新ユーザー発言で確認できた項目名をexplicit_fieldsへ設定してください。
-    ・この段階ではinherited_fieldsを空配列にしてください。継承項目の確定と値の補完は後続のPython処理で行います。
-    ・直前の結果が複数ケースで、最新ユーザー発言がケースを指定せず共通条件だけを変更している場合も、inherit_previous_conditionsをtrueにしてください。
-    ・特定ケースだけの変更、ケース追加、ケース削除が明示されている場合は、その意図が分かるようにcasesを構成してください。
     ・単一ケースでもcases配列へ1件として格納してください。
     ・複数条件が指定された場合は、ケースごとに分けてください。
     ・確認できない項目はnullにしてください。
@@ -5184,8 +5180,7 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
             {
                 "case_name": "基本ケース",
                 "parameters": {},
-                "explicit_fields": [],
-                "inherited_fields": []
+                "explicit_fields": []
             }
         ]
     }
@@ -5193,9 +5188,8 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     【共通出力ルール】
     ・should_calculateはtrueまたはfalseにしてください。
     ・calculation_typeには指定された計算タイプを設定してください。
-    ・inherit_previous_conditionsは、最新ユーザー発言が直前の同種計算の続きまたは条件変更ならtrue、新しい計算ならfalseにしてください。
     ・casesは必ず配列にしてください。
-    ・各caseにはcase_name、parameters、explicit_fields、inherited_fieldsを必ず含めてください。
+    ・各caseにはcase_name、parameters、explicit_fieldsを必ず含めてください。
     ・explicit_fieldsには、最新ユーザー発言だけから明示的に確認できるparametersの項目名をすべて設定してください。
     ・数値だけでなく、頻度、方式、タイミング、あり・なし、0として明示された条件もexplicit_fieldsへ含めてください。
     ・出力前にparametersの各項目を確認し、最新ユーザー発言の数値、単位、語句、あり・なしの指定から値を決定した項目が、すべてexplicit_fieldsに含まれていることを確認してください。
@@ -5204,7 +5198,6 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
     ・parametersには最新ユーザー発言から確認できる値だけを設定し、省略された項目はnullにしてください。
     ・直近の会話から取得した値をparametersへ直接設定してはいけません。
-    ・この段階ではinherited_fieldsを空配列にしてください。継承項目の確定と値の補完は後続のPython処理で行います。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
@@ -7837,7 +7830,6 @@ def extract_general_calculation_parameters(
     user_input: str,
     calculation_type: str,
     inherit_previous_conditions: bool = False,
-    recent_history: str = "",
     reference_context: str = ""
 ) -> dict:
 
@@ -7879,12 +7871,6 @@ def extract_general_calculation_parameters(
 
     【今回指定された計算タイプ】
     {normalized_calculation_type}
-
-    【直前条件の継承判定】
-    {str(bool(inherit_previous_conditions)).lower()}
-
-    【直近の会話】
-    なし
 
     【参照情報】
     {reference_context if reference_context else "なし"}
