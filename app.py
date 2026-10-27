@@ -5887,7 +5887,7 @@ def classify_search_and_response_mode(
 
         【出力前の最終確認】
         ・制度、法令、税制、公的制度、上限額、対象・利用条件、料金、価格、金利、仕様など、変更され得る客観的事実の確認は、過去回答があってもneed_searchをtrue、response_modeをfactualにしてください。
-        ・ユーザー指定の数値だけで完結する試算はneed_searchをfalse、response_modeをanalysis、requires_estimationをtrueにしてください。
+        ・ただし、固有名詞や制度名が含まれていても、変更され得る制度情報を回答に使わず、ユーザーが指定した数値だけで完結する計算・試算は、need_searchをfalse、response_modeをanalysis、requires_estimationをtrueにしてください。       
         
         【出力形式】
         {{
