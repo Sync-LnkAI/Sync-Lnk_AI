@@ -4980,6 +4980,10 @@ def compress_general_calculation_results(
                 "principal": parameters.get("principal"),
                 "annual_rate": parameters.get("annual_rate"),
                 "years": parameters.get("years"),
+                "payments_per_year": parameters.get("payments_per_year"),
+                "repayment_method": parameters.get("repayment_method"),
+                "bonus_payment": parameters.get("bonus_payment"),
+                "payment_count": result.get("payment_count"),
                 "payment_amount": result.get("payment_amount"),
                 "total_payment": result.get("total_payment"),
                 "total_interest": result.get("total_interest")
