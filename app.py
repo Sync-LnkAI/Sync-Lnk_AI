@@ -6798,7 +6798,104 @@ PYTHON_DETAILED_RESULT_PROMPT = """
 # ・検索結果を使う場合は確認できた重要な違いだけを使用し、不明な情報を補完しないでください。
 # """.strip()
 
+
+# キーワード非依存の構造判定関数
+def should_structurally_inherit_previous_calculation(
+    user_input: str,
+    calculation_type: str,
+    extraction_result: dict,
+    previous_state: dict
+) -> bool:
+    if not isinstance(extraction_result, dict):
+        return False
+
+    if not isinstance(previous_state, dict) or not previous_state:
+        return False
+
+    if not extraction_result.get("should_calculate", False):
+        return False
+
+    if extraction_result.get("extraction_status") != "extracted":
+        return False
+
+    current_type = str(calculation_type or "").strip().lower()
+    previous_type = str(
+        previous_state.get("calculation_type", "") or ""
+    ).strip().lower()
+
+    if not current_type or current_type != previous_type:
+        return False
+
+    normalized_input = str(user_input or "").strip()
+
+    independent_phrases = (
+        "新しく計算",
+        "新しい計算",
+        "別の計算",
+        "別条件で",
+        "前回とは別",
+        "前回と別",
+        "引き継がず",
+        "条件を引き継がず",
+        "リセットして",
+        "最初から計算"
+    )
+
+    if any(phrase in normalized_input for phrase in independent_phrases):
+        return False
+
+    cases = extraction_result.get("cases", [])
+
+    if not isinstance(cases, list) or not cases:
+        return False
+
+    has_explicit_field = False
+    has_missing_required_field = False
+
+    for case in cases:
+        if not isinstance(case, dict):
+            continue
+
+        explicit_fields = case.get("explicit_fields", [])
+
+        if isinstance(explicit_fields, list) and explicit_fields:
+            has_explicit_field = True
+
+        parameters = case.get("parameters", {})
+
+        if not isinstance(parameters, dict):
+            continue
+
+        normalized_parameters = (
+            normalize_general_calculation_parameters(parameters)
+        )
+
+        missing_fields = (
+            get_general_calculation_missing_fields(
+                calculation_type=current_type,
+                parameters=normalized_parameters
+            )
+        )
+
+        if current_type == "recurring_investment":
+            missing_fields = [
+                field_name
+                for field_name in missing_fields
+                if field_name not in {
+                    "compounding_per_year",
+                    "contribution_timing"
+                }
+            ]
+
+        if missing_fields:
+            has_missing_required_field = True
+
+    return (
+        has_explicit_field
+        and has_missing_required_field
+    )
 # ==========================================
+
 # 不動産計算要否判定関数
 REAL_ESTATE_SALE_HINT_WORDS = {
     "不動産売却",
@@ -16296,13 +16393,19 @@ with all_tabs[0]:
                             calculation_tool == "general_calculation"
                             and general_calculation_type in GENERAL_CALCULATION_TYPES
                         ):
+                            previous_general_calculation_state = (
+                                st.session_state.get(
+                                    "last_general_calculation_state",
+                                    {}
+                                )
+                            )
+
                             inherit_previous_calculation = (
                                 should_inherit_previous_calculation(
                                     user_input=user_input,
                                     calculation_type=general_calculation_type,
                                     previous_state=st.session_state.get(
-                                        "last_general_calculation_state",
-                                        {}
+                                        previous_general_calculation_state
                                     )
                                 )
                             )
@@ -16323,27 +16426,48 @@ with all_tabs[0]:
                                 "inherit_previous_conditions"
                             ] = inherit_previous_calculation
 
+                            if not inherit_previous_calculation:
+                                inherit_previous_calculation = (
+                                    should_structurally_inherit_previous_calculation(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        extraction_result=(
+                                            general_calculation_extraction_result
+                                        ),
+                                        previous_state=(
+                                            previous_general_calculation_state
+                                        )
+                                    )
+                                )
+
+                            general_calculation_extraction_result[
+                                "inherit_previous_conditions"
+                            ] = inherit_previous_calculation
+
+                            debug_text(
+                                "DEBUG structural_inheritance_result",
+                                inherit_previous_calculation
+                            )
+
                             general_calculation_extraction_result = (
                                 apply_inherited_general_calculation_fields(
                                     extraction_result=general_calculation_extraction_result,
-                                    previous_state=st.session_state.get(
-                                        "last_general_calculation_state",
-                                        {}
-                                    ),
+                                    previous_state=previous_general_calculation_state,
                                     user_input=user_input
                                 )
-                            )
-                            general_extraction_elapsed = time.time() - general_extraction_start_time
-
-                            debug_json(
-                                "DEBUG general_calculation_extraction_result",
-                                general_calculation_extraction_result
                             )
 
                             general_calculation_extraction_result = (
                                 apply_recurring_investment_defaults(
                                     general_calculation_extraction_result
                                 )
+                            )
+
+                            general_extraction_elapsed = time.time() - general_extraction_start_time
+
+                            debug_json(
+                                "DEBUG general_calculation_extraction_result",
+                                general_calculation_extraction_result
                             )
 
                             general_extraction_in_tokens = int(
@@ -16537,14 +16661,18 @@ with all_tabs[0]:
                                 and search_result
                                 and search_result != "なし"
                             ):
+                                previous_general_calculation_state = (
+                                    st.session_state.get(
+                                        "last_general_calculation_state",
+                                        {}
+                                    )
+                                )
+
                                 inherit_previous_calculation = (
                                     should_inherit_previous_calculation(
                                         user_input=user_input,
                                         calculation_type=general_calculation_type,
-                                        previous_state=st.session_state.get(
-                                            "last_general_calculation_state",
-                                            {}
-                                        )
+                                        previous_state=general_calculation_state
                                     )
                                 )
 
@@ -16566,30 +16694,44 @@ with all_tabs[0]:
                                     "inherit_previous_conditions"
                                 ] = inherit_previous_calculation
 
+                                if not inherit_previous_calculation:
+                                    inherit_previous_calculation = (
+                                        should_structurally_inherit_previous_calculation(
+                                            user_input=user_input,
+                                            calculation_type=general_calculation_type,
+                                            extraction_result=(
+                                                general_calculation_extraction_result
+                                            ),
+                                            previous_state=(
+                                                previous_general_calculation_state
+                                            )
+                                        )
+                                    )
+                                general_calculation_extraction_result[
+                                    "inherit_previous_conditions"
+                                ] = inherit_previous_calculation
+
+                                debug_text(
+                                    "DEBUG search_structural_inheritance_result",
+                                    inherit_previous_calculation
+                                )
+
                                 general_calculation_extraction_result = (
                                     apply_inherited_general_calculation_fields(
                                         extraction_result=general_calculation_extraction_result,
-                                        previous_state=st.session_state.get(
-                                            "last_general_calculation_state",
-                                            {}
-                                        ),
+                                        previous_state=previous_general_calculation_state,
                                         user_input=user_input
                                     )
-                                )
-
-                                search_general_extraction_elapsed = (
-                                    time.time() - search_general_extraction_start_time
-                                )
-
-                                debug_json(
-                                    "DEBUG general_calculation_search_extraction_result",
-                                    general_calculation_extraction_result
                                 )
 
                                 general_calculation_extraction_result = (
                                     apply_recurring_investment_defaults(
                                         general_calculation_extraction_result
                                     )
+                                )
+
+                                search_general_extraction_elapsed = (
+                                    time.time() - search_general_extraction_start_time
                                 )
 
                                 search_general_extraction_in_tokens = int(
