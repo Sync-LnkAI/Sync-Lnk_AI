@@ -4951,8 +4951,11 @@ def compress_general_calculation_results(
         elif calculation_type == "recurring_investment":
             compressed_item.update({
                 "contribution_amount": parameters.get("contribution_amount"),
+                "contributions_per_year": parameters.get("contributions_per_year"),
                 "annual_rate": parameters.get("annual_rate"),
                 "years": parameters.get("years"),
+                "compounding_per_year": parameters.get("compounding_per_year"),
+                "contribution_timing": parameters.get("contribution_timing"),
                 "total_contributions": result.get("total_contributions"),
                 "final_amount": result.get("final_amount"),
                 "profit": result.get("profit")
@@ -5206,7 +5209,10 @@ def build_general_calculation_context(
         ・同じ意味の数値を重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
         ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
-        ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に自然な表現で簡潔に説明してください。recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、「複利回数と積立タイミングの指定がないため、積立頻度と同じ複利回数・期末積立として計算しました」と説明してください。
+        ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に簡潔に説明してください。
+        ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
+        ・contributions_per_yearとcompounding_per_yearが12で、contribution_timingがendなら、「複利回数と積立タイミングの指定がないため、毎月複利・月末積立として計算しました」と説明してください。
+        ・内部値の「12回」「end」「期末積立」をそのまま表示せず、質問に合った「毎月複利」「月末積立」などの自然な表現を使用してください。
         ・inherited_fieldsがある場合は、引き継いだ条件を自然な表現で結果の前に簡潔に説明してください。
         ・inherited_fieldsがない場合は、条件継承について肯定・否定を問わず一切言及しないでください。
         """.strip()
