@@ -4312,6 +4312,30 @@ def detect_general_calculation_case_operation(user_input: str) -> str:
         for word in ("ケース", "条件", "パターン", "比較")
     ):
         return "add"
+    
+    delete_phrases = (
+        "ケースを削除",
+        "ケースも削除",
+        "条件を削除",
+        "パターンを削除",
+        "ケースを減らして",
+        "条件を減らして",
+        "パターンを減らして",
+        "を外して",
+        "を除いて",
+        "を除外して",
+        "なしにして",
+        "消して"
+    )
+
+    if any(phrase in normalized_input for phrase in delete_phrases):
+        return "delete"
+
+    if "減らして" in normalized_input and any(
+        word in normalized_input
+        for word in ("ケース", "条件", "パターン", "比較対象")
+    ):
+        return "delete"
 
     if any(
         phrase in normalized_input
@@ -4451,6 +4475,31 @@ def apply_inherited_general_calculation_fields(
     case_operation = detect_general_calculation_case_operation(
         user_input
     )
+
+    if case_operation == "delete" and len(previous_cases) > 1:
+        target_indexes = find_target_previous_case_indexes(
+            user_input=user_input,
+            previous_cases=previous_cases
+        )
+
+        if not target_indexes:
+            return extraction_result
+
+        remaining_cases = [
+            copy.deepcopy(previous_case)
+            for index, previous_case in enumerate(previous_cases)
+            if index not in target_indexes
+        ]
+
+        if not remaining_cases:
+            return extraction_result
+
+        for remaining_case in remaining_cases:
+            remaining_case["explicit_fields"] = []
+            remaining_case["inherited_fields"] = []
+
+        extraction_result["cases"] = remaining_cases
+        return extraction_result
 
     if (
         case_operation == "add"
