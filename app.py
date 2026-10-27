@@ -3303,7 +3303,10 @@ def build_simple_analysis_instruction(
 
     current_information_notice_prompt = (
         CURRENT_INFORMATION_NOTICE_PROMPT
-        if not search_performed
+        if (
+            not search_performed
+            and not general_calculation_context
+        )
         else ""
     )
 
@@ -17716,9 +17719,12 @@ with all_tabs[0]:
                             )
                         
                         current_information_notice_for_main_prompt = (
-                            ""
-                            if need_search
-                            else CURRENT_INFORMATION_NOTICE_PROMPT
+                            CURRENT_INFORMATION_NOTICE_PROMPT
+                            if (
+                                not need_search
+                                and not general_calculation_context
+                            )
+                            else ""
                         )
 
                         short_history_lines = recent_history_lines[-2:]
