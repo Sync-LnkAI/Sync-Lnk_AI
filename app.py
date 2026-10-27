@@ -16511,7 +16511,56 @@ with all_tabs[0]:
                             )
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
-                            ] = inherit_previous_calculation                        
+                            ] = inherit_previous_calculation
+
+                            previous_calculation_type = str(
+                                previous_general_calculation_state.get(
+                                    "calculation_type",
+                                    ""
+                                )
+                                or ""
+                            ).strip().lower()
+
+                            extraction_status = str(
+                                general_calculation_extraction_result.get(
+                                    "extraction_status",
+                                    ""
+                                )
+                                or ""
+                            ).strip().lower()
+
+                            extraction_should_calculate = bool(
+                                general_calculation_extraction_result.get(
+                                    "should_calculate",
+                                    False
+                                )
+                            )
+
+                            if (
+                                not extraction_should_calculate
+                                and extraction_status == "not_applicable"
+                                and requires_estimation
+                                and previous_calculation_type
+                                == general_calculation_type
+                            ):
+                                general_calculation_extraction_result = (
+                                    extract_general_calculation_parameters(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        inherit_previous_conditions=True
+                                    )
+                                )
+
+                                inherit_previous_calculation = True
+
+                                general_calculation_extraction_result[
+                                    "inherit_previous_conditions"
+                                ] = True
+
+                                debug_text(
+                                    "DEBUG extraction_inheritance_retry",
+                                    True
+                                )                        
 
                             if not inherit_previous_calculation:
                                 inherit_previous_calculation = (
