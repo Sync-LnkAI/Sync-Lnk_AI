@@ -3180,15 +3180,6 @@ CURRENT_INFORMATION_NOTICE_PROMPT = """
     ・ユーザー指定の数値だけで完結する試算や、変更可能情報を回答しない場合は、この注意書きを追加しないでください。
     """.strip()
 
-def build_grounded_response_config(
-    processing_type: str,
-    style_preset: str,
-    recent_history: str,
-    user_input: str,
-    calc_prompt: str = "",
-    general_calculation_context: str = ""
-) -> dict:
-
 # 検索＋回答の処理関数
 def build_grounded_response_config(
     processing_type: str,
