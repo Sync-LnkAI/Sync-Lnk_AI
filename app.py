@@ -4593,6 +4593,71 @@ def apply_inherited_general_calculation_fields(
     return extraction_result
 #================================================
 
+# 積立計算の省略条件をPythonで補完する関数
+def apply_recurring_investment_defaults(
+    extraction_result: dict
+) -> dict:
+    if not isinstance(extraction_result, dict):
+        return extraction_result
+
+    calculation_type = str(
+        extraction_result.get("calculation_type", "") or ""
+    ).strip()
+
+    if calculation_type != "recurring_investment":
+        return extraction_result
+
+    cases = extraction_result.get("cases", [])
+
+    if not isinstance(cases, list):
+        return extraction_result
+
+    for case in cases:
+        if not isinstance(case, dict):
+            continue
+
+        parameters = case.get("parameters", {})
+
+        if not isinstance(parameters, dict):
+            continue
+
+        defaulted_fields = case.get(
+            "defaulted_fields",
+            []
+        )
+
+        if not isinstance(defaulted_fields, list):
+            defaulted_fields = []
+
+        if parameters.get("compounding_per_year") is None:
+            contributions_per_year = parameters.get(
+                "contributions_per_year"
+            )
+
+            if contributions_per_year is not None:
+                parameters["compounding_per_year"] = (
+                    contributions_per_year
+                )
+                defaulted_fields.append(
+                    "compounding_per_year"
+                )
+
+        if parameters.get("contribution_timing") is None:
+            parameters["contribution_timing"] = "end"
+            defaulted_fields.append(
+                "contribution_timing"
+            )
+
+        case["parameters"] = parameters
+        case["defaulted_fields"] = list(
+            dict.fromkeys(defaulted_fields)
+        )
+
+    extraction_result["cases"] = cases
+
+    return extraction_result
+#================================================
+
 # 計算タイプとPython関数を対応させるディスパッチ定義
 GENERAL_CALCULATORS = {
     "compound_interest": calculate_compound_interest,
@@ -4728,11 +4793,22 @@ def execute_general_calculation(extraction_result: dict) -> dict:
             for field_name in raw_inherited_fields
             if str(field_name or "").strip() in normalized_parameters
         ]
+
+        raw_defaulted_fields = case.get("defaulted_fields", [])
+        if not isinstance(raw_defaulted_fields, list):
+            raw_defaulted_fields = []
+        defaulted_fields = [
+            str(field_name or "").strip()
+            for field_name in raw_defaulted_fields
+            if str(field_name or "").strip() in normalized_parameters
+        ]
+
         normalized_cases.append({
             "case_name": case_name,
             "parameters": normalized_parameters,
             "missing_fields": missing_fields,
             "inherited_fields": inherited_fields,
+            "defaulted_fields": defaulted_fields,
             "compounding_per_year_defaulted": compounding_per_year_defaulted
         })
         if missing_fields:
@@ -4767,6 +4843,7 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 "parameters": make_json_safe(parameters),
                 "result": make_json_safe(calculation_result),
                 "inherited_fields": case.get("inherited_fields", []),
+                "defaulted_fields": case.get("defaulted_fields", []),
                 "compounding_per_year_defaulted": compounding_per_year_defaulted
             })
 
@@ -16243,6 +16320,12 @@ with all_tabs[0]:
                                 general_calculation_extraction_result
                             )
 
+                            general_calculation_extraction_result = (
+                                apply_recurring_investment_defaults(
+                                    general_calculation_extraction_result
+                                )
+                            )
+
                             general_extraction_in_tokens = int(
                                 general_calculation_extraction_result.get(
                                     "in_tokens",
@@ -16481,6 +16564,12 @@ with all_tabs[0]:
                                 debug_json(
                                     "DEBUG general_calculation_search_extraction_result",
                                     general_calculation_extraction_result
+                                )
+
+                                general_calculation_extraction_result = (
+                                    apply_recurring_investment_defaults(
+                                        general_calculation_extraction_result
+                                    )
                                 )
 
                                 search_general_extraction_in_tokens = int(
