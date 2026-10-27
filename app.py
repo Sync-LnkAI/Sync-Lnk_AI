@@ -3174,6 +3174,21 @@ def google_search(query: str, model_name: str = None):
         "out_tokens": search_out_tokens
     }
 
+CURRENT_INFORMATION_NOTICE_PROMPT = """
+    【変更可能情報の注意】
+    ・制度、法令、税制、上限額、利用条件、料金、価格、金利、製品仕様など、変更される可能性がある情報をインターネット検索なしで回答する場合は、回答の最後に「この情報は変更されている可能性があります。必要であれば、最新情報を確認してとお申し付けください」と簡潔に明記してください。
+    ・ユーザー指定の数値だけで完結する試算や、変更可能情報を回答しない場合は、この注意書きを追加しないでください。
+    """.strip()
+
+def build_grounded_response_config(
+    processing_type: str,
+    style_preset: str,
+    recent_history: str,
+    user_input: str,
+    calc_prompt: str = "",
+    general_calculation_context: str = ""
+) -> dict:
+
 # 検索＋回答の処理関数
 def build_grounded_response_config(
     processing_type: str,
@@ -3295,13 +3310,11 @@ def build_simple_analysis_instruction(
         else SIMPLE_ANALYSIS_PROMPT
     )
 
-    current_information_notice_prompt = ""
-    if not search_performed:
-        current_information_notice_prompt = """
-        【変更可能情報の注意】
-        ・制度、法令、税制、上限額、利用条件、料金、価格、金利、製品仕様など、変更される可能性がある情報を回答する場合は、回答の最後に「この情報は変更されている可能性があります。必要であれば、最新情報を確認してとお申し付けください」と簡潔に明記してください。
-        ・ユーザー指定の数値だけで完結する試算や、変更可能情報を回答しない場合は、この注意書きを追加しないでください。
-        """.strip()
+    current_information_notice_prompt = (
+        CURRENT_INFORMATION_NOTICE_PROMPT
+        if not search_performed
+        else ""
+    )
 
     return f"""
     {selected_simple_prompt}
@@ -17601,6 +17614,12 @@ with all_tabs[0]:
                                 response_mode,
                                 MODE_PROMPTS["default"]
                             )
+                        
+                        current_information_notice_for_main_prompt = (
+                            ""
+                            if need_search
+                            else CURRENT_INFORMATION_NOTICE_PROMPT
+                        )
 
                         short_history_lines = recent_history_lines[-2:]
                         short_history_str = "\n".join(
@@ -17743,6 +17762,7 @@ with all_tabs[0]:
                             ・情報量が多い場合は、見出し、箇条書き、適切な改行を使って読みやすく整理してください。
                             ・太字装飾記号は使用しないでください。
 
+                            {current_information_notice_for_main_prompt}
                             {selected_mode_prompt}
                             {active_calc_prompt}
                             {general_calculation_context}
