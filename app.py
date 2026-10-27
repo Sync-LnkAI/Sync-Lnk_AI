@@ -16536,9 +16536,46 @@ with all_tabs[0]:
                                 )
                             )
 
+                            extraction_cases = (
+                                general_calculation_extraction_result.get(
+                                    "cases",
+                                    []
+                                )
+                            )
+
+                            has_explicit_fields = False
+
+                            if isinstance(extraction_cases, list):
+                                for extraction_case in extraction_cases:
+                                    if not isinstance(extraction_case, dict):
+                                        continue
+
+                                    explicit_fields = extraction_case.get(
+                                        "explicit_fields",
+                                        []
+                                    )
+
+                                    if (
+                                        isinstance(explicit_fields, list)
+                                        and explicit_fields
+                                    ):
+                                        has_explicit_fields = True
+                                        break
+
+                            retry_extraction_for_inheritance = (
+                                (
+                                    not extraction_should_calculate
+                                    and extraction_status == "not_applicable"
+                                )
+                                or (
+                                    extraction_should_calculate
+                                    and extraction_status == "extracted"
+                                    and not has_explicit_fields
+                                )
+                            )
+
                             if (
-                                not extraction_should_calculate
-                                and extraction_status == "not_applicable"
+                                retry_extraction_for_inheritance
                                 and requires_estimation
                                 and previous_calculation_type
                                 == general_calculation_type
@@ -16560,8 +16597,8 @@ with all_tabs[0]:
                                 debug_text(
                                     "DEBUG extraction_inheritance_retry",
                                     True
-                                )                        
-
+                                )
+                                                   
                             if not inherit_previous_calculation:
                                 inherit_previous_calculation = (
                                     should_structurally_inherit_previous_calculation(
