@@ -5217,7 +5217,8 @@ def build_general_calculation_context(
         ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
         ・contributions_per_yearとcompounding_per_yearが12で、contribution_timingがendなら、「複利回数と積立タイミングの指定がないため、毎月複利・月末積立として計算しました」と説明してください。
         ・内部値の「12回」「end」「期末積立」をそのまま表示せず、質問に合った「毎月複利」「月末積立」などの自然な表現を使用してください。
-        ・inherited_fieldsがある場合は、引き継いだ条件を自然な表現で結果の前に簡潔に説明してください。
+        ・inherited_fieldsがある場合は、「前回の条件を引き継ぎました」だけで済ませず、計算結果に含まれる値を使って、引き継いだ条件を結果の前に具体的かつ簡潔に説明してください。
+        ・例えばannual_rateが0.05、yearsが10、compounding_per_yearが12なら、「前回と同じ年利5%、10年間、毎月複利として計算しました」と自然な日本語で説明してください。
         ・inherited_fieldsがない場合は、条件継承について肯定・否定を問わず一切言及しないでください。
         """.strip()
 
