@@ -3277,7 +3277,8 @@ def build_simple_analysis_instruction(
     style_preset: str,
     recent_history: str,
     calc_prompt: str = "",
-    general_calculation_context: str = ""
+    general_calculation_context: str = "",
+    search_performed: bool = False
 ) -> str:
     style_prompt = (
         LIGHTWEIGHT_STYLE_PRESETS.get(
@@ -3294,10 +3295,19 @@ def build_simple_analysis_instruction(
         else SIMPLE_ANALYSIS_PROMPT
     )
 
+    current_information_notice_prompt = ""
+    if not search_performed:
+        current_information_notice_prompt = """
+        【変更可能情報の注意】
+        ・制度、法令、税制、上限額、利用条件、料金、価格、金利、製品仕様など、変更される可能性がある情報を回答する場合は、回答の最後に「この情報は変更されている可能性があります。必要であれば、最新情報を確認してとお申し付けください」と簡潔に明記してください。
+        ・ユーザー指定の数値だけで完結する試算や、変更可能情報を回答しない場合は、この注意書きを追加しないでください。
+        """.strip()
+
     return f"""
     {selected_simple_prompt}
     {calc_prompt}
     {general_calculation_context}
+    {current_information_notice_prompt}
 
     【今回の話し方】
     {style_prompt}
@@ -5705,6 +5715,9 @@ def classify_search_and_response_mode(
         【検索要否】
         ・最新情報、現在進行中の情報、現在の価格、天気、ニュース、相場、上映情報、店舗情報、製品仕様などを正確に回答するためにインターネット検索が必要なら need_search を true にしてください。
         ・制度、法令、税制、投資制度、非課税制度、補助金、社会保障、契約条件、商品固有の料率などが結果に影響する場合は、need_search を true にしてください。
+        ・既知の内容でも、現在適用される制度、法令、税制、上限額、利用条件、料金、価格、金利、製品仕様など、変更される可能性がある情報の確認を求めている場合はneed_searchをtrueにしてください。
+        ・過去の会話や一般知識に回答が存在していても、現在有効な内容かどうかが回答に影響する場合は検索を省略しないでください。
+        ・一方、ユーザーが指定した数値だけで完結し、制度固有の上限や条件を使わない試算はneed_searchをfalseにしてください。
         ・固有名詞や作品について、内容、経歴、仕様、登場人物、あらすじ、設定、組織、人間関係などの説明や確認を求めている場合は、need_search を true にしてください。
         ・一般知識、日常会話、悩み相談、感想、アイデア出し、ユーザーが提示した数値だけで完結する単純な計算や分析は、need_search を false にしてください。
         ・直前の検索対象となる質問へ、最新発言が地域、条件、対象などを追加または訂正している場合は、文脈を引き継いで判定してください。
@@ -17762,7 +17775,8 @@ with all_tabs[0]:
                                         style_preset=current_style_preset,
                                         recent_history=recent_history_for_router,
                                         calc_prompt=active_calc_prompt,
-                                        general_calculation_context=general_calculation_context
+                                        general_calculation_context=general_calculation_context,
+                                        search_performed=False
                                     )
                                 )
 
