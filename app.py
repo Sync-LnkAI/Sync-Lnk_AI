@@ -5398,21 +5398,12 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・bonus_payment：ボーナス返済額
 
     【抽出ルール】
-    ・借入額、利率、返済期間から返済額を求める場合に使用してください。
-    ・初期対応する返済方式は元利均等返済だけです。
     ・「元利均等返済」はrepayment_methodをequal_paymentにしてください。
-    ・元金均等返済、残価設定、リボ払い、繰上返済を含む場合はshould_calculateをfalseにしてください。
-    ・返済方式が明示されていない場合はrepayment_methodをnullにしてください。
-    ・「毎月返済」はpayments_per_yearを12にしてください。
-    ・「年1回返済」はpayments_per_yearを1にしてください。
-    ・返済頻度が明示されていない場合はpayments_per_yearをnullにしてください。
+    ・repayment_methodは、最新ユーザー発言に返済方式が明示されている場合だけ設定し、explicit_fieldsへ含めてください。
+    ・「毎月返済」はpayments_per_yearを12、「年1回返済」は1にしてください。
     ・「ボーナス返済なし」「ボーナス払いなし」はbonus_paymentを0にしてください。
-    ・ボーナス返済について明示されていない場合はbonus_paymentをnullにしてください。
-    ・bonus_paymentが0より大きい場合はshould_calculateをfalseにしてください。
-    ・複数の金利、借入額、返済期間が指定された場合は、比較する条件ごとにcasesを分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料は計算条件へ含めないでください。
-    ・検索結果から金利を確認する必要がある場合、未確認の金利を推測して設定してはいけません。
+    ・元金均等返済、残価設定、リボ払い、繰上返済、0円を超えるボーナス返済が含まれる場合はshould_calculateをfalseにしてください。
+    ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料を、この計算タイプのparametersへ含めないでください。
 
     【parametersの形式】
     {
