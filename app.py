@@ -4921,6 +4921,10 @@ def compress_general_calculation_results(
         inherited_fields = item.get("inherited_fields", [])
         if isinstance(inherited_fields, list) and inherited_fields:
             compressed_item["inherited_fields"] = inherited_fields
+        
+        defaulted_fields = item.get("defaulted_fields", [])
+        if isinstance(defaulted_fields, list) and defaulted_fields:
+            compressed_item["defaulted_fields"] = defaulted_fields
 
         if calculation_type == "compound_interest":
             compressed_item.update({
@@ -5196,6 +5200,7 @@ def build_general_calculation_context(
         ・同じ意味の数値を重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
         ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
+        ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に自然な表現で簡潔に説明してください。recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、「複利回数と積立タイミングの指定がないため、積立頻度と同じ複利回数・期末積立として計算しました」と説明してください。
         ・inherited_fieldsがある場合は、引き継いだ条件を自然な表現で結果の前に簡潔に説明してください。
         ・inherited_fieldsがない場合は、条件継承について肯定・否定を問わず一切言及しないでください。
         """.strip()
