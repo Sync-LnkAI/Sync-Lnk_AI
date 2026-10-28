@@ -4159,10 +4159,7 @@ def calculate_compound_interest(
     if period_count != period_count.to_integral_value():
         raise ValueError("運用期間と複利回数から求めた期間数が整数になりません")
 
-    periodic_rate = (Decimal("1") + annual_rate_d) ** (
-        Decimal("1") / compounding_per_year_d
-    ) - Decimal("1")    
-
+    periodic_rate = annual_rate_d / compounding_per_year_d
     final_amount = principal_d * (
         Decimal("1") + periodic_rate
     ) ** int(period_count)
@@ -4232,7 +4229,11 @@ def calculate_recurring_investment(
 
     contribution_count_i = int(contribution_count)
     compounding_period_count_i = int(compounding_period_count)
-    periodic_rate = annual_rate_d / compounding_per_year_d
+    
+    periodic_rate = (Decimal("1") + annual_rate_d) ** (
+        Decimal("1") / compounding_per_year_d
+    ) - Decimal("1")
+
     compound_periods_per_contribution = (
         compounding_per_year_i // contributions_per_year_i
     )
