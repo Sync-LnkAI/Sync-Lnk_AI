@@ -5229,6 +5229,17 @@ def compress_general_calculation_results(
                     result_value = abs(result_value)
                 else:
                     result_label = "変化率"
+            
+            if result_type == "rate" and isinstance(result_value, (int, float)):
+                rounded_result = Decimal(str(result_value)).quantize(
+                    Decimal("0.01"),
+                    rounding=ROUND_HALF_UP
+                )
+                result_value = (
+                    int(rounded_result)
+                    if rounded_result == rounded_result.to_integral_value()
+                    else float(rounded_result)
+                )
 
             compressed_item.update({
                 "calculation_mode": calculation_mode,
