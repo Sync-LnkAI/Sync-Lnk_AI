@@ -15482,15 +15482,59 @@ with all_tabs[0]:
                         calculation_clarification_unresolved = False
 
                         if pending_calculation_clarification:
+                            clarification_start_time = time.time()
+
                             clarification_result = resolve_general_calculation_clarification(
                                 user_input=user_input,
                                 pending_clarification=pending_calculation_clarification
+                            )
+
+                            clarification_processing_time = (
+                                time.time() - clarification_start_time
+                            )
+                            clarification_in_tokens = int(
+                                clarification_result.get("in_tokens", 0) or 0
+                            )
+                            clarification_out_tokens = int(
+                                clarification_result.get("out_tokens", 0) or 0
+                            )
+                            clarification_cost = float(
+                                clarification_result.get("cost", 0.0) or 0.0
                             )
 
                             debug_json(
                                 "DEBUG calculation_clarification_result",
                                 clarification_result
                             )
+
+                            if (
+                                clarification_in_tokens > 0
+                                or clarification_out_tokens > 0
+                            ):
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type="general_calculation_clarification",
+                                    processing_time=clarification_processing_time,
+                                    in_t=clarification_in_tokens,
+                                    out_t=clarification_out_tokens,
+                                    api_cost=clarification_cost,
+                                    details=(
+                                        f"provider={BACKGROUND_PROVIDER}"
+                                        f" | model={SEARCH_MODEL_NAME}"
+                                        f" | calculation_type="
+                                        f"{pending_calculation_clarification.get('calculation_type')}"
+                                        f" | resolved={bool(clarification_result.get('resolved'))}"
+                                    ),
+                                    message_id=str(current_msg_id)
+                                )
+
+                                add_permanent_tokens(
+                                    CURRENT_USER_ID,
+                                    "general_calculation_clarification",
+                                    clarification_in_tokens,
+                                    clarification_out_tokens
+                                )
 
                             if clarification_result.get("resolved"):
                                 ambiguous_fields = pending_calculation_clarification.get(
