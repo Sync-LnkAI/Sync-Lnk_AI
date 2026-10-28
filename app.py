@@ -5518,7 +5518,7 @@ def build_general_calculation_context(
         ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に簡潔に説明してください。
         ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
         ・defaulted_fieldsにcompounding_per_yearとcontribution_timingの両方が含まれ、contributions_per_yearとcompounding_per_yearが12、contribution_timingがendの場合だけ、「想定年利を月次利率に換算し、月末積立として試算しました」と説明してください。
-        ・内部値の「12回」「end」「期末積立」をそのまま表示せず、質問に合った「毎月複利」「月末積立」などの自然な表現を使用してください。
+        ・内部値の「12回」「end」「期末積立」をそのまま表示せず、積立計算では「月次利率へ換算」「月末積立」など、計算方法が正確に伝わる自然な表現を使用してください。
         {inheritance_usage_rule}
         """.strip()
 
