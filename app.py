@@ -21406,6 +21406,7 @@ if is_admin:
                                     "calc_time": 0.0, "calc_in": 0, "calc_out": 0, "calc_cost": 0.0,
                                     "general_type_time": 0.0, "general_type_in": 0, "general_type_out": 0, "general_type_cost": 0.0, "general_type_details": "",
                                     "general_calc_time": 0.0, "general_calc_in": 0, "general_calc_out": 0, "general_calc_cost": 0.0, "general_calc_details": "",
+                                    "clarification_time": 0.0, "clarification_in": 0, "clarification_out": 0, "clarification_cost": 0.0, "clarification_details": "",
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
                                     "total_yen": 0.0, "total_time": 0.0, "processing_type": "unclassified",
@@ -21496,6 +21497,21 @@ if is_admin:
                                             general_calc_detail
                                         )
 
+                            elif action == "general_calculation_clarification":
+                                merged_logs[msg_id]["clarification_time"] += proc_time
+                                merged_logs[msg_id]["clarification_in"] += in_t
+                                merged_logs[msg_id]["clarification_out"] += out_t
+                                merged_logs[msg_id]["clarification_cost"] += cost
+
+                                clarification_detail = str(log.get("details", "") or "").strip()
+                                if clarification_detail:
+                                    existing_details = str(merged_logs[msg_id].get("clarification_details", "") or "").strip()
+                                    merged_logs[msg_id]["clarification_details"] = (
+                                        f"{existing_details} / {clarification_detail}"
+                                        if existing_details
+                                        else clarification_detail
+                                    )
+                            
                             elif action == "CALCULATION_EXTRACTION":
                                 merged_logs[msg_id]["calc_time"] = proc_time
                                 merged_logs[msg_id]["calc_in"] = in_t
@@ -21688,7 +21704,8 @@ if is_admin:
                                     float(item.get("sum_time",0.0) or 0.0),
                                     float(item.get("search_time",0.0) or 0.0),
                                     float(item.get("tool_time",0.0) or 0.0),
-                                    float(item.get("calc_time",0.0) or 0.0)
+                                    float(item.get("calc_time",0.0) or 0.0),
+                                    float(item.get("clarification_time", 0.0) or 0.0)
                                 ])
 
                                 msg_res = (
@@ -21766,6 +21783,7 @@ if is_admin:
                                     | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
                                     | 🧭 **汎用計算タイプ判定** | {item['general_type_time']:.2f} 秒 | {item['general_type_in']} t | {item['general_type_out']} t | ¥{item['general_type_cost']:.4f} | {item['general_type_details']} |
                                     | 🔢 **汎用計算条件抽出** | {item['general_calc_time']:.2f} 秒 | {item['general_calc_in']} t | {item['general_calc_out']} t | ¥{item['general_calc_cost']:.4f} | {item['general_calc_details']} |
+                                    | 🔎 **曖昧回答AI判定** | {item['clarification_time']:.2f} 秒 | {item['clarification_in']} t | {item['clarification_out']} t | ¥{item['clarification_cost']:.4f} | {item['clarification_details']} |
                                     | 🏠 **不動産条件抽出** | {item['calc_time']:.2f} 秒 | {item['calc_in']} t | {item['calc_out']} t | ¥{item['calc_cost']:.4f} | {item['calc_details']} |
 
                                     🔎 **【検索判定結果】** {item['judge_result']}
