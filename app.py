@@ -17626,7 +17626,7 @@ with all_tabs[0]:
                                 general_calculation_execution_result
                             )
 
-                        if general_calculation_execution_result.get("status") == "success":
+                        if general_calculation_execution_result.get("status") in {"success", "missing_fields"}:
                             st.session_state["last_general_calculation_state"] = {
                                 "calculation_type": general_calculation_extraction_result.get(
                                     "calculation_type"
