@@ -5607,8 +5607,9 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・ambiguous_fieldsは必ず配列にしてください。曖昧な条件がない場合は空配列にしてください。
     ・最新ユーザー発言の値が複数のparameters項目のどれを指すか一意に確定できない場合は、その値を特定の項目へ推測して設定せず、ambiguous_fieldsへ格納してください。
     ・曖昧な場合はshould_calculateをfalseにし、calculation_typeには指定された計算タイプを設定し、casesは空配列にしてください。
-    ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fieldsを含めてください。
+    ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fields、calculation_modeを含めてください。
     ・candidate_fieldsには、値の設定先として考えられるparametersの項目名だけを設定してください。
+    ・calculation_modeには、今回の質問から判断した計算方法を設定してください。判断できない場合はnullにしてください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
     ・計算結果、利益、返済額、総額などは出力してはいけません。
     """.strip()
@@ -8580,10 +8581,40 @@ def extract_general_calculation_parameters(
             if input_value is None or len(filtered_candidate_fields) < 2:
                 continue
 
+            ambiguous_calculation_mode = str(
+                raw_ambiguous_item.get("calculation_mode", "") or ""
+            ).strip().lower()
+
+            valid_ambiguity_candidates = (
+                get_general_calculation_ambiguity_candidates(
+                    calculation_type=normalized_calculation_type,
+                    calculation_mode=ambiguous_calculation_mode,
+                    field_name=filtered_candidate_fields[0]
+                )
+                if ambiguous_calculation_mode and filtered_candidate_fields
+                else []
+            )
+
+            if (
+                not valid_ambiguity_candidates
+                or not set(filtered_candidate_fields).issubset(
+                    set(valid_ambiguity_candidates)
+                )
+            ):
+                ambiguous_calculation_mode = ""
+
             normalized_ambiguous_fields.append({
-                "case_name": str(raw_ambiguous_item.get("case_name", "") or "基本ケース").strip(),
+                "case_name": str(
+                    raw_ambiguous_item.get("case_name", "")
+                    or "基本ケース"
+                ).strip(),
                 "input_value": input_value,
-                "candidate_fields": filtered_candidate_fields
+                "candidate_fields": filtered_candidate_fields,
+                "calculation_mode": (
+                    ambiguous_calculation_mode
+                    if ambiguous_calculation_mode
+                    else None
+                )
             })
 
         in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
@@ -17110,12 +17141,20 @@ with all_tabs[0]:
                             calculation_tool == "general_calculation"
                             and general_calculation_type in GENERAL_CALCULATION_TYPES
                         ):
-                            previous_general_calculation_state = (
-                                st.session_state.get(
-                                    "last_general_calculation_state",
-                                    {}
+                            if resolved_calculation_clarification:
+                                previous_general_calculation_state = copy.deepcopy(
+                                    resolved_calculation_clarification.get(
+                                        "previous_state",
+                                        {}
+                                    )
                                 )
-                            )
+                            else:
+                                previous_general_calculation_state = (
+                                    st.session_state.get(
+                                        "last_general_calculation_state",
+                                        {}
+                                    )
+                                )
 
                             inherit_previous_calculation = (
                                 should_inherit_previous_calculation(
@@ -17330,14 +17369,67 @@ with all_tabs[0]:
                             )
 
                             if is_ambiguous_extraction:
-                                st.session_state["pending_calculation_clarification"] = {
+                                ambiguous_fields = copy.deepcopy(
+                                    general_calculation_extraction_result.get(
+                                        "ambiguous_fields",
+                                        []
+                                    )
+                                )
+
+                                ambiguous_item = (
+                                    ambiguous_fields[0]
+                                    if isinstance(ambiguous_fields, list)
+                                    and len(ambiguous_fields) == 1
+                                    and isinstance(ambiguous_fields[0], dict)
+                                    else {}
+                                )
+
+                                ambiguous_calculation_mode = str(
+                                    ambiguous_item.get(
+                                        "calculation_mode",
+                                        ""
+                                    )
+                                    or ""
+                                ).strip().lower()
+
+                                clarification_previous_state = {
+                                    "calculation_type": general_calculation_type,
+                                    "cases": [
+                                        {
+                                            "case_name": str(
+                                                ambiguous_item.get(
+                                                    "case_name",
+                                                    ""
+                                                )
+                                                or "基本ケース"
+                                            ).strip(),
+                                            "parameters": {
+                                                "calculation_mode": (
+                                                    ambiguous_calculation_mode
+                                                    if ambiguous_calculation_mode
+                                                    else None
+                                                )
+                                            },
+                                            "explicit_fields": (
+                                                ["calculation_mode"]
+                                                if ambiguous_calculation_mode
+                                                else []
+                                            ),
+                                            "inherited_fields": []
+                                        }
+                                    ]
+                                }
+
+                                st.session_state[
+                                    "pending_calculation_clarification"
+                                ] = {
                                     "calculation_type": general_calculation_type,
                                     "user_input": user_input,
-                                    "ambiguous_fields": copy.deepcopy(
-                                        general_calculation_extraction_result.get("ambiguous_fields", [])
-                                    ),
-                                    "previous_state": copy.deepcopy(previous_general_calculation_state),
-                                    "extraction_result": copy.deepcopy(general_calculation_extraction_result)
+                                    "ambiguous_fields": ambiguous_fields,
+                                    "previous_state": clarification_previous_state,
+                                    "extraction_result": copy.deepcopy(
+                                        general_calculation_extraction_result
+                                    )
                                 }
                             else:
                                 st.session_state["pending_calculation_clarification"] = {}
