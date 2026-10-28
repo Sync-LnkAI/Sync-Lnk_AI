@@ -21704,6 +21704,8 @@ if is_admin:
                                     float(item.get("sum_time",0.0) or 0.0),
                                     float(item.get("search_time",0.0) or 0.0),
                                     float(item.get("tool_time",0.0) or 0.0),
+                                    float(item.get("general_type_time", 0.0) or 0.0),
+                                    float(item.get("general_calc_time", 0.0) or 0.0),
                                     float(item.get("calc_time",0.0) or 0.0),
                                     float(item.get("clarification_time", 0.0) or 0.0)
                                 ])
