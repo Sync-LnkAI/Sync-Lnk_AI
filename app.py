@@ -17096,19 +17096,29 @@ with all_tabs[0]:
                                 )
                             )
 
+                            original_extraction_result = copy.deepcopy(
+                                general_calculation_extraction_result
+                            )
+
+                            retry_extraction_result = extract_general_calculation_parameters(
+                                user_input=user_input,
+                                calculation_type=general_calculation_type,
+                                inherit_previous_conditions=True
+                            )
+
+                            retry_status = str(
+                                retry_extraction_result.get("extraction_status", "") or ""
+                            ).strip().lower()
+                            retry_cases = retry_extraction_result.get("cases", [])
+
                             if (
-                                not is_ambiguous_extraction
-                                and retry_extraction_for_inheritance
-                                and requires_estimation
-                                and previous_calculation_type == general_calculation_type
+                                retry_status == "extracted"
+                                and isinstance(retry_cases, list)
+                                and retry_cases
                             ):
-                                general_calculation_extraction_result = (
-                                    extract_general_calculation_parameters(
-                                        user_input=user_input,
-                                        calculation_type=general_calculation_type,
-                                        inherit_previous_conditions=True
-                                    )
-                                )
+                                general_calculation_extraction_result = retry_extraction_result
+                            else:
+                                general_calculation_extraction_result = original_extraction_result
 
                                 inherit_previous_calculation = True
 
