@@ -16934,14 +16934,33 @@ with all_tabs[0]:
                                 )
                                                    
                             if not is_ambiguous_extraction and not inherit_previous_calculation:
-                                inherit_previous_calculation = (
-                                    should_structurally_inherit_previous_calculation(
+                                structural_inheritance_result = should_structurally_inherit_previous_calculation(
+                                    user_input=user_input,
+                                    calculation_type=general_calculation_type,
+                                    extraction_result=general_calculation_extraction_result,
+                                    previous_state=previous_general_calculation_state
+                                )
+
+                                if structural_inheritance_result:
+                                    inherit_previous_calculation = True
+                                    general_calculation_extraction_result = extract_general_calculation_parameters(
                                         user_input=user_input,
                                         calculation_type=general_calculation_type,
-                                        extraction_result=general_calculation_extraction_result,
-                                        previous_state=previous_general_calculation_state
+                                        inherit_previous_conditions=True,
+                                        reference_context=json.dumps(
+                                            previous_general_calculation_state,
+                                            ensure_ascii=False,
+                                            default=str
+                                        )
                                     )
-                                )
+                                    general_calculation_extraction_result["inherit_previous_conditions"] = True
+                                    extraction_status = str(
+                                        general_calculation_extraction_result.get("extraction_status", "") or ""
+                                    ).strip().lower()
+                                    is_ambiguous_extraction = (
+                                        extraction_status == "ambiguous_fields"
+                                        and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
+                                    )
 
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
