@@ -8702,10 +8702,19 @@ def resolve_general_calculation_clarification(user_input: str, pending_clarifica
     if not isinstance(candidate_fields, list) or len(candidate_fields) < 2:
         return default_result
 
-    candidate_labels = {
-        field: GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
-        for field in candidate_fields
-    }
+    calculation_type = str(pending_clarification.get("calculation_type", "") or "").strip().lower()
+        calculation_mode = str(ambiguous_item.get("calculation_mode", "") or "").strip().lower()
+        type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(calculation_type, {})
+
+        candidate_labels = {
+            field: str(
+                type_metadata.get(field, {}).get("labels", {}).get(
+                    calculation_mode,
+                    GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                ) or GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+            ).strip()
+            for field in candidate_fields
+        }
 
     normalized_user_input = str(user_input or "").replace(" ", "").replace("　", "").strip()
     for candidate_field, candidate_label in candidate_labels.items():
@@ -8722,6 +8731,12 @@ def resolve_general_calculation_clarification(user_input: str, pending_clarifica
     prompt = f"""
     あなたは、計算条件の確認回答から、ユーザーが選んだ項目を判定するシステムです。
 
+    【計算タイプ】
+    {calculation_type or "不明"}
+
+    【計算モード】
+    {calculation_mode or "不明"}
+
     【候補項目】
     {json.dumps(candidate_labels, ensure_ascii=False)}
 
@@ -8729,7 +8744,9 @@ def resolve_general_calculation_clarification(user_input: str, pending_clarifica
     {user_input}
 
     【判定ルール】
-    ・ユーザー回答が指している候補を1つだけ選んでください。
+    ・計算タイプ、計算モード、候補項目の表示名を踏まえ、ユーザー回答が指している候補を1つだけ選んでください。
+    ・表示名との完全一致だけでなく、同義表現、言い換え、前後関係を表す自然な表現も考慮してください。
+    ・候補を一意に特定できる場合は、候補項目の内部項目名をselected_fieldへ設定してください。
     ・候補を一意に特定できない場合はselected_fieldをnullにしてください。
     ・候補にない項目を作ってはいけません。
     ・計算や説明は行わないでください。
@@ -15568,23 +15585,32 @@ with all_tabs[0]:
                                 )
 
                             if clarification_result.get("resolved"):
-                                ambiguous_fields = pending_calculation_clarification.get(
-                                    "ambiguous_fields",
-                                    []
+                                ambiguous_fields = (
+                                    pending_calculation_clarification.get(
+                                        "ambiguous_fields",
+                                        []
+                                    )
                                 )
 
-                                if isinstance(ambiguous_fields, list) and len(ambiguous_fields) == 1:
+                                if (
+                                    isinstance(ambiguous_fields, list)
+                                    and len(ambiguous_fields) == 1
+                                ):
                                     ambiguous_item = ambiguous_fields[0]
 
                                     if isinstance(ambiguous_item, dict):
                                         resolved_calculation_clarification = {
-                                            "calculation_type": pending_calculation_clarification.get(
-                                                "calculation_type"
+                                            "calculation_type": (
+                                                pending_calculation_clarification.get(
+                                                    "calculation_type"
+                                                )
                                             ),
                                             "selected_field": clarification_result.get(
                                                 "selected_field"
                                             ),
-                                            "input_value": ambiguous_item.get("input_value"),
+                                            "input_value": ambiguous_item.get(
+                                                "input_value"
+                                            ),
                                             "previous_state": copy.deepcopy(
                                                 pending_calculation_clarification.get(
                                                     "previous_state",
@@ -15596,8 +15622,12 @@ with all_tabs[0]:
                                         st.session_state[
                                             "pending_calculation_clarification"
                                         ] = {}
+                                    else:
+                                        calculation_clarification_unresolved = True
                                 else:
                                     calculation_clarification_unresolved = True
+                            else:
+                                calculation_clarification_unresolved = True
 
                         if calculation_clarification_unresolved:
                             ambiguous_fields = pending_calculation_clarification.get("ambiguous_fields", [])
