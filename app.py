@@ -3868,6 +3868,157 @@ GENERAL_CALCULATION_FIELD_LABELS = {
     "parameters": "計算条件"
 }
 
+# メタデータ定義
+GENERAL_CALCULATION_FIELD_METADATA = {
+    "percentage_calculation": {
+        "base_value": {
+            "value_type": "number",
+            "ambiguity_groups": {
+                "ratio": "comparison_pair",
+                "percentage_change": "comparison_pair",
+                "difference": "comparison_pair"
+            },
+            "labels": {
+                "ratio": "全体の値",
+                "percentage_change": "変更前の値",
+                "difference": "差し引く基準値"
+            }
+        },
+        "comparison_value": {
+            "value_type": "number",
+            "ambiguity_groups": {
+                "ratio": "comparison_pair",
+                "percentage_change": "comparison_pair",
+                "difference": "comparison_pair"
+            },
+            "labels": {
+                "ratio": "部分の値",
+                "percentage_change": "変更後の値",
+                "difference": "比較する値"
+            }
+        },
+        "rate": {
+            "value_type": "rate",
+            "ambiguity_groups": {},
+            "labels": {
+                "percentage_of_value": "割合",
+                "discounted_value": "割引率",
+                "increased_value": "加算率"
+            }
+        },
+        "calculation_mode": {
+            "value_type": "mode",
+            "ambiguity_groups": {},
+            "labels": {}
+        }
+    }
+}
+
+# 現在の計算モードで同じ曖昧グループに属する候補項目を取得する共通関数
+def get_general_calculation_ambiguity_candidates(calculation_type: str, calculation_mode: str, field_name: str) -> list:
+    normalized_type = str(calculation_type or "").strip().lower()
+    normalized_mode = str(calculation_mode or "").strip().lower()
+    normalized_field = str(field_name or "").strip()
+
+    type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(normalized_type, {})
+    field_metadata = type_metadata.get(normalized_field, {})
+    ambiguity_group = field_metadata.get("ambiguity_groups", {}).get(normalized_mode)
+
+    if not ambiguity_group:
+        return []
+
+    candidates = []
+    for candidate_field, candidate_metadata in type_metadata.items():
+        candidate_group = candidate_metadata.get("ambiguity_groups", {}).get(normalized_mode)
+        if candidate_group == ambiguity_group:
+            candidates.append(candidate_field)
+
+    return candidates if len(candidates) >= 2 else []
+#================================================
+
+# メタデータを使ってAI抽出結果をPython側で曖昧状態へ変換する共通関数
+def convert_general_calculation_extraction_to_ambiguous(calculation_type: str, extraction_result: dict, previous_state: dict, user_input: str) -> dict:
+    if not isinstance(extraction_result, dict) or not isinstance(previous_state, dict):
+        return extraction_result
+
+    cases = extraction_result.get("cases", [])
+    previous_cases = previous_state.get("cases", [])
+    if not isinstance(cases, list) or len(cases) != 1 or not isinstance(previous_cases, list) or len(previous_cases) != 1:
+        return extraction_result
+
+    current_case = cases[0]
+    previous_case = previous_cases[0]
+    if not isinstance(current_case, dict) or not isinstance(previous_case, dict):
+        return extraction_result
+
+    parameters = current_case.get("parameters", {})
+    explicit_fields = current_case.get("explicit_fields", [])
+    previous_parameters = previous_case.get("parameters", {})
+    if not isinstance(parameters, dict) or not isinstance(explicit_fields, list) or not isinstance(previous_parameters, dict):
+        return extraction_result
+
+    normalized_explicit_fields = list(dict.fromkeys(
+        str(field or "").strip() for field in explicit_fields if str(field or "").strip()
+    ))
+    if len(normalized_explicit_fields) != 1:
+        return extraction_result
+
+    explicit_field = normalized_explicit_fields[0]
+    input_value = parameters.get(explicit_field)
+    calculation_mode = str(previous_parameters.get("calculation_mode", "") or "").strip().lower()
+    if input_value is None or not calculation_mode:
+        return extraction_result
+
+    candidate_fields = get_general_calculation_ambiguity_candidates(
+        calculation_type=calculation_type,
+        calculation_mode=calculation_mode,
+        field_name=explicit_field
+    )
+    if len(candidate_fields) < 2:
+        return extraction_result
+
+    normalized_input = str(user_input or "").replace(" ", "").replace("　", "")
+    metadata = GENERAL_CALCULATION_FIELD_METADATA.get(
+        str(calculation_type or "").strip().lower(),
+        {}
+    )
+
+    for candidate_field in candidate_fields:
+        label = str(
+            metadata.get(candidate_field, {}).get("labels", {}).get(
+                calculation_mode,
+                GENERAL_CALCULATION_FIELD_LABELS.get(candidate_field, candidate_field)
+            )
+            or ""
+        ).strip()
+
+        label_candidates = {
+            label,
+            label.replace("の値", ""),
+            label.replace("値", "")
+        }
+
+        if any(candidate_label and candidate_label in normalized_input for candidate_label in label_candidates):
+            return extraction_result
+
+    return {
+        "should_calculate": False,
+        "calculation_type": str(calculation_type or "").strip().lower(),
+        "inherit_previous_conditions": True,
+        "cases": [],
+        "ambiguous_fields": [{
+            "case_name": str(current_case.get("case_name", "") or "基本ケース"),
+            "input_value": input_value,
+            "candidate_fields": candidate_fields,
+            "calculation_mode": calculation_mode
+        }],
+        "extraction_status": "ambiguous_fields",
+        "in_tokens": int(extraction_result.get("in_tokens", 0) or 0),
+        "out_tokens": int(extraction_result.get("out_tokens", 0) or 0),
+        "cost": float(extraction_result.get("cost", 0.0) or 0.0)
+    }
+#================================================
+
 # 共通正規化関数
 def normalize_general_calculation_parameters(parameters: dict) -> dict:
     if not isinstance(parameters, dict):
@@ -5080,8 +5231,16 @@ def build_general_calculation_context(
             if input_value is None or not isinstance(candidate_fields, list):
                 continue
 
+            calculation_type = str(execution_result.get("calculation_type", "") or "").strip().lower()
+            calculation_mode = str(item.get("calculation_mode", "") or "").strip().lower()
+            type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(calculation_type, {})
             candidate_labels = [
-                GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                str(
+                    type_metadata.get(field, {}).get("labels", {}).get(
+                        calculation_mode,
+                        GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                    )
+                )
                 for field in candidate_fields
             ]
 
@@ -16942,17 +17101,13 @@ with all_tabs[0]:
 
                                 if structural_inheritance_result:
                                     inherit_previous_calculation = True
-                                    general_calculation_extraction_result = extract_general_calculation_parameters(
-                                        user_input=user_input,
-                                        calculation_type=general_calculation_type,
-                                        inherit_previous_conditions=True,
-                                        reference_context=json.dumps(
-                                            previous_general_calculation_state,
-                                            ensure_ascii=False,
-                                            default=str
-                                        )
-                                    )
                                     general_calculation_extraction_result["inherit_previous_conditions"] = True
+                                    general_calculation_extraction_result = convert_general_calculation_extraction_to_ambiguous(
+                                        calculation_type=general_calculation_type,
+                                        extraction_result=general_calculation_extraction_result,
+                                        previous_state=previous_general_calculation_state,
+                                        user_input=user_input
+                                    )
                                     extraction_status = str(
                                         general_calculation_extraction_result.get("extraction_status", "") or ""
                                     ).strip().lower()
