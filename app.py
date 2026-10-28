@@ -5138,74 +5138,74 @@ def compress_general_calculation_results(
 
         if calculation_type == "compound_interest":
             compressed_item.update({
-                "principal": parameters.get("principal"),
-                "annual_rate": parameters.get("annual_rate"),
+                "principal": normalize_calculation_display_value(parameters.get("principal"), "money"),
+                "annual_rate": normalize_calculation_display_value(to_decimal(parameters.get("annual_rate")) * Decimal("100"), "percentage") if parameters.get("annual_rate") is not None else None,
                 "years": parameters.get("years"),
-                "compounding_per_year": parameters.get("compounding_per_year"),
+                "compounding_per_year": normalize_calculation_display_value(parameters.get("compounding_per_year"), "count"),
                 "compounding_per_year_defaulted": bool(
                     item.get("compounding_per_year_defaulted", False)
                 ),
-                "final_amount": result.get("final_amount"),
-                "profit": result.get("profit")
+                "final_amount": normalize_calculation_display_value(result.get("final_amount"), "money"),
+                "profit": normalize_calculation_display_value(result.get("profit"), "money")
             })
 
             if normalized_detail_level == "detailed":
                 compressed_item.update({
-                    "compounding_per_year": parameters.get("compounding_per_year"),
-                    "period_count": result.get("period_count")
+                    "compounding_per_year": normalize_calculation_display_value(parameters.get("compounding_per_year"), "count"),
+                    "period_count": normalize_calculation_display_value(result.get("period_count"), "count")
                 })
 
         elif calculation_type == "recurring_investment":
             compressed_item.update({
-                "contribution_amount": parameters.get("contribution_amount"),
-                "contributions_per_year": parameters.get("contributions_per_year"),
-                "annual_rate": parameters.get("annual_rate"),
+                "contribution_amount": normalize_calculation_display_value(parameters.get("contribution_amount"), "money"),
+                "contributions_per_year": normalize_calculation_display_value(parameters.get("contributions_per_year"), "count"),
+                "annual_rate": normalize_calculation_display_value(to_decimal(parameters.get("annual_rate")) * Decimal("100"), "percentage") if parameters.get("annual_rate") is not None else None,
                 "years": parameters.get("years"),
-                "compounding_per_year": parameters.get("compounding_per_year"),
+                "compounding_per_year": normalize_calculation_display_value(parameters.get("compounding_per_year"), "count"),
                 "contribution_timing": parameters.get("contribution_timing"),
-                "total_contributions": result.get("total_contributions"),
-                "final_amount": result.get("final_amount"),
-                "profit": result.get("profit")
+                "total_contributions": normalize_calculation_display_value(result.get("total_contributions"), "money"),
+                "final_amount": normalize_calculation_display_value(result.get("final_amount"), "money"),
+                "profit": normalize_calculation_display_value(result.get("profit"), "money")
             })
 
             if normalized_detail_level == "detailed":
                 compressed_item.update({
-                    "initial_principal": parameters.get("initial_principal"),
-                    "contributions_per_year": parameters.get("contributions_per_year"),
-                    "compounding_per_year": parameters.get("compounding_per_year"),
+                    "initial_principal": normalize_calculation_display_value(parameters.get("initial_principal"), "money"),
+                    "contributions_per_year": normalize_calculation_display_value(parameters.get("contributions_per_year"), "count"),
+                    "compounding_per_year": normalize_calculation_display_value(parameters.get("compounding_per_year"), "count"),
                     "contribution_timing": parameters.get("contribution_timing"),
-                    "contribution_count": result.get("contribution_count")
+                    "contribution_count": normalize_calculation_display_value(result.get("contribution_count"), "count")
                 })
 
         elif calculation_type == "loan_payment":
             compressed_item.update({
-                "principal": parameters.get("principal"),
-                "annual_rate": parameters.get("annual_rate"),
+                "principal": normalize_calculation_display_value(parameters.get("principal"), "money"),
+                "annual_rate": normalize_calculation_display_value(to_decimal(parameters.get("annual_rate")) * Decimal("100"), "percentage") if parameters.get("annual_rate") is not None else None,
                 "years": parameters.get("years"),
-                "payments_per_year": parameters.get("payments_per_year"),
+                "payments_per_year": normalize_calculation_display_value(parameters.get("payments_per_year"), "count"),
                 "repayment_method": parameters.get("repayment_method"),
-                "bonus_payment": parameters.get("bonus_payment"),
-                "payment_count": result.get("payment_count"),
-                "payment_amount": result.get("payment_amount"),
-                "total_payment": result.get("total_payment"),
-                "total_interest": result.get("total_interest")
+                "bonus_payment": normalize_calculation_display_value(parameters.get("bonus_payment"), "money"),
+                "payment_count": normalize_calculation_display_value(result.get("payment_count"), "count"),
+                "payment_amount": normalize_calculation_display_value(result.get("payment_amount"), "money"),
+                "total_payment": normalize_calculation_display_value(result.get("total_payment"), "money"),
+                "total_interest": normalize_calculation_display_value(result.get("total_interest"), "money")
             })
 
             if normalized_detail_level == "detailed":
                 compressed_item.update({
-                    "payments_per_year": parameters.get("payments_per_year"),
+                    "payments_per_year": normalize_calculation_display_value(parameters.get("payments_per_year"), "count"),
                     "repayment_method": parameters.get("repayment_method"),
-                    "bonus_payment": parameters.get("bonus_payment"),
-                    "payment_count": result.get("payment_count")
+                    "bonus_payment": normalize_calculation_display_value(parameters.get("bonus_payment"), "money"),
+                    "payment_count": normalize_calculation_display_value(result.get("payment_count"), "count")
                 })
 
         elif calculation_type == "simple_interest":
             compressed_item.update({
-                "principal": parameters.get("principal"),
-                "annual_rate": parameters.get("annual_rate"),
+                "principal": normalize_calculation_display_value(parameters.get("principal"), "money"),
+                "annual_rate": normalize_calculation_display_value(to_decimal(parameters.get("annual_rate")) * Decimal("100"), "percentage") if parameters.get("annual_rate") is not None else None,
                 "years": parameters.get("years"),
-                "interest": result.get("interest"),
-                "final_amount": result.get("final_amount")
+                "interest": normalize_calculation_display_value(result.get("interest"), "money"),
+                "final_amount": normalize_calculation_display_value(result.get("final_amount"), "money")
             })
 
         elif calculation_type == "percentage_calculation":
@@ -7427,6 +7427,33 @@ def round_yen(value: Decimal) -> int:
         )
     ) 
 
+# 表示用数値を種類別に正規化する共通関数
+def normalize_calculation_display_value(value, value_type: str = "number"):
+    if value is None or isinstance(value, bool):
+        return value
+
+    try:
+        decimal_value = to_decimal(value)
+    except (ValueError, TypeError, InvalidOperation):
+        return value
+
+    normalized_type = str(value_type or "number").strip().lower()
+
+    if normalized_type == "money":
+        return round_yen(decimal_value)
+
+    if normalized_type == "percentage":
+        decimal_value = decimal_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    elif normalized_type == "count":
+        decimal_value = decimal_value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+    if decimal_value == decimal_value.to_integral_value():
+        return int(decimal_value)
+
+    return float(decimal_value)
+#==============================================
+
 def parse_date(
     value: Union[str, date, datetime]
 ) -> date:
@@ -7521,8 +7548,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -17417,8 +17444,8 @@ with all_tabs[0]:
 
                                 display_message(current_concierge_name, ai_reply)
                                 st.session_state.force_message_reload = True
-                                st.stop()
-                                # st.rerun()
+                                # st.stop()
+                                st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
                             general_calculation_execution_result = {
