@@ -5336,7 +5336,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算】
-        入力された値の意味を確認する必要があるため、まだ計算していません。
+        入力された値の意味を確認する必要があります。
 
         【確認事項】
         {question_text}
@@ -5365,7 +5365,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算】
-        計算に必要な条件が不足しているため、まだ実行していません。
+        計算に必要な条件が不足しています。
 
         【計算タイプ】
         {calculation_type}
@@ -5397,7 +5397,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算】
-        計算条件を正しく確認できなかったため、Python計算は実行していません。
+        計算条件を正しく確認できなかったため、計算は実行していません。
 
         【確認内容】
         {error_message}
@@ -5421,7 +5421,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算エラー】
-        Python計算を実行しましたが、入力条件に問題があるため結果を確定できませんでした。
+        計算をしようとしましたが、入力条件に問題があるため結果を確定できませんでした。
 
         【計算タイプ】
         {calculation_type}
@@ -5447,7 +5447,7 @@ def build_general_calculation_context(
         if not results:
             return """
             【Python汎用計算エラー】
-            Python計算の結果を取得できませんでした。
+            計算結果を取得できませんでした。
 
             【回答ルール】
             ・独自に再計算してはいけません。
@@ -5494,7 +5494,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算結果】
-        以下はPythonで計算済みの結果です。
+        以下は計算済みの結果です。
 
         【計算タイプ】
         {calculation_type}
