@@ -5158,15 +5158,32 @@ def compress_general_calculation_results(
             })
 
         elif calculation_type == "percentage_calculation":
+            calculation_mode = str(parameters.get("calculation_mode", "") or "").strip().lower()
             result_type = result.get("result_type")
+            result_value = result.get("result_percent") if result_type == "rate" else result.get("result")
+            result_labels = {
+                "percentage_of_value": "割合分の値",
+                "ratio": "割合",
+                "difference": "差額",
+                "discounted_value": "割引後の値",
+                "increased_value": "増加後の値"
+            }
+            result_label = result_labels.get(calculation_mode, "計算結果")
+
+            if calculation_mode == "percentage_change" and isinstance(result_value, (int, float)):
+                if result_value > 0:
+                    result_label = "増加率"
+                elif result_value < 0:
+                    result_label = "減少率"
+                    result_value = abs(result_value)
+                else:
+                    result_label = "変化率"
+
             compressed_item.update({
-                "calculation_mode": parameters.get("calculation_mode"),
+                "calculation_mode": calculation_mode,
                 "result_type": result_type,
-                "result": (
-                    result.get("result_percent")
-                    if result_type == "rate"
-                    else result.get("result")
-                )
+                "result_label": result_label,
+                "result": result_value
             })
 
             if normalized_detail_level == "detailed":
@@ -5430,6 +5447,7 @@ def build_general_calculation_context(
         ・各ケースのcase_nameと結果を対応させ、複数ケースを混同しないでください。
         ・結果にない数値、条件、説明を追加しないでください。
         ・内部キー名を表示せず、質問に合った自然な単位と表記を使用してください。
+        ・result_labelがある場合は、その表示名を変更せず、対応するresultの項目名として使用してください。
         ・同じ意味の数値を重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
         ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
