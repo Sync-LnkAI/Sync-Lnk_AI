@@ -8549,6 +8549,18 @@ def resolve_general_calculation_clarification(user_input: str, pending_clarifica
         for field in candidate_fields
     }
 
+    normalized_user_input = str(user_input or "").replace(" ", "").replace("　", "").strip()
+    for candidate_field, candidate_label in candidate_labels.items():
+        normalized_label = str(candidate_label or "").replace(" ", "").replace("　", "").strip()
+        if normalized_user_input in {candidate_field, normalized_label}:
+            return {
+                "resolved": True,
+                "selected_field": candidate_field,
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "cost": 0.0
+            }
+
     prompt = f"""
     あなたは、計算条件の確認回答から、ユーザーが選んだ項目を判定するシステムです。
 
@@ -17285,6 +17297,7 @@ with all_tabs[0]:
                                 display_message(current_concierge_name, ai_reply)
                                 st.session_state.force_message_reload = True
                                 st.stop()
+                                # st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
                             general_calculation_execution_result = {
