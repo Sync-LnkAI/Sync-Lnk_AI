@@ -4159,7 +4159,10 @@ def calculate_compound_interest(
     if period_count != period_count.to_integral_value():
         raise ValueError("運用期間と複利回数から求めた期間数が整数になりません")
 
-    periodic_rate = annual_rate_d / compounding_per_year_d
+    periodic_rate = (Decimal("1") + annual_rate_d) ** (
+        Decimal("1") / compounding_per_year_d
+    ) - Decimal("1")    
+
     final_amount = principal_d * (
         Decimal("1") + periodic_rate
     ) ** int(period_count)
@@ -5513,7 +5516,7 @@ def build_general_calculation_context(
         ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
         ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に簡潔に説明してください。
         ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
-        ・defaulted_fieldsにcompounding_per_yearとcontribution_timingの両方が含まれ、contributions_per_yearとcompounding_per_yearが12、contribution_timingがendの場合だけ、「複利回数と積立タイミングの指定がないため、毎月複利・月末積立として計算しました」と説明してください。
+        ・defaulted_fieldsにcompounding_per_yearとcontribution_timingの両方が含まれ、contributions_per_yearとcompounding_per_yearが12、contribution_timingがendの場合だけ、「想定年利を月次利率に換算し、月末積立として試算しました」と説明してください。
         ・内部値の「12回」「end」「期末積立」をそのまま表示せず、質問に合った「毎月複利」「月末積立」などの自然な表現を使用してください。
         {inheritance_usage_rule}
         """.strip()
