@@ -5336,7 +5336,7 @@ def build_general_calculation_context(
 
         return f"""
         【Python汎用計算】
-        入力された値の対象を一意に判断できないため、Python計算はまだ実行していません。
+        入力された値の意味を確認する必要があるため、まだ計算していません。
 
         【確認事項】
         {question_text}
@@ -5359,15 +5359,13 @@ def build_general_calculation_context(
                 GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
                 for field in case.get("fields", [])
             ]
-            missing_lines.append(
-                f"・{case_name}: {', '.join(field_labels)}"
-            )
+            missing_lines.append(f"・{case_name}: {', '.join(field_labels)}")
 
         missing_text = "\n".join(missing_lines)
 
         return f"""
         【Python汎用計算】
-        計算に必要な条件が不足しているため、Python計算はまだ実行していません。
+        計算に必要な条件が不足しているため、まだ実行していません。
 
         【計算タイプ】
         {calculation_type}
@@ -5376,7 +5374,7 @@ def build_general_calculation_context(
         {missing_text}
 
         【回答ルール】
-        ・不足している項目だけをユーザーへ確認してください。
+        ・不足項目は項目名の列挙で終わらせず、ユーザーがそのまま回答できる簡潔な質問文にしてください。「基本ケース」は表示しないでください。
         ・【不足項目】に記載されていない条件を追加で質問しないでください。
         ・不足項目以外の条件について、独自に必要と判断して確認してはいけません。
         ・Python側で既定値を適用する項目は、ユーザーへ質問しないでください。
