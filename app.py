@@ -8703,18 +8703,18 @@ def resolve_general_calculation_clarification(user_input: str, pending_clarifica
         return default_result
 
     calculation_type = str(pending_clarification.get("calculation_type", "") or "").strip().lower()
-        calculation_mode = str(ambiguous_item.get("calculation_mode", "") or "").strip().lower()
-        type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(calculation_type, {})
+    calculation_mode = str(ambiguous_item.get("calculation_mode", "") or "").strip().lower()
+    type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(calculation_type, {})
 
-        candidate_labels = {
-            field: str(
-                type_metadata.get(field, {}).get("labels", {}).get(
-                    calculation_mode,
-                    GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
-                ) or GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
-            ).strip()
-            for field in candidate_fields
-        }
+    candidate_labels = {
+        field: str(
+            type_metadata.get(field, {}).get("labels", {}).get(
+                calculation_mode,
+                GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+            ) or GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+        ).strip()
+        for field in candidate_fields
+    }
 
     normalized_user_input = str(user_input or "").replace(" ", "").replace("　", "").strip()
     for candidate_field, candidate_label in candidate_labels.items():
