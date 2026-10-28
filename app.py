@@ -17096,40 +17096,38 @@ with all_tabs[0]:
                                 )
                             )
 
-                            original_extraction_result = copy.deepcopy(
-                                general_calculation_extraction_result
-                            )
-
-                            retry_extraction_result = extract_general_calculation_parameters(
-                                user_input=user_input,
-                                calculation_type=general_calculation_type,
-                                inherit_previous_conditions=True
-                            )
-
-                            retry_status = str(
-                                retry_extraction_result.get("extraction_status", "") or ""
-                            ).strip().lower()
-                            retry_cases = retry_extraction_result.get("cases", [])
-
                             if (
-                                retry_status == "extracted"
-                                and isinstance(retry_cases, list)
-                                and retry_cases
+                                not is_ambiguous_extraction
+                                and retry_extraction_for_inheritance
+                                and requires_estimation
+                                and previous_calculation_type == general_calculation_type
                             ):
-                                general_calculation_extraction_result = retry_extraction_result
-                            else:
-                                general_calculation_extraction_result = original_extraction_result
+                                original_extraction_result = copy.deepcopy(general_calculation_extraction_result)
+                                retry_extraction_result = extract_general_calculation_parameters(
+                                    user_input=user_input,
+                                    calculation_type=general_calculation_type,
+                                    inherit_previous_conditions=True
+                                )
+                                retry_status = str(
+                                    retry_extraction_result.get("extraction_status", "") or ""
+                                ).strip().lower()
+                                retry_cases = retry_extraction_result.get("cases", [])
+
+                                if (
+                                    retry_status == "extracted"
+                                    and isinstance(retry_cases, list)
+                                    and retry_cases
+                                ):
+                                    general_calculation_extraction_result = retry_extraction_result
+                                else:
+                                    general_calculation_extraction_result = original_extraction_result
 
                                 inherit_previous_calculation = True
+                                general_calculation_extraction_result["inherit_previous_conditions"] = True
 
-                                general_calculation_extraction_result[
-                                    "inherit_previous_conditions"
-                                ] = True
+                                debug_text("DEBUG extraction_inheritance_retry", True)
+                                debug_text("DEBUG extraction_inheritance_retry_status", retry_status)
 
-                                debug_text(
-                                    "DEBUG extraction_inheritance_retry",
-                                    True
-                                )
                                 general_calculation_extraction_result = convert_general_calculation_extraction_to_ambiguous(
                                     calculation_type=general_calculation_type,
                                     extraction_result=general_calculation_extraction_result,
@@ -17143,7 +17141,7 @@ with all_tabs[0]:
                                     extraction_status == "ambiguous_fields"
                                     and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
                                 )
-                                                   
+            
                             if not is_ambiguous_extraction and not inherit_previous_calculation:
                                 structural_inheritance_result = should_structurally_inherit_previous_calculation(
                                     user_input=user_input,
