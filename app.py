@@ -3941,47 +3941,90 @@ def convert_general_calculation_extraction_to_ambiguous(calculation_type: str, e
     if not isinstance(extraction_result, dict) or not isinstance(previous_state, dict):
         return extraction_result
 
-    cases = extraction_result.get("cases", [])
+    normalized_type = str(calculation_type or "").strip().lower()
     previous_cases = previous_state.get("cases", [])
-    if not isinstance(cases, list) or len(cases) != 1 or not isinstance(previous_cases, list) or len(previous_cases) != 1:
+    if not isinstance(previous_cases, list) or len(previous_cases) != 1:
         return extraction_result
 
-    current_case = cases[0]
     previous_case = previous_cases[0]
-    if not isinstance(current_case, dict) or not isinstance(previous_case, dict):
+    if not isinstance(previous_case, dict):
         return extraction_result
 
-    parameters = current_case.get("parameters", {})
-    explicit_fields = current_case.get("explicit_fields", [])
     previous_parameters = previous_case.get("parameters", {})
-    if not isinstance(parameters, dict) or not isinstance(explicit_fields, list) or not isinstance(previous_parameters, dict):
+    if not isinstance(previous_parameters, dict):
         return extraction_result
 
-    normalized_explicit_fields = list(dict.fromkeys(
-        str(field or "").strip() for field in explicit_fields if str(field or "").strip()
-    ))
-    if len(normalized_explicit_fields) != 1:
-        return extraction_result
-
-    explicit_field = normalized_explicit_fields[0]
-    input_value = parameters.get(explicit_field)
     calculation_mode = str(previous_parameters.get("calculation_mode", "") or "").strip().lower()
-    if input_value is None or not calculation_mode:
+    if not calculation_mode:
         return extraction_result
 
-    candidate_fields = get_general_calculation_ambiguity_candidates(
-        calculation_type=calculation_type,
-        calculation_mode=calculation_mode,
-        field_name=explicit_field
-    )
+    cases = extraction_result.get("cases", [])
+    current_case = None
+    explicit_field = None
+    input_value = None
+
+    if isinstance(cases, list) and len(cases) == 1 and isinstance(cases[0], dict):
+        current_case = cases[0]
+        parameters = current_case.get("parameters", {})
+        explicit_fields = current_case.get("explicit_fields", [])
+
+        if not isinstance(parameters, dict) or not isinstance(explicit_fields, list):
+            return extraction_result
+
+        normalized_explicit_fields = list(dict.fromkeys(
+            str(field or "").strip()
+            for field in explicit_fields
+            if str(field or "").strip()
+        ))
+
+        if len(normalized_explicit_fields) == 1:
+            explicit_field = normalized_explicit_fields[0]
+            input_value = parameters.get(explicit_field)
+
+    if input_value is None:
+        input_value = extract_single_amount_from_text(user_input)
+
+    if input_value is None:
+        return extraction_result
+
+    metadata = GENERAL_CALCULATION_FIELD_METADATA.get(normalized_type, {})
+    if not isinstance(metadata, dict):
+        return extraction_result
+
+    if explicit_field:
+        candidate_fields = get_general_calculation_ambiguity_candidates(
+            calculation_type=normalized_type,
+            calculation_mode=calculation_mode,
+            field_name=explicit_field
+        )
+    else:
+        grouped_fields = {}
+
+        for field_name, field_metadata in metadata.items():
+            if not isinstance(field_metadata, dict):
+                continue
+
+            ambiguity_group = field_metadata.get("ambiguity_groups", {}).get(calculation_mode)
+            if not ambiguity_group:
+                continue
+
+            grouped_fields.setdefault(ambiguity_group, []).append(field_name)
+
+        candidate_groups = [
+            fields
+            for fields in grouped_fields.values()
+            if len(fields) >= 2
+        ]
+
+        if len(candidate_groups) != 1:
+            return extraction_result
+
+        candidate_fields = candidate_groups[0]
+
     if len(candidate_fields) < 2:
         return extraction_result
 
     normalized_input = str(user_input or "").replace(" ", "").replace("　", "")
-    metadata = GENERAL_CALCULATION_FIELD_METADATA.get(
-        str(calculation_type or "").strip().lower(),
-        {}
-    )
 
     for candidate_field in candidate_fields:
         label = str(
@@ -3998,16 +4041,24 @@ def convert_general_calculation_extraction_to_ambiguous(calculation_type: str, e
             label.replace("値", "")
         }
 
-        if any(candidate_label and candidate_label in normalized_input for candidate_label in label_candidates):
+        if any(
+            candidate_label
+            and candidate_label in normalized_input
+            for candidate_label in label_candidates
+        ):
             return extraction_result
 
     return {
         "should_calculate": False,
-        "calculation_type": str(calculation_type or "").strip().lower(),
+        "calculation_type": normalized_type,
         "inherit_previous_conditions": True,
         "cases": [],
         "ambiguous_fields": [{
-            "case_name": str(current_case.get("case_name", "") or "基本ケース"),
+            "case_name": str(
+                current_case.get("case_name", "")
+                if isinstance(current_case, dict)
+                else ""
+            ).strip() or "基本ケース",
             "input_value": input_value,
             "candidate_fields": candidate_fields,
             "calculation_mode": calculation_mode
@@ -7178,6 +7229,7 @@ def contains_real_estate_sale_hint(
 # ==========================================
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Union
+from decimal import Decimal, InvalidOperation
 import calendar
 import uuid
 
@@ -7280,6 +7332,25 @@ def normalize_japanese_number_text(
 
     return str(total)
 
+# 単独金額抽出関数
+def extract_single_amount_from_text(value: str):
+    text = str(value or "").translate(str.maketrans("０１２３４５６７８９．，", "0123456789.,"))
+    amount_pattern = r"(?<![0-9])(?:(?:[0-9]+(?:\.[0-9]+)?)億(?:[0-9]+(?:\.[0-9]+)?万)?|(?:[0-9]+(?:\.[0-9]+)?)万|(?:[0-9]+(?:\.[0-9]+)?)円)(?![0-9])"
+    matches = re.findall(amount_pattern, text)
+
+    if len(matches) != 1:
+        return None
+
+    try:
+        amount = Decimal(normalize_japanese_number_text(matches[0]))
+    except (ValueError, TypeError, InvalidOperation):
+        return None
+
+    if not amount.is_finite():
+        return None
+
+    return int(amount) if amount == amount.to_integral_value() else float(amount)
+#==============================================
 
 def to_decimal(
     value: Number
