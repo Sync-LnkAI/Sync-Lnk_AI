@@ -20620,6 +20620,10 @@ if is_admin:
             calc_extract_cost = 0.0
             calc_extract_in = 0
             calc_extract_out = 0
+            calc_clarification_count = 0
+            calc_clarification_cost = 0.0
+            calc_clarification_in = 0
+            calc_clarification_out = 0
             user_logs = []
 
             try:
@@ -20682,9 +20686,7 @@ if is_admin:
                         .eq("user_id", selected_audit_user)
                         .execute()
                     )
-                    search_count = len(
-                        search_res.data or []
-                    )
+                    search_count = len(search_res.data or [])
 
                     # google検索データ
                     search_exec_res = (
@@ -20709,6 +20711,33 @@ if is_admin:
                         int(row.get("out_tokens", 0) or 0)
                         for row in search_exec_rows
                     )
+                    # 汎用計算の曖昧回答判定AIデータ
+                    calc_clarification_res = (
+                        supabase
+                        .table("system_audit_logs")
+                        .select("in_tokens", "out_tokens", "api_cost")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "general_calculation_clarification")
+                        .execute()
+                    )
+
+                    calc_clarification_rows = (calc_clarification_res.data or [])
+                    calc_clarification_count = len(calc_clarification_rows)
+
+                    calc_clarification_cost = sum(
+                        float(row.get("api_cost", 0) or 0)
+                        for row in calc_clarification_rows
+                    )
+
+                    calc_clarification_in = sum(
+                        int(row.get("in_tokens", 0) or 0)
+                        for row in calc_clarification_rows
+                    )
+
+                    calc_clarification_out = sum(
+                        int(row.get("out_tokens", 0) or 0)
+                        for row in calc_clarification_rows
+                    )
 
                     # python計算データを取得
                     calc_logs = (
@@ -20732,10 +20761,7 @@ if is_admin:
                     calc_error = 0
 
                     for row in (calc_logs.data or []):
-                        event = row.get(
-                            "event_type",
-                            ""
-                        )
+                        event = row.get("event_type", "")
 
                         if event == "CALCULATION_SUCCESS":
                             calc_success += 1
@@ -20748,69 +20774,30 @@ if is_admin:
                         elif event == "CALCULATION_ERROR":
                             calc_error += 1
 
-                    calc_total = (
-                        calc_success
-                        + calc_missing
-                        + calc_error
-                    )
+                    calc_total = (calc_success + calc_missing + calc_error)
 
                     calc_extract_res = (
                         supabase
                         .table("system_audit_logs")
-                        .select(
-                            "api_cost, in_tokens, out_tokens"
-                        )
-                        .eq(
-                            "user_id",
-                            selected_audit_user
-                        )
-                        .eq(
-                            "event_type",
-                            "CALCULATION_EXTRACTION"
-                        )
+                        .select("api_cost, in_tokens, out_tokens")
+                        .eq("user_id", selected_audit_user)
+                        .eq("event_type", "CALCULATION_EXTRACTION")
                         .execute()
                     )
 
                     calc_extract_cost = sum(
-                        float(
-                            x.get(
-                                "api_cost",
-                                0
-                            )
-                            or 0
-                        )
-                        for x in (
-                            calc_extract_res.data
-                            or []
-                        )
+                        float(x.get("api_cost", 0) or 0)
+                        for x in (calc_extract_res.data or [])
                     )
 
                     calc_extract_in = sum(
-                        int(
-                            x.get(
-                                "in_tokens",
-                                0
-                            )
-                            or 0
-                        )
-                        for x in (
-                            calc_extract_res.data
-                            or []
-                        )
+                        int(x.get("in_tokens", 0) or 0)
+                        for x in (calc_extract_res.data or [])
                     )
 
                     calc_extract_out = sum(
-                        int(
-                            x.get(
-                                "out_tokens",
-                                0
-                            )
-                            or 0
-                        )
-                        for x in (
-                            calc_extract_res.data
-                            or []
-                        )
+                        int(x.get("out_tokens", 0) or 0)
+                        for x in (calc_extract_res.data or [])
                     )
 
             except Exception as e:
@@ -20893,6 +20880,14 @@ if is_admin:
                         f"・<b>Google検索出力：</b> {search_exec_total_out:,} t</p>"
                         f"<p style='margin: 6px 0; font-size:14px;'>"
                         f"・<b>Google検索コスト：</b> {search_exec_total_cost:.4f} 円</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>"
+                        f"・<b>汎用計算の曖昧回答AI判定：</b> {calc_clarification_count} 回</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>"
+                        f"・<b>曖昧回答判定入力：</b> {calc_clarification_in:,} t</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>"
+                        f"・<b>曖昧回答判定出力：</b> {calc_clarification_out:,} t</p>"
+                        f"<p style='margin: 6px 0; font-size:14px;'>"
+                        f"・<b>曖昧回答判定コスト：</b> {calc_clarification_cost:.4f} 円</p>"
                         f"<p style='margin: 6px 0; font-size:14px;'>"
                         f"・<b>不動産計算利用：</b> {calc_total} 回</p>"
                         f"<p style='margin: 6px 0; font-size:14px;'>"
