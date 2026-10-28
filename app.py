@@ -17102,6 +17102,19 @@ with all_tabs[0]:
                                     "DEBUG extraction_inheritance_retry",
                                     True
                                 )
+                                general_calculation_extraction_result = convert_general_calculation_extraction_to_ambiguous(
+                                    calculation_type=general_calculation_type,
+                                    extraction_result=general_calculation_extraction_result,
+                                    previous_state=previous_general_calculation_state,
+                                    user_input=user_input
+                                )
+                                extraction_status = str(
+                                    general_calculation_extraction_result.get("extraction_status", "") or ""
+                                ).strip().lower()
+                                is_ambiguous_extraction = (
+                                    extraction_status == "ambiguous_fields"
+                                    and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
+                                )
                                                    
                             if not is_ambiguous_extraction and not inherit_previous_calculation:
                                 structural_inheritance_result = should_structurally_inherit_previous_calculation(
