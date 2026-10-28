@@ -5125,7 +5125,7 @@ def compress_general_calculation_results(
             result = {}
 
         compressed_item = {}
-        if case_name != "基本ケース":
+        if len(results) > 1 and case_name != "基本ケース":
             compressed_item["case_name"] = case_name
 
         inherited_fields = item.get("inherited_fields", [])
