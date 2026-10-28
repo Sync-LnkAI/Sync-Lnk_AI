@@ -17239,7 +17239,53 @@ with all_tabs[0]:
                                 "DEBUG general_calculation_context",
                                 general_calculation_context
                             )
-                        
+                            if general_calculation_execution_result.get("status") == "ambiguous_fields":
+                                ambiguous_fields = general_calculation_execution_result.get("ambiguous_fields", [])
+                                item = ambiguous_fields[0] if isinstance(ambiguous_fields, list) and ambiguous_fields else {}
+                                input_value = item.get("input_value")
+                                candidate_fields = item.get("candidate_fields", [])
+                                calculation_mode = str(item.get("calculation_mode", "") or "").strip().lower()
+                                type_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(general_calculation_type, {})
+                                candidate_labels = [
+                                    str(type_metadata.get(field, {}).get("labels", {}).get(
+                                        calculation_mode,
+                                        GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                                    ))
+                                    for field in candidate_fields
+                                ]
+
+                                if input_value is not None and len(candidate_labels) == 2:
+                                    formatted_value = f"{int(input_value):,}" if isinstance(input_value, (int, float)) else str(input_value)
+                                    ai_reply = f"{formatted_value}は、{candidate_labels[0]}と{candidate_labels[1]}のどちらですか？"
+                                else:
+                                    ai_reply = "入力された値が、どの計算条件を指すか教えてください。"
+
+                                all_messages.append({
+                                    "role": "assistant",
+                                    "content": ai_reply,
+                                    "message_id": current_msg_id,
+                                    "response_mode": "analysis",
+                                    "processing_type": processing_type,
+                                    "requires_estimation": True,
+                                    "general_calculation_result": general_calculation_execution_result,
+                                    "chat_room": "talk",
+                                    "created_at": datetime.now(JST).isoformat()
+                                })
+
+                                save_message(
+                                    role="assistant",
+                                    content=ai_reply,
+                                    message_id=current_msg_id,
+                                    response_mode="analysis",
+                                    processing_type=processing_type,
+                                    requires_estimation=True,
+                                    general_calculation_result=general_calculation_execution_result
+                                )
+
+                                display_message(current_concierge_name, ai_reply)
+                                st.session_state.force_message_reload = True
+                                st.stop()
+                                                    
                         elif calculation_tool == "general_calculation":
                             general_calculation_execution_result = {
                                 "status": "unsupported_type",
