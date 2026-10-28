@@ -3860,8 +3860,8 @@ GENERAL_CALCULATION_FIELD_LABELS = {
     "payments_per_year": "1年間の返済回数",
     "repayment_method": "返済方式（元利均等返済）",
     "bonus_payment": "ボーナス返済額（なければ0円）",
-    "base_value": "基準となる値",
-    "comparison_value": "比較対象の値",
+    "base_value": "変更前の値",
+    "comparison_value": "変更後の値",
     "rate": "割合",
     "calculation_mode": "計算方法",
     "calculation_type": "計算タイプ",
@@ -5066,6 +5066,50 @@ def build_general_calculation_context(
     if status == "not_applicable":
         return ""
     
+    if status == "ambiguous_fields":
+        ambiguous_fields = execution_result.get("ambiguous_fields", [])
+        question_lines = []
+
+        for item in ambiguous_fields:
+            if not isinstance(item, dict):
+                continue
+
+            input_value = item.get("input_value")
+            candidate_fields = item.get("candidate_fields", [])
+
+            if input_value is None or not isinstance(candidate_fields, list):
+                continue
+
+            candidate_labels = [
+                GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                for field in candidate_fields
+            ]
+
+            if len(candidate_labels) == 2:
+                formatted_value = f"{int(input_value):,}" if isinstance(input_value, (int, float)) else str(input_value)
+                question_lines.append(
+                    f"{formatted_value}は、{candidate_labels[0]}と{candidate_labels[1]}のどちらですか？"
+                )
+
+        if not question_lines:
+            question_lines.append("入力された値が、どの計算条件を指すか教えてください。")
+
+        question_text = "\n".join(question_lines)
+
+        return f"""
+        【Python汎用計算】
+        入力された値の対象を一意に判断できないため、Python計算はまだ実行していません。
+
+        【確認事項】
+        {question_text}
+
+        【回答ルール】
+        ・【確認事項】の質問だけをユーザーへ伝えてください。
+        ・候補のどちらかを推測してはいけません。
+        ・確認が終わるまで計算結果を作ってはいけません。
+        ・内部キー名を表示してはいけません。
+        """.strip()
+
     if status == "missing_fields":
         calculation_type = execution_result.get("calculation_type")
         missing_fields = execution_result.get("missing_fields", [])
@@ -5281,8 +5325,9 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・1万円は10000、200万円は2000000、1億円は100000000に変換してください。
     ・1.5万円は15000、1.5億円は150000000に変換してください。
     ・4%は0.04、1.2%は0.012、20%は0.20に変換してください。
-    ・年数は年単位の数値にしてください。
-    ・10年6ヶ月は10.5年、120ヶ月は10年に変換してください。
+    ・期間は、抽出項目で指定された単位に合わせて正規化してください。
+    ・年単位の項目は年数へ変換し、月単位の項目は月数へ変換してください。
+    ・期間の単位を確認できない場合や、指定された抽出項目の単位へ正確に変換できない場合はnullにしてください。
     ・数値を確認できない場合はnullにしてください。
     ・小数を整数へ勝手に丸めないでください。
     ・複数ケースでは、共通条件も各caseのparametersへ設定してください。
@@ -5305,7 +5350,8 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
                 "parameters": {},
                 "explicit_fields": []
             }
-        ]
+        ],
+        "ambiguous_fields": []
     }
     
     【共通出力ルール】
@@ -5320,6 +5366,11 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
     ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
     ・確認できない項目も省略せず、nullを設定してください。
+    ・ambiguous_fieldsは必ず配列にしてください。曖昧な条件がない場合は空配列にしてください。
+    ・最新ユーザー発言の値が複数のparameters項目のどれを指すか一意に確定できない場合は、その値を特定の項目へ推測して設定せず、ambiguous_fieldsへ格納してください。
+    ・曖昧な場合はshould_calculateをfalseにし、calculation_typeには指定された計算タイプを設定し、casesは空配列にしてください。
+    ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fieldsを含めてください。
+    ・candidate_fieldsには、値の設定先として考えられるparametersの項目名だけを設定してください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
     ・計算結果、利益、返済額、総額などは出力してはいけません。
     """.strip()
@@ -5370,22 +5421,18 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・contribution_timing：積立タイミング
 
     【抽出ルール】
-    ・毎月、毎年など、一定額を定期的に追加投資する場合に使用してください。
-    ・初期元本が不明な場合はnullにしてください。
-    ・「初期元本なし」「初期投資なし」「元本なし」「元本0円」などと明示された場合はinitial_principalを0にしてください。
-    ・「毎月3万円」はcontribution_amountを30000、contributions_per_yearを12にしてください。
-    ・「毎年50万円」はcontribution_amountを500000、contributions_per_yearを1にしてください。
+    ・一定額を定期的に追加投資する場合に使用してください。
+    ・初期元本が明示されていない場合はinitial_principalをnullにし、初期元本がないことや0円であることが明示された場合は0にしてください。
+    ・積立額はcontribution_amount、1年間の積立回数はcontributions_per_yearに設定してください。
+    ・毎月積立はcontributions_per_yearを12、毎年積立は1にしてください。
     ・積立頻度が明示されていない場合はcontributions_per_yearをnullにしてください。
-    ・「毎月複利」はcompounding_per_yearを12にしてください。
-    ・「年1回複利」「年複利」はcompounding_per_yearを1にしてください。
-    ・複利回数が明示されていない場合はnullにしてください。
-    ・積立タイミングが月初、期首、積立期間の開始時ならcontribution_timingをbeginningにしてください。
-    ・積立タイミングが月末、期末、積立期間の終了時ならcontribution_timingをendにしてください。
-    ・積立タイミングが明示されていない場合はnullにしてください。
-    ・複数の年利、積立額、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・積立額、期間、年利、積立頻度、複利頻度、積立タイミングを確認できる場合はshould_calculateをtrueにしてください。
-    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。    
+    ・複利回数はcompounding_per_yearに設定し、毎月複利は12、年1回複利は1にしてください。
+    ・複利回数が明示されていない場合はcompounding_per_yearをnullにしてください。
+    ・積立タイミングが各期間の開始時ならcontribution_timingをbeginning、終了時ならendにしてください。
+    ・積立タイミングが明示されていない場合はcontribution_timingをnullにしてください。
+    ・定期的な積立額、積立期間、年利が確認できる場合はshould_calculateをtrueにしてください。既定値を適用できる項目が未指定であることだけを理由にfalseにしてはいけません。
+    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。
+    ・複数条件が指定された場合は、比較する条件ごとにcasesを分け、共通条件も各caseのparametersへ設定してください。
 
     【parametersの形式】
     {
@@ -5475,19 +5522,16 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・increased_value：割合を加算した後の値
 
     【抽出ルール】
-    ・「500万円の20%」はbase_valueを5000000、rateを0.20、calculation_modeをpercentage_of_valueにしてください。
-    ・「200人のうち50人の割合」はbase_valueを200、comparison_valueを50、calculation_modeをratioにしてください。
-    ・「500万円から650万円への増加率」はbase_valueを5000000、comparison_valueを6500000、calculation_modeをpercentage_changeにしてください。
-    ・「500万円と650万円の差額」はbase_valueを5000000、comparison_valueを6500000、calculation_modeをdifferenceにしてください。
-    ・「1万円の20%引き」はbase_valueを10000、rateを0.20、calculation_modeをdiscounted_valueにしてください。
-    ・「1万円を20%増やす」はbase_valueを10000、rateを0.20、calculation_modeをincreased_valueにしてください。
-    ・増減率では、変更前の値をbase_value、変更後の値をcomparison_valueにしてください。
-    ・割合では、全体をbase_value、部分をcomparison_valueにしてください。
-    ・差額はcomparison_valueからbase_valueを引く計算として扱ってください。
+    ・割合を掛けた値を求める場合は、元の値をbase_value、割合をrate、calculation_modeをpercentage_of_valueにしてください。
+    ・全体に対する部分の割合を求める場合は、全体をbase_value、部分をcomparison_value、calculation_modeをratioにしてください。
+    ・値の増減率を求める場合は、変更前の値をbase_value、変更後の値をcomparison_value、calculation_modeをpercentage_changeにしてください。
+    ・2つの値の差額を求める場合は、差し引く基準値をbase_value、比較する値をcomparison_value、calculation_modeをdifferenceにしてください。差額はcomparison_valueからbase_valueを引く向きで扱ってください。
+    ・割引後の値を求める場合は、割引前の値をbase_value、割引率をrate、calculation_modeをdiscounted_valueにしてください。
+    ・割合を加算した後の値を求める場合は、加算前の値をbase_value、加算率をrate、calculation_modeをincreased_valueにしてください。
     ・複数条件が指定された場合は、比較する条件ごとにcasesを分けてください。
     ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・税金、社会保険料、補助金、給付金などの制度依存計算はshould_calculateをfalseにしてください。
-    ・ユーザーが税率などを明示していても、税額計算へ置き換えてはいけません。
+    ・税額、社会保険料、補助金、給付金など、制度に基づく金額そのものを求める依頼はshould_calculateをfalseにしてください。
+    ・制度項目を除外して一般的な割合、増減率、差額などを求める依頼は、制度依存計算として対象外にしないでください。
 
     【parametersの形式】
     {
@@ -8062,6 +8106,7 @@ def extract_general_calculation_parameters(
         "should_calculate": False,
         "calculation_type": None,
         "cases": [],
+        "ambiguous_fields": [],
         "extraction_status": "not_applicable",
         "in_tokens": 0,
         "out_tokens": 0,
@@ -8130,21 +8175,27 @@ def extract_general_calculation_parameters(
             raise ValueError("汎用計算条件の抽出結果がobject形式ではありません")
         
         should_calculate = bool(extracted_data.get("should_calculate", False))
-        # inherit_previous_conditions = bool(
-        #     extracted_data.get("inherit_previous_conditions", False)
-        # )
+
+        raw_ambiguous_fields = extracted_data.get("ambiguous_fields", [])
+        if not isinstance(raw_ambiguous_fields, list):
+            raw_ambiguous_fields = []
+        
         extracted_calculation_type = extracted_data.get("calculation_type")
         if extracted_calculation_type is not None:
             extracted_calculation_type = str(extracted_calculation_type).strip().lower()
-        if not should_calculate:
+        has_ambiguous_fields = bool(raw_ambiguous_fields)
+        if has_ambiguous_fields:
+            if extracted_calculation_type != normalized_calculation_type:
+                raise ValueError("曖昧条件の計算タイプが判定済みの計算タイプと一致しません")
+        elif not should_calculate:
             extracted_calculation_type = None
         elif extracted_calculation_type != normalized_calculation_type:
             raise ValueError("判定済みの計算タイプと抽出結果の計算タイプが一致しません")
-        
+                
         raw_cases = extracted_data.get("cases", [])
         if not isinstance(raw_cases, list):
             raise ValueError("汎用計算条件のcasesが配列形式ではありません")
-        if should_calculate and not raw_cases:
+        if should_calculate and not raw_cases and not has_ambiguous_fields:
             raise ValueError("汎用計算条件のcasesが空です")
         
         normalized_cases = []
@@ -8224,6 +8275,32 @@ def extract_general_calculation_parameters(
                 "inherited_fields": filtered_inherited_fields
             })
         
+        normalized_ambiguous_fields = []
+        for raw_ambiguous_item in raw_ambiguous_fields:
+            if not isinstance(raw_ambiguous_item, dict):
+                continue
+
+            input_value = raw_ambiguous_item.get("input_value")
+            candidate_fields = raw_ambiguous_item.get("candidate_fields", [])
+
+            if not isinstance(candidate_fields, list):
+                candidate_fields = []
+
+            filtered_candidate_fields = []
+            for field_name in candidate_fields:
+                normalized_field_name = str(field_name or "").strip()
+                if normalized_field_name in allowed_fields and normalized_field_name not in filtered_candidate_fields:
+                    filtered_candidate_fields.append(normalized_field_name)
+
+            if input_value is None or len(filtered_candidate_fields) < 2:
+                continue
+
+            normalized_ambiguous_fields.append({
+                "case_name": str(raw_ambiguous_item.get("case_name", "") or "基本ケース").strip(),
+                "input_value": input_value,
+                "candidate_fields": filtered_candidate_fields
+            })
+
         in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
         out_tokens = int(extraction_result.get("out_tokens", 0) or 0)
         extraction_cost = calculate_ai_cost(
@@ -8232,11 +8309,25 @@ def extract_general_calculation_parameters(
             out_tokens=out_tokens
         )
 
+        if normalized_ambiguous_fields:
+            return {
+                "should_calculate": False,
+                "calculation_type": normalized_calculation_type,
+                "inherit_previous_conditions": normalized_inherit_previous_conditions,
+                "cases": [],
+                "ambiguous_fields": normalized_ambiguous_fields,
+                "extraction_status": "ambiguous_fields",
+                "in_tokens": in_tokens,
+                "out_tokens": out_tokens,
+                "cost": extraction_cost
+            }
+
         if not should_calculate:
             return {
                 "should_calculate": False,
                 "calculation_type": None,
                 "cases": [],
+                "ambiguous_fields": [],
                 "extraction_status": "not_applicable",
                 "in_tokens": in_tokens,
                 "out_tokens": out_tokens,
@@ -8248,6 +8339,7 @@ def extract_general_calculation_parameters(
             "calculation_type": normalized_calculation_type,
             "inherit_previous_conditions": normalized_inherit_previous_conditions,
             "cases": filtered_cases,
+            "ambiguous_fields": [],
             "extraction_status": "extracted",
             "in_tokens": in_tokens,
             "out_tokens": out_tokens,
@@ -8275,6 +8367,88 @@ def extract_general_calculation_parameters(
         }
 # ==========================================
 
+# 確認回答から対象フィールドを決める共通関数
+def resolve_general_calculation_clarification(user_input: str, pending_clarification: dict) -> dict:
+    default_result = {"resolved": False, "selected_field": None, "in_tokens": 0, "out_tokens": 0, "cost": 0.0}
+
+    if not str(user_input or "").strip() or not isinstance(pending_clarification, dict):
+        return default_result
+
+    ambiguous_fields = pending_clarification.get("ambiguous_fields", [])
+    if not isinstance(ambiguous_fields, list) or len(ambiguous_fields) != 1:
+        return default_result
+
+    ambiguous_item = ambiguous_fields[0]
+    if not isinstance(ambiguous_item, dict):
+        return default_result
+
+    candidate_fields = ambiguous_item.get("candidate_fields", [])
+    if not isinstance(candidate_fields, list) or len(candidate_fields) < 2:
+        return default_result
+
+    candidate_labels = {
+        field: GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+        for field in candidate_fields
+    }
+
+    prompt = f"""
+    あなたは、計算条件の確認回答から、ユーザーが選んだ項目を判定するシステムです。
+
+    【候補項目】
+    {json.dumps(candidate_labels, ensure_ascii=False)}
+
+    【ユーザー回答】
+    {user_input}
+
+    【判定ルール】
+    ・ユーザー回答が指している候補を1つだけ選んでください。
+    ・候補を一意に特定できない場合はselected_fieldをnullにしてください。
+    ・候補にない項目を作ってはいけません。
+    ・計算や説明は行わないでください。
+    ・JSON以外を出力しないでください。
+
+    【出力形式】
+    {{
+        "selected_field": null
+    }}
+    """.strip()
+
+    try:
+        result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        raw_text = str(result.get("text", "") or "").replace("```json", "").replace("```JSON", "").replace("```", "").strip()
+        parsed = json.loads(raw_text)
+        selected_field = str(parsed.get("selected_field", "") or "").strip()
+
+        in_tokens = int(result.get("in_tokens", 0) or 0)
+        out_tokens = int(result.get("out_tokens", 0) or 0)
+        cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
+
+        if selected_field not in candidate_fields:
+            selected_field = None
+
+        return {
+            "resolved": selected_field is not None,
+            "selected_field": selected_field,
+            "in_tokens": in_tokens,
+            "out_tokens": out_tokens,
+            "cost": cost
+        }
+
+    except Exception as error:
+        print(f"計算条件確認回答の判定エラー: {type(error).__name__}: {error}")
+        return default_result
+# ==========================================
 
 # ==========================================
 # 🏠 不動産売却計算 呼び出し判定
@@ -15004,6 +15178,99 @@ with all_tabs[0]:
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
+                        pending_calculation_clarification = dict(
+                            st.session_state.get("pending_calculation_clarification", {}) or {}
+                        )
+                        resolved_calculation_clarification = None
+                        calculation_clarification_unresolved = False
+
+                        if pending_calculation_clarification:
+                            clarification_result = resolve_general_calculation_clarification(
+                                user_input=user_input,
+                                pending_clarification=pending_calculation_clarification
+                            )
+
+                            debug_json(
+                                "DEBUG calculation_clarification_result",
+                                clarification_result
+                            )
+
+                            if clarification_result.get("resolved"):
+                                ambiguous_fields = pending_calculation_clarification.get(
+                                    "ambiguous_fields",
+                                    []
+                                )
+
+                                if isinstance(ambiguous_fields, list) and len(ambiguous_fields) == 1:
+                                    ambiguous_item = ambiguous_fields[0]
+
+                                    if isinstance(ambiguous_item, dict):
+                                        resolved_calculation_clarification = {
+                                            "calculation_type": pending_calculation_clarification.get(
+                                                "calculation_type"
+                                            ),
+                                            "selected_field": clarification_result.get(
+                                                "selected_field"
+                                            ),
+                                            "input_value": ambiguous_item.get("input_value"),
+                                            "previous_state": copy.deepcopy(
+                                                pending_calculation_clarification.get(
+                                                    "previous_state",
+                                                    {}
+                                                )
+                                            )
+                                        }
+
+                                        st.session_state[
+                                            "pending_calculation_clarification"
+                                        ] = {}
+                                else:
+                                    calculation_clarification_unresolved = True
+
+                        if calculation_clarification_unresolved:
+                            ambiguous_fields = pending_calculation_clarification.get("ambiguous_fields", [])
+                            ambiguous_item = ambiguous_fields[0] if isinstance(ambiguous_fields, list) and ambiguous_fields else {}
+                            input_value = ambiguous_item.get("input_value")
+                            candidate_fields = ambiguous_item.get("candidate_fields", [])
+                            candidate_labels = [
+                                GENERAL_CALCULATION_FIELD_LABELS.get(field, field)
+                                for field in candidate_fields
+                            ]
+
+                            if input_value is not None and len(candidate_labels) == 2:
+                                formatted_value = f"{int(input_value):,}" if isinstance(input_value, (int, float)) else str(input_value)
+                                ai_reply = f"{formatted_value}は、{candidate_labels[0]}と{candidate_labels[1]}のどちらですか？"
+                            else:
+                                ai_reply = "入力された値が、どの計算条件を指すか教えてください。"
+
+                            all_messages.append({
+                                "role": "user",
+                                "content": user_input,
+                                "message_id": current_msg_id,
+                                "response_mode": "analysis",
+                                "chat_room": "talk",
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": ai_reply,
+                                "message_id": current_msg_id,
+                                "response_mode": "analysis",
+                                "chat_room": "talk",
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+
+                            save_message(
+                                role="assistant",
+                                content=ai_reply,
+                                message_id=current_msg_id,
+                                response_mode="analysis"
+                            )
+
+                            display_message(current_concierge_name, ai_reply)
+                            st.session_state.force_message_reload = True
+                            st.stop()
+
                         # ==========================================
                         # 案件名称変更の検出と変更処理
                         # ==========================================
@@ -15943,7 +16210,7 @@ with all_tabs[0]:
 
                         router_elapsed = 0.0
 
-                        if is_micro_chat(user_input):
+                        if is_micro_chat(user_input) and not resolved_calculation_clarification:
                             response_mode = "micro_chat"
                             route_source = "micro_chat"
                             need_search = False
@@ -15996,6 +16263,12 @@ with all_tabs[0]:
                             )
                             router_elapsed = time.time() - router_start_time
                             route_source = "llm_router"
+
+                            if resolved_calculation_clarification:
+                                need_search = False
+                                response_mode = "analysis"
+                                requires_estimation = True
+                                route_source = "calculation_clarification"
                             
                             # 通常会話・相談など、ユーザー固有の文脈が役立つ場合だけ
                             # 関連する過去会話を検索する
@@ -16214,8 +16487,22 @@ with all_tabs[0]:
                         # ==========================================
                         # 計算ツール判定の実行制御
                         # ==========================================
+                        # 汎用計算の曖昧条件確認から再開
+                        if resolved_calculation_clarification:
+                            calculation_tool = "general_calculation"
+                            general_calculation_type = str(
+                                resolved_calculation_clarification.get("calculation_type", "") or ""
+                            ).strip().lower()
+                            unmatched_calculation_category = None
+                            should_run_tool_router = False
+
+                            debug_text(
+                                "DEBUG clarification_calculation_type",
+                                general_calculation_type
+                            )
+
                         # 不動産計算継続中
-                        if pending_tool == "real_estate_sale":
+                        elif pending_tool == "real_estate_sale":
                             calculation_tool = "real_estate_sale"
                             general_calculation_type = None
                             should_run_tool_router = False
@@ -16502,16 +16789,58 @@ with all_tabs[0]:
                                 inherit_previous_calculation
                             )
                             general_extraction_start_time = time.time()
-                            general_calculation_extraction_result = (
-                                extract_general_calculation_parameters(
+                            if resolved_calculation_clarification:
+                                selected_field = resolved_calculation_clarification.get("selected_field")
+                                input_value = resolved_calculation_clarification.get("input_value")
+                                allowed_fields = GENERAL_CALCULATION_PARAMETER_FIELDS.get(
+                                    general_calculation_type,
+                                    set()
+                                )
+
+                                if selected_field not in allowed_fields or input_value is None:
+                                    general_calculation_extraction_result = {
+                                        "should_calculate": False,
+                                        "calculation_type": general_calculation_type,
+                                        "cases": [],
+                                        "ambiguous_fields": [],
+                                        "extraction_status": "extraction_error",
+                                        "in_tokens": 0,
+                                        "out_tokens": 0,
+                                        "cost": 0.0
+                                    }
+                                    inherit_previous_calculation = False
+                                else:
+                                    parameters = {field: None for field in allowed_fields}
+                                    parameters[selected_field] = input_value
+
+                                    general_calculation_extraction_result = {
+                                        "should_calculate": True,
+                                        "calculation_type": general_calculation_type,
+                                        "inherit_previous_conditions": True,
+                                        "cases": [{
+                                            "case_name": "基本ケース",
+                                            "parameters": parameters,
+                                            "explicit_fields": [selected_field],
+                                            "inherited_fields": []
+                                        }],
+                                        "ambiguous_fields": [],
+                                        "extraction_status": "extracted",
+                                        "in_tokens": 0,
+                                        "out_tokens": 0,
+                                        "cost": 0.0
+                                    }
+                                    inherit_previous_calculation = True
+                            else:
+                                general_calculation_extraction_result = extract_general_calculation_parameters(
                                     user_input=user_input,
                                     calculation_type=general_calculation_type,
-                                    inherit_previous_conditions=inherit_previous_calculation,
+                                    inherit_previous_conditions=inherit_previous_calculation
                                 )
-                            )
+
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
                             ] = inherit_previous_calculation
+
 
                             previous_calculation_type = str(
                                 previous_general_calculation_state.get(
@@ -16528,6 +16857,11 @@ with all_tabs[0]:
                                 )
                                 or ""
                             ).strip().lower()
+
+                            is_ambiguous_extraction = (
+                                extraction_status == "ambiguous_fields"
+                                and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
+                            )
 
                             extraction_should_calculate = bool(
                                 general_calculation_extraction_result.get(
@@ -16575,10 +16909,10 @@ with all_tabs[0]:
                             )
 
                             if (
-                                retry_extraction_for_inheritance
+                                not is_ambiguous_extraction
+                                and retry_extraction_for_inheritance
                                 and requires_estimation
-                                and previous_calculation_type
-                                == general_calculation_type
+                                and previous_calculation_type == general_calculation_type
                             ):
                                 general_calculation_extraction_result = (
                                     extract_general_calculation_parameters(
@@ -16599,17 +16933,13 @@ with all_tabs[0]:
                                     True
                                 )
                                                    
-                            if not inherit_previous_calculation:
+                            if not is_ambiguous_extraction and not inherit_previous_calculation:
                                 inherit_previous_calculation = (
                                     should_structurally_inherit_previous_calculation(
                                         user_input=user_input,
                                         calculation_type=general_calculation_type,
-                                        extraction_result=(
-                                            general_calculation_extraction_result
-                                        ),
-                                        previous_state=(
-                                            previous_general_calculation_state
-                                        )
+                                        extraction_result=general_calculation_extraction_result,
+                                        previous_state=previous_general_calculation_state
                                     )
                                 )
 
@@ -16622,19 +16952,26 @@ with all_tabs[0]:
                                 inherit_previous_calculation
                             )
 
-                            general_calculation_extraction_result = (
-                                apply_inherited_general_calculation_fields(
+                            if is_ambiguous_extraction:
+                                st.session_state["pending_calculation_clarification"] = {
+                                    "calculation_type": general_calculation_type,
+                                    "user_input": user_input,
+                                    "ambiguous_fields": copy.deepcopy(
+                                        general_calculation_extraction_result.get("ambiguous_fields", [])
+                                    ),
+                                    "previous_state": copy.deepcopy(previous_general_calculation_state),
+                                    "extraction_result": copy.deepcopy(general_calculation_extraction_result)
+                                }
+                            else:
+                                st.session_state["pending_calculation_clarification"] = {}
+                                general_calculation_extraction_result = apply_inherited_general_calculation_fields(
                                     extraction_result=general_calculation_extraction_result,
                                     previous_state=previous_general_calculation_state,
                                     user_input=user_input
                                 )
-                            )
-
-                            general_calculation_extraction_result = (
-                                apply_recurring_investment_defaults(
+                                general_calculation_extraction_result = apply_recurring_investment_defaults(
                                     general_calculation_extraction_result
                                 )
-                            )
 
                             general_extraction_elapsed = time.time() - general_extraction_start_time
 
@@ -16697,11 +17034,22 @@ with all_tabs[0]:
                                     general_extraction_out_tokens
                                 )
 
-                            general_calculation_execution_result = (
-                                execute_general_calculation(
+                            if is_ambiguous_extraction:
+                                general_calculation_execution_result = {
+                                    "status": "ambiguous_fields",
+                                    "calculation_type": general_calculation_type,
+                                    "results": [],
+                                    "missing_fields": [],
+                                    "ambiguous_fields": general_calculation_extraction_result.get(
+                                        "ambiguous_fields",
+                                        []
+                                    ),
+                                    "error": None
+                                }
+                            else:
+                                general_calculation_execution_result = execute_general_calculation(
                                     general_calculation_extraction_result
                                 )
-                            )
 
                             debug_json(
                                 "DEBUG general_calculation_execution_result",
