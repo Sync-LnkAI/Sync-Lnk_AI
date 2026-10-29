@@ -5158,6 +5158,17 @@ def execute_general_calculation(extraction_result: dict) -> dict:
                 parameters=normalized_parameters
             )
         )
+
+        if calculation_type == "recurring_investment":
+            missing_fields = [
+                field_name
+                for field_name in missing_fields
+                if field_name not in {
+                    "compounding_per_year",
+                    "contribution_timing"
+                }
+            ]
+        
         raw_inherited_fields = case.get("inherited_fields", [])
         if not isinstance(raw_inherited_fields, list):
             raw_inherited_fields = []
