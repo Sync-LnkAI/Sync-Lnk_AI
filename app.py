@@ -5110,16 +5110,6 @@ def compress_general_calculation_results(
     if normalized_detail_level not in {"simple", "detailed"}:
         normalized_detail_level = "simple"
     
-    normalized_user_input = str(user_input or "").replace(" ", "").replace("　", "")
-    if "億" in normalized_user_input:
-        money_display_style = "japanese_grouped"
-    elif "万" in normalized_user_input:
-        money_display_style = "man_yen"
-    elif "円" in normalized_user_input:
-        money_display_style = "yen"
-    else:
-        money_display_style = "yen"
-
     compressed_results = []
     for item in results:
         if not isinstance(item, dict):
@@ -5325,6 +5315,17 @@ def build_general_calculation_context(
     normalized_detail_level = str(detail_level or "simple").strip().lower()
     if normalized_detail_level not in {"simple", "detailed"}:
         normalized_detail_level = "simple"
+    
+    normalized_user_input = str(user_input or "").replace(
+        " ", ""
+    ).replace("　", "")
+
+    if "億" in normalized_user_input:
+        money_display_style = "japanese_grouped"
+    elif "万" in normalized_user_input:
+        money_display_style = "man_yen"
+    else:
+        money_display_style = "yen"
     
     if normalized_detail_level == "detailed":
         inheritance_usage_rule = """
