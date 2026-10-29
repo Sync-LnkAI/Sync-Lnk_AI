@@ -17060,7 +17060,7 @@ with all_tabs[0]:
                                         )
                                     )
                                     has_pending_missing_fields = any(
-                            s            get_general_calculation_missing_fields(
+                                        get_general_calculation_missing_fields(
                                             previous_calculation_type,
                                             case.get("parameters", {})
                                         )
