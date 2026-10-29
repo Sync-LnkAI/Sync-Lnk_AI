@@ -17053,8 +17053,24 @@ with all_tabs[0]:
                                         for phrase in independent_phrases
                                     )
 
+                                    previous_cases = (
+                                        previous_general_calculation_state.get(
+                                            "cases",
+                                            []
+                                        )
+                                    )
+                                    has_pending_missing_fields = any(
+                            s            get_general_calculation_missing_fields(
+                                            previous_calculation_type,
+                                            case.get("parameters", {})
+                                        )
+                                        for case in previous_cases
+                                        if isinstance(case, dict)
+                                    )
+
                                     if (
-                                        has_independent_calculation_intent
+                                        has_pending_missing_fields
+                                        and not has_independent_calculation_intent
                                         and previous_calculation_type
                                         in GENERAL_CALCULATION_TYPES
                                     ):
