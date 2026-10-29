@@ -5476,6 +5476,39 @@ def compress_general_calculation_results(
     return compressed_results
 #================================================
 
+# 金額表示形式を判定する共通関数
+def detect_money_display_style(
+    user_input: str,
+    fallback_style: str = "yen"
+) -> str:
+    valid_styles = {
+        "yen",
+        "man_yen",
+        "japanese_grouped"
+    }
+    normalized_input = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+    normalized_fallback = str(
+        fallback_style or "yen"
+    ).strip().lower()
+
+    if "億" in normalized_input:
+        return "japanese_grouped"
+
+    if "万" in normalized_input:
+        return "man_yen"
+
+    if "円" in normalized_input:
+        return "yen"
+
+    if normalized_fallback in valid_styles:
+        return normalized_fallback
+
+    return "yen"
+#================================================
+
 # 円の整数値を表示形式に応じて変換する共通関数
 def format_yen_for_display(value, display_style: str = "yen") -> str:
     amount = int(Decimal(str(value)).quantize(
@@ -5576,29 +5609,14 @@ def build_general_calculation_context(
     if normalized_detail_level not in {"simple", "detailed"}:
         normalized_detail_level = "simple"
     
-    normalized_user_input = str(user_input or "").replace(
-        " ", ""
-    ).replace("　", "")
+    # normalized_user_input = str(user_input or "").replace(
+    #     " ", ""
+    # ).replace("　", "")
 
-    valid_money_styles = {
-        "yen",
-        "man_yen",
-        "japanese_grouped"
-    }
-    normalized_saved_style = str(
-        saved_money_display_style or ""
-    ).strip().lower()
-
-    if "億" in normalized_user_input:
-        money_display_style = "japanese_grouped"
-    elif "万" in normalized_user_input:
-        money_display_style = "man_yen"
-    elif "円" in normalized_user_input:
-        money_display_style = "yen"
-    elif normalized_saved_style in valid_money_styles:
-        money_display_style = normalized_saved_style
-    else:
-        money_display_style = "yen"
+    money_display_style = detect_money_display_style(
+        user_input=user_input,
+        fallback_style=saved_money_display_style
+    )
     
     if normalized_detail_level == "detailed":
         inheritance_usage_rule = """
@@ -15945,6 +15963,13 @@ with all_tabs[0]:
                                             "input_value": ambiguous_item.get(
                                                 "input_value"
                                             ),
+                                            "money_display_style": str(
+                                                pending_calculation_clarification.get(
+                                                    "money_display_style",
+                                                    "yen"
+                                                )
+                                                or "yen"
+                                            ).strip().lower(),
                                             "previous_state": copy.deepcopy(
                                                 pending_calculation_clarification.get(
                                                     "previous_state",
@@ -15974,8 +15999,42 @@ with all_tabs[0]:
                             ]
 
                             if input_value is not None and len(candidate_labels) == 2:
-                                formatted_value = f"{int(input_value):,}" if isinstance(input_value, (int, float)) else str(input_value)
-                                ai_reply = f"{formatted_value}は、{candidate_labels[0]}と{candidate_labels[1]}のどちらですか？"
+                                money_display_style = str(
+                                    pending_calculation_clarification.get(
+                                        "money_display_style",
+                                        "yen"
+                                    ) or "yen"
+                                ).strip().lower()
+
+                                calculation_type = str(
+                                    pending_calculation_clarification.get(
+                                        "calculation_type",
+                                        ""
+                                    ) or ""
+                                ).strip().lower()
+
+                                field_metadata = GENERAL_CALCULATION_FIELD_METADATA.get(
+                                    calculation_type,
+                                    {}
+                                ).get(
+                                    candidate_fields[0],
+                                    {}
+                                )
+
+                                if field_metadata.get("value_type") == "money":
+                                    formatted_value = format_yen_for_display(
+                                        input_value,
+                                        money_display_style
+                                    )
+                                elif isinstance(input_value, (int, float)):
+                                    formatted_value = f"{int(input_value):,}"
+                                else:
+                                    formatted_value = str(input_value)
+
+                                ai_reply = (
+                                    f"{formatted_value}は、{candidate_labels[0]}と"
+                                    f"{candidate_labels[1]}のどちらですか？"
+                                )
                             else:
                                 ai_reply = "入力された値が、どの計算条件を指すか教えてください。"
 
@@ -17830,8 +17889,38 @@ with all_tabs[0]:
                                     or ""
                                 ).strip().lower()
 
+                                normalized_clarification_input = (
+                                    unicodedata.normalize(
+                                        "NFKC",
+                                        str(user_input or "")
+                                    )
+                                )
+
+                                fallback_clarification_style = "yen"
+
+                                if isinstance(
+                                    previous_general_calculation_state,
+                                    dict
+                                ):
+                                    fallback_clarification_style = (
+                                        previous_general_calculation_state.get(
+                                            "money_display_style",
+                                            "yen"
+                                        )
+                                    )
+
+                                clarification_money_style = (
+                                    detect_money_display_style(
+                                        user_input=user_input,
+                                        fallback_style=(
+                                            fallback_clarification_style
+                                        )
+                                    )
+                                )
+                                
                                 clarification_previous_state = {
                                     "calculation_type": general_calculation_type,
+                                    "money_display_style": clarification_money_style,
                                     "cases": [
                                         {
                                             "case_name": str(
@@ -17863,6 +17952,7 @@ with all_tabs[0]:
                                 ] = {
                                     "calculation_type": general_calculation_type,
                                     "user_input": user_input,
+                                    "money_display_style": clarification_money_style,
                                     "ambiguous_fields": ambiguous_fields,
                                     "previous_state": clarification_previous_state,
                                     "extraction_result": copy.deepcopy(
@@ -18082,57 +18172,36 @@ with all_tabs[0]:
                                 general_calculation_execution_result
                             )
 
-                        normalized_money_input = unicodedata.normalize(
-                            "NFKC",
-                            str(user_input or "")
-                        )
+                        fallback_money_style = "yen"
 
-                        if "億" in normalized_money_input:
-                            current_money_display_style = "japanese_grouped"
-                        elif "万" in normalized_money_input:
-                            current_money_display_style = "man_yen"
-                        elif "円" in normalized_money_input:
-                            current_money_display_style = "yen"
-                        else:
-                            previous_style = (
-                                "yen"
-                                if has_calculation_reset_intent(user_input)
-                                else previous_general_calculation_state.get(
+                        if resolved_calculation_clarification:
+                            fallback_money_style = str(
+                                resolved_calculation_clarification.get(
                                     "money_display_style",
                                     "yen"
                                 )
-                                if isinstance(
-                                    previous_general_calculation_state,
-                                    dict
+                                or "yen"
+                            ).strip().lower()
+                        elif (
+                            not reset_calculation_conditions
+                            and isinstance(
+                                previous_general_calculation_state,
+                                dict
+                            )
+                        ):
+                            fallback_money_style = (
+                                previous_general_calculation_state.get(
+                                    "money_display_style",
+                                    "yen"
                                 )
-                                else "yen"
                             )
-                            current_cases = (
-                                general_calculation_extraction_result.get(
-                                    "cases",
-                                    []
-                                )
+
+                        current_money_display_style = (
+                            detect_money_display_style(
+                                user_input=user_input,
+                                fallback_style=fallback_money_style
                             )
-                            has_money_condition = any(
-                                isinstance(case, dict)
-                                and any(
-                                    case.get("parameters", {}).get(field)
-                                    is not None
-                                    for field in {
-                                        "principal",
-                                        "initial_principal",
-                                        "contribution_amount",
-                                        "base_value",
-                                        "comparison_value"
-                                    }
-                                )
-                                for case in current_cases
-                            )
-                            current_money_display_style = (
-                                previous_style
-                                if has_money_condition
-                                else "yen"
-                            )
+                        )
                         
                         if general_calculation_execution_result.get("status") in {"success", "missing_fields"}:
                             st.session_state["last_general_calculation_state"] = {
