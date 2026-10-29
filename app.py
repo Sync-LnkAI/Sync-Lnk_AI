@@ -15893,6 +15893,14 @@ with all_tabs[0]:
                         pending_calculation_clarification = dict(
                             st.session_state.get("pending_calculation_clarification", {}) or {}
                         )
+                        if (
+                            pending_calculation_clarification
+                            and has_calculation_reset_intent(user_input)
+                        ):
+                            pending_calculation_clarification = {}
+                            st.session_state[
+                                "pending_calculation_clarification"
+                            ] = {}
                         resolved_calculation_clarification = None
                         calculation_clarification_unresolved = False
 
