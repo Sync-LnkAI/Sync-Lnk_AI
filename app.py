@@ -3952,6 +3952,61 @@ GENERAL_CALCULATION_FIELD_METADATA = {
             "ambiguity_groups": {},
             "labels": {}
         }
+    },
+    "recurring_investment": {
+        "initial_principal": {
+            "value_type": "money",
+            "ambiguity_groups": {
+                "default": "investment_amount"
+            },
+            "labels": {
+                "default": "初期元本"
+            }
+        },
+        "contribution_amount": {
+            "value_type": "money",
+            "ambiguity_groups": {
+                "default": "investment_amount"
+            },
+            "labels": {
+                "default": "1回あたりの積立額"
+            }
+        },
+        "contributions_per_year": {
+            "value_type": "count",
+            "ambiguity_groups": {},
+            "labels": {
+                "default": "1年間の積立回数"
+            }
+        },
+        "annual_rate": {
+            "value_type": "rate",
+            "ambiguity_groups": {},
+            "labels": {
+                "default": "年利"
+            }
+        },
+        "years": {
+            "value_type": "number",
+            "ambiguity_groups": {},
+            "labels": {
+                "default": "積立期間"
+            }
+        },
+        "compounding_per_year": {
+            "value_type": "count",
+            "ambiguity_groups": {},
+            "labels": {
+                "default": "1年間の複利回数"
+            }
+        },
+        "contribution_timing": {
+            "value_type": "mode",
+            "ambiguity_groups": {},
+            "labels": {
+                "default": "積立タイミング"
+            }
+        }
     }
 }
 
@@ -3979,25 +4034,34 @@ def get_general_calculation_ambiguity_candidates(calculation_type: str, calculat
 
 # メタデータを使ってAI抽出結果をPython側で曖昧状態へ変換する共通関数
 def convert_general_calculation_extraction_to_ambiguous(calculation_type: str, extraction_result: dict, previous_state: dict, user_input: str) -> dict:
-    if not isinstance(extraction_result, dict) or not isinstance(previous_state, dict):
+    
+    if not isinstance(extraction_result, dict):
         return extraction_result
+
+    if not isinstance(previous_state, dict):
+        previous_state = {}
 
     normalized_type = str(calculation_type or "").strip().lower()
+    calculation_mode = "default"
+
+    previous_type = str(
+        previous_state.get("calculation_type", "") or ""
+    ).strip().lower()
     previous_cases = previous_state.get("cases", [])
-    if not isinstance(previous_cases, list) or len(previous_cases) != 1:
-        return extraction_result
 
-    previous_case = previous_cases[0]
-    if not isinstance(previous_case, dict):
-        return extraction_result
+    if (
+        previous_type == normalized_type
+        and isinstance(previous_cases, list)
+        and len(previous_cases) == 1
+        and isinstance(previous_cases[0], dict)
+    ):
+        previous_parameters = previous_cases[0].get("parameters", {})
 
-    previous_parameters = previous_case.get("parameters", {})
-    if not isinstance(previous_parameters, dict):
-        return extraction_result
-
-    calculation_mode = str(previous_parameters.get("calculation_mode", "") or "").strip().lower()
-    if not calculation_mode:
-        return extraction_result
+        if isinstance(previous_parameters, dict):
+            calculation_mode = str(
+                previous_parameters.get("calculation_mode", "")
+                or "default"
+            ).strip().lower()
 
     cases = extraction_result.get("cases", [])
     current_case = None
@@ -17662,6 +17726,36 @@ with all_tabs[0]:
                                 is_ambiguous_extraction = (
                                     extraction_status == "ambiguous_fields"
                                     and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
+                                )
+
+                            if not is_ambiguous_extraction:
+                                general_calculation_extraction_result = (
+                                    convert_general_calculation_extraction_to_ambiguous(
+                                        calculation_type=(
+                                            general_calculation_type
+                                        ),
+                                        extraction_result=(
+                                            general_calculation_extraction_result
+                                        ),
+                                        previous_state=(
+                                            previous_general_calculation_state
+                                        ),
+                                        user_input=user_input
+                                    )
+                                )
+                                extraction_status = str(
+                                    general_calculation_extraction_result.get(
+                                        "extraction_status", ""
+                                    ) or ""
+                                ).strip().lower()
+                                is_ambiguous_extraction = (
+                                    extraction_status
+                                    == "ambiguous_fields"
+                                    and bool(
+                                        general_calculation_extraction_result.get(
+                                            "ambiguous_fields", []
+                                        )
+                                    )
                                 )
             
                             if not is_ambiguous_extraction and not inherit_previous_calculation:
