@@ -5420,7 +5420,8 @@ def build_general_missing_fields_response(
 def build_general_calculation_context(
     execution_result: dict,
     detail_level: str = "simple",
-    user_input: str = ""
+    user_input: str = "",
+    saved_money_display_style: str = ""
 ) -> str:
     if not isinstance(execution_result, dict):
         return ""
@@ -5433,10 +5434,23 @@ def build_general_calculation_context(
         " ", ""
     ).replace("　", "")
 
+    valid_money_styles = {
+        "yen",
+        "man_yen",
+        "japanese_grouped"
+    }
+    normalized_saved_style = str(
+        saved_money_display_style or ""
+    ).strip().lower()
+
     if "億" in normalized_user_input:
         money_display_style = "japanese_grouped"
     elif "万" in normalized_user_input:
         money_display_style = "man_yen"
+    elif "円" in normalized_user_input:
+        money_display_style = "yen"
+    elif normalized_saved_style in valid_money_styles:
+        money_display_style = normalized_saved_style
     else:
         money_display_style = "yen"
     
@@ -17789,7 +17803,17 @@ with all_tabs[0]:
                             general_calculation_context = (
                                 build_general_calculation_context(
                                     general_calculation_execution_result,
-                                    user_input=user_input
+                                    user_input=user_input,
+                                    saved_money_display_style=(
+                                        previous_general_calculation_state.get(
+                                            "money_display_style", ""
+                                        )
+                                        if isinstance(
+                                            previous_general_calculation_state,
+                                            dict
+                                        )
+                                        else ""
+                                    )
                                 )
                             )
 
@@ -17860,12 +17884,63 @@ with all_tabs[0]:
                                 general_calculation_execution_result
                             )
 
+                        normalized_money_input = unicodedata.normalize(
+                            "NFKC",
+                            str(user_input or "")
+                        )
+
+                        if "億" in normalized_money_input:
+                            current_money_display_style = "japanese_grouped"
+                        elif "万" in normalized_money_input:
+                            current_money_display_style = "man_yen"
+                        elif "円" in normalized_money_input:
+                            current_money_display_style = "yen"
+                        else:
+                            previous_style = (
+                                previous_general_calculation_state.get(
+                                    "money_display_style",
+                                    "yen"
+                                )
+                                if isinstance(
+                                    previous_general_calculation_state,
+                                    dict
+                                )
+                                else "yen"
+                            )
+                            current_cases = (
+                                general_calculation_extraction_result.get(
+                                    "cases",
+                                    []
+                                )
+                            )
+                            has_money_condition = any(
+                                isinstance(case, dict)
+                                and any(
+                                    case.get("parameters", {}).get(field)
+                                    is not None
+                                    for field in {
+                                        "principal",
+                                        "initial_principal",
+                                        "contribution_amount",
+                                        "base_value",
+                                        "comparison_value"
+                                    }
+                                )
+                                for case in current_cases
+                            )
+                            current_money_display_style = (
+                                previous_style
+                                if has_money_condition
+                                else "yen"
+                            )
+                        
                         if general_calculation_execution_result.get("status") in {"success", "missing_fields"}:
                             st.session_state["last_general_calculation_state"] = {
                                 "calculation_type": general_calculation_extraction_result.get(
                                     "calculation_type"
                                 ),
-                                "cases": general_calculation_extraction_result.get("cases", [])
+                                "cases": general_calculation_extraction_result.get("cases", []),
+                                "money_display_style": (current_money_display_style)
                             }
                             active_calc_prompt = ""
                         
@@ -18112,7 +18187,17 @@ with all_tabs[0]:
                                 general_calculation_context = (
                                     build_general_calculation_context(
                                         general_calculation_execution_result,
-                                        user_input=user_input
+                                        user_input=user_input,
+                                        saved_money_display_style=(
+                                            previous_general_calculation_state.get(
+                                                "money_display_style", ""
+                                            )
+                                            if isinstance(
+                                                previous_general_calculation_state,
+                                                dict
+                                            )
+                                            else ""
+                                        )
                                     )
                                 )
 
