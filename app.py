@@ -7208,7 +7208,7 @@ def classify_general_calculation_type(
     user_input: str,
     recent_history_str: str = ""
 ) -> tuple[str | None, str | None, float, int, int, float]:
-    default_result = (None, "分類不能", 0.0, 0, 0, 0.0)
+    default_result = (None, "分類不能", "complex_or_high_risk", 0.0, 0, 0, 0.0)
     normalized_user_input = str(user_input or "").strip()
 
     if not normalized_user_input:
@@ -7274,6 +7274,15 @@ def classify_general_calculation_type(
     ・計算式や計算結果を出力してはいけません。
     ・既存の計算タイプに該当する場合はunmatched_calculation_categoryをnullにしてください。
     ・計算内容を特定できない場合は「分類不能」にしてください。
+     
+     【未対応計算の回答方法】
+    ・既存の5種類に該当しない場合は、次のどちらかをunmatched_calculation_handlingへ設定してください。
+    ・simple_ai:
+      四則演算、面積、体積、平均値、平均速度、時間・距離・速さ、単位換算など、単純な式で一度に計算できる場合。
+    ・complex_or_high_risk:
+      税金、保険、返戻金、年金、投資判断、複雑なローン、法制度、複数段階の金融計算など、条件や計算方式によって結果が変わりやすい場合。
+    ・既存の5種類に該当する場合はnullにしてください。
+    ・計算結果そのものは出力しないでください。
 
     【直近の会話】
     {recent_history_str}
@@ -7285,6 +7294,7 @@ def classify_general_calculation_type(
     {{
         "calculation_type": "compound_interest",
         "unmatched_calculation_category": null,
+        "unmatched_calculation_handling": null,
         "confidence": 0.95
     }}
     """.strip()
@@ -7320,6 +7330,21 @@ def classify_general_calculation_type(
         if unmatched_category is not None:
             unmatched_category = str(unmatched_category).strip()
 
+        unmatched_handling = type_data.get(
+            "unmatched_calculation_handling"
+        )
+        if unmatched_handling is not None:
+            unmatched_handling = str(
+                unmatched_handling
+            ).strip().lower()
+
+        allowed_handlings = {
+            "simple_ai",
+            "complex_or_high_risk"
+        }
+        if unmatched_handling not in allowed_handlings:
+            unmatched_handling = "complex_or_high_risk"
+
         if calculation_type is None and unmatched_category:
             aliased_type = GENERAL_CALCULATION_TYPE_ALIASES.get(
                 unmatched_category
@@ -7331,6 +7356,7 @@ def classify_general_calculation_type(
 
         if calculation_type is not None:
             unmatched_category = None
+            unmatched_handling = None
         elif not unmatched_category:
             unmatched_category = "分類不能"
         else:
@@ -7346,7 +7372,7 @@ def classify_general_calculation_type(
             out_tokens=out_tokens
         )
 
-        return calculation_type, unmatched_category, confidence, in_tokens, out_tokens, api_cost
+        return calculation_type, unmatched_category, unmatched_handling, confidence, in_tokens, out_tokens, api_cost
 
     except (json.JSONDecodeError, ValueError, TypeError) as classification_error:
         print(f"汎用計算タイプ判定エラー: {type(classification_error).__name__}: {classification_error}")
@@ -17418,6 +17444,7 @@ with all_tabs[0]:
                         general_calculation_type = None
                         unmatched_calculation_category = None
                         reset_calculation_conditions = False
+                        unmatched_calculation_handling = None
                         previous_general_calculation_state = {}
                         general_type_confidence = 0.0
                         general_type_in_tokens = 0
@@ -17547,6 +17574,7 @@ with all_tabs[0]:
                                 (
                                     general_calculation_type,
                                     unmatched_calculation_category,
+                                    unmatched_calculation_handling,
                                     general_type_confidence,
                                     general_type_in_tokens,
                                     general_type_out_tokens,
@@ -17632,6 +17660,7 @@ with all_tabs[0]:
                                         )
 
                                 debug_text("DEBUG unmatched_calculation_category", unmatched_calculation_category)
+                                debug_text("DEBUG unmatched_calculation_handling", unmatched_calculation_handling)                                
                                 debug_text("DEBUG general_calculation_type", general_calculation_type)
                                 debug_text("DEBUG general_type_confidence", general_type_confidence)
 
@@ -18380,38 +18409,55 @@ with all_tabs[0]:
                                 # st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
-                            general_calculation_execution_result = {
-                                "status": "unsupported_type",
-                                "calculation_type": None,
-                                "results": [],
-                                "missing_fields": [],
-                                "error": (
-                                    "現在未対応の計算です。分類: "
-                                    f"{unmatched_calculation_category or '分類不能'}"
-                                )
-                            }
-
                             unsupported_category = str(
                                 unmatched_calculation_category
                                 or "分類不能"
                             ).strip()
+
                             save_system_audit_log(
                                 user_id=CURRENT_USER_ID,
                                 plan_type=current_plan_type,
-                                event_type=(
-                                    "unsupported_calculation_category"
-                                ),
+                                event_type="unsupported_calculation_category",
                                 processing_time=0.0,
                                 in_t=0,
                                 out_t=0,
                                 api_cost=0.0,
-                                details=f"category={unsupported_category}",
+                                details=(
+                                    f"category={unsupported_category}"
+                                    " | handling="
+                                    f"{unmatched_calculation_handling or 'unknown'}"
+                                ),
                                 message_id=str(current_msg_id)
                             )
 
-                            general_calculation_context = build_general_calculation_context(
-                                general_calculation_execution_result
-                            )
+                            if (
+                                unmatched_calculation_handling
+                                == "simple_ai"
+                            ):
+                                general_calculation_execution_result = {
+                                    "status": "not_applicable",
+                                    "calculation_type": None,
+                                    "results": [],
+                                    "missing_fields": [],
+                                    "error": None
+                                }
+                                general_calculation_context = ""
+                            else:
+                                general_calculation_execution_result = {
+                                    "status": "unsupported_type",
+                                    "calculation_type": None,
+                                    "results": [],
+                                    "missing_fields": [],
+                                    "error": (
+                                        "現在未対応の計算です。分類: "
+                                        f"{unsupported_category}"
+                                    )
+                                }
+                                general_calculation_context = (
+                                    build_general_calculation_context(
+                                        general_calculation_execution_result
+                                    )
+                                )
 
                         fallback_money_style = "yen"
 
@@ -18484,6 +18530,16 @@ with all_tabs[0]:
                             general_calculation_direct_response = (
                                 "計算条件に問題があります。\n"
                                 f"{localized_error}"
+                            )
+
+                        elif calculation_status == "unsupported_type":
+                            unsupported_category = str(
+                                unmatched_calculation_category
+                                or "この計算"
+                            ).strip()
+                            general_calculation_direct_response = (
+                                f"現在、{unsupported_category}には"
+                                "対応していません。"
                             )
                         
                         grounded_response_route = ("main_chat_response")
