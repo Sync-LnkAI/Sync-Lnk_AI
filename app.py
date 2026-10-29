@@ -5621,6 +5621,160 @@ def build_general_missing_fields_response(
     )
 #================================================
 
+# 汎用計算で発生する既知の29種類のエラーを、ユーザー向けの日本語へ変換する共通関数
+def localize_general_calculation_error(
+    error_message: str
+) -> str:
+    normalized_error = str(
+        error_message or "計算条件に問題があります"
+    ).strip()
+
+    known_messages = {
+        "principalは0以上にしてください": (
+            "元本には0以上の値を指定してください。"
+        ),
+        "principalは0より大きくしてください": (
+            "元本または借入額には、"
+            "0より大きい値を指定してください。"
+        ),
+        "annual_rateは0以上にしてください": (
+            "年利には0%以上の値を指定してください。"
+        ),
+        "yearsは0より大きくしてください": (
+            "期間には0より大きい値を指定してください。"
+        ),
+        "compounding_per_yearは0より大きくしてください": (
+            "1年間の複利回数には、"
+            "0より大きい値を指定してください。"
+        ),
+        "compounding_per_yearは整数にしてください": (
+            "1年間の複利回数は整数で指定してください。"
+        ),
+        "運用期間と複利回数から求めた期間数が整数になりません": (
+            "運用期間と複利回数の組み合わせでは、"
+            "計算期間が整数になりません。"
+        ),
+        "initial_principalは0以上にしてください": (
+            "初期元本には0以上の値を指定してください。"
+        ),
+        "contribution_amountは0以上にしてください": (
+            "1回あたりの積立額には、"
+            "0以上の値を指定してください。"
+        ),
+        "contributions_per_yearは0より大きくしてください": (
+            "1年間の積立回数には、"
+            "0より大きい値を指定してください。"
+        ),
+        "contributions_per_yearは整数にしてください": (
+            "1年間の積立回数は整数で指定してください。"
+        ),
+        "contribution_timingはbeginningまたはendにしてください": (
+            "積立タイミングは、"
+            "期間の開始時または終了時を指定してください。"
+        ),
+        "複利回数は積立回数の整数倍にしてください": (
+            "1年間の複利回数は、"
+            "1年間の積立回数の整数倍にしてください。"
+        ),
+        "積立期間から求めた積立回数が整数になりません": (
+            "積立期間と積立頻度の組み合わせでは、"
+            "積立回数が整数になりません。"
+        ),
+        "運用期間から求めた複利回数が整数になりません": (
+            "運用期間と複利頻度の組み合わせでは、"
+            "複利回数が整数になりません。"
+        ),
+        "payments_per_yearは0より大きくしてください": (
+            "1年間の返済回数には、"
+            "0より大きい値を指定してください。"
+        ),
+        "payments_per_yearは整数にしてください": (
+            "1年間の返済回数は整数で指定してください。"
+        ),
+        "現在対応している返済方式は元利均等返済だけです": (
+            "現在対応している返済方式は、"
+            "元利均等返済のみです。"
+        ),
+        "現在はボーナス返済なしの計算だけに対応しています": (
+            "現在は、ボーナス返済なしの計算にのみ"
+            "対応しています。"
+        ),
+        "返済期間から求めた返済回数が整数になりません": (
+            "返済期間と返済頻度の組み合わせでは、"
+            "返済回数が整数になりません。"
+        ),
+        "対応していないcalculation_modeです": (
+            "指定された割合計算の方法には対応していません。"
+        ),
+        "base_valueは0以上にしてください": (
+            "基準値には0以上の値を指定してください。"
+        ),
+        "comparison_valueは0以上にしてください": (
+            "比較値には0以上の値を指定してください。"
+        ),
+        "rateは0以上にしてください": (
+            "割合には0%以上の値を指定してください。"
+        ),
+        "base_valueとrateが必要です": (
+            "基準値と割合を指定してください。"
+        ),
+        "base_valueとcomparison_valueが必要です": (
+            "比較する2つの値を指定してください。"
+        ),
+        "割合計算のbase_valueを0にはできません": (
+            "割合計算の基準値には0を指定できません。"
+        ),
+        "増減率計算のbase_valueを0にはできません": (
+            "増減率計算の変更前の値には0を指定できません。"
+        ),
+        "割引率は0から1の範囲にしてください": (
+            "割引率には0%から100%の範囲を指定してください。"
+        )
+    }
+
+    if normalized_error in known_messages:
+        return known_messages[normalized_error]
+
+    field_labels = {
+        **GENERAL_CALCULATION_FIELD_LABELS,
+        "compounding_per_year": "1年間の複利回数",
+        "contributions_per_year": "1年間の積立回数",
+        "contribution_timing": "積立タイミング",
+        "payments_per_year": "1年間の返済回数",
+        "repayment_method": "返済方式",
+        "calculation_mode": "計算方法"
+    }
+
+    localized_error = normalized_error
+
+    for field_name in sorted(
+        field_labels,
+        key=len,
+        reverse=True
+    ):
+        localized_error = localized_error.replace(
+            field_name,
+            field_labels[field_name]
+        )
+
+    localized_error = (
+        localized_error
+        .replace("beginning", "期間の開始時")
+        .replace("end", "期間の終了時")
+    )
+
+    if re.search(r"[A-Za-z_]{2,}", localized_error):
+        return (
+            "入力された計算条件に問題があります。"
+            "数値や単位を確認して、もう一度入力してください。"
+        )
+
+    if not localized_error.endswith(("。", "！", "？")):
+        localized_error += "。"
+
+    return localized_error
+#================================================
+
 # Python計算結果を最終回答へ渡す関数
 def build_general_calculation_context(
     execution_result: dict,
@@ -18283,14 +18437,32 @@ with all_tabs[0]:
                         
                         grounded_direct_response = False
                         general_calculation_direct_response = ""
-                        if (
-                            general_calculation_execution_result.get("status")
-                            == "missing_fields"
-                        ):
+                        calculation_status = str(
+                            general_calculation_execution_result.get(
+                                "status",
+                                ""
+                            )
+                            or ""
+                        ).strip().lower()
+
+                        if calculation_status == "missing_fields":
                             general_calculation_direct_response = (
                                 build_general_missing_fields_response(
                                     general_calculation_execution_result
                                 )
+                            )
+                        elif calculation_status == "calculation_error":
+                            localized_error = (
+                                localize_general_calculation_error(
+                                    general_calculation_execution_result.get(
+                                        "error",
+                                        ""
+                                    )
+                                )
+                            )
+                            general_calculation_direct_response = (
+                                "計算条件に問題があります。\n"
+                                f"{localized_error}"
                             )
                         
                         grounded_response_route = ("main_chat_response")
