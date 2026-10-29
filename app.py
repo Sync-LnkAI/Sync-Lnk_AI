@@ -17986,7 +17986,9 @@ with all_tabs[0]:
                             current_money_display_style = "yen"
                         else:
                             previous_style = (
-                                previous_general_calculation_state.get(
+                                "yen"
+                                if has_calculation_reset_intent(user_input)
+                                else previous_general_calculation_state.get(
                                     "money_display_style",
                                     "yen"
                                 )
