@@ -3801,6 +3801,37 @@ GENERAL_CALCULATION_PARAMETER_FIELDS = {
     }
 }
 
+# 計算タイプ別の金額項目を共通定義
+GENERAL_CALCULATION_MONEY_FIELDS = {
+    "compound_interest": {
+        "principal",
+        "final_amount",
+        "profit"
+    },
+    "recurring_investment": {
+        "initial_principal",
+        "contribution_amount",
+        "total_contributions",
+        "final_amount",
+        "profit"
+    },
+    "loan_payment": {
+        "principal",
+        "bonus_payment",
+        "payment_amount",
+        "total_payment",
+        "total_interest"
+    },
+    "simple_interest": {
+        "principal",
+        "interest",
+        "final_amount"
+    },
+    "percentage_calculation": {
+        "result"
+    }
+}
+
 # 計算タイプごとの必須項目定義(計算実行に必須となる項目の一覧)
 GENERAL_CALCULATION_REQUIRED_FIELDS = {
     "compound_interest": {
@@ -5323,6 +5354,24 @@ def compress_general_calculation_results(
         else:
             compressed_item["result"] = result
 
+        money_fields = GENERAL_CALCULATION_MONEY_FIELDS.get(calculation_type, set())
+
+        for field_name in money_fields:
+            if field_name not in compressed_item:
+                continue
+
+            field_value = compressed_item.get(field_name)
+
+            if field_value is None:
+                continue
+
+            display_field = f"{field_name}_display"
+            compressed_item[display_field] = format_yen_for_display(
+                field_value,
+                money_display_style
+            )
+            compressed_item.pop(field_name, None)
+        
         compressed_results.append(
             make_json_safe(compressed_item)
         )
