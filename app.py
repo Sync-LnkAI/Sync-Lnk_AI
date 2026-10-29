@@ -5257,6 +5257,7 @@ def compress_general_calculation_results(
                     result_value,
                     money_display_style
                 )
+                compressed_item.pop("result", None)
 
             if normalized_detail_level == "detailed":
                 compressed_item.update({
