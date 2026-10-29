@@ -5094,7 +5094,8 @@ def execute_general_calculation(extraction_result: dict) -> dict:
 # 回答生成用に計算結果を圧縮する関数
 def compress_general_calculation_results(
     execution_result: dict,
-    detail_level: str = "simple"
+    detail_level: str = "simple",
+    money_display_style: str = "yen"
 ) -> list:
     calculation_type = str(
         execution_result.get("calculation_type", "") or ""
@@ -5108,9 +5109,18 @@ def compress_general_calculation_results(
 
     if normalized_detail_level not in {"simple", "detailed"}:
         normalized_detail_level = "simple"
+    
+    normalized_user_input = str(user_input or "").replace(" ", "").replace("　", "")
+    if "億" in normalized_user_input:
+        money_display_style = "japanese_grouped"
+    elif "万" in normalized_user_input:
+        money_display_style = "man_yen"
+    elif "円" in normalized_user_input:
+        money_display_style = "yen"
+    else:
+        money_display_style = "yen"
 
     compressed_results = []
-
     for item in results:
         if not isinstance(item, dict):
             continue
@@ -5252,6 +5262,12 @@ def compress_general_calculation_results(
                 "result": result_value
             })
 
+            if result_type == "value" and result_value is not None:
+                compressed_item["result_display"] = format_yen_for_display(
+                    result_value,
+                    money_display_style
+                )
+
             if normalized_detail_level == "detailed":
                 compressed_item.update({
                     "base_value": parameters.get("base_value"),
@@ -5269,10 +5285,39 @@ def compress_general_calculation_results(
     return compressed_results
 #================================================
 
+# 円の整数値を表示形式に応じて変換する共通関数
+def format_yen_for_display(value, display_style: str = "yen") -> str:
+    amount = int(Decimal(str(value)).quantize(
+        Decimal("1"),
+        rounding=ROUND_HALF_UP
+    ))
+    sign = "-" if amount < 0 else ""
+    amount = abs(amount)
+
+    if display_style == "yen":
+        return f"{sign}{amount:,}円"
+
+    oku, remainder = divmod(amount, 100000000)
+    man, yen = divmod(remainder, 10000)
+    parts = []
+
+    if oku:
+        parts.append(f"{oku:,}億")
+    if man:
+        parts.append(f"{man:,}万")
+    if yen or not parts:
+        parts.append(f"{yen:,}円")
+    elif parts:
+        parts[-1] += "円"
+
+    return sign + "".join(parts)
+#================================================
+
 # Python計算結果を最終回答へ渡す関数
 def build_general_calculation_context(
     execution_result: dict,
-    detail_level: str = "simple"
+    detail_level: str = "simple",
+    user_input: str = ""
 ) -> str:
     if not isinstance(execution_result, dict):
         return ""
@@ -5445,7 +5490,8 @@ def build_general_calculation_context(
         calculation_type = execution_result.get("calculation_type")
         results = compress_general_calculation_results(
             execution_result,
-            detail_level=normalized_detail_level
+            detail_level=normalized_detail_level,
+            money_display_style=money_display_style
         )
 
         if not results:
@@ -5511,8 +5557,8 @@ def build_general_calculation_context(
         ・各ケースのcase_nameと結果を対応させ、複数ケースを混同しないでください。
         ・結果にない数値、条件、説明を追加しないでください。
         ・内部キー名を表示せず、質問に合った自然な単位と表記を使用してください。
-        ・金額はユーザーが使用した単位に合わせてください。入力が万円や億円の場合は、結果も「160万円」「1億2,345万6,789円」のように日本語の位取りで表示し、端数を勝手に丸めないでください。
         ・result_labelがある場合は、その表示名を変更せず、対応するresultの項目名として使用してください。
+        ・result_displayがある場合は、resultではなくresult_displayをそのまま表示し、表記の変更、単位換算、再計算をしてはいけません。
         ・同じ意味の数値を重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
         ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
@@ -17560,7 +17606,8 @@ with all_tabs[0]:
 
                             general_calculation_context = (
                                 build_general_calculation_context(
-                                    general_calculation_execution_result
+                                    general_calculation_execution_result,
+                                    user_input=user_input
                                 )
                             )
 
@@ -17871,7 +17918,8 @@ with all_tabs[0]:
 
                                 general_calculation_context = (
                                     build_general_calculation_context(
-                                        general_calculation_execution_result
+                                        general_calculation_execution_result,
+                                        user_input=user_input
                                     )
                                 )
 
