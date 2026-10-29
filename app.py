@@ -4741,14 +4741,19 @@ def merge_general_calculation_case(
 
     inherited_fields = []
 
-    for field_name in parameters.keys():
-        if field_name in explicit_field_set:
-            continue
-
+    for field_name in parameters:
         previous_value = previous_parameters.get(field_name)
 
         if previous_value is None:
             continue
+
+        current_value = parameters.get(field_name)
+
+        if field_name in explicit_field_set:
+            if current_value != previous_value:
+                continue
+
+            explicit_field_set.discard(field_name)
 
         parameters[field_name] = previous_value
         inherited_fields.append(field_name)
