@@ -4878,7 +4878,10 @@ def build_general_calculation_fallback_extraction(
     user_input: str
 ) -> dict:
     normalized_type = str(calculation_type or "").strip().lower()
-    normalized_input = str(user_input or "")
+    normalized_input = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
 
     if normalized_type not in GENERAL_CALCULATION_TYPES:
         return {}
@@ -17374,6 +17377,17 @@ with all_tabs[0]:
                                 "DEBUG inherit_previous_calculation",
                                 inherit_previous_calculation
                             )
+
+                            general_reference_context = ""
+                            if isinstance(
+                                previous_general_calculation_state,
+                                dict
+                            ):
+                                general_reference_context = json.dumps(
+                                    previous_general_calculation_state,
+                                    ensure_ascii=False
+                                )
+
                             general_extraction_start_time = time.time()
                             if resolved_calculation_clarification:
                                 selected_field = resolved_calculation_clarification.get("selected_field")
@@ -17421,7 +17435,8 @@ with all_tabs[0]:
                                     extract_general_calculation_parameters(
                                         user_input=user_input,
                                         calculation_type=general_calculation_type,
-                                        inherit_previous_conditions=inherit_previous_calculation
+                                        inherit_previous_conditions=inherit_previous_calculation,
+                                        reference_context=general_reference_context
                                     )
                                 )
 
@@ -17503,10 +17518,13 @@ with all_tabs[0]:
                                 and previous_calculation_type == general_calculation_type
                             ):
                                 original_extraction_result = copy.deepcopy(general_calculation_extraction_result)
-                                retry_extraction_result = extract_general_calculation_parameters(
-                                    user_input=user_input,
-                                    calculation_type=general_calculation_type,
-                                    inherit_previous_conditions=True
+                                retry_extraction_result = (
+                                    extract_general_calculation_parameters(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        inherit_previous_conditions=True,
+                                        reference_context=general_reference_context
+                                    )
                                 )
                                 retry_status = str(
                                     retry_extraction_result.get("extraction_status", "") or ""
@@ -17670,6 +17688,9 @@ with all_tabs[0]:
                                     )
 
                                     if fallback_extraction:
+                                        fallback_extraction[
+                                            "inherit_previous_conditions"
+                                        ] = inherit_previous_calculation
                                         general_calculation_extraction_result = (
                                             apply_inherited_general_calculation_fields(
                                                 extraction_result=(
