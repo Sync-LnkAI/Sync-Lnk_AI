@@ -18158,7 +18158,7 @@ with all_tabs[0]:
                                     if field_metadata.get("value_type") == "money":
                                         formatted_value = format_yen_for_display(
                                             input_value,
-                                            current_money_display_style
+                                            clarification_money_style
                                         )
                                     elif isinstance(input_value, (int, float)):
                                         formatted_value = f"{int(input_value):,}"
