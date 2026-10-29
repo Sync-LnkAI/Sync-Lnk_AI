@@ -17617,6 +17617,7 @@ with all_tabs[0]:
                             if (
                                 not is_ambiguous_extraction
                                 and retry_extraction_for_inheritance
+                                and not reset_calculation_conditions
                                 and requires_estimation
                                 and previous_calculation_type == general_calculation_type
                             ):
