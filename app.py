@@ -7349,17 +7349,41 @@ PYTHON_DETAILED_RESULT_PROMPT = """
     ・詳細回答では、現在確定している計算条件を直接説明してください。継承経緯そのものが質問の対象でない限り、「前回と同じ」「引き継いだ」などの表現は省略し、継承条件や既定値の説明を繰り返さないでください。
     ・挨拶や前置きは最小限にしてください。
     """.strip()
+# ==========================================
 
-# SIMPLE_ANALYSIS_PROMPT = """
-# 【今回の回答：簡易Analysis】
-# ・前置きは省き、最初に結論を1〜2文で示してください。
-# ・ユーザーが指定した比較項目は省略せず、比較対象の指定がなければ代表的な最大3案に絞ってください。
-# ・各選択肢の主なメリットとデメリットは、それぞれ最大2点にしてください。
-# ・詳細を求められていなければ、注意点または次の行動を1文加え、全体を原則300〜500文字程度にしてください。
-# ・背景、一般論、派生案を広げず、判断に必要な情報だけを示してください。
-# ・検索結果を使う場合は確認できた重要な違いだけを使用し、不明な情報を補完しないでください。
-# """.strip()
+# 汎用計算共通のリセット判定関数
+def has_calculation_reset_intent(
+    user_input: str
+) -> bool:
+    normalized_input = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+    normalized_input = (
+        normalized_input
+        .replace(" ", "")
+        .replace("　", "")
+    )
 
+    reset_phrases = (
+        "新しく計算",
+        "新しい計算",
+        "新しく",
+        "別の計算",
+        "別条件で",
+        "前回とは別",
+        "前回と別",
+        "引き継がず",
+        "条件を引き継がず",
+        "リセットして",
+        "最初から計算"
+    )
+
+    return any(
+        phrase in normalized_input
+        for phrase in reset_phrases
+    )
+# ==========================================
 
 # キーワード非依存の構造判定関数
 def should_structurally_inherit_previous_calculation(
@@ -7390,20 +7414,7 @@ def should_structurally_inherit_previous_calculation(
 
     normalized_input = str(user_input or "").strip()
 
-    independent_phrases = (
-        "新しく計算",
-        "新しい計算",
-        "別の計算",
-        "別条件で",
-        "前回とは別",
-        "前回と別",
-        "引き継がず",
-        "条件を引き継がず",
-        "リセットして",
-        "最初から計算"
-    )
-
-    if any(phrase in normalized_input for phrase in independent_phrases):
+    if has_calculation_reset_intent(normalized_input):
         return False
 
     cases = extraction_result.get("cases", [])
@@ -17463,10 +17474,17 @@ with all_tabs[0]:
                                 inherit_previous_calculation
                             )
 
+                            reset_calculation_conditions = (
+                                has_calculation_reset_intent(user_input)
+                            )
                             general_reference_context = ""
-                            if isinstance(
-                                previous_general_calculation_state,
-                                dict
+
+                            if (
+                                not reset_calculation_conditions
+                                and isinstance(
+                                    previous_general_calculation_state,
+                                    dict
+                                )
                             ):
                                 general_reference_context = json.dumps(
                                     previous_general_calculation_state,
