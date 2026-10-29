@@ -17728,7 +17728,10 @@ with all_tabs[0]:
                                     and bool(general_calculation_extraction_result.get("ambiguous_fields", []))
                                 )
 
-                            if not is_ambiguous_extraction:
+                            if (
+                                not is_ambiguous_extraction
+                                and not resolved_calculation_clarification
+                            ):
                                 general_calculation_extraction_result = (
                                     convert_general_calculation_extraction_to_ambiguous(
                                         calculation_type=(
