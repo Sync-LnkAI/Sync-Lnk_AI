@@ -3832,6 +3832,16 @@ GENERAL_CALCULATION_MONEY_FIELDS = {
     }
 }
 
+# 0円なら通常回答で省略できる補助条件の共通定義
+GENERAL_CALCULATION_OPTIONAL_ZERO_FIELDS = {
+    "recurring_investment": {
+        "initial_principal"
+    },
+    "loan_payment": {
+        "bonus_payment"
+    }
+}
+
 # 計算タイプごとの必須項目定義(計算実行に必須となる項目の一覧)
 GENERAL_CALCULATION_REQUIRED_FIELDS = {
     "compound_interest": {
@@ -5363,6 +5373,18 @@ def compress_general_calculation_results(
             field_value = compressed_item.get(field_name)
 
             if field_value is None:
+                continue
+            
+            optional_zero_fields = (
+                GENERAL_CALCULATION_OPTIONAL_ZERO_FIELDS.get(calculation_type, set())
+            )
+
+            if (
+                normalized_detail_level == "simple"
+                and field_name in optional_zero_fields
+                and Decimal(str(field_value)) == Decimal("0")
+            ):
+                compressed_item.pop(field_name, None)
                 continue
 
             display_field = f"{field_name}_display"
