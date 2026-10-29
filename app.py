@@ -18142,8 +18142,25 @@ with all_tabs[0]:
                                 ]
 
                                 if input_value is not None and len(candidate_labels) == 2:
-                                    formatted_value = f"{int(input_value):,}" if isinstance(input_value, (int, float)) else str(input_value)
-                                    ai_reply = f"{formatted_value}は、{candidate_labels[0]}と{candidate_labels[1]}のどちらですか？"
+                                    field_metadata = type_metadata.get(
+                                        candidate_fields[0],
+                                        {}
+                                    )
+
+                                    if field_metadata.get("value_type") == "money":
+                                        formatted_value = format_yen_for_display(
+                                            input_value,
+                                            current_money_display_style
+                                        )
+                                    elif isinstance(input_value, (int, float)):
+                                        formatted_value = f"{int(input_value):,}"
+                                    else:
+                                        formatted_value = str(input_value)
+
+                                    ai_reply = (
+                                        f"{formatted_value}は、{candidate_labels[0]}と"
+                                        f"{candidate_labels[1]}のどちらですか？"
+                                    )
                                 else:
                                     ai_reply = "入力された値が、どの計算条件を指すか教えてください。"
 
