@@ -4758,6 +4758,27 @@ def merge_general_calculation_case(
         parameters[field_name] = previous_value
         inherited_fields.append(field_name)
 
+    case_name = str(
+        current_case.get("case_name", "") or ""
+    ).strip()
+
+    if (
+        "annual_rate" in explicit_field_set
+        and case_name.startswith("年利")
+    ):
+        annual_rate = parameters.get("annual_rate")
+
+        if annual_rate is not None:
+            rate_percent = Decimal(
+                str(annual_rate)
+            ) * Decimal("100")
+            rate_text = format(
+                rate_percent.normalize(),
+                "f"
+            )
+            case_name = f"年利{rate_text}%"
+
+    current_case["case_name"] = case_name
     current_case["parameters"] = parameters
     current_case["explicit_fields"] = list(explicit_field_set)
     current_case["inherited_fields"] = inherited_fields
