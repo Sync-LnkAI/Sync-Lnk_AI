@@ -4872,6 +4872,57 @@ def apply_recurring_investment_defaults(
     return extraction_result
 #================================================
 
+# 条件抽出結果がnot_applicableになった場合に、計算タイプに応じた空ケースへ補正する関数
+def build_general_calculation_fallback_extraction(
+    calculation_type: str,
+    user_input: str
+) -> dict:
+    normalized_type = str(calculation_type or "").strip().lower()
+    normalized_input = str(user_input or "")
+
+    if normalized_type not in GENERAL_CALCULATION_TYPES:
+        return {}
+
+    allowed_fields = GENERAL_CALCULATION_PARAMETER_FIELDS.get(
+        normalized_type,
+        set()
+    )
+    parameters = {
+        field_name: None
+        for field_name in allowed_fields
+    }
+    explicit_fields = []
+
+    if normalized_type == "loan_payment":
+        if "毎月" in normalized_input:
+            parameters["payments_per_year"] = 12
+            explicit_fields.append("payments_per_year")
+
+        if "元利均等" in normalized_input:
+            parameters["repayment_method"] = "equal_payment"
+            explicit_fields.append("repayment_method")
+
+        parameters["bonus_payment"] = 0
+        explicit_fields.append("bonus_payment")
+
+    return {
+        "should_calculate": True,
+        "calculation_type": normalized_type,
+        "inherit_previous_conditions": False,
+        "cases": [{
+            "case_name": "基本ケース",
+            "parameters": parameters,
+            "explicit_fields": explicit_fields,
+            "inherited_fields": []
+        }],
+        "ambiguous_fields": [],
+        "extraction_status": "extracted",
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "cost": 0.0
+    }
+#================================================
+
 # 計算タイプとPython関数を対応させるディスパッチ定義
 GENERAL_CALCULATORS = {
     "compound_interest": calculate_compound_interest,
@@ -17308,11 +17359,37 @@ with all_tabs[0]:
                                     }
                                     inherit_previous_calculation = True
                             else:
-                                general_calculation_extraction_result = extract_general_calculation_parameters(
-                                    user_input=user_input,
-                                    calculation_type=general_calculation_type,
-                                    inherit_previous_conditions=inherit_previous_calculation
+                                general_calculation_extraction_result = (
+                                    extract_general_calculation_parameters(
+                                        user_input=user_input,
+                                        calculation_type=general_calculation_type,
+                                        inherit_previous_conditions=inherit_previous_calculation
+                                    )
                                 )
+
+                            extraction_status = str(
+                                general_calculation_extraction_result.get(
+                                    "extraction_status",
+                                    ""
+                                )
+                                or ""
+                            ).strip().lower()
+
+                            if (
+                                extraction_status == "not_applicable"
+                                and requires_estimation
+                            ):
+                                fallback_extraction = (
+                                    build_general_calculation_fallback_extraction(
+                                        calculation_type=general_calculation_type,
+                                        user_input=user_input
+                                    )
+                                )
+
+                                if fallback_extraction:
+                                    general_calculation_extraction_result = (
+                                        fallback_extraction
+                                    )
 
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
