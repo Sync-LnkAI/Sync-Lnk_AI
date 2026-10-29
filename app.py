@@ -5355,6 +5355,64 @@ def format_yen_for_display(value, display_style: str = "yen") -> str:
     return sign + "".join(parts)
 #================================================
 
+# 不足項目から質問文を確定生成する共通関数
+def build_general_missing_fields_response(
+    execution_result: dict
+) -> str:
+    if not isinstance(execution_result, dict):
+        return ""
+
+    if execution_result.get("status") != "missing_fields":
+        return ""
+
+    calculation_type = str(
+        execution_result.get("calculation_type", "") or ""
+    ).strip().lower()
+    missing_items = execution_result.get("missing_fields", [])
+
+    if not isinstance(missing_items, list):
+        return ""
+
+    type_labels = {
+        "loan_payment": {
+            "principal": "借入額",
+            "annual_rate": "年利",
+            "years": "返済期間"
+        }
+    }
+    field_labels = type_labels.get(calculation_type, {})
+    labels = []
+
+    for item in missing_items:
+        if not isinstance(item, dict):
+            continue
+
+        for field_name in item.get("fields", []):
+            label = field_labels.get(
+                field_name,
+                GENERAL_CALCULATION_FIELD_LABELS.get(
+                    field_name,
+                    field_name
+                )
+            )
+
+            if label not in labels:
+                labels.append(label)
+
+    if not labels:
+        return ""
+
+    if len(labels) == 1:
+        question = f"{labels[0]}を教えてください。"
+    else:
+        question = f"{'、'.join(labels)}を教えてください。"
+
+    return (
+        "計算に必要な条件が不足しています。\n"
+        f"{question}"
+    )
+#================================================
+
 # Python計算結果を最終回答へ渡す関数
 def build_general_calculation_context(
     execution_result: dict,
@@ -17791,6 +17849,17 @@ with all_tabs[0]:
                             active_calc_prompt = ""
                         
                         grounded_direct_response = False
+                        general_calculation_direct_response = ""
+                        if (
+                            general_calculation_execution_result.get("status")
+                            == "missing_fields"
+                        ):
+                            general_calculation_direct_response = (
+                                build_general_missing_fields_response(
+                                    general_calculation_execution_result
+                                )
+                            )
+                        
                         grounded_response_route = ("main_chat_response")
                         search_model_name = GOOGLE_MODEL_NAME
 
@@ -19250,7 +19319,19 @@ with all_tabs[0]:
                             # ==========================================
                             api_start_time = time.time()
 
-                            if grounded_direct_response:
+                            if general_calculation_direct_response:
+                                chat_result = {
+                                    "text": general_calculation_direct_response,
+                                    "in_tokens": 0,
+                                    "out_tokens": 0
+                                }
+                                chat_provider_used = "python"
+                                chat_model_used = "direct_response"
+                                chat_route_name = (
+                                    "general_calculation_missing_fields"
+                                )
+
+                            elif grounded_direct_response:
                                 chat_result = {
                                     "text": search_result,
                                     "in_tokens": 0,
