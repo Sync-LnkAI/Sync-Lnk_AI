@@ -17229,6 +17229,7 @@ with all_tabs[0]:
                         calculation_tool = "none"
                         general_calculation_type = None
                         unmatched_calculation_category = None
+                        reset_calculation_conditions = False
                         general_type_confidence = 0.0
                         general_type_in_tokens = 0
                         general_type_out_tokens = 0
