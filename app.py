@@ -18390,6 +18390,25 @@ with all_tabs[0]:
                                     f"{unmatched_calculation_category or '分類不能'}"
                                 )
                             }
+
+                            unsupported_category = str(
+                                unmatched_calculation_category
+                                or "分類不能"
+                            ).strip()
+                            save_system_audit_log(
+                                user_id=CURRENT_USER_ID,
+                                plan_type=current_plan_type,
+                                event_type=(
+                                    "unsupported_calculation_category"
+                                ),
+                                processing_time=0.0,
+                                in_t=0,
+                                out_t=0,
+                                api_cost=0.0,
+                                details=f"category={unsupported_category}",
+                                message_id=str(current_msg_id)
+                            )
+
                             general_calculation_context = build_general_calculation_context(
                                 general_calculation_execution_result
                             )
