@@ -17367,30 +17367,6 @@ with all_tabs[0]:
                                     )
                                 )
 
-                            extraction_status = str(
-                                general_calculation_extraction_result.get(
-                                    "extraction_status",
-                                    ""
-                                )
-                                or ""
-                            ).strip().lower()
-
-                            if (
-                                extraction_status == "not_applicable"
-                                and requires_estimation
-                            ):
-                                fallback_extraction = (
-                                    build_general_calculation_fallback_extraction(
-                                        calculation_type=general_calculation_type,
-                                        user_input=user_input
-                                    )
-                                )
-
-                                if fallback_extraction:
-                                    general_calculation_extraction_result = (
-                                        fallback_extraction
-                                    )
-
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
                             ] = inherit_previous_calculation
@@ -17612,10 +17588,42 @@ with all_tabs[0]:
                                     previous_state=previous_general_calculation_state,
                                     user_input=user_input
                                 )
-                                general_calculation_extraction_result = apply_recurring_investment_defaults(
-                                    general_calculation_extraction_result
+                                general_calculation_extraction_result = (
+                                    apply_recurring_investment_defaults(
+                                        general_calculation_extraction_result
+                                    )
                                 )
 
+                                extraction_status = str(
+                                    general_calculation_extraction_result.get(
+                                        "extraction_status", ""
+                                    ) or ""
+                                ).strip().lower()
+
+                                if (
+                                    extraction_status == "not_applicable"
+                                    and requires_estimation
+                                ):
+                                    fallback_extraction = (
+                                        build_general_calculation_fallback_extraction(
+                                            general_calculation_type,
+                                            user_input
+                                        )
+                                    )
+
+                                    if fallback_extraction:
+                                        general_calculation_extraction_result = (
+                                            apply_inherited_general_calculation_fields(
+                                                extraction_result=(
+                                                    fallback_extraction
+                                                ),
+                                                previous_state=(
+                                                    previous_general_calculation_state
+                                                ),
+                                                user_input=user_input
+                                            )
+                                        )
+                            
                             general_extraction_elapsed = time.time() - general_extraction_start_time
 
                             debug_json(
