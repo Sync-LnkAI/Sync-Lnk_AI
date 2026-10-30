@@ -10160,17 +10160,26 @@ def extract_real_estate_sale_parameters(
         )
 
         relative_purchase_match = re.search(
-            r"([0-9]+)年前に(?:購入|取得)", normalized_user_input
+            r"(?:(建物|土地|物件|不動産|土地建物)(?:は|を)?)?"
+            r"([0-9]+)年前に(?:購入|取得)",
+            normalized_user_input
         )
 
         if relative_purchase_match:
-            years_ago = int(relative_purchase_match.group(1))
+            purchase_target = relative_purchase_match.group(1) or ""
+            years_ago = int(relative_purchase_match.group(2))
             acquisition_date = add_years_safely(
                 datetime.now(JST).date(), -years_ago
-            )
-            raw_arguments["building_acquisition_date"] = (
-                acquisition_date.isoformat()
-            )
+            ).isoformat()
+
+            if purchase_target != "土地":
+                raw_arguments["building_acquisition_date"] = acquisition_date
+
+            if purchase_target in {
+                "土地", "物件", "不動産", "土地建物"
+            }:
+                raw_arguments["acquisition_date"] = acquisition_date
+
         elif mentions_building_age and not mentions_acquisition_date:
             raw_arguments["building_acquisition_date"] = None
 
