@@ -17350,7 +17350,7 @@ with all_tabs[0]:
                                         "role": "user",
                                         "content": user_input,
                                         "message_id": current_msg_id,
-                                        "response_mode": response_mode,
+                                        "response_mode": "conversation",
                                         "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
@@ -17359,7 +17359,7 @@ with all_tabs[0]:
                                         "role": "assistant",
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
-                                        "response_mode": response_mode,
+                                        "response_mode": "conversation",
                                         "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
