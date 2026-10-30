@@ -10159,10 +10159,19 @@ def extract_real_estate_sale_parameters(
             )
         )
 
-        if (
-            mentions_building_age
-            and not mentions_acquisition_date
-        ):
+        relative_purchase_match = re.search(
+            r"([0-9]+)年前に(?:購入|取得)", normalized_user_input
+        )
+
+        if relative_purchase_match:
+            years_ago = int(relative_purchase_match.group(1))
+            acquisition_date = add_years_safely(
+                datetime.now(JST).date(), -years_ago
+            )
+            raw_arguments["building_acquisition_date"] = (
+                acquisition_date.isoformat()
+            )
+        elif mentions_building_age and not mentions_acquisition_date:
             raw_arguments["building_acquisition_date"] = None
 
         explicit_amounts = extract_explicit_real_estate_amounts(user_input)
