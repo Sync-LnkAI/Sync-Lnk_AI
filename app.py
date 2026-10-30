@@ -10172,13 +10172,10 @@ def extract_real_estate_sale_parameters(
                 datetime.now(JST).date(), -years_ago
             ).isoformat()
 
+            raw_arguments["acquisition_date"] = acquisition_date
+
             if purchase_target != "土地":
                 raw_arguments["building_acquisition_date"] = acquisition_date
-
-            if purchase_target in {
-                "土地", "物件", "不動産", "土地建物"
-            }:
-                raw_arguments["acquisition_date"] = acquisition_date
 
         elif mentions_building_age and not mentions_acquisition_date:
             raw_arguments["building_acquisition_date"] = None
