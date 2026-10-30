@@ -4642,7 +4642,6 @@ def calculate_percentage_calculation(
     }
 #================================================
 
-# 火災保険の簡易返戻額計算関数
 # 火災保険の簡易解約返戻金計算関数
 def calculate_fire_insurance_refund(
     paid_premium,
