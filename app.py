@@ -10137,6 +10137,27 @@ def extract_real_estate_sale_parameters(
 
         if not isinstance(raw_arguments, dict):
             raw_arguments = {}
+        
+        normalized_user_input = unicodedata.normalize(
+            "NFKC",
+            str(user_input or "")
+        )
+
+        mentions_building_age = any(
+            keyword in normalized_user_input
+            for keyword in {"建築", "築年", "築後", "築"}
+        )
+
+        mentions_acquisition_date = any(
+            keyword in normalized_user_input
+            for keyword in {"購入", "取得"}
+        )
+
+        if (
+            mentions_building_age
+            and not mentions_acquisition_date
+        ):
+            raw_arguments["building_acquisition_date"] = None
 
         explicit_amounts = extract_explicit_real_estate_amounts(user_input)
         for field_name, amount in explicit_amounts.items():
@@ -10807,6 +10828,12 @@ def format_missing_fields_message(
             continue
 
         if key.endswith("_confirmed"):
+            continue
+        
+        if (
+            key == "total_acquisition_cost"
+            and to_decimal(value) <= Decimal("0")
+        ):
             continue
 
         label = REAL_ESTATE_FIELD_LABELS.get(
