@@ -19914,7 +19914,6 @@ with all_tabs[0]:
                                         content=ai_reply,
                                         message_id=current_msg_id,
                                         response_mode="conversation",
-                                        processing_type=processing_type,
                                         processing_type="real_estate_calculation"
                                     )
 
