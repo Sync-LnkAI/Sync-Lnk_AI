@@ -20025,7 +20025,8 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode=response_mode
+                                    response_mode=response_mode,
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 # display_message(
@@ -20774,10 +20775,22 @@ with all_tabs[0]:
             paired_processing_type = ""
             paired_requires_estimation = False
             paired_general_calculation_result = None
+            paired_is_calculation = False
 
             if message_id:
                 for search_msg in all_messages:
                     if search_msg.get("message_id") == message_id:
+                        search_processing_type = str(
+                            search_msg.get("processing_type", "") or ""
+                        ).strip()
+
+                        paired_is_calculation = (
+                            paired_is_calculation
+                            or search_processing_type in {
+                                "real_estate_calculation",
+                                "general_calculation"
+                            }
+                        )
                         paired_requires_estimation = (
                             paired_requires_estimation 
                             or bool(search_msg.get("requires_estimation", False))
@@ -20838,6 +20851,7 @@ with all_tabs[0]:
                     and detail_button_label
                     and detail_point_cost > 0
                     and not detail_already_completed
+                    and not paired_is_calculation
                     and not st.session_state.get(
                         "pending_case_selection",
                         False
