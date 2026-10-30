@@ -19344,9 +19344,13 @@ with all_tabs[0]:
                             should_exit_real_estate_calculation(user_input)
                         )
 
+                        active_case_id = st.session_state.get(
+                            "active_calculation_case_id"
+                        )
+
                         exit_calculation_mode = False
                         if (
-                            calculation_pending
+                            (calculation_pending or active_case_id)
                             and should_exit_real_estate_calculation(user_input)
                         ):
                             st.session_state[
