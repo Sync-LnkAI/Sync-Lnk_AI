@@ -18210,39 +18210,56 @@ with all_tabs[0]:
                                 normalized_input = unicodedata.normalize(
                                     "NFKC", str(user_input or "")
                                 )
+                                elapsed_match = re.search(
+                                    r"(\d+)年(?:\s*(\d+)"
+                                    r"(?:か月|ヶ月|カ月|ケ月))?経過",
+                                    normalized_input
+                                )
                                 has_year_month_only = bool(re.search(
                                     r"\d{4}年\d{1,2}月(?!\d{1,2}日)",
                                     normalized_input
                                 ))
+                                extraction_cases = (
+                                    general_calculation_extraction_result
+                                    .get("cases", [])
+                                )
 
-                                if has_year_month_only:
-                                    extraction_cases = (
-                                        general_calculation_extraction_result
-                                        .get("cases", [])
-                                    )
+                                if isinstance(extraction_cases, list):
+                                    for case in extraction_cases:
+                                        if not isinstance(case, dict):
+                                            continue
 
-                                    if isinstance(extraction_cases, list):
-                                        for case in extraction_cases:
-                                            if not isinstance(case, dict):
-                                                continue
+                                        parameters = case.get(
+                                            "parameters", {}
+                                        )
+                                        if not isinstance(parameters, dict):
+                                            continue
 
-                                            parameters = case.get(
-                                                "parameters", {}
+                                        if elapsed_match:
+                                            elapsed_years = int(
+                                                elapsed_match.group(1)
                                             )
-                                            if not isinstance(parameters, dict):
-                                                continue
+                                            elapsed_extra_months = int(
+                                                elapsed_match.group(2) or 0
+                                            )
+                                            parameters["elapsed_months"] = (
+                                                elapsed_years * 12
+                                                + elapsed_extra_months
+                                            )
 
-                                            if parameters.get(
+                                        if (
+                                            has_year_month_only
+                                            and parameters.get(
                                                 "cancellation_date"
-                                            ):
-                                                parameters[
-                                                    "cancellation_date_defaulted"
-                                                ] = True
+                                            )
+                                        ):
+                                            parameters[
+                                                "cancellation_date_defaulted"
+                                            ] = True
 
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
                             ] = inherit_previous_calculation
-
 
                             previous_calculation_type = str(
                                 previous_general_calculation_state.get(
