@@ -20094,13 +20094,12 @@ with all_tabs[0]:
                                 })
 
                                 st.session_state["force_message_reload"] = True
-
-                                display_message(
-                                    current_concierge_name,
-                                    formatted_result
-                                )
-
-                                st.stop()
+                                st.rerun()
+                                # display_message(
+                                #     current_concierge_name,
+                                #     formatted_result
+                                # )
+                                # st.stop()
 
                             if (
                                 extraction_in_tokens > 0
