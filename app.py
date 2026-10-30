@@ -20619,6 +20619,14 @@ with all_tabs[0]:
                     and detail_button_label
                     and detail_point_cost > 0
                     and not detail_already_completed
+                    and not st.session_state.get(
+                        "pending_case_selection",
+                        False
+                    )
+                    and not st.session_state.get(
+                        "real_estate_calculation_pending",
+                        False
+                    )
                     and not str(msg.get("parent_message_id", "") or "").strip()
                 )
 
