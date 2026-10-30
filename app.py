@@ -8212,6 +8212,198 @@ def extract_single_amount_from_text(value: str):
         return None
 
     return int(amount) if amount == amount.to_integral_value() else float(amount)
+
+# 不動産売却の明示的な金額を原文から抽出する関数
+def extract_explicit_real_estate_amounts(user_input: str) -> dict:
+    normalized_text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+
+    normalized_text = (
+        normalized_text
+        .replace("，", ",")
+        .replace("：", ":")
+    )
+
+    number_part = (
+        r"[0-9][0-9,]*"
+        r"(?:\.[0-9]+)?"
+    )
+
+    amount_part = (
+        rf"{number_part}"
+        rf"(?:"
+        rf"億(?:{number_part}万)?|"
+        rf"万|"
+        rf"円"
+        rf")"
+    )
+
+    field_patterns = {
+        "sale_price": [
+            (
+                rf"(?:売却予定額|売却額|売却価格|売値)"
+                rf"\s*(?:は|が|で|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で|にて)?\s*"
+                rf"(?:売却予定|売却する|売却した|売却)"
+            )
+        ],
+        "loan_balance": [
+            (
+                rf"(?:"
+                rf"ローン(?:の)?残債|"
+                rf"ローン(?:の)?残高|"
+                rf"借入(?:金)?残高"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:の)?\s*"
+                rf"(?:ローン残債|ローン残高|借入残高)"
+            )
+        ],
+        "land_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"土地(?:の)?取得(?:費|価額|価格)|"
+                rf"土地(?:の)?購入(?:費|価額|価格)|"
+                rf"土地代"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"土地"
+                rf"\s*(?:は|が|を)?\s*"
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で)?\s*"
+                rf"(?:取得|購入)"
+            ),
+            (
+                rf"土地"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "building_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"建物(?:の)?取得(?:費|価額|価格)|"
+                rf"建物(?:の)?購入(?:費|価額|価格)|"
+                rf"建物代"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"建物"
+                rf"\s*(?:は|が|を)?\s*"
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で)?\s*"
+                rf"(?:取得|購入)"
+            ),
+            (
+                rf"建物"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "building_tax_basis": [
+            (
+                rf"(?:"
+                rf"建物(?:の)?未償却残高|"
+                rf"建物(?:の)?簿価|"
+                rf"減価償却後(?:の)?建物残高"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "acquisition_related_costs": [
+            (
+                rf"(?:"
+                rf"購入時(?:の)?諸費用|"
+                rf"取得時(?:の)?諸費用|"
+                rf"取得関連費用"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "total_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"総取得費|"
+                rf"取得費総額|"
+                rf"取得価額合計"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "brokerage_fee": [
+            (
+                rf"仲介手数料"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "transfer_expenses": [
+            (
+                rf"(?:"
+                rf"譲渡費用|"
+                rf"売却時(?:の)?諸費用"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "other_cash_expenses": [
+            (
+                rf"(?:"
+                rf"その他(?:の)?現金支出|"
+                rf"その他(?:の)?支出"
+                rf")"
+                rf"\s*(?:は|が|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ]
+    }
+
+    extracted_amounts = {}
+
+    for field_name, patterns in field_patterns.items():
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                normalized_text,
+                flags=re.IGNORECASE
+            )
+
+            if not match:
+                continue
+
+            amount_text = match.group("amount")
+
+            try:
+                extracted_amounts[field_name] = to_decimal(amount_text)
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                pass
+
+            break
+
+    return extracted_amounts
 #==============================================
 
 def to_decimal(
@@ -9911,21 +10103,6 @@ def extract_real_estate_sale_parameters(
     """
 
     try:
-        # extraction_model = genai.GenerativeModel(
-        #     model_name=SEARCH_MODEL_NAME
-        # )
-
-        # extraction_response = (
-        #     extraction_model.generate_content(
-        #         extraction_prompt,
-        #         generation_config={
-        #             "temperature": 0,
-        #             "max_output_tokens": 500,
-        #             "response_mime_type":
-        #                 "application/json"
-        #         }
-        #     )
-        # )
         extraction_result = generate_ai_response(
             provider=BACKGROUND_PROVIDER,
             system_instruction="",
@@ -9934,16 +10111,10 @@ def extract_real_estate_sale_parameters(
             model_name=SEARCH_MODEL_NAME
         )
 
-        # raw_text = str(
-        #     extraction_response.text
-        #     or ""
-        # ).strip()
         raw_text = str(extraction_result.get("text", "") or "").strip()
 
         if not raw_text:
-            raise ValueError(
-                "不動産売却条件の抽出結果が空です"
-            )
+            raise ValueError("不動産売却条件の抽出結果が空です")
 
         clean_text = (
             raw_text
@@ -9953,63 +10124,24 @@ def extract_real_estate_sale_parameters(
             .strip()
         )
 
-        extracted_data = json.loads(
-            clean_text
-        )
+        extracted_data = json.loads(clean_text)
 
-        if not isinstance(
-            extracted_data,
-            dict
-        ):
+        if not isinstance(extracted_data, dict):
             raise ValueError(
-                "不動産売却条件の抽出結果が"
-                "object形式ではありません"
+                "不動産売却条件の抽出結果がobject形式ではありません"
             )
 
-        should_calculate = bool(
-            extracted_data.get(
-                "should_calculate",
-                False
-            )
-        )
+        should_calculate = bool(extracted_data.get("should_calculate", False))
 
-        raw_arguments = (
-            extracted_data.get(
-                "arguments",
-                {}
-            )
-        )
+        raw_arguments = (extracted_data.get("arguments", {}))
 
-        if not isinstance(
-            raw_arguments,
-            dict
-        ):
+        if not isinstance(raw_arguments, dict):
             raw_arguments = {}
 
-        # in_tokens = 0
-        # out_tokens = 0
+        explicit_amounts = extract_explicit_real_estate_amounts(user_input)
+        for field_name, amount in explicit_amounts.items():
+            raw_arguments[field_name] = amount
 
-        # if (
-        #     hasattr(
-        #         extraction_response,
-        #         "usage_metadata"
-        #     )
-        #     and
-        #     extraction_response.usage_metadata
-        # ):
-        #     in_tokens = int(
-        #         extraction_response
-        #         .usage_metadata
-        #         .prompt_token_count
-        #         or 0
-        #     )
-
-        #     out_tokens = int(
-        #         extraction_response
-        #         .usage_metadata
-        #         .candidates_token_count
-        #         or 0
-        #     )
         in_tokens = int(extraction_result.get("in_tokens", 0) or 0)
         out_tokens = int(extraction_result.get("out_tokens", 0) or 0)
         # extraction_cost = (in_tokens * PRICE_BACKGROUND_IN + out_tokens * PRICE_BACKGROUND_OUT)
