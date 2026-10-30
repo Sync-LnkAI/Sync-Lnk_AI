@@ -7212,6 +7212,16 @@ def should_inherit_previous_calculation(
 
     normalized_input = str(user_input or "").strip()
 
+    previous_status = str(
+        previous_state.get("calculation_status", "") or ""
+    ).strip().lower()
+
+    if (
+        previous_status == "missing_fields"
+        and not has_calculation_reset_intent(normalized_input)
+    ):
+        return True
+
     continuation_phrases = (
         "変更した場合",
         "変更して",
@@ -18778,6 +18788,9 @@ with all_tabs[0]:
                             st.session_state["last_general_calculation_state"] = {
                                 "calculation_type": general_calculation_extraction_result.get(
                                     "calculation_type"
+                                ),
+                                "calculation_status": (
+                                    general_calculation_execution_result.get("status")
                                 ),
                                 "cases": general_calculation_extraction_result.get("cases", []),
                                 "money_display_style": (current_money_display_style)
