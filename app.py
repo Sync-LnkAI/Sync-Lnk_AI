@@ -16818,17 +16818,19 @@ with all_tabs[0]:
                                 })
 
                                 save_message(
-                                    "user",
-                                    user_input,
-                                    current_msg_id,
-                                    "conversation"
+                                    role="user",
+                                    content=user_input,
+                                    message_id=current_msg_id,
+                                    response_mode="conversation",
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 save_message(
-                                    "assistant",
-                                    ai_reply,
-                                    current_msg_id,
-                                    "conversation",
+                                    role="assistant",
+                                    content=ai_reply,
+                                    message_id=current_msg_id,
+                                    response_mode="conversation",
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 # display_message(
@@ -16884,10 +16886,11 @@ with all_tabs[0]:
                                 # )
 
                                 save_message(
-                                    "assistant",
-                                    ai_reply,
-                                    current_msg_id,
-                                    "conversation",
+                                    role="assistant",
+                                    content=ai_reply,
+                                    message_id=current_msg_id,
+                                    response_mode="conversation",
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 # display_message(
@@ -16977,10 +16980,11 @@ with all_tabs[0]:
                             # )
 
                             save_message(
-                                "assistant",
-                                ai_reply,
-                                current_msg_id,
-                                "conversation",
+                                role="assistant",
+                                content=ai_reply,
+                                message_id=current_msg_id,
+                                response_mode="conversation",
+                                processing_type="real_estate_calculation"
                             )
 
                             # display_message(
@@ -17081,10 +17085,11 @@ with all_tabs[0]:
                                 })
 
                                 save_message(
-                                    "assistant",
-                                    ai_reply,
-                                    current_msg_id,
-                                    "conversation",
+                                    role="assistant",
+                                    content=ai_reply,
+                                    message_id=current_msg_id,
+                                    response_mode="conversation",
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 # display_message(
@@ -17238,10 +17243,10 @@ with all_tabs[0]:
                                     # )
 
                                     save_message(
-                                        "assistant",
-                                        create_error_reply,
-                                        current_msg_id,
-                                        "analysis",
+                                        role="assistant",
+                                        content=create_error_reply,
+                                        message_id=current_msg_id,
+                                        response_mode="analysis"
                                     )
 
                                     # display_message(
@@ -17365,17 +17370,19 @@ with all_tabs[0]:
                                     })
 
                                     save_message(
-                                        "user",
-                                        user_input,
-                                        current_msg_id,
-                                        "conversation"
+                                        role="user",
+                                        content=user_input,
+                                        message_id=current_msg_id,
+                                        response_mode="conversation",
+                                        processing_type="real_estate_calculation"
                                     )
 
                                     save_message(
-                                        "assistant",
-                                        ai_reply,
-                                        current_msg_id,
-                                        "conversation",
+                                        role="assistant",
+                                        content=ai_reply,
+                                        message_id=current_msg_id,
+                                        response_mode="conversation",
+                                        processing_type="real_estate_calculation"
                                     )
 
                                     # display_message(
@@ -17575,7 +17582,12 @@ with all_tabs[0]:
                                 })
 
                                 # save_message("user", user_input, current_msg_id, "analysis")
-                                save_message("assistant", retry_reply, current_msg_id, "analysis")
+                                save_message(
+                                    role="assistant",
+                                    content=retry_reply,
+                                    message_id=current_msg_id,
+                                    response_mode="analysis"
+                                )
 
                                 # display_message(
                                 #     current_concierge_name,
@@ -19902,8 +19914,9 @@ OK
                                         role="assistant",
                                         content=ai_reply,
                                         message_id=current_msg_id,
-                                        response_mode=response_mode,
-                                        processing_type=processing_type
+                                        response_mode="conversation",
+                                        processing_type=processing_type,
+                                        processing_type="real_estate_calculation"
                                     )
 
                                     # display_message(
@@ -20029,7 +20042,7 @@ OK
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode=response_mode,
+                                    response_mode="conversation",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -20301,10 +20314,11 @@ OK
                                 # )
 
                                 save_message(
-                                    "assistant",
-                                    formatted_result,
-                                    current_msg_id,
-                                    "conversation",
+                                    role="assistant",
+                                    content=formatted_result,
+                                    message_id=current_msg_id,
+                                    response_mode="conversation",
+                                    processing_type="real_estate_calculation"
                                 )
 
                                 # all_messages.append({
