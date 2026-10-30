@@ -6562,6 +6562,7 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・年と月の両方がある場合は合計月数へ換算してください。
     ・契約開始日はYYYY-MM-DD形式でcontract_start_dateへ設定してください。
     ・解約予定日はYYYY-MM-DD形式でcancellation_dateへ設定してください。
+    ・最新ユーザー発言で解約日の「日」が明示されていない場合は、cancellation_date_defaultedを必ずtrueにしてください。
     ・解約予定日が年月だけの場合は、その月の1日を補完し、cancellation_date_defaultedをtrueにしてください。
     ・解約予定日が年だけの場合は、その年の1月1日を補完し、cancellation_date_defaultedをtrueにしてください。
     ・解約予定日が年月日まで指定されている場合は、cancellation_date_defaultedをfalseにしてください。
