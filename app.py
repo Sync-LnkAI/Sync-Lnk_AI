@@ -3808,7 +3808,10 @@ GENERAL_CALCULATION_PARAMETER_FIELDS = {
     "fire_insurance_refund": {
         "paid_premium",
         "contract_months",
-        "elapsed_months"
+        "elapsed_months",
+        "contract_start_date",
+        "cancellation_date",
+        "cancellation_date_defaulted"
     }
 }
 
@@ -3932,6 +3935,9 @@ GENERAL_CALCULATION_FIELD_LABELS = {
     "elapsed_months": "経過期間",
     "remaining_months": "残りの契約期間",
     "refund_amount": "簡易返戻額",
+    "contract_start_date": "契約開始日",
+    "cancellation_date": "解約予定日",
+    "cancellation_date_defaulted": "解約日の補完有無",
     "calculation_mode": "計算方法",
     "calculation_type": "計算タイプ",
     "parameters": "計算条件"
@@ -4243,6 +4249,22 @@ def get_general_calculation_missing_fields(calculation_type: str, parameters: di
         for field in required_fields
         if parameters.get(field) is None
     ]
+
+    if normalized_type == "fire_insurance_refund":
+        has_elapsed_months = parameters.get("elapsed_months") is not None
+        has_start_date = bool(parameters.get("contract_start_date"))
+        has_cancellation_date = bool(parameters.get("cancellation_date"))
+
+        if not has_elapsed_months:
+            missing_fields = [
+                field for field in missing_fields
+                if field != "elapsed_months"
+            ]
+
+            if not has_start_date:
+                missing_fields.append("contract_start_date")
+            if not has_cancellation_date:
+                missing_fields.append("cancellation_date")
 
     if normalized_type == "percentage_calculation":
         calculation_mode = parameters.get("calculation_mode")
@@ -4646,24 +4668,59 @@ def calculate_percentage_calculation(
 def calculate_fire_insurance_refund(
     paid_premium,
     contract_months,
-    elapsed_months
+    elapsed_months=None,
+    contract_start_date=None,
+    cancellation_date=None,
+    cancellation_date_defaulted=False
 ) -> dict:
     paid_premium_d = to_decimal(paid_premium)
     contract_months_d = to_decimal(contract_months)
-    elapsed_months_d = to_decimal(elapsed_months)
 
     if paid_premium_d <= 0:
         raise ValueError("paid_premiumは0より大きくしてください")
     if contract_months_d <= 0:
         raise ValueError("contract_monthsは0より大きくしてください")
-    if elapsed_months_d < 0:
-        raise ValueError("elapsed_monthsは0以上にしてください")
-
     if contract_months_d != contract_months_d.to_integral_value():
         raise ValueError("contract_monthsは整数にしてください")
+
+    start_date = None
+    end_date = None
+
+    if elapsed_months is not None:
+        elapsed_months_d = to_decimal(elapsed_months)
+    elif contract_start_date and cancellation_date:
+        try:
+            start_date = datetime.strptime(
+                str(contract_start_date), "%Y-%m-%d"
+            ).date()
+            end_date = datetime.strptime(
+                str(cancellation_date), "%Y-%m-%d"
+            ).date()
+        except ValueError:
+            raise ValueError("保険日付はYYYY-MM-DD形式にしてください")
+
+        if end_date < start_date:
+            raise ValueError("解約予定日は契約開始日以後にしてください")
+
+        completed_months = (
+            (end_date.year - start_date.year) * 12
+            + end_date.month
+            - start_date.month
+        )
+
+        if end_date.day < start_date.day:
+            completed_months -= 1
+
+        elapsed_months_d = Decimal(str(completed_months))
+    else:
+        raise ValueError(
+            "elapsed_monthsまたは契約開始日と解約予定日が必要です"
+        )
+
+    if elapsed_months_d < 0:
+        raise ValueError("elapsed_monthsは0以上にしてください")
     if elapsed_months_d != elapsed_months_d.to_integral_value():
         raise ValueError("elapsed_monthsは整数にしてください")
-
     if elapsed_months_d > contract_months_d:
         raise ValueError(
             "elapsed_monthsはcontract_months以下にしてください"
@@ -4671,9 +4728,7 @@ def calculate_fire_insurance_refund(
 
     remaining_months = contract_months_d - elapsed_months_d
     refund_amount = (
-        paid_premium_d
-        * remaining_months
-        / contract_months_d
+        paid_premium_d * remaining_months / contract_months_d
     )
 
     return {
@@ -4681,7 +4736,16 @@ def calculate_fire_insurance_refund(
         "contract_months": int(contract_months_d),
         "elapsed_months": int(elapsed_months_d),
         "remaining_months": int(remaining_months),
-        "refund_amount": round_yen(refund_amount)
+        "refund_amount": round_yen(refund_amount),
+        "contract_start_date": (
+            start_date.isoformat() if start_date else None
+        ),
+        "cancellation_date": (
+            end_date.isoformat() if end_date else None
+        ),
+        "cancellation_date_defaulted": bool(
+            cancellation_date_defaulted
+        )
     }
 #================================================
 
@@ -5541,6 +5605,9 @@ def compress_general_calculation_results(
                 "elapsed_months": result.get("elapsed_months"),
                 "remaining_months": result.get("remaining_months"),
                 "refund_amount": result.get("refund_amount"),
+                "contract_start_date": result.get("contract_start_date"),
+                "cancellation_date": result.get("cancellation_date"),
+                "cancellation_date_defaulted": result.get("cancellation_date_defaulted", False),
                 "calculation_basis": "未経過期間による単純按分",
                 "is_estimate": True
             })
@@ -5709,7 +5776,7 @@ def build_general_missing_fields_response(
     )
 #================================================
 
-# 汎用計算で発生する既知の35種類のエラーを、ユーザー向けの日本語へ変換する共通関数
+# 汎用計算で発生する既知の38種類のエラーを、ユーザー向けの日本語へ変換する共通関数
 def localize_general_calculation_error(
     error_message: str
 ) -> str:
@@ -5835,6 +5902,18 @@ def localize_general_calculation_error(
         ),
         "elapsed_monthsはcontract_months以下にしてください": (
             "経過期間は契約期間以内で指定してください。"
+        ),
+        "保険日付はYYYY-MM-DD形式にしてください": (
+            "契約開始日と解約予定日は、年月日を確認できる"
+            "形式で指定してください。"
+        ),
+        "解約予定日は契約開始日以後にしてください": (
+            "解約予定日は、契約開始日以後の日付を"
+            "指定してください。"
+        ),
+        "elapsed_monthsまたは契約開始日と解約予定日が必要です": (
+            "経過期間を指定するか、契約開始日と"
+            "解約予定日を指定してください。"
         )
     }
 
@@ -5879,6 +5958,39 @@ def localize_general_calculation_error(
         localized_error += "。"
 
     return localized_error
+#================================================
+
+# タイプ別の回答ルール定義
+GENERAL_CALCULATION_ANSWER_RULES = {
+    "compound_interest": """
+    ・compounding_per_year_defaultedがtrueの場合だけ、
+      「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
+    ・compounding_per_year_defaultedがfalseの場合は、複利回数の補完について言及しないでください。
+    """.strip(),
+
+    "recurring_investment": """
+    ・compounding_per_yearとcontribution_timingを補った場合は、
+      contributions_per_year、compounding_per_year、
+      contribution_timingを基に自然な頻度表現へ変換してください。
+    ・compounding_per_yearとcontribution_timingの両方を補い、
+      contributions_per_yearとcompounding_per_yearが12、
+      contribution_timingがendの場合は、
+      「想定年利を月次利率に換算し、月末積立として試算しました」と説明してください。
+    ・内部値の「12回」「end」「期末積立」をそのまま表示せず、「月次利率へ換算」「月末積立」など、
+      計算方法が正確に伝わる表現を使用してください。
+    """.strip(),
+
+    "fire_insurance_refund": """
+    ・未経過期間による単純按分の概算であることを明記してください。
+    ・保険会社所定の短期率、手数料、契約条件などは考慮していないことを簡潔に説明してください。
+    ・正確な返戻額は、保険会社または代理店への確認が必要であることを案内してください。
+    ・結果を、実際に支払われる返戻金として断定してはいけません。
+    ・cancellation_date_defaultedがtrueの場合は、解約日の指定がなかったため、
+    cancellation_dateを解約日として計算したことを結果の前に明記してください。
+    ・cancellation_date_defaultedがfalseの場合は、解約日の補完について言及しないでください。
+    """.strip()
+}
+#================================================
 #================================================
 
 # Python計算結果を最終回答へ渡す関数
@@ -6081,6 +6193,9 @@ def build_general_calculation_context(
     
     if status == "success":
         calculation_type = execution_result.get("calculation_type")
+        type_answer_rules = GENERAL_CALCULATION_ANSWER_RULES.get(
+            calculation_type, ""
+        )
         results = compress_general_calculation_results(
             execution_result,
             detail_level=normalized_detail_level,
@@ -6145,24 +6260,22 @@ def build_general_calculation_context(
         【計算結果】
         {result_json}
 
-        【計算結果の使用ルール】
+        【計算結果の共通使用ルール】
         ・Python計算結果の数値と条件を変更、補正、再計算しないでください。
         ・各ケースのcase_nameと結果を対応させ、複数ケースを混同しないでください。
         ・結果にない数値、条件、説明を追加しないでください。
         ・内部キー名を表示せず、質問に合った自然な単位と表記を使用してください。
         ・result_labelがある場合は、その表示名を変更せず、対応するresultの項目名として使用してください。
-        ・result_displayがある場合は、resultではなくresult_displayをそのまま表示し、表記の変更、単位換算、再計算をしてはいけません。
+        ・result_displayがある場合は、resultではなくresult_displayをそのまま表示してください。
+        ・result_displayの表記変更、単位換算、再計算をしてはいけません。
         ・同じ意味の数値を重複表示しないでください。
         ・質問で除外された条件を追加しないでください。
-        ・計算タイプがcompound_interestで、compounding_per_year_defaultedがtrueの場合だけ、「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。それ以外では、この説明を追加しないでください。
-        ・defaulted_fieldsがある場合は、ユーザーが指定しなかった条件を既定値で補ったことを、結果の前に簡潔に説明してください。
-        ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
-        ・defaulted_fieldsにcompounding_per_yearとcontribution_timingの両方が含まれ、contributions_per_yearとcompounding_per_yearが12、contribution_timingがendの場合だけ、「想定年利を月次利率に換算し、月末積立として試算しました」と説明してください。
-        ・内部値の「12回」「end」「期末積立」をそのまま表示せず、積立計算では「月次利率へ換算」「月末積立」など、計算方法が正確に伝わる自然な表現を使用してください。
-        ・計算タイプがfire_insurance_refundの場合は、未経過期間による単純按分の概算であることを明記してください。
-        ・fire_insurance_refundでは、保険会社所定の短期率、手数料、契約条件などは考慮していないことを簡潔に説明してください。
-        ・fire_insurance_refundの正確な返戻額は、保険会社または代理店への確認が必要であることを案内してください。
-        ・fire_insurance_refundの結果を、実際に支払われる返戻金として断定してはいけません。
+        ・defaulted_fieldsがある場合は、指定されていない条件を既定値で補ったことを、結果の前に簡潔に説明してください。
+
+        【計算タイプ別の使用ルール】
+        {type_answer_rules}
+
+        【条件継承の使用ルール】
         {inheritance_usage_rule}
         """.strip()
 
@@ -6427,7 +6540,7 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     }
     """.strip(),
 
-    "fire_insurance_refund": """
+        "fire_insurance_refund": """
     【今回の計算タイプ】
     fire_insurance_refund
 
@@ -6435,29 +6548,38 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・paid_premium：一括で支払った火災保険料
     ・contract_months：契約期間の総月数
     ・elapsed_months：解約時点までの経過月数
+    ・contract_start_date：契約開始日
+    ・cancellation_date：解約予定日
+    ・cancellation_date_defaulted：解約日を補完したか
 
     【抽出ルール】
     ・火災保険の簡易的な解約返戻額を求める場合だけ対象にしてください。
     ・生命保険や個人年金保険などの解約返戻金は対象外です。
     ・支払保険料はpaid_premiumへ円単位で設定してください。
     ・契約期間は月数へ換算してcontract_monthsへ設定してください。
-    ・経過期間は月数へ換算してelapsed_monthsへ設定してください。
+    ・経過期間が直接指定されている場合は、月数へ換算してelapsed_monthsへ設定してください。
     ・1年は12か月として換算してください。
     ・年と月の両方がある場合は合計月数へ換算してください。
-    ・残りの期間しか示されていない場合は推測で経過期間を
-      設定せず、elapsed_monthsをnullにしてください。
-    ・短期率、手数料、保険会社独自の返戻率は抽出や推測を
-      しないでください。
-    ・複数条件が指定された場合は、条件ごとにcasesを
-      分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ
-      設定してください。
+    ・契約開始日はYYYY-MM-DD形式でcontract_start_dateへ設定してください。
+    ・解約予定日はYYYY-MM-DD形式でcancellation_dateへ設定してください。
+    ・解約予定日が年月だけの場合は、その月の1日を補完し、cancellation_date_defaultedをtrueにしてください。
+    ・解約予定日が年だけの場合は、その年の1月1日を補完し、cancellation_date_defaultedをtrueにしてください。
+    ・解約予定日が年月日まで指定されている場合は、cancellation_date_defaultedをfalseにしてください。
+    ・契約開始日と解約予定日からelapsed_monthsを計算したり推測したりせず、elapsed_monthsはnullにしてください。
+    ・経過期間が直接指定されている場合は、日付があっても指定された経過期間をelapsed_monthsへ設定してください。
+    ・残りの期間しか示されていない場合は、推測でelapsed_monthsを設定せずnullにしてください。
+    ・短期率、手数料、保険会社独自の返戻率は抽出や推測をしないでください。
+    ・複数条件が指定された場合は、条件ごとにcasesを分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
 
     【parametersの形式】
     {
         "paid_premium": null,
         "contract_months": null,
-        "elapsed_months": null
+        "elapsed_months": null,
+        "contract_start_date": null,
+        "cancellation_date": null,
+        "cancellation_date_defaulted": false
     }
     """.strip()
 }
