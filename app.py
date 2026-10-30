@@ -16817,12 +16817,12 @@ with all_tabs[0]:
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
-                                # save_message(
-                                #     "user",
-                                #     user_input,
-                                #     current_msg_id,
-                                #     "conversation"
-                                # )
+                                save_message(
+                                    "user",
+                                    user_input,
+                                    current_msg_id,
+                                    "conversation"
+                                )
 
                                 save_message(
                                     "assistant",
@@ -17364,12 +17364,12 @@ with all_tabs[0]:
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
-                                    # save_message(
-                                    #     "user",
-                                    #     user_input,
-                                    #     current_msg_id,
-                                    #     "conversation"
-                                    # )
+                                    save_message(
+                                        "user",
+                                        user_input,
+                                        current_msg_id,
+                                        "conversation"
+                                    )
 
                                     save_message(
                                         "assistant",
