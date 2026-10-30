@@ -19300,12 +19300,50 @@ with all_tabs[0]:
                             calculation_pending
                             and should_exit_real_estate_calculation(user_input)
                         ):
-                            st.session_state["real_estate_calculation_pending"] = False
+                            st.session_state[
+                                "real_estate_calculation_pending"
+                            ] = False
+                            st.session_state[
+                                "real_estate_calculation_arguments"
+                            ] = {}
+                            st.session_state[
+                                "active_calculation_case_id"
+                            ] = None
+                            st.session_state[
+                                "active_calculation_case_name"
+                            ] = ""
+
                             calculation_pending = False
                             calculation_tool = "none"
                             exit_calculation_mode = True
 
-                            debug_text("DEBUG exit_calculation_mode", True)
+                            ai_reply = "不動産売却計算を終了しました。"
+
+                            all_messages.append({
+                                "role": "assistant",
+                                "content": ai_reply,
+                                "message_id": current_msg_id,
+                                "response_mode": "conversation",
+                                "processing_type": "real_estate_calculation",
+                                "chat_room": "talk",
+                                "created_at": datetime.now(JST).isoformat()
+                            })
+
+                            save_message(
+                                role="assistant",
+                                content=ai_reply,
+                                message_id=current_msg_id,
+                                response_mode="conversation",
+                                processing_type="real_estate_calculation"
+                            )
+
+                            debug_text(
+                                "DEBUG exit_calculation_mode",
+                                True
+                            )
+
+                            st.session_state.force_message_reload = True
+                            st.rerun()
 
                         debug_text(
                             "DEBUG active_calculation_case_id",
