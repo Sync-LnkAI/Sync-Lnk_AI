@@ -5584,7 +5584,11 @@ def compress_general_calculation_results(
                 "result": result_value
             })
 
-            if result_type == "value" and result_value is not None:
+            if result_type == "rate" and result_value is not None:
+                compressed_item["result_display"] = f"{result_value}%"
+                compressed_item.pop("result", None)
+
+            elif result_type == "value" and result_value is not None:
                 compressed_item["result_display"] = format_yen_for_display(
                     result_value,
                     money_display_style
