@@ -19371,7 +19371,7 @@ with all_tabs[0]:
                             exit_calculation_mode = True
 
                             ai_reply = "不動産売却計算を終了しました。"
-
+OK
                             all_messages.append({
                                 "role": "assistant",
                                 "content": ai_reply,
