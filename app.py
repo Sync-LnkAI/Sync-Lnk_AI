@@ -19676,13 +19676,14 @@ with all_tabs[0]:
                                         processing_type=processing_type
                                     )
 
-                                    display_message(
-                                        current_concierge_name,
-                                        ai_reply
-                                    )
+                                    # display_message(
+                                    #     current_concierge_name,
+                                    #     ai_reply
+                                    # )
 
                                     st.session_state.force_message_reload = True
-                                    st.stop()
+                                    # st.stop()
+                                    st.rerun()
                                     
                             elif (
                                 calculation_tool == "real_estate_sale"
