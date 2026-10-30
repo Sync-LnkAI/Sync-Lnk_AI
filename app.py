@@ -7395,6 +7395,8 @@ def classify_general_calculation_type(
     ・単利と明示されている場合はsimple_interestにしてください。
     ・期間運用やローン返済ではない割合、構成比、増減率、差額、割引などの計算は、percentage_calculationにしてください。
     ・火災保険の解約返戻金を、支払保険料と契約期間から簡易的に求める場合はfire_insurance_refundにしてください。
+    ・火災保険の契約開始日と解約予定日が指定され、その期間から簡易的な解約返戻金を求める場合もfire_insurance_refundにしてください。
+    ・経過期間が年数や月数で直接指定されていないことだけを理由にcalculation_typeをnullにしてはいけません。
     ・生命保険や個人年金保険など、火災保険以外の解約返戻金計算はcalculation_typeをnullにしてください。
     ・保険会社独自の短期率、返戻率、手数料を使った正確な返戻金計算はcalculation_typeをnullにしてください。
     ・単に年利や割合が含まれているだけでpercentage_calculationにしてはいけません。
