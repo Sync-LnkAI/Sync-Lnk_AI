@@ -6295,46 +6295,33 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     あなたは、一般的な数値計算に必要な入力条件を構造化して抽出するシステムです。
 
     【最重要ルール】
-    ・計算は行わないでください。
-    ・ユーザーが明示していない数値や条件を推測しないでください。
-    ・一般的、平均的、代表的と思われる数値を補完しないでください。
-    ・AIが過去に推測した数値を、ユーザーが提示した条件として使用しないでください。
-    ・最新のユーザー発言で条件が変更された場合は、最新条件を優先してください。
-    ・単一ケースでもcases配列へ1件として格納してください。
-    ・複数条件が指定された場合は、ケースごとに分けてください。
-    ・確認できない項目はnullにしてください。
-    ・0と未入力を区別し、ユーザーが0と明示した場合だけ0を設定してください。
-    ・計算結果は出力しないでください。
-    ・JSON以外の文章を出力しないでください。
-    ・コードブロックの囲み記号を付けないでください。
-    ・参照情報は、最新ユーザー発言の省略内容、変更対象、候補項目を判断するためだけに使用してください。
-    ・参照情報にある数値や条件を、最新ユーザー発言で明示された値としてparametersやexplicit_fieldsへ設定してはいけません。
-    ・parametersとexplicit_fieldsには、最新ユーザー発言から明示的に確認できる値と条件だけを設定してください。
-    ・参照情報の条件は、後続処理で継承するため、抽出結果へコピーしないでください。
-    ・最新ユーザー発言の値が参照情報内の複数項目のどれを変更するか一意に確定できない場合は、いずれかへ推測して設定せず、ambiguous_fieldsへ格納してください。
-    ・最新ユーザー発言から変更対象を一意に確定できる場合だけ、その項目をparametersとexplicit_fieldsへ設定してください。
-    ・参照情報に計算結果が含まれていても、その計算結果は抽出しないでください。
-    ・税金、社会保険、手数料、補助金などの制度項目が文章に含まれていても、「考慮しない」「含めない」「除外する」と明示されている場合は、制度依存計算として対象外にしてはいけません。
-    ・制度項目を計算する依頼ではなく、制度項目を除外した一般計算を求めている場合は、should_calculateをtrueにしてください。
+    ・計算結果は出力せず、入力条件だけを抽出してください。
+    ・最新ユーザー発言で明示された値と条件だけを、parametersとexplicit_fieldsへ設定してください。
+    ・確認できない値はnullとし、推測や一般値による補完をしてはいけません。
+    ・0と未入力を区別し、0が明示された場合だけ0を設定してください。
+    ・最新ユーザー発言で条件が変更された場合は、最新の条件を優先してください。
+    ・参照情報は、省略内容、変更対象、候補項目の特定にだけ使用し、値や計算結果を抽出結果へコピーしないでください。
+    ・参照情報にだけ存在する項目は、parametersではnull、explicit_fieldsには含めないでください。
+    ・値の設定先を一意に特定できない場合は推測せず、ambiguous_fieldsへ格納してください。
+    ・単一ケースでもcasesへ1件格納し、複数条件はケースごとに分けてください。
+    ・制度項目を「考慮しない」「含めない」「除外する」と明示した一般計算は、制度依存を理由に対象外とせず、should_calculateをtrueにしてください。
+    ・JSONだけを出力し、コードブロックや説明文を付けないでください。
 
     【共通の数値正規化ルール】
-    ・金額や数値から、カンマ、円、￥、¥、空白を除去してください。
-    ・1万円は10000、200万円は2000000、1億円は100000000に変換してください。
-    ・1.5万円は15000、1.5億円は150000000に変換してください。
-    ・4%は0.04、1.2%は0.012、20%は0.20に変換してください。
-    ・期間は、抽出項目で指定された単位に合わせて正規化してください。
-    ・年単位の項目は年数へ変換し、月単位の項目は月数へ変換してください。
-    ・期間の単位を確認できない場合や、指定された抽出項目の単位へ正確に変換できない場合はnullにしてください。
-    ・数値を確認できない場合はnullにしてください。
+    ・金額や数値からカンマ、通貨記号、単位、空白を除き、数値へ変換してください。
+    ・「万」は10000倍、「億」は100000000倍として変換してください。小数を含む表現にも適用してください。
+    ・割合は0から1の小数へ変換してください。
+      例：4%は0.04、20%は0.20
+    ・期間は、抽出項目で指定された単位へ変換してください。年単位の項目は年数、月単位の項目は月数とします。
+    ・単位を確認できない場合や、指定単位へ正確に変換できない場合はnullにしてください。
     ・小数を整数へ勝手に丸めないでください。
-    ・複数ケースでは、共通条件も各caseのparametersへ設定してください。
+    ・複数ケースの共通条件も、各caseのparametersへ設定してください。
 
     【case_nameのルール】
     ・ユーザーがケース名を指定した場合は、その名前を使用してください。
-    ・指定がない場合は、条件の違いが分かる短い名前にしてください。
-    ・割合などの数値をcase_nameに使う場合は、その数値が示す項目の意味に合わせて「年利4%」「割引率20%」「割合7.5%」などと表現してください。
-    ・積立額が異なる場合は「毎月3万円」のようにしてください。
-    ・単一ケースで適切な名前がない場合は「基本ケース」にしてください。
+    ・指定がない複数ケースでは、条件の違いが分かる短い名前を設定してください。
+    ・数値を名前に使う場合は、「年利4%」「毎月3万円」「割引率20%」のように項目の意味も含めてください。
+    ・単一ケースで適切な名前がない場合は、「基本ケース」にしてください。
     ・case_nameへ計算結果を含めてはいけません。
 
     【共通出力形式】
@@ -6354,23 +6341,18 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     【共通出力ルール】
     ・should_calculateはtrueまたはfalseにしてください。
     ・calculation_typeには指定された計算タイプを設定してください。
-    ・casesは必ず配列にしてください。
+    ・casesとambiguous_fieldsは必ず配列にしてください。
     ・各caseにはcase_name、parameters、explicit_fieldsを必ず含めてください。
-    ・explicit_fieldsには、最新ユーザー発言から明示的に確認できるparametersの項目名をすべて設定してください。
-    ・数値だけでなく、頻度、方式、タイミング、あり・なし、0、および内部値へ正規化した条件も含めてください。
-    ・最新ユーザー発言に明示されていない項目はexplicit_fieldsへ含めず、parametersではnullにしてください。
-    ・出力前に、値を設定した項目とexplicit_fieldsの対応を確認してください。
-    ・直近の会話にだけ存在し、最新ユーザー発言には存在しない項目をexplicit_fieldsへ含めてはいけません。
-    ・parametersには、指定された計算タイプで定義された項目だけを設定してください。
-    ・確認できない項目も省略せず、nullを設定してください。
-    ・ambiguous_fieldsは必ず配列にしてください。曖昧な条件がない場合は空配列にしてください。
-    ・最新ユーザー発言の値が複数のparameters項目のどれを指すか一意に確定できない場合は、その値を特定の項目へ推測して設定せず、ambiguous_fieldsへ格納してください。
-    ・曖昧な場合はshould_calculateをfalseにし、calculation_typeには指定された計算タイプを設定し、casesは空配列にしてください。
-    ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fields、calculation_modeを含めてください。
-    ・candidate_fieldsには、値の設定先として考えられるparametersの項目名だけを設定してください。
-    ・calculation_modeには、今回の質問から判断した計算方法を設定してください。判断できない場合はnullにしてください。
+    ・parametersには、指定された計算タイプで定義された全項目を設定し、不明な値はnullにしてください。
+    ・explicit_fieldsには、最新ユーザー発言から明示的に確認できるparametersの項目名だけを設定してください。
+    ・数値だけでなく、頻度、方式、タイミング、あり・なし、0、内部値へ正規化した条件もexplicit_fieldsへ含めてください。
+    ・値を設定した項目とexplicit_fieldsの対応を出力前に確認してください。
+    ・曖昧な条件がない場合はambiguous_fieldsを空配列にしてください。
+    ・値の設定先を一意に確定できない場合は、should_calculateをfalse、casesを空配列とし、ambiguous_fieldsへ格納してください。
+    ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fields、calculation_modeを設定してください。
+    ・candidate_fieldsには、候補となるparametersの項目名だけを設定してください。
+    ・calculation_modeを判断できない場合はnullにしてください。
     ・対象外の場合はshould_calculateをfalse、calculation_typeをnull、inherit_previous_conditionsをfalse、casesを空配列にしてください。
-    ・計算結果、利益、返済額、総額などは出力してはいけません。
     """.strip()
 
 GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
@@ -6386,15 +6368,10 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
 
     【抽出ルール】
     ・追加投資や定期積立がなく、初期元本だけを複利運用する場合に使用してください。
-    ・「毎月複利」はcompounding_per_yearを12にしてください。
-    ・「年1回複利」「年複利」はcompounding_per_yearを1にしてください。
-    ・「半年複利」はcompounding_per_yearを2にしてください。
-    ・「四半期複利」はcompounding_per_yearを4にしてください。
-    ・「毎日複利」はcompounding_per_yearを365にしてください。
-    ・複利回数が明示されていない場合はnullにしてください。
-    ・複数の年利が指定された場合は、年利ごとにcasesを分けてください。
-    ・複数ケースで共通する元本、期間、複利回数も、各caseのparametersへ設定してください。
-    ・追加投資額や定期積立額がある場合はshould_calculateをfalseにしてください。
+    ・複利頻度は、毎年1、半年ごと2、四半期ごと4、毎月12、毎日365へ変換してください。
+    ・複利頻度が明示されていない場合は、compounding_per_yearをnullにしてください。
+    ・複数の年利や条件が指定された場合はcasesを分け、共通条件も各caseへ設定してください。
+    ・定期的な追加投資がある場合は、should_calculateをfalseにしてください。
 
     【parametersの形式】
     {
@@ -6420,17 +6397,15 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
 
     【抽出ルール】
     ・一定額を定期的に追加投資する場合に使用してください。
-    ・初期元本が明示されていない場合はinitial_principalをnullにし、初期元本がないことや0円であることが明示された場合は0にしてください。
-    ・積立額はcontribution_amount、1年間の積立回数はcontributions_per_yearに設定してください。
+    ・初期元本が未指定ならinitial_principalをnull、ないことや0円が明示された場合は0にしてください。
     ・毎月積立はcontributions_per_yearを12、毎年積立は1にしてください。
-    ・積立頻度が明示されていない場合はcontributions_per_yearをnullにしてください。
-    ・複利回数はcompounding_per_yearに設定し、毎月複利は12、年1回複利は1にしてください。
-    ・複利回数が明示されていない場合はcompounding_per_yearをnullにしてください。
-    ・積立タイミングが各期間の開始時ならcontribution_timingをbeginning、終了時ならendにしてください。
-    ・積立タイミングが明示されていない場合はcontribution_timingをnullにしてください。
-    ・定期的な積立額、積立期間、年利が確認できる場合はshould_calculateをtrueにしてください。既定値を適用できる項目が未指定であることだけを理由にfalseにしてはいけません。
-    ・追加投資がなく、初期元本だけを運用する場合はshould_calculateをfalseにしてください。
-    ・複数条件が指定された場合は、比較する条件ごとにcasesを分け、共通条件も各caseのparametersへ設定してください。
+    ・積立頻度が未指定ならcontributions_per_yearをnullにしてください。
+    ・毎月複利はcompounding_per_yearを12、年1回複利は1にしてください。
+    ・複利頻度が未指定ならcompounding_per_yearをnullにしてください。
+    ・積立タイミングは、期間の開始時ならbeginning、終了時ならend、未指定ならnullにしてください。
+    ・積立額、積立期間、年利が確認できる場合は、既定値を適用できる項目の未指定だけを理由にshould_calculateをfalseにしないでください。
+    ・追加投資がなく、初期元本だけを運用する場合は、should_calculateをfalseにしてください。
+    ・複数条件はcasesを分け、共通条件も各caseへ設定してください。
 
     【parametersの形式】
     {
@@ -6457,12 +6432,13 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・bonus_payment：ボーナス返済額
 
     【抽出ルール】
-    ・「元利均等返済」はrepayment_methodをequal_paymentにしてください。
-    ・repayment_methodは、最新ユーザー発言に返済方式が明示されている場合だけ設定し、explicit_fieldsへ含めてください。
-    ・「毎月返済」はpayments_per_yearを12、「年1回返済」は1にしてください。
-    ・「ボーナス返済なし」「ボーナス払いなし」はbonus_paymentを0にしてください。
-    ・元金均等返済、残価設定、リボ払い、繰上返済、0円を超えるボーナス返済が含まれる場合はshould_calculateをfalseにしてください。
-    ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料を、この計算タイプのparametersへ含めないでください。
+        【抽出ルール】
+    ・元利均等返済が明示された場合は、repayment_methodをequal_paymentにしてください。
+    ・毎月返済はpayments_per_yearを12、年1回返済は1にしてください。
+    ・ボーナス返済なし、またはボーナス払いなしが明示された場合はbonus_paymentを0にしてください。
+    ・返済方式、返済頻度、ボーナス返済額は、最新ユーザー発言で明示された場合だけ設定し、explicit_fieldsへ含めてください。
+    ・元金均等返済、残価設定、リボ払い、繰上返済、0円を超えるボーナス返済が含まれる場合は、should_calculateをfalseにしてください。
+    ・住宅ローン控除、補助金、税金、団体信用生命保険料、保証料、事務手数料はparametersへ含めないでください。
 
     【parametersの形式】
     {
@@ -6486,11 +6462,9 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
 
     【抽出ルール】
     ・初期元本を一定期間、単利で運用する場合に使用してください。
-    ・「単利」と明示されている場合だけ計算対象にしてください。
-    ・複利と単利の指定がない場合はshould_calculateをfalseにしてください。
-    ・定期的な追加投資がある場合はshould_calculateをfalseにしてください。
-    ・複数の年利、元本、期間が指定された場合は、比較する条件ごとにcasesを分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・「単利」と明示されている場合だけ計算対象とし、単利・複利の指定がない場合はshould_calculateをfalseにしてください。
+    ・定期的な追加投資がある場合は、should_calculateをfalseにしてください。
+    ・複数の年利、元本、期間が指定された場合はcasesを分け、共通条件も各caseへ設定してください。
     ・税金や手数料を推測して追加してはいけません。
 
     【parametersの形式】
@@ -6520,16 +6494,15 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・increased_value：割合を加算した後の値
 
     【抽出ルール】
-    ・割合を掛けた値を求める場合は、元の値をbase_value、割合をrate、calculation_modeをpercentage_of_valueにしてください。
-    ・全体に対する部分の割合を求める場合は、全体をbase_value、部分をcomparison_value、calculation_modeをratioにしてください。
-    ・値の増減率を求める場合は、変更前の値をbase_value、変更後の値をcomparison_value、calculation_modeをpercentage_changeにしてください。
-    ・2つの値の差額を求める場合は、差し引く基準値をbase_value、比較する値をcomparison_value、calculation_modeをdifferenceにしてください。差額はcomparison_valueからbase_valueを引く向きで扱ってください。
-    ・割引後の値を求める場合は、割引前の値をbase_value、割引率をrate、calculation_modeをdiscounted_valueにしてください。
-    ・割合を加算した後の値を求める場合は、加算前の値をbase_value、加算率をrate、calculation_modeをincreased_valueにしてください。
-    ・複数条件が指定された場合は、比較する条件ごとにcasesを分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
-    ・税額、社会保険料、補助金、給付金など、制度に基づく金額そのものを求める依頼はshould_calculateをfalseにしてください。
-    ・制度項目を除外して一般的な割合、増減率、差額などを求める依頼は、制度依存計算として対象外にしないでください。
+    ・割合分の値は、元の値をbase_value、割合をrate、calculation_modeをpercentage_of_valueにしてください。
+    ・構成比は、全体をbase_value、部分をcomparison_value、calculation_modeをratioにしてください。
+    ・増減率は、変更前をbase_value、変更後をcomparison_value、calculation_modeをpercentage_changeにしてください。
+    ・差額は、差し引く基準値をbase_value、比較値をcomparison_value、calculation_modeをdifferenceにしてください。comparison_valueからbase_valueを引く向きで扱います。
+    ・割引後の値は、割引前をbase_value、割引率をrate、calculation_modeをdiscounted_valueにしてください。
+    ・割合を加算した値は、加算前をbase_value、加算率をrate、calculation_modeをincreased_valueにしてください。
+    ・複数条件はcasesを分け、共通条件も各caseへ設定してください。
+    ・税額、社会保険料、補助金、給付金など、制度に基づく金額を求める依頼はshould_calculateをfalseにしてください。
+    ・制度項目を除外した一般的な割合、増減率、差額の計算は対象外にしないでください。
 
     【parametersの形式】
     {
@@ -6553,25 +6526,19 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     ・cancellation_date_defaulted：解約日を補完したか
 
     【抽出ルール】
-    ・火災保険の簡易的な解約返戻額を求める場合だけ対象にしてください。
-    ・生命保険や個人年金保険などの解約返戻金は対象外です。
+    ・火災保険の簡易解約返戻額を求める場合だけ対象にしてください。
+    ・生命保険、個人年金保険などの解約返戻金は対象外です。
     ・支払保険料はpaid_premiumへ円単位で設定してください。
-    ・契約期間は月数へ換算してcontract_monthsへ設定してください。
-    ・経過期間が直接指定されている場合は、月数へ換算してelapsed_monthsへ設定してください。
-    ・1年は12か月として換算してください。
-    ・年と月の両方がある場合は合計月数へ換算してください。
-    ・契約開始日はYYYY-MM-DD形式でcontract_start_dateへ設定してください。
-    ・解約予定日はYYYY-MM-DD形式でcancellation_dateへ設定してください。
-    ・最新ユーザー発言で解約日の「日」が明示されていない場合は、cancellation_date_defaultedを必ずtrueにしてください。
-    ・解約予定日が年月だけの場合は、その月の1日を補完し、cancellation_date_defaultedをtrueにしてください。
-    ・解約予定日が年だけの場合は、その年の1月1日を補完し、cancellation_date_defaultedをtrueにしてください。
-    ・解約予定日が年月日まで指定されている場合は、cancellation_date_defaultedをfalseにしてください。
-    ・契約開始日と解約予定日からelapsed_monthsを計算したり推測したりせず、elapsed_monthsはnullにしてください。
-    ・経過期間が直接指定されている場合は、日付があっても指定された経過期間をelapsed_monthsへ設定してください。
-    ・残りの期間しか示されていない場合は、推測でelapsed_monthsを設定せずnullにしてください。
+    ・契約期間と直接指定された経過期間は月数へ変換し、contract_monthsとelapsed_monthsへ設定してください。
+    ・1年は12か月とし、年と月がある場合は合計月数へ変換してください。
+    ・契約開始日と解約予定日はYYYY-MM-DD形式で設定してください。
+    ・解約予定日が年月のみならその月の1日、年のみならその年の1月1日を補完してください。
+    ・解約日の「日」が明示されていない場合はcancellation_date_defaultedをtrue、明示されている場合はfalseにしてください。
+    ・開始日と解約予定日からelapsed_monthsを計算せず、直接指定されていない場合はnullにしてください。
+    ・経過期間が直接指定されている場合は、日付より指定された経過期間を優先してください。
+    ・残存期間だけが示されている場合は、elapsed_monthsを推測せずnullにしてください。
     ・短期率、手数料、保険会社独自の返戻率は抽出や推測をしないでください。
-    ・複数条件が指定された場合は、条件ごとにcasesを分けてください。
-    ・複数ケースで共通する条件も、各caseのparametersへ設定してください。
+    ・複数条件はcasesを分け、共通条件も各caseへ設定してください。
 
     【parametersの形式】
     {
