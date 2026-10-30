@@ -18204,6 +18204,41 @@ with all_tabs[0]:
                                     )
                                 )
 
+                            if general_calculation_type == (
+                                "fire_insurance_refund"
+                            ):
+                                normalized_input = unicodedata.normalize(
+                                    "NFKC", str(user_input or "")
+                                )
+                                has_year_month_only = bool(re.search(
+                                    r"\d{4}年\d{1,2}月(?!\d{1,2}日)",
+                                    normalized_input
+                                ))
+
+                                if has_year_month_only:
+                                    extraction_cases = (
+                                        general_calculation_extraction_result
+                                        .get("cases", [])
+                                    )
+
+                                    if isinstance(extraction_cases, list):
+                                        for case in extraction_cases:
+                                            if not isinstance(case, dict):
+                                                continue
+
+                                            parameters = case.get(
+                                                "parameters", {}
+                                            )
+                                            if not isinstance(parameters, dict):
+                                                continue
+
+                                            if parameters.get(
+                                                "cancellation_date"
+                                            ):
+                                                parameters[
+                                                    "cancellation_date_defaulted"
+                                                ] = True
+
                             general_calculation_extraction_result[
                                 "inherit_previous_conditions"
                             ] = inherit_previous_calculation
