@@ -4255,16 +4255,27 @@ def get_general_calculation_missing_fields(calculation_type: str, parameters: di
         has_start_date = bool(parameters.get("contract_start_date"))
         has_cancellation_date = bool(parameters.get("cancellation_date"))
 
-        if not has_elapsed_months:
+        if not has_elapsed_months and has_start_date:
             missing_fields = [
                 field for field in missing_fields
                 if field != "elapsed_months"
             ]
-
-            if not has_start_date:
-                missing_fields.append("contract_start_date")
             if not has_cancellation_date:
                 missing_fields.append("cancellation_date")
+
+        elif not has_elapsed_months and has_cancellation_date:
+            missing_fields = [
+                field for field in missing_fields
+                if field != "elapsed_months"
+            ]
+            if not has_start_date:
+                missing_fields.append("contract_start_date")
+
+        elif has_start_date and has_cancellation_date:
+            missing_fields = [
+                field for field in missing_fields
+                if field != "elapsed_months"
+            ]
 
     if normalized_type == "percentage_calculation":
         calculation_mode = parameters.get("calculation_mode")
