@@ -10148,9 +10148,15 @@ def extract_real_estate_sale_parameters(
             for keyword in {"建築", "築年", "築後", "築"}
         )
 
-        mentions_acquisition_date = any(
-            keyword in normalized_user_input
-            for keyword in {"購入", "取得"}
+        mentions_acquisition_date = bool(
+            re.search(
+                r"(?:"
+                r"[0-9]+年前に(?:購入|取得)|"
+                r"[0-9]{4}年(?:[0-9]{1,2}月)?に(?:購入|取得)|"
+                r"(?:購入|取得)(?:した|したのは|した時期|年月|日)"
+                r")",
+                normalized_user_input
+            )
         )
 
         if (
