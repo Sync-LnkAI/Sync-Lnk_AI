@@ -16821,7 +16821,7 @@ with all_tabs[0]:
                                     role="user",
                                     content=user_input,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -16829,7 +16829,7 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -16889,7 +16889,7 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -16983,7 +16983,7 @@ with all_tabs[0]:
                                 role="assistant",
                                 content=ai_reply,
                                 message_id=current_msg_id,
-                                response_mode="conversation",
+                                response_mode="analysis",
                                 processing_type="real_estate_calculation"
                             )
 
@@ -17088,7 +17088,7 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -17373,7 +17373,7 @@ with all_tabs[0]:
                                         role="user",
                                         content=user_input,
                                         message_id=current_msg_id,
-                                        response_mode="conversation",
+                                        response_mode="analysis",
                                         processing_type="real_estate_calculation"
                                     )
 
@@ -17381,7 +17381,7 @@ with all_tabs[0]:
                                         role="assistant",
                                         content=ai_reply,
                                         message_id=current_msg_id,
-                                        response_mode="conversation",
+                                        response_mode="analysis",
                                         processing_type="real_estate_calculation"
                                     )
 
@@ -17868,6 +17868,14 @@ with all_tabs[0]:
                             processing_type = "normal_chat"
 
                         # 判定済みのresponse_modeと一緒にユーザー発言をDBへ保存
+                        is_real_estate_session = bool(
+                            calculation_pending
+                            or st.session_state.get("pending_case_selection", False)
+                            or st.session_state.get("active_calculation_case_id")
+                        )
+                        if is_real_estate_session:
+                            response_mode = "analysis"
+                            processing_type = "real_estate_calculation"
 
                         if not save_message(
                             role="user",
@@ -19397,7 +19405,7 @@ with all_tabs[0]:
                                 role="assistant",
                                 content=ai_reply,
                                 message_id=current_msg_id,
-                                response_mode="conversation",
+                                response_mode="analysis",
                                 processing_type="real_estate_calculation"
                             )
 
@@ -19913,7 +19921,7 @@ with all_tabs[0]:
                                         role="assistant",
                                         content=ai_reply,
                                         message_id=current_msg_id,
-                                        response_mode="conversation",
+                                        response_mode="analysis",
                                         processing_type="real_estate_calculation"
                                     )
 
@@ -20040,7 +20048,7 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=ai_reply,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
@@ -20315,7 +20323,7 @@ with all_tabs[0]:
                                     role="assistant",
                                     content=formatted_result,
                                     message_id=current_msg_id,
-                                    response_mode="conversation",
+                                    response_mode="analysis",
                                     processing_type="real_estate_calculation"
                                 )
 
