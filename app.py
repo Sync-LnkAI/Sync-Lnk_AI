@@ -16568,9 +16568,10 @@ with all_tabs[0]:
                                 response_mode="analysis"
                             )
 
-                            display_message(current_concierge_name, ai_reply)
+                            # display_message(current_concierge_name, ai_reply)
                             st.session_state.force_message_reload = True
-                            st.stop()
+                            # st.stop()
+                            st.rerun()
 
                         # ==========================================
                         # 案件名称変更の検出と変更処理
@@ -16649,14 +16650,14 @@ with all_tabs[0]:
                                     "conversation",
                                 )
 
-                                display_message(
-                                    current_concierge_name,
-                                    ai_reply
-                                )
+                                # display_message(
+                                #     current_concierge_name,
+                                #     ai_reply
+                                # )
 
                                 st.session_state.force_message_reload = True
-
-                                st.stop()
+                                st.rerun()
+                                # st.stop()
 
                             # ======================================
                             # 現在選択中の案件がない場合
@@ -16708,13 +16709,14 @@ with all_tabs[0]:
                                     "conversation",
                                 )
 
-                                display_message(
-                                    current_concierge_name,
-                                    ai_reply
-                                )
+                                # display_message(
+                                #     current_concierge_name,
+                                #     ai_reply
+                                # )
 
                                 st.session_state.force_message_reload = True
-                                st.stop()
+                                # st.stop()
+                                st.rerun()
 
                             # 案件選択待ちへ移行
                             st.session_state[
@@ -16800,13 +16802,14 @@ with all_tabs[0]:
                                 "conversation",
                             )
 
-                            display_message(
-                                current_concierge_name,
-                                ai_reply
-                            )
+                            # display_message(
+                            #     current_concierge_name,
+                            #     ai_reply
+                            # )
 
                             st.session_state.force_message_reload = True
-                            st.stop()
+                            # st.stop()
+                            st.rerun()
                         
 
                         # ==========================================
@@ -16903,13 +16906,14 @@ with all_tabs[0]:
                                     "conversation",
                                 )
 
-                                display_message(
-                                    current_concierge_name,
-                                    ai_reply
-                                )
+                                # display_message(
+                                #     current_concierge_name,
+                                #     ai_reply
+                                # )
 
                                 st.session_state.force_message_reload = True
-                                st.stop()
+                                # st.stop()
+                                st.rerun()
                            
                             candidates = st.session_state.get("pending_case_candidates", [])
                             rename_selection_mode = bool(
@@ -17059,13 +17063,14 @@ with all_tabs[0]:
                                         "analysis",
                                     )
 
-                                    display_message(
-                                        current_concierge_name,
-                                        create_error_reply
-                                    )
+                                    # display_message(
+                                    #     current_concierge_name,
+                                    #     create_error_reply
+                                    # )
 
                                     st.session_state.force_message_reload = True
-                                    st.stop()
+                                    # st.stop()
+                                    st.rerun()
 
                                 new_case_id = create_result.get("case_id")
 
@@ -17192,13 +17197,14 @@ with all_tabs[0]:
                                         "conversation",
                                     )
 
-                                    display_message(
-                                        current_concierge_name,
-                                        ai_reply
-                                    )
+                                    # display_message(
+                                    #     current_concierge_name,
+                                    #     ai_reply
+                                    # )
 
                                     st.session_state.force_message_reload = True
-                                    st.stop()
+                                    # st.stop()
+                                    st.rerun()
 
                                 # ======================================
                                 # ここから下は既存の通常案件選択処理
@@ -17390,13 +17396,14 @@ with all_tabs[0]:
                                 # save_message("user", user_input, current_msg_id, "analysis")
                                 save_message("assistant", retry_reply, current_msg_id, "analysis")
 
-                                display_message(
-                                    current_concierge_name,
-                                    retry_reply
-                                )
+                                # display_message(
+                                #     current_concierge_name,
+                                #     retry_reply
+                                # )
 
                                 st.session_state.force_message_reload = True
-                                st.stop()
+                                # st.stop()
+                                st.rerun()
                                                 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
@@ -18732,10 +18739,10 @@ with all_tabs[0]:
                                     general_calculation_result=general_calculation_execution_result
                                 )
 
-                                display_message(current_concierge_name, ai_reply)
+                                # display_message(current_concierge_name, ai_reply)
                                 st.session_state.force_message_reload = True
-                                st.stop()
-                                # st.rerun()
+                                # st.stop()
+                                st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
                             unsupported_category = str(
@@ -19802,12 +19809,13 @@ with all_tabs[0]:
                                     response_mode=response_mode
                                 )
 
-                                display_message(
-                                    current_concierge_name,
-                                    ai_reply
-                                )
+                                # display_message(
+                                #     current_concierge_name,
+                                #     ai_reply
+                                # )
                                 st.session_state.force_message_reload = True
-                                st.stop()
+                                # st.stop()
+                                st.rerun()
 
                             if calculation_status == "missing_fields":
                                 # 条件不足の場合は、
