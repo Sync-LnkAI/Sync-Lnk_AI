@@ -10858,29 +10858,29 @@ def format_missing_fields_message(
 
         # 表示用変換
         if key == "owner_type":
-
             if value == "individual":
                 value = "個人"
-
             elif value == "corporate":
                 value = "法人"
-
         elif key == "holding_period_type":
-
             if value == "long_term":
                 value = "長期譲渡所得"
-
             elif value == "short_term":
                 value = "短期譲渡所得"
-        
         elif key == "property_usage":
-
             if value == "investment":
                 value = "投資用"
-
             elif value == "owner_occupied":
                 value = "自宅"
-        
+        elif key == "building_structure":
+            structure_labels = {
+                "wood": "木造",
+                "light_steel": "軽量鉄骨造",
+                "steel": "鉄骨造",
+                "rc": "RC造",
+                "src": "SRC造"
+            }
+            value = structure_labels.get(str(value), value)
         elif key == "use_deemed_acquisition_cost":
             value = (
                 "使用する"
