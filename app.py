@@ -3730,13 +3730,15 @@ GENERAL_CALCULATION_TYPES = {
     "recurring_investment",
     "loan_payment",
     "simple_interest",
-    "percentage_calculation"
+    "percentage_calculation",
+    "fire_insurance_refund"
 }
 # compound_interest：元本の複利運用
 # recurring_investment：定期積立の運用
 # loan_payment：元利均等返済
 # simple_interest：単利計算
 # percentage_calculation：割合、構成比、増減率、差額
+# fire_insurance_refund：火災保険の簡易解約返戻金
 
 # 計算タイプ別名の定数定義
 GENERAL_CALCULATION_TYPE_ALIASES = {
@@ -3760,7 +3762,11 @@ GENERAL_CALCULATION_TYPE_ALIASES = {
     "割引": "percentage_calculation",
     "割引計算": "percentage_calculation",
     "値引き": "percentage_calculation",
-    "値引き計算": "percentage_calculation"
+    "値引き計算": "percentage_calculation",
+    "火災保険返戻金": "fire_insurance_refund",
+    "火災保険解約返戻金": "fire_insurance_refund",
+    "火災保険の返戻金": "fire_insurance_refund",
+    "火災保険の解約返戻金": "fire_insurance_refund"
 }
 
 # 計算タイプごとの必須項目定義(AIから受け取ってよい項目の一覧)
@@ -3798,6 +3804,11 @@ GENERAL_CALCULATION_PARAMETER_FIELDS = {
         "comparison_value",
         "rate",
         "calculation_mode"
+    },
+    "fire_insurance_refund": {
+        "paid_premium",
+        "contract_months",
+        "elapsed_months"
     }
 }
 
@@ -3829,6 +3840,10 @@ GENERAL_CALCULATION_MONEY_FIELDS = {
     },
     "percentage_calculation": {
         "result"
+    },
+    "fire_insurance_refund": {
+        "paid_premium",
+        "refund_amount"
     }
 }
 
@@ -3871,7 +3886,12 @@ GENERAL_CALCULATION_REQUIRED_FIELDS = {
         "annual_rate",
         "years"
     },
-    "percentage_calculation": set()
+    "percentage_calculation": set(),
+    "fire_insurance_refund": {
+        "paid_premium",
+        "contract_months",
+        "elapsed_months"
+    }
 }
 
 GENERAL_CALCULATION_NUMERIC_FIELDS = {
@@ -3886,7 +3906,10 @@ GENERAL_CALCULATION_NUMERIC_FIELDS = {
     "bonus_payment",
     "base_value",
     "comparison_value",
-    "rate"
+    "rate",
+    "paid_premium",
+    "contract_months",
+    "elapsed_months"
 }
 
 GENERAL_CALCULATION_FIELD_LABELS = {
@@ -3904,6 +3927,11 @@ GENERAL_CALCULATION_FIELD_LABELS = {
     "base_value": "変更前の値",
     "comparison_value": "変更後の値",
     "rate": "割合",
+    "paid_premium": "支払保険料",
+    "contract_months": "契約期間",
+    "elapsed_months": "経過期間",
+    "remaining_months": "残りの契約期間",
+    "refund_amount": "簡易返戻額",
     "calculation_mode": "計算方法",
     "calculation_type": "計算タイプ",
     "parameters": "計算条件"
@@ -4614,6 +4642,50 @@ def calculate_percentage_calculation(
     }
 #================================================
 
+# 火災保険の簡易返戻額計算関数
+# 火災保険の簡易解約返戻金計算関数
+def calculate_fire_insurance_refund(
+    paid_premium,
+    contract_months,
+    elapsed_months
+) -> dict:
+    paid_premium_d = to_decimal(paid_premium)
+    contract_months_d = to_decimal(contract_months)
+    elapsed_months_d = to_decimal(elapsed_months)
+
+    if paid_premium_d < 0:
+        raise ValueError("paid_premiumは0以上にしてください")
+    if contract_months_d <= 0:
+        raise ValueError("contract_monthsは0より大きくしてください")
+    if elapsed_months_d < 0:
+        raise ValueError("elapsed_monthsは0以上にしてください")
+
+    if contract_months_d != contract_months_d.to_integral_value():
+        raise ValueError("contract_monthsは整数にしてください")
+    if elapsed_months_d != elapsed_months_d.to_integral_value():
+        raise ValueError("elapsed_monthsは整数にしてください")
+
+    if elapsed_months_d > contract_months_d:
+        raise ValueError(
+            "elapsed_monthsはcontract_months以下にしてください"
+        )
+
+    remaining_months = contract_months_d - elapsed_months_d
+    refund_amount = (
+        paid_premium_d
+        * remaining_months
+        / contract_months_d
+    )
+
+    return {
+        "paid_premium": round_yen(paid_premium_d),
+        "contract_months": int(contract_months_d),
+        "elapsed_months": int(elapsed_months_d),
+        "remaining_months": int(remaining_months),
+        "refund_amount": round_yen(refund_amount)
+    }
+#================================================
+
 # ケース追加の意図を判定する関数
 def detect_general_calculation_case_operation(user_input: str) -> str:
     normalized_input = str(user_input or "").strip()
@@ -5063,7 +5135,8 @@ GENERAL_CALCULATORS = {
     "recurring_investment": calculate_recurring_investment,
     "loan_payment": calculate_loan_payment,
     "simple_interest": calculate_simple_interest,
-    "percentage_calculation": calculate_percentage_calculation
+    "percentage_calculation": calculate_percentage_calculation,
+    "fire_insurance_refund": calculate_fire_insurance_refund
 }
 
 def execute_general_calculation(extraction_result: dict) -> dict:
@@ -5462,9 +5535,20 @@ def compress_general_calculation_results(
                     "rate": parameters.get("rate")
                 })
 
+        elif calculation_type == "fire_insurance_refund":
+            compressed_item.update({
+                "paid_premium": result.get("paid_premium"),
+                "contract_months": result.get("contract_months"),
+                "elapsed_months": result.get("elapsed_months"),
+                "remaining_months": result.get("remaining_months"),
+                "refund_amount": result.get("refund_amount"),
+                "calculation_basis": "未経過期間による単純按分",
+                "is_estimate": True
+            })
+        
         else:
             compressed_item["result"] = result
-
+        
         money_fields = GENERAL_CALCULATION_MONEY_FIELDS.get(calculation_type, set())
 
         for field_name in money_fields:
@@ -5586,6 +5670,11 @@ def build_general_missing_fields_response(
             "principal": "借入額",
             "annual_rate": "年利",
             "years": "返済期間"
+        },
+        "fire_insurance_refund": {
+            "paid_premium": "一括で支払った火災保険料",
+            "contract_months": "契約期間（年・月）",
+            "elapsed_months": "解約時点までの経過期間（年・月）"
         }
     }
     field_labels = type_labels.get(calculation_type, {})
@@ -5621,7 +5710,7 @@ def build_general_missing_fields_response(
     )
 #================================================
 
-# 汎用計算で発生する既知の29種類のエラーを、ユーザー向けの日本語へ変換する共通関数
+# 汎用計算で発生する既知の35種類のエラーを、ユーザー向けの日本語へ変換する共通関数
 def localize_general_calculation_error(
     error_message: str
 ) -> str:
@@ -5729,6 +5818,24 @@ def localize_general_calculation_error(
         ),
         "割引率は0から1の範囲にしてください": (
             "割引率には0%から100%の範囲を指定してください。"
+        ),
+        "paid_premiumは0以上にしてください": (
+            "支払保険料には0円以上の金額を指定してください。"
+        ),
+        "contract_monthsは0より大きくしてください": (
+            "契約期間には0か月より長い期間を指定してください。"
+        ),
+        "elapsed_monthsは0以上にしてください": (
+            "経過期間には0か月以上の期間を指定してください。"
+        ),
+        "contract_monthsは整数にしてください": (
+            "契約期間は月単位で指定してください。"
+        ),
+        "elapsed_monthsは整数にしてください": (
+            "経過期間は月単位で指定してください。"
+        ),
+        "elapsed_monthsはcontract_months以下にしてください": (
+            "経過期間は契約期間以内で指定してください。"
         )
     }
 
@@ -6053,6 +6160,10 @@ def build_general_calculation_context(
         ・recurring_investmentでcompounding_per_yearとcontribution_timingを補った場合は、contributions_per_year、compounding_per_year、contribution_timingを基に自然な頻度表現へ変換してください。
         ・defaulted_fieldsにcompounding_per_yearとcontribution_timingの両方が含まれ、contributions_per_yearとcompounding_per_yearが12、contribution_timingがendの場合だけ、「想定年利を月次利率に換算し、月末積立として試算しました」と説明してください。
         ・内部値の「12回」「end」「期末積立」をそのまま表示せず、積立計算では「月次利率へ換算」「月末積立」など、計算方法が正確に伝わる自然な表現を使用してください。
+        ・計算タイプがfire_insurance_refundの場合は、未経過期間による単純按分の概算であることを明記してください。
+        ・fire_insurance_refundでは、保険会社所定の短期率、手数料、契約条件などは考慮していないことを簡潔に説明してください。
+        ・fire_insurance_refundの正確な返戻額は、保険会社または代理店への確認が必要であることを案内してください。
+        ・fire_insurance_refundの結果を、実際に支払われる返戻金として断定してはいけません。
         {inheritance_usage_rule}
         """.strip()
 
@@ -6314,6 +6425,40 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
         "comparison_value": null,
         "rate": null,
         "calculation_mode": null
+    }
+    """.strip(),
+
+    "fire_insurance_refund": """
+    【今回の計算タイプ】
+    fire_insurance_refund
+
+    【抽出項目】
+    ・paid_premium：一括で支払った火災保険料
+    ・contract_months：契約期間の総月数
+    ・elapsed_months：解約時点までの経過月数
+
+    【抽出ルール】
+    ・火災保険の簡易的な解約返戻額を求める場合だけ対象にしてください。
+    ・生命保険や個人年金保険などの解約返戻金は対象外です。
+    ・支払保険料はpaid_premiumへ円単位で設定してください。
+    ・契約期間は月数へ換算してcontract_monthsへ設定してください。
+    ・経過期間は月数へ換算してelapsed_monthsへ設定してください。
+    ・1年は12か月として換算してください。
+    ・年と月の両方がある場合は合計月数へ換算してください。
+    ・残りの期間しか示されていない場合は推測で経過期間を
+      設定せず、elapsed_monthsをnullにしてください。
+    ・短期率、手数料、保険会社独自の返戻率は抽出や推測を
+      しないでください。
+    ・複数条件が指定された場合は、条件ごとにcasesを
+      分けてください。
+    ・複数ケースで共通する条件も、各caseのparametersへ
+      設定してください。
+
+    【parametersの形式】
+    {
+        "paid_premium": null,
+        "contract_months": null,
+        "elapsed_months": null
     }
     """.strip()
 }
@@ -7239,13 +7384,20 @@ def classify_general_calculation_type(
     期間運用やローン返済ではない、割合に関する計算の上位タイプ。
     割合、構成比、増減率、差額、割引後の値、割合を加算した値などを含み、同じ質問内に複数の計算方法が含まれる場合も選択できます。
 
+    fire_insurance_refund:
+    一括払いした火災保険料を、契約期間と経過期間から未経過期間で単純按分する簡易的な解約返戻金計算。
+    保険会社独自の短期率や手数料などは考慮しません。
+
     【判定ルール】
-    ・計算タイプは上記5種類から1つだけ選んでください。
+    ・計算タイプは上記6種類から1つだけ選んでください。
     ・元本、年利、運用期間、複利条件から将来金額や利益を求める場合はcompound_interestにしてください。
     ・定期的な積立額がある場合はrecurring_investmentにしてください。
     ・借入金の返済額を求める場合はloan_paymentにしてください。
     ・単利と明示されている場合はsimple_interestにしてください。
-    ・期間運用やローン返済ではない割合、構成比、増減率、差額、割引などの計算は、件数や内部の計算方法にかかわらずpercentage_calculationにしてください。
+    ・期間運用やローン返済ではない割合、構成比、増減率、差額、割引などの計算は、percentage_calculationにしてください。
+    ・火災保険の解約返戻金を、支払保険料と契約期間から簡易的に求める場合はfire_insurance_refundにしてください。
+    ・生命保険や個人年金保険など、火災保険以外の解約返戻金計算はcalculation_typeをnullにしてください。
+    ・保険会社独自の短期率、返戻率、手数料を使った正確な返戻金計算はcalculation_typeをnullにしてください。
     ・単に年利や割合が含まれているだけでpercentage_calculationにしてはいけません。
     ・複数の計算依頼が含まれる場合は、各依頼を個別に分類したうえで、すべてが同じ上位計算タイプに属するなら、その計算タイプを選んでください。
     ・同じ計算タイプの内部に複数の計算方法や条件が存在しても、それを理由にcalculation_typeをnullにしてはいけません。
@@ -7265,9 +7417,11 @@ def classify_general_calculation_type(
     「100万円を年利3%の単利で5年間運用」→ simple_interest
     「200万円の4%はいくら」→ percentage_calculation
     「500万円から650万円への増加率」→ percentage_calculation
+    「火災保険料30万円、5年契約で2年経過時の解約返戻金」→ fire_insurance_refund
+    「生命保険を10年で解約した場合の返戻金」 → calculation_typeはnull
 
     【未対応計算の記録ルール】
-    ・既存の5種類に該当しない計算依頼はcalculation_typeをnullにしてください。
+    ・既存の6種類に該当しない計算依頼はcalculation_typeをnullにしてください。
     ・calculation_typeがnullの場合だけ、unmatched_calculation_categoryへ要求された計算内容を短い一般カテゴリ名で設定してください。
     ・カテゴリ名は「為替換算」「損益分岐点」「平均値計算」「単位換算」のように15文字以内を目安にしてください。
     ・ユーザーの文章、氏名、会社名、商品名、住所、具体的な金額、日付、口座情報を転載してはいけません。
@@ -7276,12 +7430,12 @@ def classify_general_calculation_type(
     ・計算内容を特定できない場合は「分類不能」にしてください。
      
      【未対応計算の回答方法】
-    ・既存の5種類に該当しない場合は、次のどちらかをunmatched_calculation_handlingへ設定してください。
+    ・既存の6種類に該当しない場合は、次のどちらかをunmatched_calculation_handlingへ設定してください。
     ・simple_ai:
       四則演算、面積、体積、平均値、平均速度、時間・距離・速さ、単位換算など、単純な式で一度に計算できる場合。
     ・complex_or_high_risk:
       税金、保険、返戻金、年金、投資判断、複雑なローン、法制度、複数段階の金融計算など、条件や計算方式によって結果が変わりやすい場合。
-    ・既存の5種類に該当する場合はnullにしてください。
+    ・既存の6種類に該当する場合はnullにしてください。
     ・計算結果そのものは出力しないでください。
     ・unmatched_calculation_categoryは、最新ユーザー発言に明示された計算対象を表す一般的なカテゴリ名にしてください。
     ・回答方法の説明や例にある分野名を、カテゴリ名として流用してはいけません。
