@@ -4653,8 +4653,8 @@ def calculate_fire_insurance_refund(
     contract_months_d = to_decimal(contract_months)
     elapsed_months_d = to_decimal(elapsed_months)
 
-    if paid_premium_d < 0:
-        raise ValueError("paid_premiumは0以上にしてください")
+    if paid_premium_d <= 0:
+        raise ValueError("paid_premiumは0より大きくしてください")
     if contract_months_d <= 0:
         raise ValueError("contract_monthsは0より大きくしてください")
     if elapsed_months_d < 0:
@@ -5819,8 +5819,8 @@ def localize_general_calculation_error(
         "割引率は0から1の範囲にしてください": (
             "割引率には0%から100%の範囲を指定してください。"
         ),
-        "paid_premiumは0以上にしてください": (
-            "支払保険料には0円以上の金額を指定してください。"
+        "paid_premiumは0より大きくしてください": (
+            "支払保険料には0円より大きい金額を指定してください。"
         ),
         "contract_monthsは0より大きくしてください": (
             "契約期間には0か月より長い期間を指定してください。"
