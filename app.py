@@ -11464,11 +11464,26 @@ def execute_real_estate_sale_calculation(
     
     try:
 
-        calculation_result = (
-            calculate_real_estate_sale(
+        calculation_result = calculate_real_estate_sale(
                 **calculation_arguments
-            )
         )
+
+        result_condition_fields = {
+            "property_usage",
+            "building_structure",
+            "acquisition_date",
+            "building_acquisition_date",
+            "sale_date",
+            "use_deemed_acquisition_cost",
+            "deemed_acquisition_cost_rate"
+        }
+
+        for field_name in result_condition_fields:
+            field_value = normalized_arguments.get(field_name)
+
+            if field_value is not None:
+                calculation_result[field_name] = field_value
+
         calculation_result[
             "building_tax_basis_source"
         ] = (
