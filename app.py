@@ -8002,8 +8002,9 @@ REAL_ESTATE_DETAILED_RESULT_PROMPT = """
     ・結果が変わる可能性のある条件
     ・確認すべき資料
 
-    ・見出しの先頭に番号や記号を付けないでください。
-    ・見出しと本文の間は、必要に応じて改行してください。
+    ・各見出しは、必ず「【計算結果の要約】」のように全角の隅付き括弧で囲んでください。
+    ・見出しの先頭に番号を付けないでください。
+    ・見出しの直後から本文を開始し、見出しだけの空行を過度に増やさないでください。
 
     【計算結果の要約】
     ・回答の冒頭に、次の確定済み結果を一覧で表示してください。
@@ -11763,22 +11764,32 @@ def format_real_estate_result_detailed(
     result: dict,
     case_name: str = ""
 ) -> str:
+    def yen(field_name: str) -> int:
+        return int(result.get(field_name, 0) or 0)
 
-    owner_type = result.get("owner_type")
-    holding_type = result.get("holding_type")
-
-    ownership_label = ("個人" if owner_type == "individual" else "法人")
-    holding_label = ("長期譲渡所得" if holding_type == "long_term" else "短期譲渡所得")
-
-    building_tax_basis_source = result.get("building_tax_basis_source")
-    tax_rate = result.get("tax_rate")
-
-    building_tax_basis_label = (
-        "入力値"
-        if building_tax_basis_source
-        == "user_provided"
-        else "自動計算"
+    owner_type = str(result.get("owner_type", "") or "")
+    holding_type = str(result.get("holding_type", "") or "")
+    property_usage = str(
+        result.get("property_usage", "") or ""
     )
+    building_structure = str(
+        result.get("building_structure", "") or ""
+    )
+    acquisition_date = str(
+        result.get("acquisition_date", "") or ""
+    )
+    building_acquisition_date = str(
+        result.get("building_acquisition_date", "") or ""
+    )
+
+    ownership_labels = {
+        "individual": "個人",
+        "corporate": "法人"
+    }
+    holding_labels = {
+        "long_term": "長期譲渡所得",
+        "short_term": "短期譲渡所得"
+    }
     usage_labels = {
         "owner_occupied": "自宅",
         "investment": "投資用"
@@ -11791,75 +11802,76 @@ def format_real_estate_result_detailed(
         "src": "SRC造"
     }
 
-    property_usage = str(result.get("property_usage", "") or "")
-    building_structure = str(
-        result.get("building_structure", "") or ""
+    ownership_label = ownership_labels.get(
+        owner_type, owner_type or "未設定"
     )
-    acquisition_date = str(result.get("acquisition_date", "") or "")
-    building_acquisition_date = str(
-        result.get("building_acquisition_date", "") or ""
+    holding_label = holding_labels.get(
+        holding_type, holding_type or "未設定"
     )
-
-    usage_label = usage_labels.get(property_usage, property_usage)
+    usage_label = usage_labels.get(
+        property_usage, property_usage
+    )
     structure_label = structure_labels.get(
         building_structure, building_structure
     )
 
-    brokerage_fee_method = result.get("brokerage_fee_method")
-    building_tax_basis_warning = bool(
+    sale_price = yen("sale_price")
+    loan_balance = yen("loan_balance")
+    land_cost = yen("land_acquisition_cost")
+    building_cost = yen("building_acquisition_cost")
+    depreciation = yen("accumulated_depreciation")
+    building_basis = yen("building_tax_basis")
+    acquisition_costs = yen("acquisition_related_costs")
+    acquisition_basis = yen("applied_acquisition_basis")
+    brokerage_fee = yen("brokerage_fee")
+    transfer_expenses = yen("transfer_expenses")
+    other_cash_expenses = yen("other_cash_expenses")
+    gain_before_deduction = yen(
+        "capital_gain_before_deduction"
+    )
+    special_deduction = yen("special_deduction")
+    taxable_gain = yen("taxable_gain")
+    estimated_tax = yen("estimated_tax")
+    cash_before_tax = yen("cash_before_tax")
+    cash_after_tax = yen("cash_after_tax")
+
+    tax_rate = result.get("tax_rate")
+    brokerage_fee_method = str(
+        result.get("brokerage_fee_method", "") or ""
+    )
+    building_basis_source = str(
+        result.get("building_tax_basis_source", "") or ""
+    )
+    acquisition_basis_method = str(
+        result.get("acquisition_basis_method", "") or ""
+    )
+    building_basis_warning = bool(
         result.get("building_tax_basis_warning", False)
     )
-    building_acquisition_cost = int(
-        result.get("building_acquisition_cost", 0) or 0
-    )
-    accumulated_depreciation = int(
-        result.get("accumulated_depreciation", 0) or 0
-    )
-
-    acquisition_lines = [
-        "【取得費の内訳】",
-        f"・土地取得費："
-        f"{int(result.get('land_acquisition_cost',0)):,}円",
-    ]
-
-    if building_acquisition_cost > 0:
-        acquisition_lines.append(
-            f"・建物取得価額："
-            f"{building_acquisition_cost:,}円"
-        )
-    if (building_acquisition_cost > 0 and accumulated_depreciation > 0):
-        acquisition_lines.append(
-            f"・減価償却累計額："
-            f"{accumulated_depreciation:,}円"
-        )
-    
-    acquisition_lines.extend([
-        (
-            f"・建物未償却残高："
-            f"{int(result.get('building_tax_basis',0)):,}円"
-            f"（{building_tax_basis_label}）"
-        ),
-        f"・購入時諸費用："
-        f"{int(result.get('acquisition_related_costs',0)):,}円",
-        f"・計算採用取得費："
-        f"{int(result.get('applied_acquisition_basis',0)):,}円",
-
-        ""
-    ])
 
     lines = [
-        "【案件情報】",
-        f"案件名：{case_name}",
+        "【計算結果の要約】",
+        f"・売却価格：{sale_price:,}円",
+        f"・計算採用取得費：{acquisition_basis:,}円",
+        f"・課税譲渡所得：{taxable_gain:,}円",
+        f"・概算税額：{estimated_tax:,}円",
+        f"・税引前手残り：{cash_before_tax:,}円",
+        f"・税引後手残り：{cash_after_tax:,}円",
         "",
-        "【適用条件】",
+        "【主な適用条件】",
+        f"・案件名：{case_name or '未選択'}",
         f"・所有者区分：{ownership_label}",
     ]
 
     if usage_label:
         lines.append(f"・物件用途：{usage_label}")
-    lines.append(f"・保有期間：{holding_label}")
+
+    if owner_type == "individual":
+        lines.append(f"・保有期間：{holding_label}")
+
     if acquisition_date:
         lines.append(f"・取得日：{acquisition_date}")
+
     if (
         building_acquisition_date
         and building_acquisition_date != acquisition_date
@@ -11871,69 +11883,189 @@ def format_real_estate_result_detailed(
         lines.append(
             "　（保有期間判定と建物の減価償却計算に使用）"
         )
+
     if structure_label:
         lines.append(f"・建物構造：{structure_label}")
+
     lines.extend([
-        f"・売却価格：{int(result.get('sale_price', 0)):,}円",
-        f"・ローン残債：{int(result.get('loan_balance', 0)):,}円",
-        ""
-    ])
-    lines.extend(acquisition_lines)
-    lines.extend([
-        "【売却費用】",
-        f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
-    ])
-    if (brokerage_fee_method == "statutory_max_estimate"):
-        lines.append("・仲介手数料は法定上限額で自動計算")
-    lines.extend([
-        f"・譲渡費用：{int(result.get('transfer_expenses',0)):,}円",
+        f"・売却価格：{sale_price:,}円",
+        f"・ローン残債：{loan_balance:,}円",
         "",
-        "【譲渡所得】",
-        (
-            f"・特別控除前譲渡所得："
-            f"{int(result.get('capital_gain_before_deduction',0)):,}円"
-        ),
-        (
-            f"・特別控除："
-            f"{int(result.get('special_deduction',0)):,}円"
-        ),
-        (
-            f"・課税譲渡所得："
-            f"{int(result.get('taxable_gain',0)):,}円"
-        ),
+        "【取得費と減価償却】",
+        f"・土地取得価額：{land_cost:,}円",
+        f"・建物取得価額：{building_cost:,}円",
+        f"・減価償却累計額：{depreciation:,}円",
+        f"・建物未償却残高：{building_basis:,}円",
+        f"・購入時諸費用：{acquisition_costs:,}円",
+        f"・計算採用取得費：{acquisition_basis:,}円",
         "",
-        "【税額】",
-        (
-            f"・適用税率："
-            f"{tax_rate * 100:.3f}%"
-            if tax_rate is not None
-            else "・適用税率：未計算"
-        ),
-        (
-            f"・概算税額："
-            f"{int(result.get('estimated_tax',0)):,}円"
-        ),
-        "",
-        "【最終手残り】",
-        (
-            f"・税引前手残り："
-            f"{int(result.get('cash_before_tax',0)):,}円"
-        ),
-        (
-            f"・税引後手残り："
-            f"{int(result.get('cash_after_tax',0)):,}円"
-        ),
     ])
 
-    if building_tax_basis_warning:
-            lines.extend([
-                "⚠️ 建物未償却残高の確認",
-                "入力していただいた建物未償却残高と、",
-                "建物取得価額・構造・取得年月から算出した簿価に差異がありました。",
-                "",
-                "今回は入力していただいた未償却残高を採用して計算しています。",
-                ""
-            ])
+    if building_basis_source == "user_provided":
+        lines.extend([
+            "建物未償却残高は、入力された金額を使用しています。",
+            (
+                f"・採用した建物未償却残高："
+                f"{building_basis:,}円"
+            )
+        ])
+    else:
+        lines.extend([
+            (
+                "建物取得価額から減価償却累計額を差し引き、"
+                "建物未償却残高を自動計算しています。"
+            ),
+            (
+                f"・建物未償却残高の算式："
+                f"{building_cost:,}円 － {depreciation:,}円"
+                f" ＝ {building_basis:,}円"
+            )
+        ])
+
+    if acquisition_basis_method == "deemed_5_percent":
+        deemed_rate = float(
+            result.get("deemed_acquisition_cost_rate", 0.05)
+            or 0.05
+        )
+        lines.extend([
+            (
+                "取得費は実額ではなく、売却価格に対する"
+                "概算取得費を使用しています。"
+            ),
+            (
+                f"・計算採用取得費の算式："
+                f"{sale_price:,}円 × {deemed_rate * 100:g}%"
+                f" ＝ {acquisition_basis:,}円"
+            )
+        ])
+    else:
+        lines.extend([
+            (
+                "土地取得価額、建物未償却残高、"
+                "購入時諸費用を合算して取得費へ反映しています。"
+            ),
+            (
+                f"・計算採用取得費の算式："
+                f"{land_cost:,}円 ＋ {building_basis:,}円"
+                f" ＋ {acquisition_costs:,}円"
+                f" ＝ {acquisition_basis:,}円"
+            )
+        ])
+
+    lines.extend([
+        "",
+        "【譲渡所得と概算税額】",
+        f"・特別控除前譲渡所得：{gain_before_deduction:,}円",
+        f"・特別控除：{special_deduction:,}円",
+        f"・課税譲渡所得：{taxable_gain:,}円",
+        (
+            f"・特別控除前譲渡所得の算式："
+            f"{sale_price:,}円 － {acquisition_basis:,}円"
+            f" － {brokerage_fee:,}円"
+            f" － {transfer_expenses:,}円"
+            f" ＝ {gain_before_deduction:,}円"
+        ),
+        (
+            f"・課税譲渡所得の算式："
+            f"{gain_before_deduction:,}円"
+            f" － {special_deduction:,}円"
+            f" ＝ {taxable_gain:,}円"
+        )
+    ])
+
+    if taxable_gain <= 0:
+        lines.append(
+            "課税譲渡所得が0円以下のため、概算税額は0円です。"
+        )
+    elif tax_rate is not None:
+        tax_rate_percent = float(tax_rate) * 100
+        lines.extend([
+            f"・適用税率：{tax_rate_percent:.3f}%",
+            f"・概算税額：{estimated_tax:,}円",
+            (
+                f"・概算税額の算式："
+                f"{taxable_gain:,}円 × {tax_rate_percent:.3f}%"
+                f" ＝ {estimated_tax:,}円"
+            )
+        ])
+    else:
+        lines.append("・概算税額：未計算")
+
+    lines.extend([
+        "",
+        "【仲介手数料】",
+        f"・仲介手数料：{brokerage_fee:,}円",
+    ])
+
+    if brokerage_fee_method == "statutory_max_estimate":
+        lines.append(
+            f"　（法定上限額で自動計算："
+            f"（{sale_price:,}円 × 3% ＋ 60,000円）"
+            f"× 1.1 ＝ {brokerage_fee:,}円）"
+        )
+    elif brokerage_fee_method == "specified":
+        lines.append("　（入力された仲介手数料を使用）")
+
+    lines.append(f"・その他の譲渡費用：{transfer_expenses:,}円")
+
+    lines.extend([
+        "",
+        "【ローン残債と最終手残り】",
+        (
+            "ローン残債は取得費や譲渡費用には含めず、"
+            "現金手残りの計算で差し引いています。"
+        ),
+        f"・ローン残債：{loan_balance:,}円",
+        f"・税引前手残り：{cash_before_tax:,}円",
+        (
+            f"・税引前手残りの算式："
+            f"{sale_price:,}円 － {loan_balance:,}円"
+            f" － {brokerage_fee:,}円"
+            f" － {transfer_expenses:,}円"
+            f" － {other_cash_expenses:,}円"
+            f" ＝ {cash_before_tax:,}円"
+        ),
+        f"・税引後手残り：{cash_after_tax:,}円",
+        (
+            f"・税引後手残りの算式："
+            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
+            f" ＝ {cash_after_tax:,}円"
+        ),
+        "",
+        "【結果が変わる可能性のある条件】",
+        (
+            "取得価額、取得年月、建物構造、購入時諸費用、"
+            "売却時費用、特別控除などの条件が変わると、"
+            "取得費、税額、最終手残りも変わる可能性があります。"
+        ),
+        (
+            "入力していない特例や控除は、自動では適用して"
+            "いません。"
+        ),
+        "",
+        "【確認すべき資料】",
+        "・売買契約書",
+        "・土地と建物の価格内訳",
+        "・購入時諸費用の領収書",
+        "・建物の取得年月が分かる資料",
+        "・減価償却明細または固定資産台帳",
+        "・ローン残高証明書",
+        "・売却時費用の契約書や領収書",
+    ])
+
+    if building_basis_warning:
+        lines.extend([
+            "",
+            "【建物未償却残高の確認】",
+            (
+                "入力された建物未償却残高と、建物取得価額、"
+                "構造、取得年月から算出した金額に差があります。"
+            ),
+            (
+                "今回の計算では、入力された建物未償却残高を"
+                "採用しています。"
+            )
+        ])
 
     lines.extend([
         "",
@@ -11942,6 +12074,7 @@ def format_real_estate_result_detailed(
             "実際の申告税額を確定するものではありません。"
         )
     ])
+
     return "\n".join(lines)
 #================================================
 
@@ -15877,14 +16010,28 @@ with all_tabs[0]:
             try:
                 detail_status = detail_processing_status
 
-                detail_result = generate_detailed_analysis_response(
-                    style_preset=current_style_preset,
-                    original_user_message=original_user_message,
-                    simple_answer=simple_answer,
-                    calc_prompt=detail_calc_prompt,
-                    general_calculation_context=detail_general_calculation_context,
-                    calculation_type=detail_calculation_type
-                )
+                if detail_calculation_type == "real_estate_sale":
+                    detail_result = {
+                        "success": True,
+                        "answer": detailed_result_text,
+                        "in_tokens": 0,
+                        "out_tokens": 0,
+                        "api_cost": 0.0,
+                        "provider": "python",
+                        "model_name": "real_estate_formatter",
+                        "error_message": ""
+                    }
+                else:
+                    detail_result = generate_detailed_analysis_response(
+                        style_preset=current_style_preset,
+                        original_user_message=original_user_message,
+                        simple_answer=simple_answer,
+                        calc_prompt=detail_calc_prompt,
+                        general_calculation_context=(
+                            detail_general_calculation_context
+                        ),
+                        calculation_type=detail_calculation_type
+                    )
 
                 detail_elapsed = time.time() - detail_start_time
 
