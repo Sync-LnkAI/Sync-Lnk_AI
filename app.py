@@ -20077,7 +20077,7 @@ with all_tabs[0]:
 
                                 st.session_state[
                                     "real_estate_calculation_pending"
-                                ] = True
+                                ] = False
 
                                 result = dict(
                                     calculation_execution_result.get(
