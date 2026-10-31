@@ -11951,6 +11951,26 @@ def format_real_estate_result_detailed(
                 f" ＝ {acquisition_basis:,}円"
             )
         ])
+    
+    if gain_before_deduction <= 0:
+        taxable_gain_formula = (
+            f"売却価格から取得費と譲渡費用を差し引いた結果が"
+            f"{gain_before_deduction:,}円のため、"
+            "課税譲渡所得は0円として計算"
+        )
+    elif taxable_gain <= 0:
+        taxable_gain_formula = (
+            f"{gain_before_deduction:,}円"
+            f" － {special_deduction:,}円"
+            " ＝ 0円"
+            "（特別控除後の金額が0円以下のため）"
+        )
+    else:
+        taxable_gain_formula = (
+            f"{gain_before_deduction:,}円"
+            f" － {special_deduction:,}円"
+            f" ＝ {taxable_gain:,}円"
+        )
 
     lines.extend([
         "",
@@ -11965,12 +11985,7 @@ def format_real_estate_result_detailed(
             f" － {transfer_expenses:,}円"
             f" ＝ {gain_before_deduction:,}円"
         ),
-        (
-            f"・課税譲渡所得の算式："
-            f"{gain_before_deduction:,}円"
-            f" － {special_deduction:,}円"
-            f" ＝ {taxable_gain:,}円"
-        )
+        f"・課税譲渡所得の算式：{taxable_gain_formula}"
     ])
 
     if taxable_gain <= 0:
