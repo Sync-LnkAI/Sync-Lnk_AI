@@ -20160,8 +20160,8 @@ with all_tabs[0]:
                                             "property_usage"
                                         )
                                     )
-                                    if not property_usage:
-                                        property_usage = "investment"
+                                    # if not property_usage:
+                                    #     property_usage = "investment"
 
                                     create_result = (
                                         create_calculation_case(
