@@ -11893,6 +11893,22 @@ def format_real_estate_result_detailed(
         result.get("building_tax_basis_warning", False)
     )
 
+    if property_usage == "owner_occupied":
+        depreciation_method_text = (
+            "非業務用建物として、建物取得価額、構造、"
+            "取得年月に基づく減価の額を概算しています。"
+        )
+    elif property_usage == "investment":
+        depreciation_method_text = (
+            "業務用建物として、建物取得価額、構造、"
+            "取得年月に基づく減価償却累計額を概算しています。"
+        )
+    else:
+        depreciation_method_text = (
+            "建物取得価額、構造、取得年月に基づき、"
+            "減価償却累計額を概算しています。"
+        )
+
     lines = [
         "【計算結果の要約】",
         f"・売却価格：{sale_price:,}円",
