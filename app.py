@@ -11990,7 +11990,7 @@ def format_real_estate_result_detailed(
 
     if taxable_gain <= 0:
         lines.append(
-            "課税譲渡所得が0円以下のため、概算税額は0円です。"
+            "課税譲渡所得が0円のため、概算税額は0円です。"
         )
     elif tax_rate is not None:
         tax_rate_percent = float(tax_rate) * 100
