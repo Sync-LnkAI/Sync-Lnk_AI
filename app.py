@@ -11598,71 +11598,20 @@ def execute_real_estate_sale_calculation(
 #============================================
 
 # 不動産売却計算の簡易結果表示
-def format_real_estate_result_simple(
-    result: dict,
-    case_name: str = ""
-) -> str:
+def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
 
-    owner_type = result.get(
-        "owner_type"
-    )
-
-    holding_type = result.get(
-        "holding_type"
-    )
-
-    sale_price = int(
-        result.get(
-            "sale_price",
-            0
-        ) or 0
-    )
-
-    brokerage_fee_method = result.get(
-        "brokerage_fee_method"
-    )
-
-    loan_balance = int(
-        result.get(
-            "loan_balance",
-            0
-        ) or 0
-    )
-
-    acquisition_basis = int(
-        result.get(
-            "applied_acquisition_basis",
-            0
-        ) or 0
-    )
-
-    taxable_gain = int(
-        result.get(
-            "taxable_gain",
-            0
-        ) or 0
-    )
-
-    estimated_tax = int(
-        result.get(
-            "estimated_tax",
-            0
-        ) or 0
-    )
-
-    cash_before_tax = int(
-        result.get(
-            "cash_before_tax",
-            0
-        ) or 0
-    )
-
-    cash_after_tax = int(
-        result.get(
-            "cash_after_tax",
-            0
-        ) or 0
-    )
+    owner_type = result.get("owner_type")
+    holding_type = result.get("holding_type")
+    sale_price = int(result.get("sale_price", 0) or 0)
+    brokerage_fee_method = result.get("brokerage_fee_method")
+    sale_price = int(result.get("sale_price", 0) or 0)
+    brokerage_fee = int(result.get("brokerage_fee", 0) or 0)
+    loan_balance = int(result.get("loan_balance", 0) or 0)
+    acquisition_basis = int(result.get("applied_acquisition_basis",0 ) or 0)
+    taxable_gain = int(result.get("taxable_gain", 0) or 0)
+    estimated_tax = int(result.get("estimated_tax", 0) or 0)
+    cash_before_tax = int(result.get("cash_before_tax", 0) or 0)
+    cash_after_tax = int(result.get("cash_after_tax", 0) or 0)
 
     building_tax_basis_warning = bool(
         result.get("building_tax_basis_warning", False)
@@ -11767,7 +11716,14 @@ def format_real_estate_result_simple(
         f"{int(result.get('brokerage_fee', 0)):,}円",
     ])
     if brokerage_fee_method == "statutory_max_estimate":
-        lines.append("　（仲介手数料は法定上限額で自動計算）")
+    lines.extend([
+        "　（仲介手数料は法定上限額で自動計算）",
+        (
+            f"仲介手数料の算式："
+            f"（{sale_price:,}円 × 3% ＋ 60,000円）"
+            f"× 1.1 ＝ {brokerage_fee:,}円"
+        )
+    ])
     elif brokerage_fee_method == "specified":
         lines.append("　（入力された仲介手数料を使用）")
 
@@ -11821,6 +11777,31 @@ def format_real_estate_result_detailed(
         == "user_provided"
         else "自動計算"
     )
+    usage_labels = {
+        "owner_occupied": "自宅",
+        "investment": "投資用"
+    }
+    structure_labels = {
+        "wood": "木造",
+        "light_steel": "軽量鉄骨造",
+        "steel": "鉄骨造",
+        "rc": "RC造",
+        "src": "SRC造"
+    }
+
+    property_usage = str(result.get("property_usage", "") or "")
+    building_structure = str(
+        result.get("building_structure", "") or ""
+    )
+    acquisition_date = str(result.get("acquisition_date", "") or "")
+    building_acquisition_date = str(
+        result.get("building_acquisition_date", "") or ""
+    )
+
+    usage_label = usage_labels.get(property_usage, property_usage)
+    structure_label = structure_labels.get(
+        building_structure, building_structure
+    )
 
     brokerage_fee_method = result.get("brokerage_fee_method")
     building_tax_basis_warning = bool(
@@ -11870,22 +11851,38 @@ def format_real_estate_result_detailed(
         "",
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
-        f"・保有期間：{holding_label}",
-        f"・売却価格：{int(result.get('sale_price',0)):,}円",
-        f"・ローン残債：{int(result.get('loan_balance',0)):,}円",
-        ""
     ]
 
+    if usage_label:
+        lines.append(f"・物件用途：{usage_label}")
+    lines.append(f"・保有期間：{holding_label}")
+    if acquisition_date:
+        lines.append(f"・取得日：{acquisition_date}")
+    if (
+        building_acquisition_date
+        and building_acquisition_date != acquisition_date
+    ):
+        lines.append(
+            f"・建物取得年月：{building_acquisition_date}"
+        )
+    elif building_acquisition_date:
+        lines.append(
+            "　（保有期間判定と建物の減価償却計算に使用）"
+        )
+    if structure_label:
+        lines.append(f"・建物構造：{structure_label}")
+    lines.extend([
+        f"・売却価格：{int(result.get('sale_price', 0)):,}円",
+        f"・ローン残債：{int(result.get('loan_balance', 0)):,}円",
+        ""
+    ])
     lines.extend(acquisition_lines)
-            
     lines.extend([
         "【売却費用】",
         f"・仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
     ])
-
     if (brokerage_fee_method == "statutory_max_estimate"):
         lines.append("・仲介手数料は法定上限額で自動計算")
-
     lines.extend([
         f"・譲渡費用：{int(result.get('transfer_expenses',0)):,}円",
         "",
@@ -11903,7 +11900,6 @@ def format_real_estate_result_detailed(
             f"{int(result.get('taxable_gain',0)):,}円"
         ),
         "",
-
         "【税額】",
         (
             f"・適用税率："
@@ -11916,7 +11912,6 @@ def format_real_estate_result_detailed(
             f"{int(result.get('estimated_tax',0)):,}円"
         ),
         "",
-
         "【最終手残り】",
         (
             f"・税引前手残り："
