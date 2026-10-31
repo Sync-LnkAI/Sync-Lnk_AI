@@ -10114,13 +10114,48 @@ def extract_real_estate_sale_parameters(
             )
         )
 
+        relative_acquisition_date_match = re.search(
+            r"(?:取得日は?|購入日は?|取得年月は?|購入年月は?)"
+            r"([0-9]+)年前の([0-9]{1,2})月"
+            r"(?:([0-9]{1,2})日)?",
+            normalized_user_input
+        )
+
         relative_purchase_match = re.search(
             r"(?:(建物|土地|物件|不動産|土地建物)(?:は|を)?)?"
             r"([0-9]+)年前に(?:購入|取得)",
             normalized_user_input
         )
 
-        if relative_purchase_match:
+        if relative_acquisition_date_match:
+            years_ago = int(relative_acquisition_date_match.group(1))
+            acquisition_month = int(
+                relative_acquisition_date_match.group(2)
+            )
+            acquisition_day = int(
+                relative_acquisition_date_match.group(3) or 1
+            )
+            acquisition_year = datetime.now(JST).year - years_ago
+
+            try:
+                acquisition_date = date(
+                    acquisition_year,
+                    acquisition_month,
+                    acquisition_day
+                ).isoformat()
+            except ValueError:
+                acquisition_date = ""
+
+            if acquisition_date:
+                raw_arguments["acquisition_date"] = acquisition_date
+                raw_arguments["building_acquisition_date"] = (
+                    acquisition_date
+                )
+            else:
+                raw_arguments["acquisition_date"] = None
+                raw_arguments["building_acquisition_date"] = None
+
+        elif relative_purchase_match:
             purchase_target = relative_purchase_match.group(1) or ""
             years_ago = int(relative_purchase_match.group(2))
             acquisition_date = add_years_safely(
@@ -10130,7 +10165,9 @@ def extract_real_estate_sale_parameters(
             raw_arguments["acquisition_date"] = acquisition_date
 
             if purchase_target != "土地":
-                raw_arguments["building_acquisition_date"] = acquisition_date
+                raw_arguments["building_acquisition_date"] = (
+                    acquisition_date
+                )
 
         elif mentions_building_age and not mentions_acquisition_date:
             raw_arguments["building_acquisition_date"] = None
