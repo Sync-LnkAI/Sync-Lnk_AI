@@ -8387,8 +8387,8 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
         "land_acquisition_cost": [
             (
                 rf"(?:"
-                rf"土地(?:の)?取得(?:費|価額|価格)|"
-                rf"土地(?:の)?購入(?:費|価額|価格)|"
+                rf"土地(?:の)?取得(?:費|価額|価格)?|"
+                rf"土地(?:の)?購入(?:費|価額|価格)?|"
                 rf"土地代"
                 rf")"
                 rf"\s*(?:は|が|:)?\s*"
@@ -8410,8 +8410,8 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
         "building_acquisition_cost": [
             (
                 rf"(?:"
-                rf"建物(?:の)?取得(?:費|価額|価格)|"
-                rf"建物(?:の)?購入(?:費|価額|価格)|"
+                rf"建物(?:の)?取得(?:費|価額|価格)?|"
+                rf"建物(?:の)?購入(?:費|価額|価格)?|"
                 rf"建物代"
                 rf")"
                 rf"\s*(?:は|が|:)?\s*"
@@ -11646,31 +11646,96 @@ def format_real_estate_result_simple(
         if holding_type == "long_term"
         else "短期譲渡所得"
     )
+    usage_labels = {
+        "owner_occupied": "自宅",
+        "investment": "投資用"
+    }
+    structure_labels = {
+        "wood": "木造",
+        "light_steel": "軽量鉄骨造",
+        "steel": "鉄骨造",
+        "rc": "RC造",
+        "src": "SRC造"
+    }
+
+    property_usage = str(result.get("property_usage", "") or "")
+    building_structure = str(result.get("building_structure", "") or "")
+    acquisition_date = str(result.get("acquisition_date", "") or "")
+    building_acquisition_date = str(result.get("building_acquisition_date", "") or "")
+
+    land_acquisition_cost = int(result.get("land_acquisition_cost", 0) or 0)
+    building_acquisition_cost = int(result.get("building_acquisition_cost", 0) or 0)
+    acquisition_related_costs = int(result.get("acquisition_related_costs", 0) or 0)
+    transfer_expenses = int(result.get("transfer_expenses", 0) or 0)
+    other_cash_expenses = int(result.get("other_cash_expenses", 0) or 0)
+    special_deduction = int(result.get("special_deduction", 0) or 0)
+
+    usage_label = usage_labels.get(property_usage, property_usage)
+    structure_label = structure_labels.get(
+        building_structure, building_structure
+    )
 
     lines = [
-        f"計算結果は以下になりました。",
-        f"【案件情報】",
+        "計算結果は以下になりました。",
+        "【案件情報】",
         f"案件名：{case_name or '未選択'}",
         "",
-        "【適用条件】",
+        "【主な適用条件】",
         f"・所有者区分：{ownership_label}",
-        f"・保有期間：{holding_label}",
+    ]
+
+    if usage_label:
+        lines.append(f"・物件用途：{usage_label}")
+
+    lines.append(f"・保有期間：{holding_label}")
+
+    if acquisition_date:
+        lines.append(f"・取得日：{acquisition_date}")
+
+    if (
+        building_acquisition_date
+        and building_acquisition_date != acquisition_date
+    ):
+        lines.append(f"・建物取得年月：{building_acquisition_date}")
+    
+    elif building_acquisition_date:
+        lines.append(
+            f"・取得年月を保有期間判定と"
+            f"建物の減価償却計算に使用"
+        )
+
+    if structure_label:
+        lines.append(f"・建物構造：{structure_label}")
+
+    lines.extend([
         f"・売却価格：{sale_price:,}円",
         f"・ローン残債：{loan_balance:,}円",
-        f"・取得費：{acquisition_basis:,}円",
+        "",
+        "【取得費への反映】",
+        f"・土地取得価額：{land_acquisition_cost:,}円",
+        f"・建物取得価額：{building_acquisition_cost:,}円",
         f"・建物未償却残高：{building_tax_basis:,}円",
-        f"・売却時仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
-    ]
+        f"・購入時諸費用：{acquisition_related_costs:,}円",
+        f"・計算採用取得費：{acquisition_basis:,}円",
+    ])
     if building_tax_basis_source == "calculated":
-        lines.append(
-            "　（建物取得価額から減価償却を自動計算し、取得費へ反映）"
-        )
+        lines.append("　（建物取得価額から減価償却を自動計算し、取得費へ反映）")
     elif building_tax_basis_source == "user_provided":
-        lines.append(
-            "　（建物未償却残高は入力値を取得費へ反映）"
-        )
-    if (brokerage_fee_method == "statutory_max_estimate"):
+        lines.append("　（入力された建物未償却残高を取得費へ反映）")
+    if transfer_expenses > 0:
+        lines.append(f"・譲渡費用：{transfer_expenses:,}円")
+    if other_cash_expenses > 0:
+        lines.append(f"・その他の現金支出：{other_cash_expenses:,}円")
+    if special_deduction > 0:
+        lines.append(f"・特別控除：{special_deduction:,}円")
+    lines.extend([
+        f"・売却時仲介手数料："
+        f"{int(result.get('brokerage_fee', 0)):,}円",
+    ])
+    if brokerage_fee_method == "statutory_max_estimate":
         lines.append("　（仲介手数料は法定上限額で自動計算）")
+    elif brokerage_fee_method == "specified":
+        lines.append("　（入力された仲介手数料を使用）")
 
     if building_tax_basis_warning:
         lines.extend([
