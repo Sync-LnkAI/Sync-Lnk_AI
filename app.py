@@ -20685,6 +20685,24 @@ with all_tabs[0]:
                                     }
                                 )
 
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type="CHAT_SUCCESS",
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "provider=python"
+                                        " | model=real_estate_simple_formatter"
+                                        " | response_route=real_estate_simple"
+                                        " | 処理区分=real_estate_calculation"
+                                        " | 回答モード=analysis"
+                                    ),
+                                    message_id=str(current_msg_id)
+                                )
+
                                 # all_messages.append({
                                 #         "role": "user",
                                 #         "content": user_input,
