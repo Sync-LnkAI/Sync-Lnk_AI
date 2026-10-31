@@ -16578,7 +16578,7 @@ with all_tabs[0]:
                         api_cost=0.0,
                         details=str(reason_text)
                     )
-                    
+
                     st.rerun()
 
                 else:
@@ -20189,7 +20189,7 @@ with all_tabs[0]:
 
                                 st.session_state[
                                     "real_estate_calculation_pending"
-                                ] = False
+                                ] = True
 
                                 result = dict(
                                     calculation_execution_result.get(
@@ -20919,8 +20919,11 @@ with all_tabs[0]:
                     and not st.session_state.get(
                         "pending_case_selection", False
                     )
-                    and not st.session_state.get(
-                        "real_estate_calculation_pending", False
+                    and (
+                        not st.session_state.get(
+                            "real_estate_calculation_pending", False
+                        )
+                        or is_real_estate_success
                     )
                     and not str(
                         msg.get("parent_message_id", "") or ""
