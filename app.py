@@ -11716,14 +11716,11 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
         f"{int(result.get('brokerage_fee', 0)):,}円",
     ])
     if brokerage_fee_method == "statutory_max_estimate":
-    lines.extend([
-        "　（仲介手数料は法定上限額で自動計算）",
-        (
-            f"仲介手数料の算式："
+        lines.append(
+            f"　（仲介手数料は法定上限額で自動計算："
             f"（{sale_price:,}円 × 3% ＋ 60,000円）"
-            f"× 1.1 ＝ {brokerage_fee:,}円"
+            f"× 1.1 ＝ {brokerage_fee:,}円）"
         )
-    ])
     elif brokerage_fee_method == "specified":
         lines.append("　（入力された仲介手数料を使用）")
 
