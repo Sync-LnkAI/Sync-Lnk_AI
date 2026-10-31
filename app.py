@@ -10035,12 +10035,18 @@ def extract_real_estate_sale_parameters(
 
     【不動産用途】
     次の表現は property_usage として扱ってください。
+    ・非業務用
     ・自宅
+    ・自宅用
     ・居住用
     ・マイホーム
-    ・自宅マンション
+    ・別荘
+    ・セカンドハウス
+    ・貸していない空き家
+    ・自己使用
     → owner_occupied
 
+    ・業務用
     ・投資用
     ・投資用マンション
     ・収益物件
@@ -10049,7 +10055,18 @@ def extract_real_estate_sale_parameters(
     ・一棟アパート
     ・アパート経営
     ・マンション経営
+    ・事業用
+    ・店舗
+    ・事務所
     → investment
+
+    ・以前は自宅で現在は賃貸
+    ・以前は賃貸で現在は自宅
+    ・自宅兼店舗
+    ・一部を賃貸
+    ・用途が途中で変わった
+    など、利用区分の変更や併用がある場合は、
+    property_usage を推測せず null にしてください。
 
     用途が不明な場合は null にしてください。
 
@@ -10620,14 +10637,24 @@ def normalize_real_estate_sale_arguments(
             property_usage_text = str(value).strip().lower()
             property_usage_mapping = {
                 "owner_occupied": "owner_occupied",
+                "非業務用": "owner_occupied",
                 "自宅": "owner_occupied",
                 "自宅用": "owner_occupied",
                 "居住用": "owner_occupied",
                 "マイホーム": "owner_occupied",
+                "別荘": "owner_occupied",
+                "セカンドハウス": "owner_occupied",
+                "空き家": "owner_occupied",
+                "自己使用": "owner_occupied",
+
                 "investment": "investment",
+                "業務用": "investment",
                 "投資用": "investment",
                 "賃貸用": "investment",
-                "収益物件": "investment"
+                "収益物件": "investment",
+                "事業用": "investment",
+                "店舗": "investment",
+                "事務所": "investment"
             }
             normalized_property_usage = property_usage_mapping.get(
                 property_usage_text
@@ -12560,7 +12587,7 @@ def build_case_rename_followup(
             case_arguments,
             apply_defaults=False
         )
-        st.session_state["real_estate_calculation_pending"] = False
+        st.session_state["real_estate_calculation_pending"] = True
 
         formatted_result = format_real_estate_result_simple(
             result=result,
