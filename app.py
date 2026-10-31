@@ -11971,6 +11971,7 @@ def format_real_estate_result_detailed(
         ])
     else:
         lines.extend([
+            depreciation_method_text,
             (
                 "建物取得価額から減価償却累計額を差し引き、"
                 "建物未償却残高を自動計算しています。"
