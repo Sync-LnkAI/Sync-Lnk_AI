@@ -10810,7 +10810,11 @@ REAL_ESTATE_FIELD_LABELS = {
     "accumulated_depreciation":"建物の減価償却累計額",
     "corporate_effective_tax_rate":("法人の概算実効税率" "（税引後手残りも計算する場合）"),
     "brokerage_fee": "仲介手数料",
-    "property_usage": "物件用途",
+    "property_usage": (
+        "建物の利用区分"
+        "（非業務用：自宅・別荘・空き家など／"
+        "業務用：賃貸・事業用など）"
+    ),
     "transfer_expenses": "譲渡費用",
     "other_cash_expenses": "その他の現金支出",
     "use_deemed_acquisition_cost": "概算取得費を使用するか",
