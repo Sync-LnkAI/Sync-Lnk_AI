@@ -8193,6 +8193,7 @@ def normalize_japanese_number_text(
         )
 
     return str(total)
+#============================================
 
 # 単独金額抽出関数
 def extract_single_amount_from_text(value: str):
@@ -8212,6 +8213,7 @@ def extract_single_amount_from_text(value: str):
         return None
 
     return int(amount) if amount == amount.to_integral_value() else float(amount)
+#============================================
 
 # 不動産売却の明示的な金額を原文から抽出する関数
 def extract_explicit_real_estate_amounts(user_input: str) -> dict:
@@ -8406,9 +8408,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
     return extracted_amounts
 #==============================================
 
-def to_decimal(
-    value: Number
-) -> Decimal:
+def to_decimal(value: Number) -> Decimal:
     """
     int、float、str、Decimalを
     安全にDecimalへ変換する。
@@ -8417,39 +8417,19 @@ def to_decimal(
     カンマ、パーセント表記にも対応する。
     """
     if value is None:
-        raise ValueError(
-            "数値にNoneは指定できません"
-        )
+        raise ValueError("数値にNoneは指定できません")
 
     if isinstance(value, Decimal):
         decimal_value = value
-
     elif isinstance(value, bool):
-        raise ValueError(
-            "数値にboolは指定できません"
-        )
-
+        raise ValueError("数値にboolは指定できません")
     elif isinstance(value, int):
-        decimal_value = Decimal(
-            value
-        )
-
+        decimal_value = Decimal(value)
     elif isinstance(value, float):
-        decimal_value = Decimal(
-            str(value)
-        )
-
+        decimal_value = Decimal(str(value))
     elif isinstance(value, str):
-        normalized_text = (
-            normalize_japanese_number_text(
-                value
-            )
-        )
-
-        decimal_value = Decimal(
-            normalized_text
-        )
-
+        normalized_text = normalize_japanese_number_text(value)
+        decimal_value = Decimal(normalized_text)
     else:
         raise TypeError(
             "数値はint、float、str、"
@@ -8457,18 +8437,14 @@ def to_decimal(
         )
 
     if not decimal_value.is_finite():
-        raise ValueError(
-            "無限大またはNaNは指定できません"
-        )
+        raise ValueError("無限大またはNaNは指定できません")
+    
     return decimal_value
+#============================================
 
 def round_yen(value: Decimal) -> int:
-    return int(
-        value.quantize(
-            Decimal("1"),
-            rounding=ROUND_HALF_UP
-        )
-    ) 
+    return int(value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)) 
+#============================================
 
 # 表示用数値を種類別に正規化する共通関数
 def normalize_calculation_display_value(value, value_type: str = "number"):
@@ -8481,13 +8457,11 @@ def normalize_calculation_display_value(value, value_type: str = "number"):
         return value
 
     normalized_type = str(value_type or "number").strip().lower()
-
     if normalized_type == "money":
         return round_yen(decimal_value)
 
     if normalized_type == "percentage":
         decimal_value = decimal_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
     elif normalized_type == "count":
         decimal_value = decimal_value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
@@ -8497,60 +8471,41 @@ def normalize_calculation_display_value(value, value_type: str = "number"):
     return float(decimal_value)
 #==============================================
 
-def parse_date(
-    value: Union[str, date, datetime]
-) -> date:
+def parse_date(value: Union[str, date, datetime]) -> date:
     if isinstance(value, datetime):
         return value.date()
 
     if isinstance(value, date):
         return value
 
-    return date.fromisoformat(
-        str(value).strip()
-    )
+    return date.fromisoformat(str(value).strip())
+#=============================================
 
-def add_years_safely(
-    original_date: date,
-    years: int
-) -> date:
+def add_years_safely(original_date: date, years: int) -> date:
     """
     2月29日など、加算先の年に同日が存在しない場合は、
     その月の最終日へ補正する。
     """
     target_year = original_date.year + years
     target_month = original_date.month
+    last_day = calendar.monthrange(target_year, target_month)[1]
+    target_day = min(original_date.day, last_day)
 
-    last_day = calendar.monthrange(
-        target_year,
-        target_month
-    )[1]
-
-    target_day = min(
-        original_date.day,
-        last_day
-    )
-
-    return date(
-        target_year,
-        target_month,
-        target_day
-    )
+    return date(target_year, target_month, target_day)
+#=============================================
 
 # 計算メモの保存期間の計算
-def get_case_expiration_date(
-    current_plan_type: str
-) -> str:
+def get_case_expiration_date(current_plan_type: str) -> str:
 
     now = datetime.now(JST)
 
     if current_plan_type == "🆓 無料プラン":
         expires_at = now + timedelta(days=90)
-
     else:
         expires_at = now + timedelta(days=365)
 
     return expires_at.isoformat()
+#=============================================
 
 # 計算カテゴリー別のデフォルト名称決定
 def get_default_case_name(
@@ -11453,9 +11408,10 @@ def execute_real_estate_sale_calculation(
         "missing_fields": [],
         "error": None
     }
+#============================================
 
-# 無料会員用計算結果表示
-def format_real_estate_result_free(
+# 不動産売却計算の簡易結果表示
+def format_real_estate_result_simple(
     result: dict,
     case_name: str = ""
 ) -> str:
@@ -11522,10 +11478,11 @@ def format_real_estate_result_free(
     )
 
     building_tax_basis_warning = bool(
-        result.get(
-            "building_tax_basis_warning",
-            False
-        )
+        result.get("building_tax_basis_warning", False)
+    )
+    building_tax_basis = int(result.get("building_tax_basis", 0) or 0)
+    building_tax_basis_source = str(
+        result.get("building_tax_basis_source", "") or ""
     )
 
     ownership_label = (
@@ -11551,10 +11508,19 @@ def format_real_estate_result_free(
         f"・売却価格：{sale_price:,}円",
         f"・ローン残債：{loan_balance:,}円",
         f"・取得費：{acquisition_basis:,}円",
+        f"・建物未償却残高：{building_tax_basis:,}円",
         f"・売却時仲介手数料：{int(result.get('brokerage_fee',0)):,}円",
     ]
+    if building_tax_basis_source == "calculated":
+        lines.append(
+            "　（建物取得価額から減価償却を自動計算し、取得費へ反映）"
+        )
+    elif building_tax_basis_source == "user_provided":
+        lines.append(
+            "　（建物未償却残高は入力値を取得費へ反映）"
+        )
     if (brokerage_fee_method == "statutory_max_estimate"):
-        lines.append("・仲介手数料は法定上限額で自動計算")
+        lines.append("　（仲介手数料は法定上限額で自動計算）")
 
     if building_tax_basis_warning:
         lines.extend([
@@ -11583,44 +11549,22 @@ def format_real_estate_result_free(
     ])
 
     return "\n".join(lines)
+#===============================================
 
-# スタンダート会員用計算結果表示
-def format_real_estate_result_standard(
+# 不動産売却計算の詳細結果表示
+def format_real_estate_result_detailed(
     result: dict,
     case_name: str = ""
 ) -> str:
 
-    owner_type = result.get(
-        "owner_type"
-    )
+    owner_type = result.get("owner_type")
+    holding_type = result.get("holding_type")
 
-    holding_type = result.get(
-        "holding_type"
-    )
+    ownership_label = ("個人" if owner_type == "individual" else "法人")
+    holding_label = ("長期譲渡所得" if holding_type == "long_term" else "短期譲渡所得")
 
-    ownership_label = (
-        "個人"
-        if owner_type == "individual"
-        else "法人"
-    )
-
-    holding_label = (
-        "長期譲渡所得"
-        if holding_type == "long_term"
-        else "短期譲渡所得"
-    )
-
-    building_tax_basis_source = (
-        result.get(
-            "building_tax_basis_source"
-        )
-    )
-
-    tax_rate = (
-        result.get(
-            "tax_rate"
-        )
-    )
+    building_tax_basis_source = result.get("building_tax_basis_source")
+    tax_rate = result.get("tax_rate")
 
     building_tax_basis_label = (
         "入力値"
@@ -11629,27 +11573,19 @@ def format_real_estate_result_standard(
         else "自動計算"
     )
 
-    brokerage_fee_method = result.get(
-        "brokerage_fee_method"
-    )
-
+    brokerage_fee_method = result.get("brokerage_fee_method")
     building_tax_basis_warning = bool(
-        result.get(
-            "building_tax_basis_warning",
-            False
-        )
+        result.get("building_tax_basis_warning", False)
     )
-
     building_acquisition_cost = int(
-        result.get(
-            "building_acquisition_cost",
-            0
-        ) or 0
+        result.get("building_acquisition_cost", 0) or 0
+    )
+    accumulated_depreciation = int(
+        result.get("accumulated_depreciation", 0) or 0
     )
 
     acquisition_lines = [
         "【取得費の内訳】",
-
         f"・土地取得費："
         f"{int(result.get('land_acquisition_cost',0)):,}円",
     ]
@@ -11659,6 +11595,11 @@ def format_real_estate_result_standard(
             f"・建物取得価額："
             f"{building_acquisition_cost:,}円"
         )
+    if (building_acquisition_cost > 0 and accumulated_depreciation > 0):
+        acquisition_lines.append(
+            f"・減価償却累計額："
+            f"{accumulated_depreciation:,}円"
+        )
     
     acquisition_lines.extend([
         (
@@ -11666,10 +11607,8 @@ def format_real_estate_result_standard(
             f"{int(result.get('building_tax_basis',0)):,}円"
             f"（{building_tax_basis_label}）"
         ),
-
         f"・購入時諸費用："
         f"{int(result.get('acquisition_related_costs',0)):,}円",
-
         f"・計算採用取得費："
         f"{int(result.get('applied_acquisition_basis',0)):,}円",
 
@@ -11677,11 +11616,9 @@ def format_real_estate_result_standard(
     ])
 
     lines = [
-
         "【案件情報】",
         f"案件名：{case_name}",
         "",
-
         "【適用条件】",
         f"・所有者区分：{ownership_label}",
         f"・保有期間：{holding_label}",
@@ -11703,7 +11640,6 @@ def format_real_estate_result_standard(
     lines.extend([
         f"・譲渡費用：{int(result.get('transfer_expenses',0)):,}円",
         "",
-    
         "【譲渡所得】",
         (
             f"・特別控除前譲渡所得："
@@ -11760,8 +11696,8 @@ def format_real_estate_result_standard(
             "実際の申告税額を確定するものではございません。"
         )
     ])
-
     return "\n".join(lines)
+#================================================
 
 def build_real_estate_calculation_context(
     execution_result: dict
@@ -12142,6 +12078,7 @@ def build_real_estate_calculation_context(
     owner_type: {owner_type}
     tax_calculation_status: {tax_status}
     """.strip()
+#==========================================
 
 def build_case_rename_followup(
     case_id: str,
@@ -12153,21 +12090,9 @@ def build_case_rename_followup(
     条件が揃っていれば現在条件で再計算結果を返す。
     """
 
-    case_record = get_calculation_case(
-        case_id
-    )
-
-    case_arguments = dict(
-        case_record.get(
-            "case_data",
-            {}
-        )
-        or {}
-    )
-    debug_json(
-        "DEBUG rename_case_arguments",
-        case_arguments
-    )
+    case_record = get_calculation_case(case_id)
+    case_arguments = dict(case_record.get("case_data", {}) or {})
+    debug_json("DEBUG rename_case_arguments", case_arguments)
 
     # 案件データが取得できなかった場合
     if not case_arguments:
@@ -12186,34 +12111,18 @@ def build_case_rename_followup(
         "cost": 0.0
     }
 
-    execution_result = (
-        execute_real_estate_sale_calculation(
-            extraction_result
-        )
-    )
-
-    calculation_status = (
-        execution_result.get(
-            "status",
-            "calculation_error"
-        )
-    )
+    execution_result = (execute_real_estate_sale_calculation(extraction_result))
+    calculation_status = (execution_result.get("status", "calculation_error"))
 
     # ======================================
     # 条件不足
     # ======================================
     if calculation_status == "missing_fields":
-
         missing_fields = (execution_result.get("missing_fields", []) or [])
-
         missing_labels = [
-            REAL_ESTATE_FIELD_LABELS.get(
-                field,
-                field
-            )
+            REAL_ESTATE_FIELD_LABELS.get(field, field)
             for field in missing_fields
         ]
-
         missing_text = "\n".join(
             f"・{label}"
             for label in missing_labels
@@ -12226,7 +12135,6 @@ def build_case_rename_followup(
             case_arguments,
             apply_defaults=False
         )
-
         st.session_state["real_estate_calculation_pending"] = True
 
         missing_message = format_missing_fields_message(
@@ -12244,35 +12152,12 @@ def build_case_rename_followup(
             f"へ変更しました。\n\n"
             f"{missing_message}"
         )
-        # return (
-        #     f"案件名を"
-        #     f"「{new_case_name}」"
-        #     f"へ変更しました。\n\n"
-        #     "この案件にはまだ計算に必要な条件が登録されていません。"
-        #     "計算に必要な各条件を教えてください。"
-        #     f"\n"
-        #     f"【案件情報】\n"
-        #     f"案件名：{new_case_name}\n\n"
-
-        #     f"【確認が必要な項目】\n"
-        #     f"{missing_text}\n\n"
-
-        #     f"【入力済条件】\n"
-        #     f"{entered_text}"
-        # )
 
     # ======================================
     # 計算成功
     # ======================================
     if calculation_status == "success":
-
-        result = dict(
-            execution_result.get(
-                "result",
-                {}
-            )
-            or {}
-        )
+        result = dict(execution_result.get("result", {}) or {})
 
         # 最新条件を保持
         st.session_state[
@@ -12281,31 +12166,12 @@ def build_case_rename_followup(
             case_arguments,
             apply_defaults=False
         )
+        st.session_state["real_estate_calculation_pending"] = False
 
-        st.session_state[
-            "real_estate_calculation_pending"
-        ] = False
-
-        if current_plan_type == "🆓 無料プラン":
-            formatted_result = (
-                format_real_estate_result_free(
-                    result=result,
-                    case_name=st.session_state.get(
-                        "active_calculation_case_name",
-                        ""
-                    )
-                )
-            )
-        else:
-            formatted_result = (
-                format_real_estate_result_standard(
-                    result=result,
-                    case_name=st.session_state.get(
-                        "active_calculation_case_name",
-                        ""
-                    )
-                )
-            )
+        formatted_result = format_real_estate_result_simple(
+            result=result,
+            case_name=st.session_state.get("active_calculation_case_name", "")
+        )
 
         return (
             f"案件名を"
@@ -12318,21 +12184,10 @@ def build_case_rename_followup(
     # ======================================
     # 計算エラー
     # ======================================
-    error_message = str(
-        execution_result.get(
-            "error",
-            ""
-        )
-        or ""
-    ).strip()
+    error_message = str(execution_result.get("error", "") or "").strip()
 
-    st.session_state[
-        "real_estate_calculation_arguments"
-    ] = case_arguments
-
-    st.session_state[
-        "real_estate_calculation_pending"
-    ] = True
+    st.session_state["real_estate_calculation_arguments"] = case_arguments
+    st.session_state["real_estate_calculation_pending"] = True
 
     if error_message:
         return (
@@ -15681,16 +15536,52 @@ with all_tabs[0]:
                 ):
                     detail_calc_prompt = ""
 
-            detail_general_calculation_context = (
-                build_general_calculation_context(
-                    detail_general_calculation_result,
-                    detail_level="detailed"
+            detail_calculation_type = str(
+                (detail_general_calculation_result or {}).get(
+                    "calculation_type", ""
                 )
-                if detail_general_calculation_result
-                else ""
-            )
+            ).strip()
 
-            if detail_general_calculation_result:
+            if detail_calculation_type == "real_estate_sale":
+                real_estate_result = dict(
+                    detail_general_calculation_result.get("result", {}) or {}
+                )
+                real_estate_case_name = str(
+                    detail_general_calculation_result.get("case_name", "") or ""
+                )
+
+                detailed_result_text = format_real_estate_result_detailed(
+                    result=real_estate_result,
+                    case_name=real_estate_case_name
+                )
+
+                detail_general_calculation_context = (
+                    "以下はPythonで確定済みの不動産売却計算結果です。\n"
+                    "数値を変更・推測・再計算せず、この結果だけを根拠に"
+                    "詳しく説明してください。\n\n"
+                    f"{detailed_result_text}"
+                )
+            else:
+                detail_general_calculation_context = (
+                    build_general_calculation_context(
+                        detail_general_calculation_result,
+                        detail_level="detailed"
+                    )
+                    if detail_general_calculation_result
+                    else ""
+                )
+
+            if detail_calculation_type == "real_estate_sale":
+                detail_user_message = (
+                    "この不動産売却計算について、確定済みの数値を変更せず、"
+                    "適用条件、取得費、減価償却、建物未償却残高、"
+                    "譲渡所得、概算税額、税引前・税引後手残りの順に、"
+                    "各項目の意味と計算上の扱いを詳しく説明して。"
+                    "ローン残債が取得費ではなく現金手残りから差し引かれること、"
+                    "仲介手数料の計算方法、結果が変わる可能性のある条件、"
+                    "確認すべき資料や注意事項も説明して。"
+                )
+            elif detail_general_calculation_result:
                 detail_user_message = (
                     "この計算の条件、計算方法、結果の意味を詳しく説明して。"
                 )
@@ -20165,22 +20056,12 @@ with all_tabs[0]:
                                     ""
                                 )
 
-                                if current_plan_type == "🆓 無料プラン":
-
-                                    formatted_result = (
-                                        format_real_estate_result_free(
-                                            result=result,
-                                            case_name=case_name
-                                        )
+                                formatted_result = (
+                                    format_real_estate_result_simple(
+                                        result=result,
+                                        case_name=case_name
                                     )
-                                else:
-
-                                    formatted_result = (
-                                        format_real_estate_result_standard(
-                                            result=result,
-                                            case_name=case_name
-                                        )
-                                    )
+                                )
 
                                 save_system_audit_log(
                                     user_id=CURRENT_USER_ID,
@@ -20324,7 +20205,16 @@ with all_tabs[0]:
                                     content=formatted_result,
                                     message_id=current_msg_id,
                                     response_mode="analysis",
-                                    processing_type="real_estate_calculation"
+                                    processing_type="real_estate_calculation",
+                                    general_calculation_result={
+                                        "status": "success",
+                                        "calculation_type": "real_estate_sale",
+                                        "result": result,
+                                        "case_id": st.session_state.get(
+                                            "active_calculation_case_id"
+                                        ),
+                                        "case_name": case_name
+                                    }
                                 )
 
                                 # all_messages.append({
@@ -20364,28 +20254,6 @@ with all_tabs[0]:
                                     extraction_in_tokens,
                                     extraction_out_tokens
                                 )
-
-                            # save_system_audit_log(
-                            #     user_id=CURRENT_USER_ID,
-                            #     plan_type=current_plan_type,
-                            #     event_type=(
-                            #         "REAL_ESTATE_CALCULATION"
-                            #     ),
-                            #     processing_time=(
-                            #         calculation_elapsed
-                            #     ),
-                            #     in_t=extraction_in_tokens,
-                            #     out_t=extraction_out_tokens,
-                            #     api_cost=extraction_cost,
-                            #     details=(
-                            #         "不動産売却計算"
-                            #         " | 状態: "
-                            #         f"{calculation_status}"
-                            #     ),
-                            #     message_id=str(
-                            #         current_msg_id
-                            #     )
-                            # )
 
                         calculation_prompt_block = (
                             build_real_estate_calculation_context(
@@ -20853,15 +20721,35 @@ with all_tabs[0]:
             display_message(role_label, msg["content"])
 
             if msg["role"] == "user":
-                detail_target_type = (
-                    DETAIL_PROCESSING_TYPE_MAP.get(paired_processing_type, "")
+                calculation_type = str(
+                    (paired_general_calculation_result or {}).get(
+                        "calculation_type", ""
+                    )
+                ).strip()
+
+                calculation_status = str(
+                    (paired_general_calculation_result or {}).get("status", "")
+                ).strip()
+
+                is_real_estate_success = (
+                    calculation_type == "real_estate_sale"
+                    and calculation_status == "success"
                 )
-                detail_point_cost = int(
-                    DETAIL_POINT_COSTS.get(detail_target_type, 0) or 0
-                )
-                detail_button_label = (
-                    DETAIL_BUTTON_LABELS.get(paired_processing_type, "")
-                )
+
+                if is_real_estate_success:
+                    detail_target_type = "detailed_analysis"
+                    detail_button_label = "📊 詳しく分析する（5pt）"
+                    detail_point_cost = 5
+                else:
+                    detail_target_type = DETAIL_PROCESSING_TYPE_MAP.get(
+                        paired_processing_type, ""
+                    )
+                    detail_button_label = DETAIL_BUTTON_LABELS.get(
+                        paired_processing_type, ""
+                    )
+                    detail_point_cost = int(
+                        DETAIL_POINT_COSTS.get(detail_target_type, 0) or 0
+                    )
 
                 detail_already_completed = (
                     message_id in completed_detail_parent_ids
@@ -20875,16 +20763,19 @@ with all_tabs[0]:
                     and detail_button_label
                     and detail_point_cost > 0
                     and not detail_already_completed
-                    and not paired_is_calculation
-                    and not st.session_state.get(
-                        "pending_case_selection",
-                        False
+                    and (
+                        not paired_is_calculation
+                        or is_real_estate_success
                     )
                     and not st.session_state.get(
-                        "real_estate_calculation_pending",
-                        False
+                        "pending_case_selection", False
                     )
-                    and not str(msg.get("parent_message_id", "") or "").strip()
+                    and not st.session_state.get(
+                        "real_estate_calculation_pending", False
+                    )
+                    and not str(
+                        msg.get("parent_message_id", "") or ""
+                    ).strip()
                 )
 
                 if detail_already_completed:
