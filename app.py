@@ -16507,6 +16507,10 @@ with all_tabs[0]:
                 )
                 st.rerun()
 
+        chat_notice = st.session_state.pop("chat_notice", "")
+        if chat_notice:
+            st.warning(chat_notice)
+        
         typed_user_input = st.chat_input(
             f"{current_concierge_name}にメッセージを送信...",
             key="user_chat_input",
@@ -16561,8 +16565,8 @@ with all_tabs[0]:
                     # with st.chat_message("assistant", avatar=current_ai_avatar):
                     # with st.chat_message("assistant"):
                     # st.write(f"【{current_concierge_name}】: {reason_text}")
-                    st.markdown(f"{current_concierge_name}: {reason_text}")
-                    
+                    # st.markdown(f"{current_concierge_name}: {reason_text}")
+                    st.session_state["chat_notice"] = reason_text
                     # 制限接触ログの保存
                     save_system_audit_log(
                         user_id=CURRENT_USER_ID,
@@ -16574,6 +16578,8 @@ with all_tabs[0]:
                         api_cost=0.0,
                         details=str(reason_text)
                     )
+                    
+                    st.rerun()
 
                 else:
                     # 「考え中...」をフリッカー無しで点滅表示
