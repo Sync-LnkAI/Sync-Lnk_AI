@@ -10955,6 +10955,18 @@ def get_real_estate_sale_missing_fields(
                     missing_fields.append(field)
 
     building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
+    building_tax_basis = arguments.get("building_tax_basis")
+    property_usage = arguments.get("property_usage")
+
+    if (
+        building_cost > Decimal("0")
+        and building_tax_basis is None
+        and property_usage not in {
+            "owner_occupied",
+            "investment"
+        }
+    ):
+        missing_fields.append("property_usage")
 
     if (
         building_cost > Decimal("0")
