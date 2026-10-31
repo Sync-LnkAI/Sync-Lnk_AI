@@ -3344,48 +3344,69 @@ def build_detailed_analysis_instruction(
     original_user_message: str,
     simple_answer: str,
     calc_prompt: str = "",
-    general_calculation_context: str = ""
+    general_calculation_context: str = "",
+    calculation_type: str = ""
 ) -> str:
-    style_prompt = (
-        LIGHTWEIGHT_STYLE_PRESETS.get(
-            style_preset,
-            LIGHTWEIGHT_STYLE_PRESETS[
-                "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
-            ]
-        )
-    )
 
-    selected_detail_prompt = (
-        PYTHON_DETAILED_RESULT_PROMPT
-        if general_calculation_context
-        else DETAILED_ANALYSIS_PROMPT
+    style_prompt = LIGHTWEIGHT_STYLE_PRESETS.get(
+        style_preset,
+        LIGHTWEIGHT_STYLE_PRESETS[
+            "🧠 設定なし ➔ 【特定のキャラクターを設定しない（標準）】"
+        ]
     )
+    normalized_type = str(calculation_type or "").strip().lower()
+
+    if normalized_type == "real_estate_sale":
+        selected_detail_prompt = (REAL_ESTATE_DETAILED_RESULT_PROMPT)
+        verification_prompt = """
+        【確定結果の検証ルール】
+        ・簡易回答を独立して再計算しないでください。
+        ・Python確定結果を唯一の数値根拠としてください。
+        ・簡易回答とPython確定結果に差がある場合は、Python確定結果を使用してください。
+        ・数値、項目名、計算区分を独自に補正しないでください。
+        """.strip()
+
+    elif general_calculation_context:
+        selected_detail_prompt = PYTHON_DETAILED_RESULT_PROMPT
+        verification_prompt = """
+        【確定結果の検証ルール】
+        ・簡易回答を独立して再計算しないでください。
+        ・Python確定結果を唯一の数値根拠としてください。
+        ・簡易回答とPython確定結果に差がある場合は、Python確定結果を使用してください。
+        """.strip()
+
+    else:
+        selected_detail_prompt = DETAILED_ANALYSIS_PROMPT
+        verification_prompt = """
+        【簡易回答の検証ルール】
+        ・簡易回答は参考情報として扱い、正しい前提で引き継がないでください。
+        ・元の質問を基準に、簡易回答の不足、矛盾、見落としを独立して再検討してください。
+        ・訂正が必要な場合は、訂正箇所と正しい内容を明確にしてください。
+        ・訂正が不要な場合は、無理に「訂正なし」などの項目を作らないでください。
+        ・詳細版で追加された判断材料を中心に回答してください。
+        """.strip()
 
     return f"""
-    {selected_detail_prompt}
-    {calc_prompt}
-    {general_calculation_context}
+        {selected_detail_prompt}
+        {calc_prompt}
+        {general_calculation_context}
 
-    【今回の話し方】
-    {style_prompt}
-    ・現在の人格は口調や語尾へ自然に反映してください。人格を示すためだけの挨拶、決まり文句、不自然な言い回しを追加しないでください。
-    ・人格表現より、分析内容の正確さと分かりやすさを優先してください。
+        【今回の話し方】
+        {style_prompt}
+        ・現在の人格は口調や語尾へ自然に反映してください。
+        ・人格を示すためだけの挨拶、決まり文句、不自然な言い回しを追加しないでください。
+        ・人格表現より、内容の正確さと分かりやすさを優先してください。
 
-    【簡易回答の検証ルール】
-    ・簡易回答は参考情報として扱い、正しい前提で引き継がないでください。
-    ・元の質問を基準に、簡易回答の不足、矛盾、見落としを独立して再検討してください。
-    ・訂正が必要な場合は、訂正箇所と正しい内容を明確にしてください。
-    ・訂正が不要な場合は、無理に「訂正なし」などの項目を作らないでください。
-    ・詳細版で追加された判断材料を中心に回答してください。
+        {verification_prompt}
 
-    【元のユーザー質問】
-    {original_user_message}
+        【元のユーザー質問】
+        {original_user_message}
 
-    【直前の簡易回答】
-    {simple_answer}
+        【直前の簡易回答】
+        {simple_answer}
 
-    {LIGHTWEIGHT_OUTPUT_FORMAT_PROMPT}
-    """.strip()
+        {LIGHTWEIGHT_OUTPUT_FORMAT_PROMPT}
+        """.strip()
 #================================================
 
 # 詳細検索用プロンプト生成関数
@@ -3635,7 +3656,8 @@ def generate_detailed_analysis_response(
     original_user_message: str,
     simple_answer: str,
     calc_prompt: str = "",
-    general_calculation_context: str = ""
+    general_calculation_context: str = "",
+    calculation_type: str = ""
 ) -> dict:
     """
     検索なしの詳細Analysisを生成する。
@@ -3648,18 +3670,36 @@ def generate_detailed_analysis_response(
             original_user_message=original_user_message,
             simple_answer=simple_answer,
             calc_prompt=calc_prompt,
-            general_calculation_context=general_calculation_context
+            general_calculation_context=general_calculation_context,
+            calculation_type=calculation_type
         )
     )
+
+    if calculation_type == "real_estate_sale":
+        detail_user_prompt = (
+            "Pythonで確定済みの不動産売却計算結果を変更せず、"
+            "指定された必須説明項目をすべて含めて、"
+            "利用者向けの詳しい回答を作成してください。"
+        )
+    elif general_calculation_context:
+        detail_user_prompt = (
+            "Pythonで確定済みの計算結果を変更せず、"
+            "条件、計算方法、結果の意味を詳しく説明して"
+            "ください。"
+        )
+    else:
+        detail_user_prompt = (
+            "元の質問について、簡易回答を独立して再検討し、"
+            "質問の目的に合う分析軸を選んで詳しく分析して"
+            "ください。"
+            "結論の根拠、重要な判断材料、リスクや注意点を"
+            "明確にしてください。"
+        )
 
     detail_result = generate_ai_response(
         provider=CHAT_PROVIDER,
         system_instruction=detailed_instruction,
-        user_prompt=(
-            "元の質問について、簡易回答を独立して再検討し、"
-            "質問の目的に合う分析軸を選んで詳しく分析してください。"
-            "結論の根拠、重要な判断材料、リスクや注意点を明確にしてください。"
-        ),
+        user_prompt=detail_user_prompt,
         model_name=CHAT_MODEL_NAME
     )
 
@@ -7939,6 +7979,79 @@ PYTHON_DETAILED_RESULT_PROMPT = """
     ・同じ結果を、結論、概要、まとめなどで繰り返してはいけません。
     ・詳細回答では、現在確定している計算条件を直接説明してください。継承経緯そのものが質問の対象でない限り、「前回と同じ」「引き継いだ」などの表現は省略し、継承条件や既定値の説明を繰り返さないでください。
     ・挨拶や前置きは最小限にしてください。
+    """.strip()
+
+REAL_ESTATE_DETAILED_RESULT_PROMPT = """
+    【不動産売却計算の詳細回答】
+
+    【確定結果の扱い】
+    ・Pythonで確定済みの数値だけを使用してください。
+    ・数値、符号、桁数、項目名を変更してはいけません。
+    ・税額、減価償却、取得費、手残りを独自に再計算してはいけません。
+    ・簡易回答ではなく、Python確定結果を唯一の数値根拠としてください。
+    ・確定結果と異なる一般例や推測値を追加しないでください。
+
+    【必須説明項目】
+    次の項目は、該当する場合に必ず個別に説明し、単なる数値一覧だけで終わらせないでください。
+    1. 適用条件
+    2. 取得費の内訳
+    3. 減価償却累計額
+    4. 建物未償却残高
+    5. 譲渡所得の算式
+    6. 仲介手数料の算式
+    7. ローン残債の扱い
+    8. 概算税額
+    9. 税引前手残りの算式
+    10. 税引後手残りの算式
+    11. 結果が変わる可能性のある条件
+    12. 確認すべき資料
+
+    【取得費と減価償却】
+    ・土地取得費、建物取得価額、減価償却累計額、建物未償却残高、購入時諸費用の関係を説明してください。
+    ・建物取得価額から減価償却累計額を差し引いた金額が、建物未償却残高であることを説明してください。
+    ・建物未償却残高を取得費へ反映したことを説明してください。
+    ・減価償却期間を単純に「○年分」と言い換えず、取得年月を基準に計算した減価償却累計額として説明してください。
+    ・自動計算と入力値のどちらを採用したか明記してください。
+
+    【譲渡所得】
+    ・売却価格から取得費、譲渡費用、特別控除をどのように反映したか、確定済み金額の算式を表示してください。
+    ・「特別控除前譲渡所得」など、確定結果の項目名を省略したり別の名称へ変更したりしないでください。
+    ・譲渡損失の場合は、課税譲渡所得が0円になる理由を説明してください。
+
+    【仲介手数料】
+    ・自動計算の場合は「法定上限額で自動計算」とだけ記載せず、確定結果に基づく算式と計算結果を表示してください。
+    ・売却価格、料率、加算額、消費税を含む算式を説明してください。
+    ・入力値を使用した場合は、自動計算ではなく入力値を採用したことを説明してください。
+
+    【ローン残債と手残り】
+    ・ローン残債の扱いを独立した項目として必ず説明してください。
+    ・ローン残債は譲渡所得の取得費や譲渡費用として控除するものではないことを明記してください。
+    ・ローン残債は現金手残りの計算で差し引くことを明記してください。
+    ・譲渡所得の算式と現金手残りの算式を分けて表示し、ローン残債がどちらに含まれるか説明してください。
+    ・税引前手残りと税引後手残りは、確定済み金額を使った算式を省略せず表示してください。
+
+    【税額】
+    ・長期譲渡所得または短期譲渡所得の区分を説明してください。
+    ・適用税率と概算税額の関係を説明してください。
+    ・課税譲渡所得が0円の場合は、概算税額が0円になる理由を説明してください。
+
+    【確認事項】
+    ・結果が変わる可能性のある未入力条件や資料上の差異を説明してください。
+    ・確認すべき資料は、該当するものを具体的に示してください。
+    ・売買契約書
+    ・土地と建物の価格内訳
+    ・購入時諸費用の領収書
+    ・建物の取得年月が分かる資料
+    ・減価償却明細または固定資産台帳
+    ・ローン残高証明書
+    ・売却時費用の契約書や領収書
+
+    【回答方針】
+    ・現在の人格と話し方を回答全体へ自然に反映してください。
+    ・人格表現のためだけの挨拶や不自然な決まり文句を追加しないでください。
+    ・専門的な内容では、親しみやすさを保ちながらも、正確で落ち着いた説明を優先してください。
+    ・同じ注意書きや結論を繰り返さないでください。
+    ・前置きは最小限にしてください。
     """.strip()
 # ==========================================
 
@@ -15593,9 +15706,9 @@ with all_tabs[0]:
                 )
 
                 detail_general_calculation_context = (
-                    "以下はPythonで確定済みの不動産売却計算結果です。\n"
-                    "数値を変更・推測・再計算せず、この結果だけを根拠に"
-                    "詳しく説明してください。\n\n"
+                    "【Pythonで確定済みの不動産売却計算結果】\n"
+                    "以下の数値と項目名をそのまま使用してください。\n"
+                    "独自の再計算、補正、推測は禁止です。\n\n"
                     f"{detailed_result_text}"
                 )
             else:
@@ -15609,29 +15722,7 @@ with all_tabs[0]:
                 )
 
             if detail_calculation_type == "real_estate_sale":
-                detail_user_message = (
-                    "この不動産売却計算について、確定済みの数値を変更せず、"
-                    "適用条件、取得費、減価償却、建物未償却残高、"
-                    "譲渡所得、概算税額、税引前・税引後手残りの順に、"
-                    "各項目の意味と計算上の扱いを詳しく説明して。"
-                    "減価償却期間を単純に「○年分」と表現せず、"
-                    "取得年月から計算した減価償却累計額として説明して。"
-                    "ローン残債は譲渡所得の取得費や譲渡費用ではなく、"
-                    "現金手残りから差し引く項目であることを明記して。"
-                    "仲介手数料を自動計算した場合は、使用した算式と"
-                    "計算結果を具体的に説明して。"
-                    "結果が変わる可能性のある条件、確認すべき資料や"
-                    "注意事項も説明して。"
-                    "確定済み結果にある項目名も省略・変更せず、"
-                    "「特別控除前譲渡所得」などの名称を正確に使用して。"
-                    "ローン残債については、譲渡所得から控除せず、"
-                    "現金手残りから差し引くことを算式付きで説明して。"
-                    "仲介手数料を自動計算した場合は、"
-                    "売却価格を使った算式を具体的に表示して。"
-                    "確認すべき資料は、資料名を具体的に列挙して。"
-                    "回答全体で現在の人格と話し方を統一し、"
-                    "固定文だけ過度な敬語にならないようにして。"
-                )
+                detail_user_message = ("この不動産売却計算を詳しく分析して。")
             elif detail_general_calculation_result:
                 detail_user_message = (
                     "この計算の条件、計算方法、結果の意味を詳しく説明して。"
@@ -15695,7 +15786,8 @@ with all_tabs[0]:
                     original_user_message=original_user_message,
                     simple_answer=simple_answer,
                     calc_prompt=detail_calc_prompt,
-                    general_calculation_context=detail_general_calculation_context
+                    general_calculation_context=detail_general_calculation_context,
+                    calculation_type=detail_calculation_type
                 )
 
                 detail_elapsed = time.time() - detail_start_time
