@@ -11714,10 +11714,7 @@ def format_real_estate_result_simple(
         lines.append(f"・建物取得年月：{building_acquisition_date}")
     
     elif building_acquisition_date:
-        lines.append(
-            f"・取得年月を保有期間判定と"
-            f"建物の減価償却計算に使用"
-        )
+        lines.append("　（保有期間判定と建物の減価償却計算に使用）")
 
     if structure_label:
         lines.append(f"・建物構造：{structure_label}")
