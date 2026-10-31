@@ -11683,8 +11683,8 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
         else "短期譲渡所得"
     )
     usage_labels = {
-        "owner_occupied": "自宅",
-        "investment": "投資用"
+        "owner_occupied": "非業務用（自宅・別荘など）",
+        "investment": "業務用（賃貸・事業用など）"
     }
     structure_labels = {
         "wood": "木造",
@@ -11721,7 +11721,7 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     ]
 
     if usage_label:
-        lines.append(f"・物件用途：{usage_label}")
+        lines.append(f"・建物の利用区分：{usage_label}")
 
     lines.append(f"・保有期間：{holding_label}")
 
@@ -11835,8 +11835,8 @@ def format_real_estate_result_detailed(
         "short_term": "短期譲渡所得"
     }
     usage_labels = {
-        "owner_occupied": "自宅",
-        "investment": "投資用"
+        "owner_occupied": "非業務用（自宅・別荘など）",
+        "investment": "業務用（賃貸・事業用など）"
     }
     structure_labels = {
         "wood": "木造",
@@ -11908,7 +11908,7 @@ def format_real_estate_result_detailed(
     ]
 
     if usage_label:
-        lines.append(f"・物件用途：{usage_label}")
+        lines.append(f"・建物の利用区分：{usage_label}")
 
     if owner_type == "individual":
         lines.append(f"・保有期間：{holding_label}")
