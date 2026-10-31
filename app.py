@@ -11323,6 +11323,7 @@ def execute_real_estate_sale_calculation(
             building_original_cost
             and building_structure
             and building_acquisition_date
+            and property_usage in {"owner_occupied", "investment"}
         ):
 
             depreciation_result = calculate_building_depreciation(
