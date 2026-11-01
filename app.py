@@ -949,6 +949,7 @@ PROCESSING_TYPE_LABELS = {
     "detailed_search": "詳細検索",
     "detailed_analysis": "詳細Analysis",
     "detailed_search_analysis": ("検索付き詳細Analysis"),
+    "real_estate_calculation": "不動産売却計算",
     "plan_chat": "計画チャット",
     "plan_reflection": "計画書反映",
     "memory_summary": "記憶要約",
@@ -2439,6 +2440,7 @@ def extract_processing_type(details: str) -> str:
         "detailed_search",
         "detailed_analysis",
         "detailed_search_analysis",
+        "real_estate_calculation",
         "plan_chat",
         "plan_reflection",
         "memory_summary"
