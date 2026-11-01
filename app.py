@@ -8568,7 +8568,11 @@ def extract_simple_real_estate_amount_update(user_input: str) -> dict:
     )
     amount_part = (
         rf"{number_part}"
-        rf"(?:億(?:{number_part}万)?|万|円)"
+        rf"(?:"
+        rf"億(?:{number_part}万)?円?|"
+        rf"万円?|"
+        rf"円"
+        rf")"
     )
 
     field_labels = (
