@@ -18070,14 +18070,30 @@ with all_tabs[0]:
 
                         router_elapsed = 0.0
 
-                        if is_micro_chat(user_input) and not resolved_calculation_clarification:
+                        if (
+                            calculation_pending
+                            and not resolved_calculation_clarification
+                        ):
+                            response_mode = "analysis"
+                            route_source = "real_estate_pending"
+                            need_search = False
+                            route_confidence = 1.0
+                            search_judge_in_t = 0
+                            search_judge_out_t = 0
+                            search_judge_cost = 0.0
+                            requires_estimation = True
+
+                        elif (
+                            is_micro_chat(user_input)
+                            and not resolved_calculation_clarification
+                        ):
                             response_mode = "micro_chat"
                             route_source = "micro_chat"
                             need_search = False
                             route_confidence = 1.0
                             search_judge_in_t = 0
                             search_judge_out_t = 0
-                            search_judge_cost = 0
+                            search_judge_cost = 0.0
                             requires_estimation = False
 
                         else:
