@@ -8650,6 +8650,66 @@ def extract_simple_real_estate_amount_update(user_input: str) -> dict:
     return extracted_arguments
 #==============================================
 
+# 建物の利用区分の単一変更をPythonで判定する関数
+def extract_simple_real_estate_usage_update(user_input: str) -> dict:
+    
+    normalized_text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    ).strip()
+
+    normalized_text = (
+        normalized_text
+        .replace(" ", "")
+        .replace("　", "")
+    )
+
+    ambiguous_phrases = (
+        "以前は",
+        "現在は",
+        "途中で",
+        "兼",
+        "一部",
+        "併用",
+        "転用"
+    )
+
+    if any(phrase in normalized_text for phrase in ambiguous_phrases):
+        return {}
+
+    owner_occupied_patterns = (
+        r"^(?:建物(?:の)?利用区分(?:を|は)?)?"
+        r"(?:非業務用|自宅|自宅用|居住用|"
+        r"マイホーム|別荘|セカンドハウス|"
+        r"貸していない空き家|自己使用)"
+        r"(?:にして|へ変更|に変更|です|にする)?[。.]?$"
+    )
+
+    investment_patterns = (
+        r"^(?:建物(?:の)?利用区分(?:を|は)?)?"
+        r"(?:業務用|投資用|賃貸用|収益物件|"
+        r"事業用|店舗|事務所|"
+        r"業務用の賃貸物件)"
+        r"(?:にして|へ変更|に変更|です|にする)?[。.]?$"
+    )
+
+    if re.fullmatch(
+        owner_occupied_patterns,
+        normalized_text,
+        flags=re.IGNORECASE
+    ):
+        return "property_usage": "owner_occupied"
+
+    if re.fullmatch(
+        investment_patterns,
+        normalized_text,
+        flags=re.IGNORECASE
+    ):
+        return "property_usage": "investment"
+
+    return {}
+#==============================================
+
 def to_decimal(value: Number) -> Decimal:
     """
     int、float、str、Decimalを
@@ -19951,11 +20011,28 @@ with all_tabs[0]:
                                     if calculation_pending
                                     else {}
                                 )
+                                simple_usage_update = (
+                                    extract_simple_real_estate_usage_update(
+                                        user_input
+                                    )
+                                    if calculation_pending
+                                    else {}
+                                )
 
                                 if simple_amount_update:
                                     calculation_extraction_result = {
                                         "should_calculate": True,
                                         "arguments": simple_amount_update,
+                                        "extraction_status": "extracted",
+                                        "in_tokens": 0,
+                                        "out_tokens": 0,
+                                        "cost": 0.0,
+                                        "extraction_source": "python"
+                                    }
+                                elif simple_usage_update:
+                                    calculation_extraction_result = {
+                                        "should_calculate": True,
+                                        "arguments": simple_usage_update,
                                         "extraction_status": "extracted",
                                         "in_tokens": 0,
                                         "out_tokens": 0,
