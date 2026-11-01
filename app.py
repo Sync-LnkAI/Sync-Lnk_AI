@@ -17935,7 +17935,7 @@ with all_tabs[0]:
                                         "content": user_input,
                                         "message_id": current_msg_id,
                                         "response_mode": "analysis",
-                                        "processing_type": "general_calculation",
+                                        "processing_type": "real_estate_calculation",
                                         "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
@@ -17945,7 +17945,7 @@ with all_tabs[0]:
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
                                         "response_mode": "analysis",
-                                        "processing_type": "general_calculation",
+                                        "processing_type": "real_estate_calculation",
                                         "chat_room": "talk",
                                         "created_at": datetime.now(JST).isoformat()
                                     })
@@ -19544,19 +19544,6 @@ with all_tabs[0]:
                                     ai_reply = "入力された値が、どの計算条件を指すか教えてください。"
 
                                 all_messages.append({
-                                    "role": "user",
-                                    "content": user_input,
-                                    "message_id": current_msg_id,
-                                    "response_mode": "analysis",
-                                    "processing_type": processing_type,
-                                    "requires_estimation": True,
-                                    "general_calculation_result": (
-                                        general_calculation_execution_result
-                                    ),
-                                    "chat_room": "talk",
-                                    "created_at": datetime.now(JST).isoformat()
-                                })
-                                all_messages.append({
                                     "role": "assistant",
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
@@ -19568,17 +19555,6 @@ with all_tabs[0]:
                                     "created_at": datetime.now(JST).isoformat()
                                 })
 
-                                save_message(
-                                    role="user",
-                                    content=user_input,
-                                    message_id=current_msg_id,
-                                    response_mode="analysis",
-                                    processing_type=processing_type,
-                                    requires_estimation=True,
-                                    general_calculation_result=(
-                                        general_calculation_execution_result
-                                    )
-                                )
                                 save_message(
                                     role="assistant",
                                     content=ai_reply,
@@ -20599,15 +20575,6 @@ with all_tabs[0]:
                                     )
 
                                     all_messages.append({
-                                        "role": "user",
-                                        "content": user_input,
-                                        "message_id": current_msg_id,
-                                        "response_mode": "response_mode",
-                                        "processing_type": "real_estate_calculation",
-                                        "chat_room": "talk",
-                                        "created_at": datetime.now(JST).isoformat()
-                                    })
-                                    all_messages.append({
                                         "role": "assistant",
                                         "content": ai_reply,
                                         "message_id": current_msg_id,
@@ -20617,13 +20584,6 @@ with all_tabs[0]:
                                         "created_at": datetime.now(JST).isoformat()
                                     })
 
-                                    save_message(
-                                        role="user",
-                                        content=user_input,
-                                        message_id=current_msg_id,
-                                        response_mode="analysis",
-                                        processing_type="real_estate_calculation"
-                                    )
                                     save_message(
                                         role="assistant",
                                         content=ai_reply,
@@ -20743,15 +20703,6 @@ with all_tabs[0]:
                                 )
 
                                 all_messages.append({
-                                    "role": "user",
-                                    "content": user_input,
-                                    "message_id": current_msg_id,
-                                    "response_mode": "analysis",
-                                    "processing_type": "real_estate_calculation",
-                                    "chat_room": "talk",
-                                    "created_at": datetime.now(JST).isoformat()
-                                })
-                                all_messages.append({
                                     "role": "assistant",
                                     "content": ai_reply,
                                     "message_id": current_msg_id,
@@ -20760,13 +20711,7 @@ with all_tabs[0]:
                                     "chat_room": "talk",
                                     "created_at": datetime.now(JST).isoformat()
                                 })
-                                save_message(
-                                    role="user",
-                                    content=user_input,
-                                    message_id=current_msg_id,
-                                    response_mode="analysis",
-                                    processing_type="real_estate_calculation"
-                                )
+
                                 save_message(
                                     role="assistant",
                                     content=ai_reply,
