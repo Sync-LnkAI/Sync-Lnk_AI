@@ -8698,14 +8698,14 @@ def extract_simple_real_estate_usage_update(user_input: str) -> dict:
         normalized_text,
         flags=re.IGNORECASE
     ):
-        return "property_usage": "owner_occupied"
+        return {"property_usage": "owner_occupied"}
 
     if re.fullmatch(
         investment_patterns,
         normalized_text,
         flags=re.IGNORECASE
     ):
-        return "property_usage": "investment"
+        return {"property_usage": "investment"}
 
     return {}
 #==============================================
