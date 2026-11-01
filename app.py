@@ -8553,15 +8553,22 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
 
 # 単純な金額変更だけをPythonで確定できるか判定する関数
 def extract_simple_real_estate_amount_update(user_input: str) -> dict:
-    
+
     normalized_text = unicodedata.normalize(
         "NFKC",
         str(user_input or "")
     ).strip()
 
-    explicit_amounts = extract_explicit_real_estate_amounts(normalized_text)
+    if not normalized_text:
+        return {}
 
-    if len(explicit_amounts) != 1:
+    segments = [
+        segment.strip()
+        for segment in re.split(r"[、,\n]+", normalized_text)
+        if segment.strip()
+    ]
+
+    if not segments:
         return {}
 
     number_part = (
@@ -8602,14 +8609,32 @@ def extract_simple_real_estate_amount_update(user_input: str) -> dict:
         rf")?\s*[。.]?$"
     )
 
-    if not re.fullmatch(
-        simple_update_pattern,
-        normalized_text,
-        flags=re.IGNORECASE
-    ):
-        return {}
+    extracted_arguments = {}
 
-    extracted_arguments = dict(explicit_amounts)
+    for segment in segments:
+        if not re.fullmatch(
+            simple_update_pattern,
+            segment,
+            flags=re.IGNORECASE
+        ):
+            return {}
+
+        segment_amounts = (extract_explicit_real_estate_amounts(segment))
+
+        if len(segment_amounts) != 1:
+            return {}
+
+        field_name, amount = next(
+            iter(segment_amounts.items())
+        )
+
+        if field_name in extracted_arguments:
+            return {}
+
+        extracted_arguments[field_name] = amount
+
+    if not extracted_arguments:
+        return {}
 
     if "loan_balance" in extracted_arguments:
         extracted_arguments[
