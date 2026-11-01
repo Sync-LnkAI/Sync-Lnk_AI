@@ -8387,7 +8387,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
         "sale_price": [
             (
                 rf"(?:売却予定額|売却額|売却価格|売値)"
-                rf"\s*(?:は|が|で|:)?\s*"
+                rf"\s*(?:は|が|を|で|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             ),
             (
@@ -8403,7 +8403,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"ローン(?:の)?残高|"
                 rf"借入(?:金)?残高"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             ),
             (
@@ -8419,7 +8419,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"土地(?:の)?購入(?:費|価額|価格)?|"
                 rf"土地代"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             ),
             (
@@ -8431,7 +8431,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
             ),
             (
                 rf"土地"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8442,19 +8442,19 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"建物(?:の)?購入(?:費|価額|価格)?|"
                 rf"建物代"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             ),
             (
                 rf"建物"
-                rf"\s*(?:は|が|を)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
                 rf"\s*(?:で)?\s*"
                 rf"(?:取得|購入)"
             ),
             (
                 rf"建物"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8465,7 +8465,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"建物(?:の)?簿価|"
                 rf"減価償却後(?:の)?建物残高"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8476,7 +8476,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"取得時(?:の)?諸費用|"
                 rf"取得関連費用"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8487,14 +8487,14 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"取得費総額|"
                 rf"取得価額合計"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
         "brokerage_fee": [
             (
                 rf"仲介手数料"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8504,7 +8504,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"譲渡費用|"
                 rf"売却時(?:の)?諸費用"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ],
@@ -8514,7 +8514,7 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf"その他(?:の)?現金支出|"
                 rf"その他(?:の)?支出"
                 rf")"
-                rf"\s*(?:は|が|:)?\s*"
+                rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
             )
         ]
@@ -8547,6 +8547,76 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
             break
 
     return extracted_amounts
+#==============================================
+
+# 単純な金額変更だけをPythonで確定できるか判定する関数
+def extract_simple_real_estate_amount_update(user_input: str) -> dict:
+    
+    normalized_text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    ).strip()
+
+    explicit_amounts = extract_explicit_real_estate_amounts(normalized_text)
+
+    if len(explicit_amounts) != 1:
+        return {}
+
+    number_part = (
+        r"[0-9][0-9,]*"
+        r"(?:\.[0-9]+)?"
+    )
+    amount_part = (
+        rf"{number_part}"
+        rf"(?:億(?:{number_part}万)?|万|円)"
+    )
+
+    field_labels = (
+        r"売却予定額|売却額|売却価格|売値|"
+        r"ローン(?:の)?残債|ローン(?:の)?残高|"
+        r"借入(?:金)?残高|"
+        r"土地(?:の)?取得(?:費|価額|価格)?|"
+        r"土地(?:の)?購入(?:費|価額|価格)?|土地代|"
+        r"建物(?:の)?取得(?:費|価額|価格)?|"
+        r"建物(?:の)?購入(?:費|価額|価格)?|建物代|"
+        r"購入時(?:の)?諸費用|取得時(?:の)?諸費用|"
+        r"取得関連費用|総取得費|取得費総額|"
+        r"取得価額合計|仲介手数料|譲渡費用|"
+        r"売却時(?:の)?諸費用|"
+        r"その他(?:の)?現金支出|その他(?:の)?支出"
+    )
+
+    simple_update_pattern = (
+        rf"^(?:{field_labels})"
+        rf"\s*(?:は|が|を|で|:)?\s*"
+        rf"{amount_part}"
+        rf"\s*(?:"
+        rf"にして|へ変更|に変更|でお願いします|"
+        rf"です|にする|とする"
+        rf")?\s*[。.]?$"
+    )
+
+    if not re.fullmatch(
+        simple_update_pattern,
+        normalized_text,
+        flags=re.IGNORECASE
+    ):
+        return {}
+
+    extracted_arguments = dict(explicit_amounts)
+
+    if "loan_balance" in extracted_arguments:
+        extracted_arguments[
+            "loan_balance_confirmed"
+        ] = True
+
+    for field_name in ACQUISITION_COMPONENT_FIELDS:
+        if field_name in extracted_arguments:
+            extracted_arguments[
+                f"{field_name}_confirmed"
+            ] = True
+
+    return extracted_arguments
 #==============================================
 
 def to_decimal(value: Number) -> Decimal:
@@ -19843,11 +19913,35 @@ with all_tabs[0]:
                                     )
 
                             else:
-                                calculation_extraction_result = extract_real_estate_sale_parameters(
-                                    user_input=user_input,
-                                    recent_history="",
-                                    calculation_pending=calculation_pending
+                                simple_amount_update = (
+                                    extract_simple_real_estate_amount_update(
+                                        user_input
+                                    )
+                                    if calculation_pending
+                                    else {}
                                 )
+
+                                if simple_amount_update:
+                                    calculation_extraction_result = {
+                                        "should_calculate": True,
+                                        "arguments": simple_amount_update,
+                                        "extraction_status": "extracted",
+                                        "in_tokens": 0,
+                                        "out_tokens": 0,
+                                        "cost": 0.0,
+                                        "extraction_source": "python"
+                                    }
+                                else:
+                                    calculation_extraction_result = (
+                                        extract_real_estate_sale_parameters(
+                                            user_input=user_input,
+                                            recent_history="",
+                                            calculation_pending=calculation_pending
+                                        )
+                                    )
+                                    calculation_extraction_result[
+                                        "extraction_source"
+                                    ] = "ai"
 
                                 if "DEBUG calculation_extraction_result" in locals():
                                     debug_json(
