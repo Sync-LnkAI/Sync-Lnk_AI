@@ -17353,6 +17353,24 @@ with all_tabs[0]:
                                     processing_type="real_estate_calculation"
                                 )
 
+                                save_system_audit_log(
+                                    user_id=CURRENT_USER_ID,
+                                    plan_type=current_plan_type,
+                                    event_type="CHAT_SUCCESS",
+                                    processing_time=0.0,
+                                    in_t=0,
+                                    out_t=0,
+                                    api_cost=0.0,
+                                    details=(
+                                        "provider=python"
+                                        " | model=real_estate_case_rename_formatter"
+                                        " | response_route=real_estate_case_rename"
+                                        " | 処理区分=real_estate_calculation"
+                                        " | 回答モード=analysis"
+                                    ),
+                                    message_id=str(current_msg_id)
+                                )
+
                                 # display_message(
                                 #     current_concierge_name,
                                 #     ai_reply
@@ -17903,6 +17921,24 @@ with all_tabs[0]:
                                         message_id=current_msg_id,
                                         response_mode="analysis",
                                         processing_type="real_estate_calculation"
+                                    )
+
+                                    save_system_audit_log(
+                                        user_id=CURRENT_USER_ID,
+                                        plan_type=current_plan_type,
+                                        event_type="CHAT_SUCCESS",
+                                        processing_time=0.0,
+                                        in_t=0,
+                                        out_t=0,
+                                        api_cost=0.0,
+                                        details=(
+                                            "provider=python"
+                                            " | model=real_estate_case_rename_formatter"
+                                            " | response_route=real_estate_case_rename"
+                                            " | 処理区分=real_estate_calculation"
+                                            " | 回答モード=analysis"
+                                        ),
+                                        message_id=str(current_msg_id)
                                     )
 
                                     # display_message(
