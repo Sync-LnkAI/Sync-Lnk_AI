@@ -20040,15 +20040,7 @@ with all_tabs[0]:
                             exit_calculation_mode = True
 
                             ai_reply = "不動産売却計算を終了しました。"
-                            all_messages.append({
-                                "role": "user",
-                                "content": user_input,
-                                "message_id": current_msg_id,
-                                "response_mode": "analysis",
-                                "processing_type": "real_estate_calculation",
-                                "chat_room": "talk",
-                                "created_at": datetime.now(JST).isoformat()
-                            })
+                            
                             all_messages.append({
                                 "role": "assistant",
                                 "content": ai_reply,
@@ -20059,13 +20051,6 @@ with all_tabs[0]:
                                 "created_at": datetime.now(JST).isoformat()
                             })
 
-                            save_message(
-                                role="user",
-                                content=user_input,
-                                message_id=current_msg_id,
-                                response_mode="analysis",
-                                processing_type="real_estate_calculation"
-                            )
                             save_message(
                                 role="assistant",
                                 content=ai_reply,
