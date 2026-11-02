@@ -20459,10 +20459,6 @@ with all_tabs[0]:
                                     "corporate_effective_tax_rate",
                                     None
                                 )
-                                merged_arguments.pop(
-                                    "holding_period_type",
-                                    None
-                                )
 
                                 if active_case_name == "法人所有不動産売却":
                                     st.session_state[
@@ -20789,6 +20785,11 @@ with all_tabs[0]:
                                     ),
                                     missing_fields=missing_fields
                                 )
+                                if owner_change_notice:
+                                    ai_reply = (
+                                        f"{owner_change_notice}\n\n"
+                                        f"{ai_reply}"
+                                    )
 
                                 all_messages.append({
                                     "role": "assistant",
