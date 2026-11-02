@@ -12323,6 +12323,18 @@ def format_real_estate_result_detailed(
             f" ＝ {cash_before_tax:,}円"
         ),
         f"・税引後手残り：{cash_after_tax_text}",
+    ])
+    if (
+        estimated_tax is not None
+        and cash_after_tax is not None
+    ):
+        lines.append(
+            f"・税引後手残りの算式："
+            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
+            f" ＝ {cash_after_tax:,}円"
+        )
+    
+    lines.extend([
         "",
         "【結果が変わる可能性のある条件】",
         (
@@ -12344,25 +12356,7 @@ def format_real_estate_result_detailed(
         "・ローン残高証明書",
         "・売却時費用の契約書や領収書",
     ])
-    if (
-        estimated_tax is not None
-        and cash_after_tax is not None
-    ):
-        lines.append(
-            f"・税引後手残りの算式："
-            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
-            f" ＝ {cash_after_tax:,}円"
-        )
-    if (
-        estimated_tax is not None
-        and cash_after_tax is not None
-    ):
-        lines.append(
-            f"・税引後手残りの算式："
-            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
-            f" ＝ {cash_after_tax:,}円"
-        )
-
+    
     if building_basis_warning:
         lines.extend([
             "",
