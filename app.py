@@ -20403,9 +20403,61 @@ with all_tabs[0]:
                                 ):
                                     merged_arguments.pop(field, None)
 
-                            if (st.session_state.get("active_calculation_case_name") == "自宅売却" and calculation_pending):
-                                merged_arguments["property_usage"] = "owner_occupied"
+                            active_case_name = str(
+                                st.session_state.get(
+                                    "active_calculation_case_name", ""
+                                    )
+                                    or ""
+                            ).strip()
+
+                            current_owner_type = current_arguments.get("owner_type")
+
+                            if current_owner_type == "corporate":
+                                merged_arguments["owner_type"] = "corporate"
+                                merged_arguments["property_usage"] = "investment"
+                                if merged_arguments.get("building_tax_basis") is None:
+                                    merged_arguments.pop(
+                                        "accumulated_depreciation",
+                                        None
+                                    )
+                                merged_arguments["special_deduction"] = 0
+                                merged_arguments.pop("special_deduction_confirmed", None)
+                                merged_arguments.pop("holding_period_type", None)
+
+                                if active_case_name in {
+                                    "自宅売却",
+                                    "個人所有不動産売却"
+                                }:
+                                    st.session_state[
+                                        "active_calculation_case_name"
+                                    ] = "法人所有不動産売却"
+
+                            elif current_owner_type == "individual":
                                 merged_arguments["owner_type"] = "individual"
+
+                                merged_arguments.pop(
+                                    "corporate_effective_tax_rate",
+                                    None
+                                )
+                                merged_arguments.pop(
+                                    "holding_period_type",
+                                    None
+                                )
+
+                                if active_case_name == "法人所有不動産売却":
+                                    st.session_state[
+                                        "active_calculation_case_name"
+                                    ] = "個人所有不動産売却"
+
+                            elif active_case_name == "自宅売却":
+                                merged_arguments.setdefault(
+                                    "owner_type",
+                                    "individual"
+                                )
+                                merged_arguments.setdefault(
+                                    "property_usage",
+                                    "owner_occupied"
+                                )
                             
                             if (
                                 current_arguments.get("building_acquisition_cost")
