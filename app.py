@@ -9563,7 +9563,11 @@ def calculate_real_estate_sale(
     estimated_tax = None
     tax_calculation_status = None
 
-    if owner_type == "individual":
+    if taxable_gain <= Decimal("0"):
+        estimated_tax = Decimal("0")
+        tax_calculation_status = "no_taxable_gain"
+
+    elif owner_type == "individual":
         if sale_date is not None:
             holding_type = (
                 determine_individual_holding_type(
@@ -11884,7 +11888,8 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     if usage_label:
         lines.append(f"・建物の利用区分：{usage_label}")
 
-    lines.append(f"・保有期間：{holding_label}")
+    if owner_type == "individual":
+        lines.append(f"・保有期間：{holding_label}")
 
     if acquisition_date:
         lines.append(f"・取得日：{acquisition_date}")
@@ -20412,6 +20417,7 @@ with all_tabs[0]:
 
                             current_owner_type = current_arguments.get("owner_type")
 
+                            owner_change_notice = ""
                             if current_owner_type == "corporate":
                                 merged_arguments["owner_type"] = "corporate"
                                 merged_arguments["property_usage"] = "investment"
@@ -20432,6 +20438,20 @@ with all_tabs[0]:
                                         "active_calculation_case_name"
                                     ] = "法人所有不動産売却"
 
+                                    owner_change_notice = (
+                                        "所有者区分を個人から法人へ変更しました。\n"
+                                        "法人所有の不動産として扱うため、"
+                                        "建物の利用区分を業務用へ変更し、"
+                                        "個人向けの特別控除と保有期間区分を解除しました。"
+                                    )
+                                else:
+                                    owner_change_notice = (
+                                        "所有者区分を個人から法人へ変更しました。\n"
+                                        "案件名はそのまま維持し、"
+                                        "建物の利用区分を業務用へ変更しました。\n"
+                                        "個人向けの特別控除と保有期間区分は解除しています。"
+                                    )
+
                             elif current_owner_type == "individual":
                                 merged_arguments["owner_type"] = "individual"
 
@@ -20448,6 +20468,19 @@ with all_tabs[0]:
                                     st.session_state[
                                         "active_calculation_case_name"
                                     ] = "個人所有不動産売却"
+
+                                    owner_change_notice = (
+                                        "所有者区分を法人から個人へ変更しました。\n"
+                                        "案件名を「個人所有不動産売却」へ変更し、"
+                                        "法人の概算実効税率を解除しました。\n"
+                                        "建物の利用区分は現在の設定を維持しています。"
+                                    )
+                                else:
+                                    owner_change_notice = (
+                                        "所有者区分を法人から個人へ変更しました。\n"
+                                        "案件名と建物の利用区分はそのまま維持し、"
+                                        "法人の概算実効税率を解除しました。"
+                                    )
 
                             elif active_case_name == "自宅売却":
                                 merged_arguments.setdefault(
@@ -20894,6 +20927,11 @@ with all_tabs[0]:
                                         case_name=case_name
                                     )
                                 )
+                                if owner_change_notice:
+                                    formatted_result = (
+                                        f"{owner_change_notice}\n\n"
+                                        f"{formatted_result}"
+                                    )
 
                                 save_system_audit_log(
                                     user_id=CURRENT_USER_ID,
