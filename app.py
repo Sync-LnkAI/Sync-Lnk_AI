@@ -11833,9 +11833,29 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     loan_balance = int(result.get("loan_balance", 0) or 0)
     acquisition_basis = int(result.get("applied_acquisition_basis",0 ) or 0)
     taxable_gain = int(result.get("taxable_gain", 0) or 0)
-    estimated_tax = int(result.get("estimated_tax", 0) or 0)
+    estimated_tax_value = result.get("estimated_tax")
+    cash_after_tax_value = result.get("cash_after_tax")
+    estimated_tax = (
+        int(estimated_tax_value)
+        if estimated_tax_value is not None
+        else None
+    )
     cash_before_tax = int(result.get("cash_before_tax", 0) or 0)
-    cash_after_tax = int(result.get("cash_after_tax", 0) or 0)
+    cash_after_tax = (
+        int(cash_after_tax_value)
+        if cash_after_tax_value is not None
+        else None
+    )
+    estimated_tax_text = (
+        f"{estimated_tax:,}円"
+        if estimated_tax is not None
+        else "未計算"
+    )
+    cash_after_tax_text = (
+        f"{cash_after_tax:,}円"
+        if cash_after_tax is not None
+        else "未計算"
+    )
 
     building_tax_basis_warning = bool(
         result.get("building_tax_basis_warning", False)
@@ -11963,11 +11983,11 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
         "",
         "【税額】",
         f"・課税譲渡所得：{taxable_gain:,}円",
-        f"・概算税額：{estimated_tax:,}円",
+        f"・概算税額：{estimated_tax_text}",
         "",
         "【最終手残り】",
         f"・税引前手残り：{cash_before_tax:,}円",
-        f"・税引後手残り：{cash_after_tax:,}円",
+        f"・税引後手残り：{cash_after_tax_text}",
         "",
         (
             "この結果は入力条件に基づく概算です。"
