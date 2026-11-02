@@ -11921,7 +11921,7 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     if other_cash_expenses > 0:
         lines.append(f"・その他の現金支出：{other_cash_expenses:,}円")
     if special_deduction > 0:
-        lines.append(f"・特別控除：{special_deduction:,}円")
+        lines.append(f"・適用した特別控除：{special_deduction:,}円")
     lines.extend([
         f"・売却時仲介手数料："
         f"{int(result.get('brokerage_fee', 0)):,}円",
@@ -12185,7 +12185,7 @@ def format_real_estate_result_detailed(
             f"{gain_before_deduction:,}円"
             f" － {special_deduction:,}円"
             " ＝ 0円"
-            "（特別控除後の金額が0円以下のため）"
+            "（特別控除により課税譲渡所得が0円となります）"
         )
     else:
         taxable_gain_formula = (
@@ -12198,7 +12198,7 @@ def format_real_estate_result_detailed(
         "",
         "【譲渡所得と概算税額】",
         f"・特別控除前譲渡所得：{gain_before_deduction:,}円",
-        f"・特別控除：{special_deduction:,}円",
+        f"・適用した特別控除：{special_deduction:,}円",
         f"・課税譲渡所得：{taxable_gain:,}円",
         (
             f"・特別控除前譲渡所得の算式："
@@ -17778,6 +17778,8 @@ with all_tabs[0]:
                                         "property_usage",
                                         None
                                     )
+                                if property_usage == "owner_occupied":
+                                    new_case_data["owner_type"] = "individual"
 
                                 create_result = create_calculation_case(
                                     case_type="real_estate_sale",
