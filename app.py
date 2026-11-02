@@ -11834,6 +11834,8 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     acquisition_basis = int(result.get("applied_acquisition_basis",0 ) or 0)
     taxable_gain = int(result.get("taxable_gain", 0) or 0)
     estimated_tax_value = result.get("estimated_tax")
+    tax_rate = result.get("tax_rate")
+    tax_calculation_status = str(result.get("tax_calculation_status", "") or "")
     cash_after_tax_value = result.get("cash_after_tax")
     estimated_tax = (
         int(estimated_tax_value)
@@ -11983,7 +11985,33 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
         "",
         "【税額】",
         f"・課税譲渡所得：{taxable_gain:,}円",
-        f"・概算税額：{estimated_tax_text}",
+    ])
+
+    if (
+        owner_type == "corporate"
+        and tax_rate is not None
+    ):
+        tax_rate_percent = float(tax_rate) * 100
+        lines.append(
+            f"・概算税額：{estimated_tax_text}"
+            f"（概算実効税率"
+            f"{tax_rate_percent:g}%で計算）"
+        )
+
+    else:
+        lines.append(
+            f"・概算税額：{estimated_tax_text}"
+        )
+
+    if (
+        tax_calculation_status
+        == "corporate_tax_not_calculated"
+    ):
+        lines.append(
+            "　（法人の概算実効税率を入力すると、"
+            "概算税額と税引後手残りを計算できます）"
+        )
+    lines.extend([
         "",
         "【最終手残り】",
         f"・税引前手残り：{cash_before_tax:,}円",
