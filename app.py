@@ -12070,9 +12070,29 @@ def format_real_estate_result_detailed(
     )
     special_deduction = yen("special_deduction")
     taxable_gain = yen("taxable_gain")
-    estimated_tax = yen("estimated_tax")
+    estimated_tax_value = result.get("estimated_tax")
+    cash_after_tax_value = result.get("cash_after_tax")
+    estimated_tax = (
+        int(estimated_tax_value)
+        if estimated_tax_value is not None
+        else None
+    )
     cash_before_tax = yen("cash_before_tax")
-    cash_after_tax = yen("cash_after_tax")
+    cash_after_tax = (
+        int(cash_after_tax_value)
+        if cash_after_tax_value is not None
+        else None
+    )
+    estimated_tax_text = (
+        f"{estimated_tax:,}円"
+        if estimated_tax is not None
+        else "未計算"
+    )
+    cash_after_tax_text = (
+        f"{cash_after_tax:,}円"
+        if cash_after_tax is not None
+        else "未計算"
+    )
 
     tax_rate = result.get("tax_rate")
     brokerage_fee_method = str(
@@ -12109,9 +12129,9 @@ def format_real_estate_result_detailed(
         f"・売却価格：{sale_price:,}円",
         f"・計算採用取得費：{acquisition_basis:,}円",
         f"・課税譲渡所得：{taxable_gain:,}円",
-        f"・概算税額：{estimated_tax:,}円",
+        f"・概算税額：{estimated_tax_text}",
         f"・税引前手残り：{cash_before_tax:,}円",
-        f"・税引後手残り：{cash_after_tax:,}円",
+        f"・税引後手残り：{cash_after_tax_text}",
         "",
         "【主な適用条件】",
         f"・案件名：{case_name or '未選択'}",
