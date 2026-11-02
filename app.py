@@ -9563,44 +9563,53 @@ def calculate_real_estate_sale(
     estimated_tax = None
     tax_calculation_status = None
 
-    if taxable_gain <= Decimal("0"):
-        estimated_tax = Decimal("0")
-        tax_calculation_status = "no_taxable_gain"
-
-    elif owner_type == "individual":
-        if sale_date is not None:
-            holding_type = (
-                determine_individual_holding_type(
-                    acquisition_date,
-                    sale_date
-                )
+    if owner_type == "individual":
+    if sale_date is not None:
+        holding_type = (
+            determine_individual_holding_type(
+                acquisition_date,
+                sale_date
             )
+        )
 
-        elif holding_period_type in {"long_term", "short_term"}:
-            holding_type = holding_period_type
+    elif holding_period_type in {
+        "long_term",
+        "short_term"
+    }:
+        holding_type = holding_period_type
 
         else:
             holding_type = None
 
-        if holding_type == "long_term":
-            tax_rate = Decimal("0.20315")
+        if taxable_gain <= Decimal("0"):
+            estimated_tax = Decimal("0")
+            tax_calculation_status = "no_taxable_gain"
+
         else:
-            tax_rate = Decimal("0.3963")
+            if holding_type == "long_term":
+                tax_rate = Decimal("0.20315")
+            else:
+                tax_rate = Decimal("0.3963")
 
-        estimated_tax = (
-            taxable_gain
-            * tax_rate
-        )
+            estimated_tax = (
+                taxable_gain
+                * tax_rate
+            )
 
-        tax_calculation_status = (
-            "individual_estimated"
-        )
+            tax_calculation_status = (
+                "individual_estimated"
+            )
 
     else:
-        if corporate_effective_tax_rate is None:
+        if taxable_gain <= Decimal("0"):
+            estimated_tax = Decimal("0")
+            tax_calculation_status = "no_taxable_gain"
+
+        elif corporate_effective_tax_rate is None:
             tax_calculation_status = (
                 "corporate_tax_not_calculated"
             )
+
         else:
             tax_rate = to_decimal(
                 corporate_effective_tax_rate
