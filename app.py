@@ -12272,7 +12272,7 @@ def format_real_estate_result_detailed(
         tax_rate_percent = float(tax_rate) * 100
         lines.extend([
             f"・適用税率：{tax_rate_percent:.3f}%",
-            f"・概算税額：{estimated_tax:,}円",
+            f"・概算税額：{estimated_tax_text}",
             (
                 f"・概算税額の算式："
                 f"{taxable_gain:,}円 × {tax_rate_percent:.3f}%"
@@ -12316,12 +12316,7 @@ def format_real_estate_result_detailed(
             f" － {other_cash_expenses:,}円"
             f" ＝ {cash_before_tax:,}円"
         ),
-        f"・税引後手残り：{cash_after_tax:,}円",
-        (
-            f"・税引後手残りの算式："
-            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
-            f" ＝ {cash_after_tax:,}円"
-        ),
+        f"・税引後手残り：{cash_after_tax_text}",
         "",
         "【結果が変わる可能性のある条件】",
         (
@@ -12343,6 +12338,20 @@ def format_real_estate_result_detailed(
         "・ローン残高証明書",
         "・売却時費用の契約書や領収書",
     ])
+    if (
+        estimated_tax is not None
+        and cash_after_tax is not None
+    ):
+        lines.append(
+            f"・税引後手残りの算式："
+            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
+            f" ＝ {cash_after_tax:,}円"
+        )
+    else:
+        lines.append(
+            "法人の概算実効税率が未入力のため、"
+            "概算税額と税引後手残りは計算していません。"
+        )
 
     if building_basis_warning:
         lines.extend([
