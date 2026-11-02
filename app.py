@@ -11932,7 +11932,10 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
         lines.append(f"・建物取得年月：{building_acquisition_date}")
     
     elif building_acquisition_date:
-        lines.append("　（保有期間判定と建物の減価償却計算に使用）")
+        if owner_type == "individual":
+            lines.append("　（保有期間判定と建物の減価償却計算に使用）")
+        else:
+            lines.append("　（建物の減価償却計算に使用）")
 
     if structure_label:
         lines.append(f"・建物構造：{structure_label}")
