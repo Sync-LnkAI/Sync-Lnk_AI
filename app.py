@@ -9564,75 +9564,75 @@ def calculate_real_estate_sale(
     tax_calculation_status = None
 
     if owner_type == "individual":
-    if sale_date is not None:
-        holding_type = (
-            determine_individual_holding_type(
-                acquisition_date,
-                sale_date
+        if sale_date is not None:
+            holding_type = (
+                determine_individual_holding_type(
+                    acquisition_date,
+                    sale_date
+                )
             )
-        )
 
-    elif holding_period_type in {
-        "long_term",
-        "short_term"
-    }:
-        holding_type = holding_period_type
+        elif holding_period_type in {
+            "long_term",
+            "short_term"
+        }:
+            holding_type = holding_period_type
 
-        else:
-            holding_type = None
-
-        if taxable_gain <= Decimal("0"):
-            estimated_tax = Decimal("0")
-            tax_calculation_status = "no_taxable_gain"
-
-        else:
-            if holding_type == "long_term":
-                tax_rate = Decimal("0.20315")
             else:
-                tax_rate = Decimal("0.3963")
+                holding_type = None
 
-            estimated_tax = (
-                taxable_gain
-                * tax_rate
-            )
+            if taxable_gain <= Decimal("0"):
+                estimated_tax = Decimal("0")
+                tax_calculation_status = "no_taxable_gain"
 
-            tax_calculation_status = (
-                "individual_estimated"
-            )
+            else:
+                if holding_type == "long_term":
+                    tax_rate = Decimal("0.20315")
+                else:
+                    tax_rate = Decimal("0.3963")
 
-    else:
-        if taxable_gain <= Decimal("0"):
-            estimated_tax = Decimal("0")
-            tax_calculation_status = "no_taxable_gain"
-
-        elif corporate_effective_tax_rate is None:
-            tax_calculation_status = (
-                "corporate_tax_not_calculated"
-            )
-
-        else:
-            tax_rate = to_decimal(
-                corporate_effective_tax_rate
-            )
-
-            if not (
-                Decimal("0")
-                <= tax_rate
-                <= Decimal("1")
-            ):
-                raise ValueError(
-                    "corporate_effective_tax_rateは"
-                    "0から1の範囲で指定してください"
+                estimated_tax = (
+                    taxable_gain
+                    * tax_rate
                 )
 
-            estimated_tax = (
-                taxable_gain
-                * tax_rate
-            )
+                tax_calculation_status = (
+                    "individual_estimated"
+                )
 
-            tax_calculation_status = (
-                "corporate_effective_rate_estimate"
-            )
+        else:
+            if taxable_gain <= Decimal("0"):
+                estimated_tax = Decimal("0")
+                tax_calculation_status = "no_taxable_gain"
+
+            elif corporate_effective_tax_rate is None:
+                tax_calculation_status = (
+                    "corporate_tax_not_calculated"
+                )
+
+            else:
+                tax_rate = to_decimal(
+                    corporate_effective_tax_rate
+                )
+
+                if not (
+                    Decimal("0")
+                    <= tax_rate
+                    <= Decimal("1")
+                ):
+                    raise ValueError(
+                        "corporate_effective_tax_rateは"
+                        "0から1の範囲で指定してください"
+                    )
+
+                estimated_tax = (
+                    taxable_gain
+                    * tax_rate
+                )
+
+                tax_calculation_status = (
+                    "corporate_effective_rate_estimate"
+                )
 
     # 税引前の現金手残り
     cash_before_tax = (
