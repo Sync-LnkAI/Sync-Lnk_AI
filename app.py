@@ -12353,9 +12353,14 @@ def format_real_estate_result_detailed(
             f"{cash_before_tax:,}円 － {estimated_tax:,}円"
             f" ＝ {cash_after_tax:,}円"
         )
-    else:
+    if (
+        estimated_tax is not None
+        and cash_after_tax is not None
+    ):
         lines.append(
-            "・税引後手残りの算式：未計算"
+            f"・税引後手残りの算式："
+            f"{cash_before_tax:,}円 － {estimated_tax:,}円"
+            f" ＝ {cash_after_tax:,}円"
         )
 
     if building_basis_warning:
