@@ -12280,7 +12280,13 @@ def format_real_estate_result_detailed(
             )
         ])
     else:
-        lines.append("・概算税額：未計算")
+        lines.extend([
+            "・概算税額：未計算",
+            (
+                "法人の概算実効税率が未入力のため、"
+                "概算税額と税引後手残りは計算していません。"
+            )
+        ])
 
     lines.extend([
         "",
@@ -12349,8 +12355,7 @@ def format_real_estate_result_detailed(
         )
     else:
         lines.append(
-            "法人の概算実効税率が未入力のため、"
-            "概算税額と税引後手残りは計算していません。"
+            "・税引後手残りの算式：未計算"
         )
 
     if building_basis_warning:
