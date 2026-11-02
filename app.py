@@ -20507,8 +20507,12 @@ with all_tabs[0]:
 
                             current_owner_type = current_arguments.get("owner_type")
 
+                            previous_owner_type = previous_arguments.get("owner_type")
                             owner_change_notice = ""
-                            if current_owner_type == "corporate":
+                            if (
+                                current_owner_type == "corporate"
+                                and previous_owner_type != "corporate"
+                            ):
                                 merged_arguments["owner_type"] = "corporate"
                                 merged_arguments["property_usage"] = "investment"
                                 if merged_arguments.get("building_tax_basis") is None:
@@ -20543,7 +20547,10 @@ with all_tabs[0]:
                                         "個人向けの特別控除と保有期間区分は解除しています。"
                                     )
 
-                            elif current_owner_type == "individual":
+                            elif (
+                                current_owner_type == "individual"
+                                and previous_owner_type != "individual"
+                            ):
                                 merged_arguments["owner_type"] = "individual"
 
                                 merged_arguments.pop(
