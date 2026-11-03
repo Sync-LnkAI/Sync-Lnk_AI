@@ -20363,6 +20363,8 @@ with all_tabs[0]:
                                     ] = False
 
                                     calculation_pending = False
+                                    previous_arguments = {}
+                                    current_arguments = {}
 
                                 if (
                                     current_arguments.get("acquisition_date")
