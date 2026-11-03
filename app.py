@@ -18548,7 +18548,14 @@ with all_tabs[0]:
                             else "なし"
                         )
 
-                        calculation_pending = bool(st.session_state.get("real_estate_calculation_pending", False))
+                        calculation_pending = bool(
+                            st.session_state.get("real_estate_calculation_pending", False)
+                        )
+
+                        should_resume_active_real_estate = bool(
+                            st.session_state.get("active_calculation_case_id")
+                            and should_resume_real_estate_calculation(user_input)
+                        )
 
                         past_logs_context = []
                         search_elapsed = 0.0
@@ -18558,6 +18565,19 @@ with all_tabs[0]:
                         router_elapsed = 0.0
 
                         if (
+                            should_resume_active_real_estate
+                            and not resolved_calculation_clarification
+                        ):
+                            response_mode = "analysis"
+                            route_source = "real_estate_resume"
+                            need_search = False
+                            route_confidence = 1.0
+                            search_judge_in_t = 0
+                            search_judge_out_t = 0
+                            search_judge_cost = 0.0
+                            requires_estimation = True
+
+                        elif (
                             calculation_pending
                             and not resolved_calculation_clarification
                         ):
@@ -18850,11 +18870,10 @@ with all_tabs[0]:
                         contains_real_estate_hint = (
                             contains_real_estate_sale_hint(user_input)
                         )
-                        should_resume_active_real_estate = bool(
-                            st.session_state.get("active_calculation_case_id")
-                            and should_resume_real_estate_calculation(user_input)
-                        )
-
+                        # should_resume_active_real_estate = bool(
+                        #     st.session_state.get("active_calculation_case_id")
+                        #     and should_resume_real_estate_calculation(user_input)
+                        # )
 
                         debug_text("DEBUG contains_real_estate_hint", contains_real_estate_hint)
                         debug_text("DEBUG user_input", user_input)
