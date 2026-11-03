@@ -17159,13 +17159,15 @@ with all_tabs[0]:
             st.session_state.get("active_calculation_case_name", "") or ""
         ).strip()
 
-        if calculation_pending_display:
+        if st.session_state.get("pending_case_selection", False):
+            st.caption("🏠 不動産案件を選択中")
+        
+        elif calculation_pending_display:
             status_case_name = (active_case_name_display or "案件未選択")
             st.caption(f"🏠 不動産計算中｜{status_case_name}")
 
         elif active_case_name_display:
             st.caption(f"🏠 選択中｜{active_case_name_display}")
-
 
         typed_user_input = st.chat_input(
             f"{current_concierge_name}にメッセージを送信...",
