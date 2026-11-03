@@ -17159,15 +17159,67 @@ with all_tabs[0]:
             st.session_state.get("active_calculation_case_name", "") or ""
         ).strip()
 
-        if st.session_state.get("pending_case_selection", False):
-            st.caption("🏠 不動産案件を選択中")
+        # if st.session_state.get("pending_case_selection", False):
+        #     st.caption("🏠 不動産案件を選択中")
         
-        elif calculation_pending_display:
-            status_case_name = (active_case_name_display or "案件未選択")
-            st.caption(f"🏠 不動産計算中｜{status_case_name}")
+        # elif calculation_pending_display:
+        #     status_case_name = (active_case_name_display or "案件未選択")
+        #     st.caption(f"🏠 不動産計算中｜{status_case_name}")
 
-        elif active_case_name_display:
-            st.caption(f"🏠 選択中｜{active_case_name_display}")
+        # elif active_case_name_display:
+        #     st.caption(f"🏠 選択中｜{active_case_name_display}")
+
+        pending_case_selection_display = bool(
+            st.session_state.get("pending_case_selection", False)
+        )
+
+        show_real_estate_status = bool(
+            pending_case_selection_display
+            or calculation_pending_display
+            or active_case_name_display
+        )
+
+        if show_real_estate_status:
+            status_col, action_col = st.columns([5, 2])
+
+            with status_col:
+                if pending_case_selection_display:
+                    st.caption("🏠 不動産案件を選択中")
+
+                elif calculation_pending_display:
+                    status_case_name = (
+                        active_case_name_display
+                        or "案件未選択"
+                    )
+                    st.caption(f"🏠 不動産計算中｜{status_case_name}")
+
+                else:
+                    st.caption(f"🏠 選択中｜{active_case_name_display}")
+
+            with action_col:
+                if pending_case_selection_display:
+                    release_button_label = "案件選択をやめる"
+                elif calculation_pending_display:
+                    release_button_label = "計算を終了"
+                else:
+                    release_button_label = "選択を解除"
+
+                if st.button(
+                    release_button_label,
+                    key="release_real_estate_state",
+                    use_container_width=True
+                ):
+                    st.session_state["real_estate_calculation_pending"] = False
+                    st.session_state["real_estate_calculation_arguments"] = {}
+                    st.session_state["pending_case_selection"] = False
+                    st.session_state["pending_case_candidates"] = []
+                    st.session_state["pending_case_arguments"] = {}
+                    st.session_state["pending_case_rename"] = False
+                    st.session_state["pending_case_rename_name"] = ""
+                    st.session_state["active_calculation_case_id"] = None
+                    st.session_state["active_calculation_case_name"] = ""
+
+                    st.rerun()
 
         typed_user_input = st.chat_input(
             f"{current_concierge_name}にメッセージを送信...",
