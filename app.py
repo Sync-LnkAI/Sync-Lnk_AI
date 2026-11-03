@@ -18598,7 +18598,6 @@ with all_tabs[0]:
                         is_real_estate_session = bool(
                             calculation_pending
                             or st.session_state.get("pending_case_selection", False)
-                            or st.session_state.get("active_calculation_case_id")
                         )
                         if is_real_estate_session:
                             response_mode = "analysis"
