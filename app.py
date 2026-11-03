@@ -21117,28 +21117,33 @@ with all_tabs[0]:
                                 ] = False
 
                             extraction_in_tokens = int(
-                                calculation_extraction_result.get(
-                                    "in_tokens",
-                                    0
-                                )
+                                calculation_extraction_result.get("in_tokens", 0)
                                 or 0
                             )
 
                             extraction_out_tokens = int(
-                                calculation_extraction_result.get(
-                                    "out_tokens",
-                                    0
-                                )
+                                calculation_extraction_result.get("out_tokens", 0)
                                 or 0
                             )
 
                             extraction_cost = float(
-                                calculation_extraction_result.get(
-                                    "cost",
-                                    0.0
-                                )
+                                calculation_extraction_result.get("cost", 0.0)
                                 or 0.0
                             )
+                            extraction_source = str(
+                                calculation_extraction_result.get(
+                                    "extraction_source",
+                                    "python"
+                                )
+                                or "python"
+                            )
+
+                            if extraction_source == "python":
+                                extraction_provider = "python"
+                                extraction_model = "real_estate_parameter_parser"
+                            else:
+                                extraction_provider = BACKGROUND_PROVIDER
+                                extraction_model = SEARCH_MODEL_NAME
 
                             save_system_audit_log(
                                 user_id=CURRENT_USER_ID,
@@ -21155,10 +21160,10 @@ with all_tabs[0]:
                                 api_cost=
                                     extraction_cost,
                                 details=(
-                                    f"provider={BACKGROUND_PROVIDER}"
-                                    f" | model={SEARCH_MODEL_NAME}"
+                                    f"provider={extraction_provider}"
+                                    f" | model={extraction_model}"
+                                    f" | extraction_source={extraction_source}"
                                     f" | tool=real_estate_sale"
-                                    # "tool=real_estate_sale"
                                 ),
                                 message_id=str(
                                     current_msg_id
