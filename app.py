@@ -12260,7 +12260,11 @@ def format_real_estate_result_detailed(
         "【取得費と減価償却】",
         f"・土地取得価額：{land_cost:,}円",
         f"・建物取得価額：{building_cost:,}円",
-        f"・減価償却累計額：{depreciation:,}円",
+        (
+            "・減価償却累計額：未計算"
+            if building_basis_source == "user_provided"
+            else f"・減価償却累計額：{depreciation:,}円"
+        ),
         f"・建物未償却残高：{building_basis:,}円",
         f"・購入時諸費用：{acquisition_costs:,}円",
         f"・計算採用取得費：{acquisition_basis:,}円",
