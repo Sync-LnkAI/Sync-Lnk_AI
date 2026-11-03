@@ -20327,24 +20327,60 @@ with all_tabs[0]:
                                     )
                                     or {}
                                 )
-                            
-                            if (
-                                current_arguments.get("acquisition_date")
-                                and not current_arguments.get(
-                                    "building_acquisition_date"
-                                )
-                            ):
-                                current_arguments[
-                                    "building_acquisition_date"
-                                ] = current_arguments[
-                                    "acquisition_date"
-                                ]
 
-                            if "DEBUG current_arguments" in locals():
-                                debug_json(
-                                    "DEBUG current_arguments",
-                                    current_arguments
+                                meaningful_current_arguments = {
+                                    key: value
+                                    for key, value in current_arguments.items()
+                                    if value is not None and value != ""
+                                }
+                                explicit_recalculation_intent = any(
+                                    phrase in user_input
+                                    for phrase in (
+                                        "再計算して",
+                                        "同じ条件で",
+                                        "前回と同じ",
+                                        "先ほどと同じ",
+                                        "その条件で",
+                                        "この条件で"
+                                    )
                                 )
+
+                                if (
+                                    calculation_pending
+                                    and not meaningful_current_arguments
+                                    and selected_case_resume_arguments is None
+                                    and not explicit_recalculation_intent
+                                ):
+                                    calculation_extraction_result[
+                                        "should_calculate"
+                                    ] = False
+                                    calculation_extraction_result[
+                                        "extraction_status"
+                                    ] = "not_applicable"
+
+                                    st.session_state[
+                                        "real_estate_calculation_pending"
+                                    ] = False
+
+                                    calculation_pending = False
+
+                                if (
+                                    current_arguments.get("acquisition_date")
+                                    and not current_arguments.get(
+                                        "building_acquisition_date"
+                                    )
+                                ):
+                                    current_arguments[
+                                        "building_acquisition_date"
+                                    ] = current_arguments[
+                                        "acquisition_date"
+                                    ]
+
+                                if "DEBUG current_arguments" in locals():
+                                    debug_json(
+                                        "DEBUG current_arguments",
+                                        current_arguments
+                                    )
 
                             extraction_elapsed = (time.time() - calculation_start_time)
 
