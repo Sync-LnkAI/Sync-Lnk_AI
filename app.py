@@ -17145,9 +17145,9 @@ with all_tabs[0]:
                 )
                 st.rerun()
 
-        # chat_notice = st.session_state.pop("chat_notice", "")
-        # if chat_notice:
-        #     st.warning(chat_notice)
+        chat_notice = st.session_state.pop("chat_notice", "")
+        if chat_notice:
+            st.warning(chat_notice)
         
         calculation_pending_display = bool(
             st.session_state.get(
@@ -17218,6 +17218,10 @@ with all_tabs[0]:
                     st.session_state["pending_case_rename_name"] = ""
                     st.session_state["active_calculation_case_id"] = None
                     st.session_state["active_calculation_case_name"] = ""
+
+                    st.session_state["chat_notice"] = (
+                        "不動産計算を終了しました。"
+                    )
 
                     st.rerun()
 
