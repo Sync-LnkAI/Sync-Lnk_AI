@@ -8226,6 +8226,65 @@ def contains_real_estate_sale_hint(
     )
 # ==========================================
 
+# 計算完了後に同じ案件を再開すべき明確な入力を判定する関数
+def should_resume_real_estate_calculation(user_input: str) -> bool:
+    
+    text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+
+    text = (
+        text
+        .replace(" ", "")
+        .replace("　", "")
+    )
+
+    resume_phrases = (
+        "売却価格",
+        "売却予定額",
+        "売却額",
+        "ローン残債",
+        "土地取得価額",
+        "土地取得費",
+        "建物取得価額",
+        "建物取得費",
+        "購入時諸費用",
+        "取得関連費用",
+        "仲介手数料",
+        "譲渡費用",
+        "建物未償却残高",
+        "減価償却累計額",
+        "建物構造",
+        "取得日",
+        "取得年月",
+        "売却日",
+        "保有期間",
+        "長期譲渡",
+        "短期譲渡",
+        "利用区分",
+        "所有者区分",
+        "所有区分",
+        "個人所有",
+        "法人所有",
+        "実効税率",
+        "実行税率",
+        "特別控除",
+        "概算取得費",
+        "同じ条件で",
+        "前回と同じ",
+        "先ほどと同じ",
+        "その条件で",
+        "この条件で",
+        "再計算して"
+    )
+
+    return any(
+        phrase in text
+        for phrase in resume_phrases
+    )
+# ==========================================
+
 # ==========================================
 # 🧮 Python計算関数群
 # ==========================================
@@ -18715,6 +18774,10 @@ with all_tabs[0]:
                         contains_real_estate_hint = (
                             contains_real_estate_sale_hint(user_input)
                         )
+                        should_resume_active_real_estate = bool(
+                            st.session_state.get("active_calculation_case_id")
+                            and should_resume_real_estate_calculation(user_input)
+                        )
 
 
                         debug_text("DEBUG contains_real_estate_hint", contains_real_estate_hint)
@@ -18745,6 +18808,16 @@ with all_tabs[0]:
                             general_calculation_type = None
                             should_run_tool_router = False
                         
+                        # 計算完了後、明確な条件変更で選択中案件を再開
+                        elif should_resume_active_real_estate:
+                            calculation_tool = "real_estate_sale"
+                            calculation_pending = True
+                            st.session_state[
+                                "real_estate_calculation_pending"
+                            ] = True
+                            general_calculation_type = None
+                            should_run_tool_router = False
+
                         # 計算関連ワードがあれば優先
                         elif contains_real_estate_hint or requires_estimation:
                             # debug_text("DEBUG entered_contains_calculation_hint", True)
@@ -20328,44 +20401,6 @@ with all_tabs[0]:
                                     or {}
                                 )
 
-                                meaningful_current_arguments = {
-                                    key: value
-                                    for key, value in current_arguments.items()
-                                    if value is not None and value != ""
-                                }
-                                explicit_recalculation_intent = any(
-                                    phrase in user_input
-                                    for phrase in (
-                                        "再計算して",
-                                        "同じ条件で",
-                                        "前回と同じ",
-                                        "先ほどと同じ",
-                                        "その条件で",
-                                        "この条件で"
-                                    )
-                                )
-
-                                if (
-                                    calculation_pending
-                                    and not meaningful_current_arguments
-                                    and selected_case_resume_arguments is None
-                                    and not explicit_recalculation_intent
-                                ):
-                                    calculation_extraction_result[
-                                        "should_calculate"
-                                    ] = False
-                                    calculation_extraction_result[
-                                        "extraction_status"
-                                    ] = "not_applicable"
-
-                                    st.session_state[
-                                        "real_estate_calculation_pending"
-                                    ] = False
-
-                                    calculation_pending = False
-                                    previous_arguments = {}
-                                    current_arguments = {}
-
                                 if (
                                     current_arguments.get("acquisition_date")
                                     and not current_arguments.get(
@@ -21045,7 +21080,7 @@ with all_tabs[0]:
 
                                 st.session_state[
                                     "real_estate_calculation_pending"
-                                ] = True
+                                ] = False
 
                                 result = dict(
                                     calculation_execution_result.get(
