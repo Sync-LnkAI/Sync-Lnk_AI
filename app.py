@@ -14726,6 +14726,45 @@ def get_point_transactions(user_id: str, limit: int = 50) -> list[dict]:
         return []
 #================================================
 
+# 会話の詳細依頼を判定する関数
+def is_detail_request_message(user_input: str) -> bool:
+    text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+
+    text = (
+        text
+        .replace(" ", "")
+        .replace("　", "")
+        .strip()
+    )
+
+    detail_phrases = (
+        "詳細を教えて",
+        "詳しく教えて",
+        "詳細出して",
+        "詳細を出して",
+        "詳しく出して",
+        "詳しく分析して",
+        "詳細に分析して",
+        "もっと詳しく",
+        "詳細回答を作って",
+        "詳しい回答を作って",
+        "詳細を表示して",
+        "詳細に表示して",
+        "詳しく表示して",
+        "詳細表示して",
+        "詳細回答を表示して",
+        "詳しい回答を表示して"
+    )
+
+    return any(
+        phrase in text
+        for phrase in detail_phrases
+    )
+#================================================
+
 # 詳細確認ダイアログが閉じられた場合処理関数
 def clear_detail_confirmation_state():
     if st.session_state.get("detail_request_processing", False):
@@ -17235,11 +17274,106 @@ with all_tabs[0]:
             disabled=detail_request_ready
         )
         if typed_user_input:
-            # 通常入力が送信された場合は、
+            user_input = typed_user_input
+
+            if is_detail_request_message(user_input):
+                latest_calculation_message = None
+
+                for message in reversed(all_messages):
+                    if message.get("role") != "assistant":
+                        continue
+
+                    calculation_result = (
+                        message.get("general_calculation_result")
+                        or {}
+                    )
+
+                    if calculation_result.get("status") != "success":
+                        continue
+
+                    latest_calculation_message = message
+                    break
+
+                if latest_calculation_message:
+                    original_message_id = str(
+                        latest_calculation_message.get("message_id", "")
+                        or ""
+                    )
+
+                    original_user_message = ""
+
+                    for message in reversed(all_messages):
+                        if (
+                            message.get("role") == "user"
+                            and str(
+                                message.get("message_id", "")
+                                or ""
+                            ) == original_message_id
+                        ):
+                            original_user_message = str(
+                                message.get("content", "")
+                                or ""
+                            )
+                            break
+
+                    calculation_result = dict(
+                        latest_calculation_message.get("general_calculation_result")
+                        or {}
+                    )
+                    calculation_type = str(
+                        calculation_result.get("calculation_type", "")
+                        or ""
+                    ).strip()
+
+                    simple_processing_type = str(
+                        latest_calculation_message.get("processing_type", "")
+                        or ""
+                    ).strip()
+
+                    if calculation_type == "real_estate_sale":
+                        detailed_processing_type = ("detailed_analysis")
+                        detail_point_cost = 5
+                    else:
+                        detailed_processing_type = (
+                            DETAIL_PROCESSING_TYPE_MAP.get(simple_processing_type, "")
+                        )
+                        detail_point_cost = int(
+                            DETAIL_POINT_COSTS.get(detailed_processing_type, 0)
+                            or 0
+                        )
+
+                    if (
+                        original_message_id
+                        and original_user_message
+                        and detailed_processing_type
+                        and detail_point_cost > 0
+                    ):
+                        st.session_state["pending_detail_request"] = {
+                            "original_message_id": (original_message_id),
+                            "original_user_message": (original_user_message),
+                            "simple_answer": str(
+                                latest_calculation_message.get("content", "")
+                                or ""
+                            ),
+                            "simple_processing_type": (simple_processing_type),
+                            "detailed_processing_type": (detailed_processing_type),
+                            "requires_estimation": bool(
+                                latest_calculation_message.get(
+                                    "requires_estimation",
+                                    False
+                                )
+                            ),
+                            "general_calculation_result": (calculation_result),
+                            "point_cost": detail_point_cost
+                        }
+
+                        st.session_state["detail_confirmation_open"] = True
+                        st.session_state["detail_request_processing"] = False
+                        st.rerun()
+
+            # 詳細依頼として処理しなかった通常入力では、
             # 未確定の詳細処理状態を引き継がない
             clear_detail_confirmation_state()
-
-            user_input = typed_user_input
             if len(user_input) > MAX_INPUT_CHARS:
                 increment_error_analytics("LIMIT_INPUT_CHARS_EXCEEDED", current_plan_type)
                 err_msg = generate_personality_error_msg("ユーザーが1,000文字を超える超長文を送信しようとしました", current_user_instruction)
