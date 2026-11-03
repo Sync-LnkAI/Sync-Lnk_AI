@@ -1885,6 +1885,157 @@ def add_permanent_tokens(
         return False
 #===================================================
 
+# 要約をカテゴリ別の辞書へ分解する関数
+SUMMARY_MEMORY_TITLES = (
+    "趣味",
+    "継続的な嗜好",
+    "仕事",
+    "継続中のプロジェクト",
+    "家族構成",
+    "生活習慣"
+)
+
+def parse_summary_memory_to_dict(summary_text: str) -> dict:
+    text = str(summary_text or "").strip()
+    text = text.replace("【記憶の要約サマリー】", "").strip()
+
+    parsed = {}
+    current_title = None
+    current_lines = []
+
+    def save_current_block():
+        if not current_title:
+            return
+
+        content = "\n".join(current_lines).strip()
+        if content:
+            parsed[current_title] = content
+
+    for raw_line in text.splitlines():
+        line = str(raw_line or "").strip()
+
+        if not line:
+            continue
+
+        if line.startswith("・") and line.endswith(":"):
+            save_current_block()
+            title = line.removeprefix("・").removesuffix(":").strip()
+            current_title = (
+                title if title in SUMMARY_MEMORY_TITLES else None
+            )
+            current_lines = []
+            continue
+
+        if current_title:
+            current_lines.append(line)
+
+    save_current_block()
+    return parsed
+#===================================================
+
+# 既存要約とAIの更新候補をカテゴリ単位で統合する関数
+def merge_summary_memory_dicts(
+    previous_summary: dict,
+    summary_updates: dict
+) -> dict:
+    merged = dict(previous_summary or {})
+
+    for title in SUMMARY_MEMORY_TITLES:
+        if title not in summary_updates:
+            continue
+
+        new_content = str(summary_updates.get(title, "") or "").strip()
+        previous_content = str(merged.get(title, "") or "").strip()
+
+        if not new_content or new_content == "__NO_CHANGE__":
+            continue
+
+        if new_content == "__DELETE__":
+            merged.pop(title, None)
+            continue
+
+        if new_content == "なし" and previous_content:
+            continue
+
+        merged[title] = new_content
+
+    return merged
+#===================================================
+
+# 統合後の辞書を要約形式の文字列へ戻す関数
+def build_summary_memory_text(summary_dict: dict) -> str:
+    lines = []
+
+    for title in SUMMARY_MEMORY_TITLES:
+        content = str(summary_dict.get(title, "") or "").strip()
+
+        if not content or content == "なし":
+            continue
+
+        if lines:
+            lines.append("")
+
+        lines.extend([
+            f"・{title}:",
+            content
+        ])
+
+    return "\n".join(lines).strip()
+#===================================================
+
+# 統合後の記憶を現在の文字数上限へ収める保護関数
+SUMMARY_MEMORY_PRIORITY = (
+    "家族構成",
+    "趣味",
+    "仕事",
+    "継続中のプロジェクト",
+    "継続的な嗜好",
+    "生活習慣"
+)
+
+def fit_summary_memory_to_limit(
+    summary_dict: dict,
+    max_chars: int
+) -> dict:
+    fitted = {
+        title: str(summary_dict.get(title, "") or "").strip()
+        for title in SUMMARY_MEMORY_TITLES
+        if str(summary_dict.get(title, "") or "").strip()
+        not in {"", "なし"}
+    }
+
+    max_chars = max(0, int(max_chars or 0))
+    if len(build_summary_memory_text(fitted)) <= max_chars:
+        return fitted
+
+    low_priority_titles = reversed(SUMMARY_MEMORY_PRIORITY)
+
+    for title in low_priority_titles:
+        content = fitted.get(title, "")
+        if not content:
+            continue
+
+        parts = [
+            part.strip()
+            for part in re.split(r"[、。;\n]+", content)
+            if part.strip()
+        ]
+
+        while len(parts) > 1:
+            parts.pop()
+            fitted[title] = "、".join(parts)
+
+            if len(build_summary_memory_text(fitted)) <= max_chars:
+                return fitted
+
+        fitted.pop(title, None)
+
+        if len(build_summary_memory_text(fitted)) <= max_chars:
+            return fitted
+
+    return {}
+#===================================================
+
 # 要約作成関数
 SUMMARY_MEMORY_CONFIG = {
     "🆓 無料プラン": {
@@ -2130,25 +2281,25 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         # 🧠 Google Gemini に対する、バックグラウンド処理専用の要約指示書（システムプロンプト）の構築
         summary_instruction = f"""
         あなたは優秀な記憶整理システムです。
-        ・現在保存されている要約と、今回新しく追加された会話を統合し、最新の要約を作成してください。
-        ・既存要約にある有効な情報は、新しい会話で否定または変更されていない限り保持してください。
-        ・以下の会話ログを読み、数週間〜数ヶ月後の会話でも役立つ長期的な情報のみを抽出してください。
-        ・既存要約に含まれる重要な情報は、新しい会話で明確に否定・変更されていない限り保持してください。
-        ・新しい情報を追加する場合でも、既存の趣味、継続的な嗜好、仕事、家族構成などの重要情報を不用意に削除しないでください。
-        ・AIが推測または補完した内容を事実として要約へ保存してはいけません。ユーザー本人が明示した内容のみを保存してください。
+        現在保存されている要約と今回追加された会話を比較し、今回の会話によって新規追加、変更、削除された項目だけを抽出してください。
+        完成した要約全文を作成してはいけません。
+        変更のない項目は出力しないでください。
+        現在保存されている要約にある情報は、新しい会話で明確に変更または否定されていない限り、変更対象として出力しないでください。
 
+        ・以下の会話ログを読み、数週間から数か月後の会話でも役立つ長期的な情報だけを抽出してください。
+        ・新しい会話で明確に変更されていない既存項目は、差分として出力しないでください。
+        ・新しい情報が追加されても、削除や変更が明示されていない既存項目は変更対象にしないでください。
+        ・AIが推測または補完した内容を、事実として出力してはいけません。ユーザー本人が明示した内容だけを対象にしてください。
+        
         例:
         ・趣味が変わった場合は新しい趣味へ更新
         ・家族情報に変更があれば最新状態へ更新
-        ・長期目標が変われば新しい目標へ更新
 
         【保存対象】
         ・趣味
         ・継続的な嗜好
         ・仕事
         ・家族構成
-        ・価値観
-        ・長期的な目標
         ・継続中のプロジェクト
         ・定期的な生活習慣
 
@@ -2163,11 +2314,11 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ・既に終了した話題
 
         【既存要約の維持ルール】
-        ・新しい会話に登場しなかった項目は、現在保存されている要約の内容をそのまま維持してください。
-        ・新しい会話に趣味や家族の話がないことを理由に、既存の内容を「なし」へ変更してはいけません。
-        ・既存の内容を削除または「なし」へ変更できるのは、ユーザー本人が変更・否定・削除を明示した場合だけです。
-        ・現在保存されている要約に内容がある項目は、新しい会話だけを根拠に省略してはいけません。
-        ・文字数上限に収める場合も、既存情報を全削除せず、内容を短く圧縮して維持してください。
+        ・新しい会話に登場しなかった既存項目は、変更対象として出力しないでください。
+        ・新しい会話に趣味や家族の話がないことを理由に、「なし」や __DELETE__ を出力してはいけません。
+        ・既存内容の変更や削除を出力できるのは、ユーザー本人が変更、否定、削除を明示した場合だけです。
+        ・新しい情報が追加されても、変更が明示されていない既存項目は変更対象として出力しないでください。
+        ・文字数上限を理由に、既存項目の削除を差分として出力してはいけません。
 
         【仮定・テスト情報の除外ルール】
         ・テスト、動作確認、例示、仮定、試算、シミュレーションで使用した情報を、ユーザー本人の事実として保存しないでください。
@@ -2185,17 +2336,27 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         テレワークや出社は職業名ではなく、働き方または生活習慣として扱ってください。
         好きなドラマ名や作品名は、趣味ではなく継続的な嗜好として扱ってください。
 
-        保存対象となる情報が一切存在しない場合は、必ず「なし」のみを出力してください。
-        理由・説明・補足・考察・判断根拠は出力してはいけません。
+        【差分出力ルール】
+        ・今回の会話によって新規追加または変更された項目だけを出力してください。
+        ・変更されていない項目は出力しないでください。
+        ・現在の要約にない新しい長期情報は、新規追加として出力してください。
+        ・現在の内容が明確に変更された場合は、新しい内容だけを出力してください。
+        ・ユーザー本人が明確に終了、撤回、削除した情報は、内容として __DELETE__ を出力してください。
+        ・単に今回の会話に登場しなかっただけでは、__DELETE__ を出力してはいけません。
+        ・「最近話していない」「新しい情報がない」という理由で、「なし」や __DELETE__ を出力してはいけません。
+        ・変更対象が一切ない場合は、「なし」のみを出力してください。
+        ・理由、説明、補足、考察、判断根拠は出力しないでください。
 
         【出力形式】
+        変更があった項目だけを、次の形式で出力してください。
+
         ・趣味:
         ○○
 
         ・継続的な嗜好:
         ○○
 
-         ・仕事:
+        ・仕事:
         ○○
 
         ・継続中のプロジェクト:
@@ -2207,7 +2368,12 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ・生活習慣:
         ○○
 
-        存在しない項目は省略して構いません。
+        明示的に削除された項目は、次のように出力してください。
+
+        ・趣味:
+        __DELETE__
+
+        変更のない項目や、保存対象となる情報が存在しない項目は、見出しも含めて必ず省略してください。
 
         {plan_summary_prompt_block}
 
@@ -2217,7 +2383,7 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         【合計{summary_max_chars}文字以内】
         【事実のみ】
 
-        で要約してください。
+        上記の形式で、今回の会話による差分だけを抽出してください。
         """
 
         # contents_for_summary = [
@@ -2257,12 +2423,26 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             model_name=SUMMARY_MODEL_NAME
         )
 
-        new_summary = str(summary_result.get("text", "") or "").strip()
-        
+        generated_summary = str(summary_result.get("text", "") or "").strip()
+
+        if not generated_summary:
+            return False
+
+        previous_summary_dict = parse_summary_memory_to_dict(previous_summary)
+        summary_updates = parse_summary_memory_to_dict(generated_summary)
+        merged_summary_dict = merge_summary_memory_dicts(
+            previous_summary_dict,
+            summary_updates
+        )
+        fitted_summary_dict = fit_summary_memory_to_limit(
+            merged_summary_dict,
+            summary_max_chars
+        )
+        new_summary = build_summary_memory_text(fitted_summary_dict)
+
         if not new_summary:
             return False
 
-        # 🔮　get_embedding 関数を流用
         embed_fact = f"【記憶の要約サマリー】\n{new_summary}"
         new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
 
@@ -21942,7 +22122,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
@@ -22862,7 +23042,7 @@ with all_tabs[2]:
                             )
 
                             st.success("計画書へ反映しました。")
-                            # st.rerun()
+                            st.rerun()
                         else:
                             st.error("計画書の保存に失敗しました。")
 
