@@ -41,11 +41,20 @@ OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 @st.cache_resource
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
-
 supabase = init_supabase()
+
+@st.cache_resource
+def init_supabase_admin() -> Client:
+    return create_client(
+        SUPABASE_URL,
+        st.secrets["SUPABASE_SECRET_KEY"]
+    )
+supabase_admin = init_supabase_admin()
 
 genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+
 
 # ==========================================
 # AI構成
@@ -14702,7 +14711,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
     try:
         response = (
-            supabase
+            supabase_admin
             .table("user_entitlements")
             .select(
                 "id, entitlement_code, expires_at, "
@@ -14744,7 +14753,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
             if entitlement_code == "premium_personality":
                 personality_response = (
-                    supabase
+                    supabase_admin
                     .table(DB_MEMORIES_TABLE)
                     .select("id, fact")
                     .eq("user_id", str(user_id))
@@ -14763,7 +14772,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
                     if saved_personality in PREMIUM_PRESETS:
                         (
-                            supabase
+                            supabase_admin
                             .table(DB_MEMORIES_TABLE)
                             .update({
                                 "fact": f"人格: {default_personality}"
@@ -14790,7 +14799,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 )
 
             (
-                supabase
+                supabase_admin
                 .table("user_entitlements")
                 .update({
                     "status": "expired",
