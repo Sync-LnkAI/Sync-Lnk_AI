@@ -908,11 +908,6 @@ EMOJI_SETTING_PROMPTS = {
     "無し": "絵文字は使用しないでください。"
 }
 
-emoji_setting_prompt = EMOJI_SETTING_PROMPTS.get(
-    current_emoji_setting,
-    EMOJI_SETTING_PROMPTS["使用（普通）"]
-)
-
 DIALECT_PROMPTS = {
     "標準語": """
     自然な標準語で回答してください。
@@ -16277,6 +16272,11 @@ for m in manual_memories:
     #             ""
     #         ).strip()
     #     )
+
+emoji_setting_prompt = EMOJI_SETTING_PROMPTS.get(
+    current_emoji_setting,
+    EMOJI_SETTING_PROMPTS["使用（普通）"]
+)
 
 # 💡 【ここが大開通スイッチ！】 
 # 先ほど定義した新しいグラデーション辞書「THEMES」から選ばれたカラー設定を100%確実に引き抜きます。
