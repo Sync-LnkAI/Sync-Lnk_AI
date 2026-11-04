@@ -14714,6 +14714,13 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
             .is_("expiration_notified_at", "null")
             .execute()
         )
+        if DEBUG_MODE:
+            st.write("DEBUG 期限切れ権利照合")
+            st.json({
+                "user_id": str(user_id),
+                "now_jst": now_jst.isoformat(),
+                "entitlement_rows": response.data or []
+            })
 
         for entitlement in response.data or []:
             expires_at = entitlement.get("expires_at")
@@ -14805,6 +14812,11 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
             "期限切れ権利照合エラー: "
             f"{type(error).__name__}: {error}"
         )
+        if DEBUG_MODE:
+            st.error(
+                "期限切れ権利照合エラー: "
+                f"{type(error).__name__}: {error}"
+            )
         return []
 #================================================
 
@@ -22280,7 +22292,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            st.rerun()
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
