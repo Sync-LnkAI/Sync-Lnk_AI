@@ -3414,7 +3414,8 @@ def build_grounded_response_config(
     recent_history: str,
     user_input: str,
     calc_prompt: str = "",
-    general_calculation_context: str = ""
+    general_calculation_context: str = "",
+    emoji_setting_prompt: str = ""
 ) -> dict:
     current_datetime_prompt = get_current_datetime_prompt()
 
@@ -3468,6 +3469,9 @@ def build_grounded_response_config(
         【今回の話し方】
         {style_prompt}
         ・現在の人格は口調や語尾へ自然に反映してください。人格を示すためだけの挨拶、決まり文句、不自然な言い回しを追加しないでください。
+
+        【絵文字の使用方針】
+        {emoji_setting_prompt}
 
         【直近の会話】
         {recent_history}
@@ -20595,7 +20599,8 @@ with all_tabs[0]:
                                     recent_history=recent_history_for_router,
                                     user_input=user_input,
                                     calc_prompt=active_calc_prompt,
-                                    general_calculation_context=general_calculation_context
+                                    general_calculation_context=general_calculation_context,
+                                    emoji_setting_prompt=emoji_setting_prompt
                                 )
 
                             search_query = search_config["prompt"]
