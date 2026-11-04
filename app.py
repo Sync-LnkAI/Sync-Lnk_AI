@@ -9111,8 +9111,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -16185,10 +16185,13 @@ THEMES = {
 # 設定値の読み込み・常時シンク
 # ==========================================
 # 期限切れ照合
-expired_entitlement_notices = reconcile_expired_entitlements(CURRENT_USER_ID)
-if expired_entitlement_notices:
-    st.session_state["expired_entitlement_notices"] = expired_entitlement_notices
+reconciled_user_id = st.session_state.get("entitlement_reconciled_user_id")
+if reconciled_user_id != CURRENT_USER_ID:
+    expired_notices = reconcile_expired_entitlements(CURRENT_USER_ID)
+    st.session_state["entitlement_reconciled_user_id"] = CURRENT_USER_ID
 
+    if expired_notices:
+        st.session_state["expired_entitlement_notices"] = expired_notices
 
 manual_memories = get_memories(source="manual")
 
@@ -22301,7 +22304,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
