@@ -14745,6 +14745,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
         #         "entitlement_rows": response.data or []
         #     })
 
+        # user_entitlementsの期限切れ処理
         for entitlement in response.data or []:
             expires_at = entitlement.get("expires_at")
             if not expires_at:
@@ -14763,7 +14764,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
             entitlement_id = entitlement.get("id")
             entitlement_code = str(entitlement.get("entitlement_code", "") or "")
 
-            notice_message = ("期限付き機能の有効期限が終了しました。")
+            notice_message = ("期限付き追加機能の有効期限が終了しました。")
 
             if entitlement_code == "premium_personality":
                 personality_response = (
@@ -14820,6 +14821,73 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                     "expiration_notified_at": now_jst.isoformat()
                 })
                 .eq("id", entitlement_id)
+                .execute()
+            )
+
+            notices.append({
+                "entitlement_code": entitlement_code,
+                "message": notice_message
+            })
+
+        grant_response = (
+            supabase_admin
+            .table("user_entitlement_grants")
+            .select(
+                "id, entitlement_code, quantity, expires_at, "
+                "expiration_notified_at"
+            )
+            .eq("user_id", str(user_id))
+            .eq("status", "active")
+            .execute()
+        )
+
+        # 追加枠の期限切れ処理
+        for grant in grant_response.data or []:
+            expires_at = grant.get("expires_at")
+            notified_at = grant.get("expiration_notified_at")
+
+            if not expires_at or notified_at:
+                continue
+
+            try:
+                expires_datetime = datetime.fromisoformat(
+                    str(expires_at).replace("Z", "+00:00")
+                ).astimezone(JST)
+            except (ValueError, TypeError):
+                continue
+
+            if expires_datetime > now_jst:
+                continue
+
+            grant_id = grant.get("id")
+            entitlement_code = str(
+                grant.get("entitlement_code", "") or ""
+            )
+            quantity = int(grant.get("quantity", 0) or 0)
+
+            if entitlement_code == "daily_chat_plus":
+                notice_message = (
+                    f"1日の会話上限＋{quantity}回の"
+                    "有効期限が終了しました。"
+                    "今後は現在の会員プランの上限が適用されます。"
+                )
+            elif entitlement_code == "saved_chat_plus":
+                notice_message = (
+                    f"会話保存枠＋{quantity}件の"
+                    "有効期限が終了しました。"
+                    "今後は現在の会員プランの保存上限が適用されます。"
+                )
+            else:
+                notice_message = ("期限付き追加機能の有効期限が終了しました。")
+
+            (
+                supabase_admin
+                .table("user_entitlement_grants")
+                .update({
+                    "status": "expired",
+                    "expiration_notified_at": now_jst.isoformat()
+                })
+                .eq("id", grant_id)
                 .execute()
             )
 
