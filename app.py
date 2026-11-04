@@ -894,6 +894,25 @@ RESPONSE_LENGTH_PROMPTS = {
     """
 }
 
+EMOJI_SETTING_PROMPTS = {
+    "使用（多め）": (
+        "内容に合う絵文字を自然に多めに使用してください。"
+        "読みやすさを損なう連続使用は避けてください。"
+    ),
+    "使用（普通）": (
+        "内容に合う絵文字を、必要な箇所へ適度に使用してください。"
+    ),
+    "使用（少なめ）": (
+        "絵文字は必要な場合だけ、控えめに使用してください。"
+    ),
+    "無し": "絵文字は使用しないでください。"
+}
+
+emoji_setting_prompt = EMOJI_SETTING_PROMPTS.get(
+    current_emoji_setting,
+    EMOJI_SETTING_PROMPTS["使用（普通）"]
+)
+
 DIALECT_PROMPTS = {
     "標準語": """
     自然な標準語で回答してください。
@@ -22008,6 +22027,9 @@ with all_tabs[0]:
 
                             {response_length_prompt}
 
+                            【絵文字の使用方針】
+                            {emoji_setting_prompt}
+
                             【直近の会話履歴】
                             {use_recent_history}
 
@@ -22027,6 +22049,11 @@ with all_tabs[0]:
 
                             【現在の人格】
                             {STYLE_PRESETS.get(current_style_preset, "")}
+
+                            {response_length_prompt}
+
+                            【絵文字の使用方針】
+                            {emoji_setting_prompt}
 
                             【話し方の決定ルール】
                             ・現在の人格に従って、口調、語尾、一人称、キャラクター性を自然に統一してください。
