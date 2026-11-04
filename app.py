@@ -1797,57 +1797,32 @@ def update_memory(memory_id: int, new_fact: str) -> bool:
         return False
 # ==========================================
 
+# 設定登録（RPC関数呼び出し）関数
 def save_all_user_settings(settings_dict: dict) -> bool:
-    """
-        設定をまとめて保存する。
-        settings_dict例:
-        {
-            "AIの名前": "ハヤト",
-            "ユーザー名": "リュウ",
-            "人格": "🤝 フランクな相棒",
-            "会話長さ": "長め",
-        }
-    """
-
     try:
-        # 現在の手動設定を一括削除
-        (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .delete()
-            .eq("user_id", CURRENT_USER_ID)
-            .eq("source", "manual")
-            .execute()
-        )
-
-        # 一括INSERT用データ作成
-        rows = []
-
-        for key, value in (settings_dict.items()):
-            rows.append(
+        response = (
+            supabase_admin
+            .rpc(
+                "save_all_user_settings_rpc",
                 {
-                    "user_id": CURRENT_USER_ID,
-                    "category": "基本情報",
-                    "fact": f"{key}: {value}",
-                    "source": "manual",
-                    "embedding": None
+                    "p_user_id": str(CURRENT_USER_ID),
+                    "p_settings": settings_dict,
+                    "p_is_dev_site": bool(is_dev_site)
                 }
             )
-
-        # 一括INSERT
-        (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .insert(rows)
             .execute()
         )
 
-        return True
+        result = response.data or {}
+        return bool(result.get("success", False))
 
-    except Exception as e:
-        st.error(f"一括設定保存エラー: {e}")
-
+    except Exception as error:
+        st.error(
+            "一括設定保存エラー: "
+            f"{type(error).__name__}: {error}"
+        )
         return False
+# ==========================================
 
 # テキストをベクトル（数値配列）に変換する関数
 def get_embedding(text: str, task_type: str = "RETRIEVAL_DOCUMENT"):
