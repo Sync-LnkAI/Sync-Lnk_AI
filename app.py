@@ -317,6 +317,14 @@ if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
 
 CURRENT_USER_ID = AUTH_LEGACY_USER_ID
 
+if st.sidebar.button("ログアウト"):
+    supabase.auth.sign_out()
+
+    st.session_state.access_token = None
+    st.session_state.refresh_token = None
+
+    st.rerun()
+
 # if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
 #     st.info(
 #         "管理者用URLを発行するには、"
