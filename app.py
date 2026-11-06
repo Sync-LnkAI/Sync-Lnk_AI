@@ -214,9 +214,9 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 # CURRENT_USER_ID = str(user_param)
-try:
-    CURRENT_USER_ID = str(uuid.UUID(str(user_param).strip()))
-except (ValueError, TypeError, AttributeError):
+CURRENT_USER_ID = str(user_param).strip()
+
+if not CURRENT_USER_ID:
     st.error("🔒 アクセス権限がありません")
     st.info(
         "招待URLが正しくありません。"
@@ -224,53 +224,52 @@ except (ValueError, TypeError, AttributeError):
     )
     st.stop()
 
-    if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
-        st.info(
-            "管理者用URLを発行するには、"
-            "招待URL署名用の秘密文字列を入力してください。"
+if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
+    st.info(
+        "管理者用URLを発行するには、"
+        "招待URL署名用の秘密文字列を入力してください。"
+    )
+
+    with st.form("admin_url_bootstrap_form"):
+        bootstrap_secret = st.text_input(
+            "招待URL署名用の秘密文字列",
+            type="password",
         )
+        issue_admin_url = st.form_submit_button("管理者用URLを発行")
 
-        with st.form("admin_url_bootstrap_form"):
-            bootstrap_secret = st.text_input(
-                "招待URL署名用の秘密文字列",
-                type="password",
-            )
-            issue_admin_url = st.form_submit_button("管理者用URLを発行")
-
-        if issue_admin_url:
-            if hmac.compare_digest(bootstrap_secret, INVITE_SIGNING_SECRET,):
-                admin_invite_url = create_signed_invite_url(
-                    APP_BASE_URL,
-                    ADMIN_USER_ID,
-                )
-
-                st.success("管理者用URLを発行しました。")
-                st.write("🔗 管理者用の署名付きURL")
-                st.code(admin_invite_url, language=None,)
-            else:
-                st.error("秘密文字列が一致しません。")
-    st.stop()
-
-    # 新しい署名付きURLへ切り替え
-    expected_signature = create_invite_signature(CURRENT_USER_ID)
-    if not signature_param or not hmac.compare_digest(
-        str(signature_param),
-        expected_signature,
-    ):
-        st.error("🔒 アクセス権限がありません")
-        st.info(
-            "招待URLの署名を確認できません。"
-            "発行された専用URLからアクセスしてください。"
-        )
-        st.stop()
-    if CURRENT_USER_ID == ADMIN_USER_ID:
-        st.code(
-            create_signed_invite_url(
+    if issue_admin_url:
+        if hmac.compare_digest(
+            bootstrap_secret,
+            INVITE_SIGNING_SECRET,
+        ):
+            admin_invite_url = create_signed_invite_url(
                 APP_BASE_URL,
                 ADMIN_USER_ID,
-            ),
-            language=None,
+            )
+
+            st.success("管理者用URLを発行しました。")
+            st.write("🔗 管理者用の署名付きURL")
+            st.code(
+                admin_invite_url,
+                language=None,
+            )
+        else:
+            st.error("秘密文字列が一致しません。")
+
+    st.stop()
+
+expected_signature = create_invite_signature(CURRENT_USER_ID)
+
+if not signature_param or not hmac.compare_digest(
+    str(signature_param),
+    expected_signature,
+):
+    st.error("🔒 アクセス権限がありません")
+    st.info(
+        "招待URLの署名を確認できません。"
+        "発行された専用URLからアクセスしてください。"
     )
+    st.stop()
 
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
