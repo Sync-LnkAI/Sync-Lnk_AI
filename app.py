@@ -288,9 +288,7 @@ AUTH_LEGACY_USER_ID = str(
     id_link_result.data["legacy_user_id"]
 ).strip()
 
-if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
-    st.error("🔒 この招待URLはログイン中のユーザー用ではありません。")
-    st.stop()
+
 
 # =========================================
 # 招待URLの検証
@@ -311,6 +309,10 @@ if not CURRENT_USER_ID:
         "招待URLが正しくありません。"
         "発行された専用URLからアクセスしてください。"
     )
+    st.stop()
+
+if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
+    st.error("🔒 この招待URLはログイン中のユーザー用ではありません。")
     st.stop()
 
 # if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
