@@ -214,6 +214,7 @@ if not user_param:
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
 # CURRENT_USER_ID = str(user_param)
+signature_param = st.query_params.get("sig")
 CURRENT_USER_ID = str(user_param).strip()
 
 if not CURRENT_USER_ID:
