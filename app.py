@@ -39,6 +39,7 @@ INVITE_SIGNING_SECRET = st.secrets["INVITE_SIGNING_SECRET"]
 APP_BASE_URL = st.secrets["APP_BASE_URL"]
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
+ADMIN_AUTH_UID = str(st.secrets["ADMIN_AUTH_UID"]).strip()
 
 # 署名を計算する関数
 def create_invite_signature(user_id: str) -> str:
