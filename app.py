@@ -249,6 +249,18 @@ if not auth_response or not auth_response.user:
 # =========================================
 authenticated_user = supabase.auth.get_user().user
 AUTH_USER_ID = str(authenticated_user.id).strip()
+role_result = (
+    supabase.table("user_roles")
+    .select("role")
+    .eq("user_id", AUTH_USER_ID)
+    .maybe_single()
+    .execute()
+)
+
+IS_ADMIN = bool(
+    role_result.data
+    and role_result.data.get("role") == "admin"
+)
 
 # =========================================
 # 招待URLの検証
