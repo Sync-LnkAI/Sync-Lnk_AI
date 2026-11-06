@@ -224,34 +224,31 @@ except (ValueError, TypeError, AttributeError):
     )
     st.stop()
 
-    if (
-        CURRENT_USER_ID == ADMIN_USER_ID
-        and not signature_param
-    ):
-    st.info(
-        "管理者用URLを発行するには、"
-        "招待URL署名用の秘密文字列を入力してください。"
-    )
-
-    with st.form("admin_url_bootstrap_form"):
-        bootstrap_secret = st.text_input(
-            "招待URL署名用の秘密文字列",
-            type="password",
+    if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
+        st.info(
+            "管理者用URLを発行するには、"
+            "招待URL署名用の秘密文字列を入力してください。"
         )
-        issue_admin_url = st.form_submit_button("管理者用URLを発行")
 
-    if issue_admin_url:
-        if hmac.compare_digest(bootstrap_secret, INVITE_SIGNING_SECRET,):
-            admin_invite_url = create_signed_invite_url(
-                APP_BASE_URL,
-                ADMIN_USER_ID,
+        with st.form("admin_url_bootstrap_form"):
+            bootstrap_secret = st.text_input(
+                "招待URL署名用の秘密文字列",
+                type="password",
             )
+            issue_admin_url = st.form_submit_button("管理者用URLを発行")
 
-            st.success("管理者用URLを発行しました。")
-            st.write("🔗 管理者用の署名付きURL")
-            st.code(admin_invite_url, language=None,)
-        else:
-            st.error("秘密文字列が一致しません。")
+        if issue_admin_url:
+            if hmac.compare_digest(bootstrap_secret, INVITE_SIGNING_SECRET,):
+                admin_invite_url = create_signed_invite_url(
+                    APP_BASE_URL,
+                    ADMIN_USER_ID,
+                )
+
+                st.success("管理者用URLを発行しました。")
+                st.write("🔗 管理者用の署名付きURL")
+                st.code(admin_invite_url, language=None,)
+            else:
+                st.error("秘密文字列が一致しません。")
     st.stop()
 
     # 新しい署名付きURLへ切り替え
