@@ -221,7 +221,7 @@ if (
 auth_response = supabase.auth.get_user()
 
 if not auth_response or not auth_response.user:
-    st.title("ログイン")
+    st.caption("ログイン")
 
     with st.form("login_form"):
         login_email = st.text_input("メールアドレス")
@@ -247,7 +247,8 @@ if not auth_response or not auth_response.user:
 
     st.stop()
 # =========================================
-
+authenticated_user = supabase.auth.get_user().user
+AUTH_USER_ID = str(authenticated_user.id).strip()
 
 # =========================================
 # 招待URLの検証
