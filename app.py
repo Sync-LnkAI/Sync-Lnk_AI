@@ -264,12 +264,12 @@ except (ValueError, TypeError, AttributeError):
         )
         st.stop()
     if CURRENT_USER_ID == ADMIN_USER_ID:
-    st.code(
-        create_signed_invite_url(
-            APP_BASE_URL,
-            ADMIN_USER_ID,
-        ),
-        language=None,
+        st.code(
+            create_signed_invite_url(
+                APP_BASE_URL,
+                ADMIN_USER_ID,
+            ),
+            language=None,
     )
 
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
