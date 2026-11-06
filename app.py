@@ -49,17 +49,14 @@ def create_invite_signature(user_id: str) -> str:
     ).hexdigest()
 
 # 署名付き招待URLを生成する関数
-def create_signed_invite_url(
-    base_url: str,
-    user_id: str,
-) -> str:
-    normalized_user_id = str(
-        uuid.UUID(str(user_id).strip())
-    )
-    signature = create_invite_signature(
-        normalized_user_id
-    )
+def create_signed_invite_url(base_url: str, user_id: str) -> str:
+    
+    normalized_user_id = str(user_id).strip()
 
+    if not normalized_user_id:
+        raise ValueError("ユーザーIDが空です。")
+
+    signature = create_invite_signature(normalized_user_id)
     return (
         f"{base_url.rstrip('/')}"
         f"?user={normalized_user_id}"
@@ -201,6 +198,16 @@ def calculate_ai_cost(
 # ガードレール用の定数を定義
 MAX_INPUT_CHARS = 1000
 BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
+
+import uuid
+import streamlit as st
+
+if st.button("管理者UUIDを生成"):
+    generated_admin_id = str(uuid.uuid4())
+
+    st.success("管理者UUIDを生成しました")
+    st.code(generated_admin_id, language=None)
+
 
 # =========================================
 # 招待URLの検証
