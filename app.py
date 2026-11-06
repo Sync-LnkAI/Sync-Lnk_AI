@@ -315,6 +315,8 @@ if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
     st.error("🔒 この招待URLはログイン中のユーザー用ではありません。")
     st.stop()
 
+CURRENT_USER_ID = AUTH_LEGACY_USER_ID
+
 # if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
 #     st.info(
 #         "管理者用URLを発行するには、"
