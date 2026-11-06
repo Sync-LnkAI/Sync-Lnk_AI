@@ -276,6 +276,17 @@ if IS_ADMIN:
             general_user_url,
             language=None,
         )
+id_link_result = (
+    supabase.table("user_id_links")
+    .select("legacy_user_id")
+    .eq("auth_user_id", AUTH_USER_ID)
+    .single()
+    .execute()
+)
+
+AUTH_LEGACY_USER_ID = str(
+    id_link_result.data["legacy_user_id"]
+).strip()
 
 # =========================================
 # 招待URLの検証
