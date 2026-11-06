@@ -288,6 +288,10 @@ AUTH_LEGACY_USER_ID = str(
     id_link_result.data["legacy_user_id"]
 ).strip()
 
+if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
+    st.error("🔒 この招待URLはログイン中のユーザー用ではありません。")
+    st.stop()
+
 # =========================================
 # 招待URLの検証
 # =========================================
