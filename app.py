@@ -37,6 +37,8 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY_PRO"]
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
 INVITE_SIGNING_SECRET = st.secrets["INVITE_SIGNING_SECRET"]
 APP_BASE_URL = st.secrets["APP_BASE_URL"]
+ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
+USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
 
 # 署名を計算する関数
 def create_invite_signature(user_id: str) -> str:
@@ -200,21 +202,17 @@ def calculate_ai_cost(
 MAX_INPUT_CHARS = 1000
 BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
-# ==================================================================
-# 🔒【完全防衛】 URLパラメータの強制チェック（セキュリティシャッター）
-# ==================================================================
+# =========================================
+# 招待URLの検証
+# =========================================
 user_param = st.query_params.get("user")
 signature_param = st.query_params.get("sig")
 
-# 💡 URLのケツに「?user=...」が何もついていない場合、または空っぽの場合
 if not user_param:
     st.error("🔒 アクセス権限がありません")
     st.info("このアプリは招待制のクローズドテスト中です。正しい専用の招待URLからアクセスしてください。")
-    st.stop() # 🎯 マスターデータの露出を入り口で100%完全にシャットアウト！
+    st.stop()
 
-# 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
-# CURRENT_USER_ID = str(user_param)
-signature_param = st.query_params.get("sig")
 CURRENT_USER_ID = str(user_param).strip()
 
 if not CURRENT_USER_ID:
@@ -272,8 +270,6 @@ if not signature_param or not hmac.compare_digest(
     )
     st.stop()
 
-ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
-USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
 
 # アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
 # is_dev_site = st.query_params.get("dev") is not None or st.config.get_option("server.headless") == False
