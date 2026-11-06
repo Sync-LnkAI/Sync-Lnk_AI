@@ -11,6 +11,9 @@ import zoneinfo
 import pandas as pd
 from openai import OpenAI
 import unicodedata
+import uuid
+import hashlib
+import hmac
 from difflib import SequenceMatcher
 from janome.tokenizer import Tokenizer
 from concurrent.futures import (ThreadPoolExecutor, as_completed)
@@ -32,6 +35,34 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 GEMINI_API_KEY = st.secrets["GEMINI_API_KEY_PRO"]
 OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", "")
+INVITE_SIGNING_SECRET = st.secrets["INVITE_SIGNING_SECRET"]
+APP_BASE_URL = st.secrets["APP_BASE_URL"]
+
+# 署名を計算する関数
+def create_invite_signature(user_id: str) -> str:
+    return hmac.new(
+        INVITE_SIGNING_SECRET.encode("utf-8"),
+        user_id.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+# 署名付き招待URLを生成する関数
+def create_signed_invite_url(
+    base_url: str,
+    user_id: str,
+) -> str:
+    normalized_user_id = str(
+        uuid.UUID(str(user_id).strip())
+    )
+    signature = create_invite_signature(
+        normalized_user_id
+    )
+
+    return (
+        f"{base_url.rstrip('/')}"
+        f"?user={normalized_user_id}"
+        f"&sig={signature}"
+    )
 
 # try:
 #     from openai import OpenAI
@@ -50,6 +81,7 @@ def init_supabase_admin() -> Client:
         st.secrets["SUPABASE_SECRET_KEY"]
     )
 supabase_admin = init_supabase_admin()
+supabase = supabase_admin
 
 genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
@@ -172,6 +204,7 @@ BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾�
 # 🔒【完全防衛】 URLパラメータの強制チェック（セキュリティシャッター）
 # ==================================================================
 user_param = st.query_params.get("user")
+signature_param = st.query_params.get("sig")
 
 # 💡 URLのケツに「?user=...」が何もついていない場合、または空っぽの場合
 if not user_param:
@@ -180,7 +213,30 @@ if not user_param:
     st.stop() # 🎯 マスターデータの露出を入り口で100%完全にシャットアウト！
 
 # 正しい暗号（UUIDなど）がついていれば、そのユーザーだけの独立した部屋を開きます
-CURRENT_USER_ID = str(user_param)
+# CURRENT_USER_ID = str(user_param)
+try:
+    CURRENT_USER_ID = str(uuid.UUID(str(user_param).strip()))
+except (ValueError, TypeError, AttributeError):
+    st.error("🔒 アクセス権限がありません")
+    st.info(
+        "招待URLが正しくありません。"
+        "発行された専用URLからアクセスしてください。"
+    )
+    st.stop()
+
+    # 新しい署名付きURLへ切り替え
+    expected_signature = create_invite_signature(CURRENT_USER_ID)
+    if not signature_param or not hmac.compare_digest(
+        str(signature_param),
+        expected_signature,
+    ):
+        st.error("🔒 アクセス権限がありません")
+        st.info(
+            "招待URLの署名を確認できません。"
+            "発行された専用URLからアクセスしてください。"
+        )
+        st.stop()
+
 ADMIN_USER_ID = st.secrets["ADMIN_USER_ID"]
 USUAL_USER_ID = st.secrets["USUAL_USER_ID"]
 
@@ -23791,6 +23847,13 @@ if is_admin:
                 all_users,
                 key="selected_audit_user"
             )
+            selected_invite_url = create_signed_invite_url(
+                APP_BASE_URL,
+                str(selected_audit_user),
+            )
+
+            st.write("🔗 このユーザーの署名付きURL")
+            st.code(selected_invite_url, language=None,)
 
             previous_audit_user = st.session_state.get("previous_audit_user")
 
