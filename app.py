@@ -224,7 +224,10 @@ except (ValueError, TypeError, AttributeError):
     )
     st.stop()
 
-    if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
+    if (
+        CURRENT_USER_ID == ADMIN_USER_ID
+        and not signature_param
+    ):
     st.info(
         "管理者用URLを発行するには、"
         "招待URL署名用の秘密文字列を入力してください。"
