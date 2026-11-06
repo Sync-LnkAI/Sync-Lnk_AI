@@ -81,7 +81,7 @@ def init_supabase_admin() -> Client:
         st.secrets["SUPABASE_SECRET_KEY"]
     )
 supabase_admin = init_supabase_admin()
-supabase = supabase_admin
+# supabase = supabase_admin
 
 genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
