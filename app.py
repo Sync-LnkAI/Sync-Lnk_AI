@@ -1990,7 +1990,7 @@ def update_memory(memory_id: int, new_fact: str) -> bool:
 def save_all_user_settings(settings_dict: dict) -> bool:
     try:
         response = (
-            supabase_admin
+            supabase
             .rpc(
                 "save_all_user_settings_rpc",
                 {
