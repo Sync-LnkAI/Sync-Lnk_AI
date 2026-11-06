@@ -69,7 +69,6 @@ def create_signed_invite_url(base_url: str, user_id: str) -> str:
 # except Exception:
 #     OpenAI = None
 
-@st.cache_resource
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase = init_supabase()
