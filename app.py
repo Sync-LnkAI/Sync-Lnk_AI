@@ -200,6 +200,55 @@ def calculate_ai_cost(
 MAX_INPUT_CHARS = 1000
 BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
+# Supabase Authのログイン処理
+if "access_token" not in st.session_state:
+    st.session_state.access_token = None
+
+if "refresh_token" not in st.session_state:
+    st.session_state.refresh_token = None
+
+# 再実行後にログインセッションを復元
+if (
+    st.session_state.access_token
+    and st.session_state.refresh_token
+):
+    supabase.auth.set_session(
+        st.session_state.access_token,
+        st.session_state.refresh_token,
+    )
+
+# 未ログインならログイン画面を表示
+auth_response = supabase.auth.get_user()
+
+if not auth_response or not auth_response.user:
+    st.title("ログイン")
+
+    with st.form("login_form"):
+        login_email = st.text_input("メールアドレス")
+        login_password = st.text_input("パスワード", type="password")
+        login_submit = st.form_submit_button("ログイン")
+
+    if login_submit:
+        try:
+            login_result = (
+                supabase.auth.sign_in_with_password({
+                    "email": login_email.strip(),
+                    "password": login_password,
+                })
+            )
+
+            st.session_state.access_token = (login_result.session.access_token)
+            st.session_state.refresh_token = (login_result.session.refresh_token)
+
+            st.rerun()
+
+        except Exception:
+            st.error("メールアドレスまたはパスワードが正しくありません。")
+
+    st.stop()
+# =========================================
+
+
 # =========================================
 # 招待URLの検証
 # =========================================
