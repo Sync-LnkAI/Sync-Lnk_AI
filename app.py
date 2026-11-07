@@ -14729,63 +14729,46 @@ def purchase_point_product(
         "current_balance": 0,
         "transaction_id": None,
         "entitlement_code": "",
-        "entitlement_expires_at": None
+        "entitlement_expires_at": None,
     }
 
     try:
-        response = (
-            supabase
-            .rpc(
-                "purchase_point_product",
-                {
-                    "p_user_id": str(user_id),
-                    "p_product_code": str(product_code),
-                    "p_operation_id": str(operation_id)
-                }
-            )
-            .execute()
-        )
+        response = supabase.rpc(
+            "purchase_point_product",
+            {
+                "p_user_id": str(user_id),
+                "p_product_code": str(product_code),
+                "p_operation_id": str(operation_id),
+            },
+        ).execute()
 
         if not response.data:
             return default_result
 
         result = response.data[0]
 
-        return {
-            "result_status": str(
-                result.get(
-                    "result_status",
-                    "error"
-                ) or "error"
-            ),
-            "current_balance": int(
-                result.get(
-                    "current_balance",
-                    0
-                ) or 0
-            ),
+        purchase_result = {
+            "result_status": str(result.get("result_status", "error") or "error"),
+            "current_balance": int(result.get("current_balance", 0) or 0),
             "transaction_id": (
                 int(result["transaction_id"])
                 if result.get("transaction_id") is not None
                 else None
             ),
-            "entitlement_code": str(
-                result.get(
-                    "entitlement_code",
-                    ""
-                ) or ""
-            ),
-            "entitlement_expires_at": result.get(
-                "entitlement_expires_at"
-            )
+            "entitlement_code": str(result.get("entitlement_code", "") or ""),
+            "entitlement_expires_at": result.get("entitlement_expires_at"),
         }
 
+        if purchase_result["result_status"] == "purchased":
+            st.session_state.pop("entitlement_check_user_id", None)
+            st.session_state.pop("entitlement_next_check_at", None)
+            st.session_state.pop("expired_entitlement_notices", None)
+
+        return purchase_result
+
     except Exception as e:
-        print(
-            "ポイント商品購入エラー: "
-            f"{type(e).__name__}: {e}"
-        )
-        return default_result 
+        print(f"ポイント商品購入エラー: {type(e).__name__}: {e}")
+        return default_result
 #================================================
 
 # 有料人格パスが有効かを取得する関数
@@ -14892,7 +14875,7 @@ def get_active_entitlement(
 #================================================
 
 # 期限切れ権利の検出・状態更新・関連設定のリセットを行う関数
-def reconcile_expired_entitlements(user_id: str) -> list[dict]:
+def reconcile_expired_entitlements(user_id: str) -> list[dict] | None:
     notices = []
     default_personality = (
         "🧠 設定なし ➔ "
@@ -15015,7 +14998,12 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 "message": message,
             })
 
-        return notices
+        next_expires_at = expire_data.get("next_expires_at")
+
+        return {
+            "notices": notices,
+            "next_expires_at": next_expires_at,
+        }
 
     except Exception as error:
         print(
@@ -15027,7 +15015,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 "期限切れ権利照合エラー: "
                 f"{type(error).__name__}: {error}"
             )
-        return []
+        return None
 #================================================
 
 # 期限切れ内容をポップアップ表示する関数
@@ -15199,30 +15187,18 @@ def show_personality_pass_dialog():
                 )
 
                 result_status = str(
-                    purchase_result.get(
-                        "result_status",
-                        "error"
-                    ) or "error"
+                    purchase_result.get("result_status", "error") or "error"
                 )
 
                 if result_status == "purchased":
-                    st.session_state[
-                        "point_purchase_success"
-                    ] = {
+                    st.session_state["point_purchase_success"] = {
                         "product_name": product_name,
                         "current_balance": int(
-                            purchase_result.get(
-                                "current_balance",
-                                0
-                            ) or 0
+                            purchase_result.get("current_balance", 0) or 0
                         ),
-                        "expires_at": (
-                            purchase_result.get(
-                                "entitlement_expires_at"
-                            )
-                        )
+                        "expires_at": purchase_result.get("entitlement_expires_at")
                     }
-
+                
                     st.rerun()
 
                 elif result_status == "insufficient_points":
@@ -16386,13 +16362,45 @@ THEMES = {
 # 設定値の読み込み・常時シンク
 # ==========================================
 # 期限切れ照合
-reconciled_user_id = st.session_state.get("entitlement_reconciled_user_id")
-if reconciled_user_id != CURRENT_USER_ID:
-    expired_notices = reconcile_expired_entitlements(CURRENT_USER_ID)
-    st.session_state["entitlement_reconciled_user_id"] = CURRENT_USER_ID
+now_jst = datetime.now(JST)
+cached_user_id = st.session_state.get("entitlement_check_user_id")
+cached_next_check_at = st.session_state.get("entitlement_next_check_at")
 
-    if expired_notices:
-        st.session_state["expired_entitlement_notices"] = expired_notices
+should_reconcile = cached_user_id != CURRENT_USER_ID
+
+if not should_reconcile:
+    if cached_next_check_at is None:
+        should_reconcile = True
+    else:
+        try:
+            next_check_at = datetime.fromisoformat(
+                str(cached_next_check_at).replace("Z", "+00:00")
+            ).astimezone(JST)
+            should_reconcile = now_jst >= next_check_at
+        except (ValueError, TypeError):
+            should_reconcile = True
+
+if should_reconcile:
+    reconcile_result = reconcile_expired_entitlements(CURRENT_USER_ID)
+
+    if reconcile_result is not None:
+        expired_notices = reconcile_result.get("notices", [])
+        next_expires_at = reconcile_result.get("next_expires_at")
+
+        if next_expires_at:
+            next_check_at = datetime.fromisoformat(
+                str(next_expires_at).replace("Z", "+00:00")
+            ).astimezone(JST)
+        else:
+            next_check_at = now_jst + timedelta(hours=24)
+
+        st.session_state["entitlement_check_user_id"] = CURRENT_USER_ID
+        st.session_state["entitlement_next_check_at"] = (
+            next_check_at.isoformat()
+        )
+
+        if expired_notices:
+            st.session_state["expired_entitlement_notices"] = expired_notices
 
 manual_memories = get_memories(source="manual")
 
@@ -16864,6 +16872,11 @@ with all_tabs[0]:
 
                 st.session_state.access_token = None
                 st.session_state.refresh_token = None
+                st.session_state.pop("entitlement_check_user_id", None)
+                st.session_state.pop("entitlement_next_check_at", None)
+                st.session_state.pop("expired_entitlement_notices", None)
+                st.session_state.pop("entitlement_reconciled_user_id", None)
+                st.session_state.pop("entitlement_reconciled_key", None)
 
                 st.rerun()
 
