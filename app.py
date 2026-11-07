@@ -14921,7 +14921,6 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict] | None:
 
                     supabase.table("system_audit_logs").insert({
                         "user_id": str(user_id),
-                        "user_plan": str(current_plan_type),
                         "event_type": "ENTITLEMENT_EXPIRED_RESET",
                         "details": (
                             "entitlement_code=premium_personality"
