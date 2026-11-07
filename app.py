@@ -16732,7 +16732,7 @@ st.markdown(f"""
 is_admin = IS_ADMIN
 
 if is_admin:
-    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 テスター用全データ履歴"]
+    tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー", "📊 システム管理者管理", "📊 MVP2 会話品質監視"]
 else:
     tab_titles = ["💬 トークルーム", "🧠 記憶ルーム", "📁 計画ルーム", "🎨 話し方・見た目設定", "📜 利用規約・ポリシー"]
 
@@ -25066,21 +25066,6 @@ if is_admin:
                                     float(item.get("clarification_time", 0.0) or 0.0)
                                 ])
 
-                                # msg_res = (
-                                #     supabase
-                                #     .table("messages")
-                                #     .select(
-                                #         "role,"
-                                #         "content,"
-                                #         "created_at,"
-                                #         "message_id,"
-                                #         "response_mode"
-                                #     )
-                                #     .eq("user_id", selected_audit_user)
-                                #     .eq("message_id", item["id"])
-                                #     .order("created_at", desc=False)
-                                #     .execute()
-                                # )
                                 msg_res = (
                                     supabase
                                     .rpc(
@@ -25289,416 +25274,172 @@ if is_admin:
                     st.error(f"データ集計中にエラーが発生しました: {ana_err}")
 
     # ==========================================
-    # 🔍 タブ4：テスター会話ログリアルタイム監視室（クローズドテスト専用）
+    # MVP2 会話品質監視
     # ==========================================
     with all_tabs[6]:
-        # st.subheader("🔍 テスター全会話リアルタイム監視掲示板")
-        # st.caption("※クローズドテストに参加している一般テスターとAIコンシェルジュの具体的な対話内容を、日付・時間スタンプ付きで遠隔監査するための専用画面です。本番リリース時は、このタブのブロック（数十行）を削除するだけで、一般ユーザーに対して完全に非表示にすることが可能です。")
-                    
-        tester_rows = []
-        users = {}
+        st.markdown("### 🔍 MVP2 会話品質監視")
+        st.caption("MVP2テスターの利用状況と会話内容を、品質確認のために管理者が閲覧する画面です。")
+
         try:
-            memories_res = (
-                supabase
-                .table("user_memories_tester")
-                .select("user_id, fact")
-                .execute()
-            )
+            summary_response = supabase.rpc("get_mvp2_tester_summary").execute()
+            tester_summary = summary_response.data or []
 
-            USER_PROFILE = {
-                "m.kawamura00": "40代女性",
-                "yasusan_cw": "40代男性",
-                "shigenoi": "40代女性",
-                "kham1014": "40代男性",
-                "pom_neko": "20代女性",
-                "kumii_5451": "50代女性",
-                "kotobayomi": "40代女性",
-                "reirou": "30代男性",
-                "yoimachigusa": "30代女性",
-                "yong3127": "30代女性",
-            }
-            user_res = (
-                supabase
-                .table("user_token_stats")
-                .select("user_id")
-                .execute()
-            )
-            # msg_users_res = (
-            #     supabase
-            #     .table("messages")
-            #     .select("user_id")
-            #     .execute()
-            # )
-
-            all_user_ids = sorted(
-                list(
-                    set(
-                        row["user_id"]
-                        for row in user_res.data
-                        if row.get("user_id")
-                    )
-                )
-            )
-
-            for row in memories_res.data:
-                uid = row["user_id"]
-
-                if uid not in users:
-                    users[uid] = {
-                        "ユーザーID": uid,
-                        "AI名称": "",
-                        "ユーザー名": "",
-                        "呼び方": "",
-                        "一人称": "",
-                        "絵文字": "",
-                        "人格": "",
-                        "テーマ": ""
-                    }
-
-                fact = row.get("fact", "")
-
-                if fact.startswith("AIの名前:"):
-                    users[uid]["AI名称"] = fact.replace("AIの名前:", "").strip()
-
-                elif fact.startswith("ユーザー名:"):
-                    users[uid]["ユーザー名"] = fact.replace("ユーザー名:", "").strip()
-
-                elif fact.startswith("ユーザー敬称:"):
-                    users[uid]["呼び方"] = fact.replace("ユーザー敬称:", "").strip()
-
-                elif fact.startswith("AI一人称:"):
-                    users[uid]["一人称"] = fact.replace("AI一人称:", "").strip()
-
-                elif fact.startswith("絵文字の量:"):
-                    users[uid]["絵文字"] = fact.replace("絵文字の量:", "").strip()
-
-                elif fact.startswith("人格:"):
-                    users[uid]["人格"] = fact.replace("人格:", "").strip()
-
-                elif fact.startswith("カラーテーマ:"):
-                    users[uid]["テーマ"] = fact.replace("カラーテーマ:", "").strip()
-            
-            EXCLUDED_USERS = {
-                CURRENT_USER_ID,
-                USUAL_USER_ID
-            }
-            for uid in all_user_ids:
-                if uid in EXCLUDED_USERS:
-                    continue
-                if uid not in users:
-                    users[uid] = {
-                        "ユーザーID": uid,
-                        "AI名称": "未設定",
-                        "ユーザー名": "未設定",
-                        "呼び方": "",
-                        "一人称": "",
-                        "絵文字": "",
-                        "人格": "",
-                        "テーマ": ""
-                    }
-
-            tester_rows = list(users.values())
-
-            st.markdown("""
-            <style>
-            [data-testid="stDataFrame"] table {
-                font-size: 16px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-            st.markdown("### 🎨 テスター設定状況一覧")
-            st.dataframe(
-                pd.DataFrame(tester_rows),
-                use_container_width=True,
-                hide_index=True
-            )
-
-        except Exception as e:
-            st.error(f"設定一覧取得エラー: {e}")
-
-        usage_rows = []
-
-        for uid in users.keys():
-
-            try:
-
-                msg_res = (
-                    supabase
-                    .table("messages")
-                    .select("created_at, role")
-                    .eq("user_id", uid)
-                    .execute()
-                )
-
-                msgs = msg_res.data or []
-
-                user_msgs = [
-                    m for m in msgs
-                    if m.get("role") == "user"
-                ]
-
-                total_chat = len(user_msgs)
-
-                if msgs:
-
-                    times = [
-                        datetime.fromisoformat(
-                            m["created_at"].replace("Z", "+00:00")
-                        )
-                        for m in msgs
-                    ]
-
-                    start_date = min(times)
-
-                    last_date = max(times)
-
-                    active_days = len(
-                        set(t.date() for t in times)
-                    )
-
-                else:
-
-                    start_date = None
-                    last_date = None
-                    active_days = 0
-
-                cost_res = (
-                    supabase
-                    .table("system_audit_logs")
-                    .select("api_cost")
-                    .eq("user_id", uid)
-                    .execute()
-                )
-                search_res = (
-                    supabase
-                    .table("search_logs")
-                    .select("*")
-                    .eq("user_id", uid)
-                    .execute()
-                )
-
-                search_count = len(
-                    search_res.data or []
-                )
-
-                total_cost = sum(
-                    float(x.get("api_cost", 0) or 0)
-                    for x in cost_res.data
-                )
-
-                avg_cost = (
-                    round(total_cost / total_chat, 3)
-                    if total_chat > 0
-                    else 0
-                )
-
-                usage_rows.append({
-
-                    "ユーザーID": uid,
-                    "属性": USER_PROFILE.get(uid, "不明"),
-
-                    "開始日":
-                        start_date.strftime("%Y-%m-%d")
-                        if start_date else "-",
-
-                    "利用日数":
-                        f"{active_days}日",
-
-                    "最終利用":
-                        last_date.strftime("%Y-%m-%d %H:%M")
-                        if last_date else "-",
-
-                    "総会話数":
-                        f"{total_chat}回",
-
-                    "累計コスト":
-                        f"{round(total_cost, 2)}円",
-
-                    "1会話コスト":
-                        f"{avg_cost}円",
-
-                    "会話進捗":
-                        f"{total_chat}/20",
-
-                    "利用日数進捗":
-                        f"{active_days}/4",
-                    "会話進捗":
-                        f"{total_chat}/20",
-                    "利用日数進捗":
-                        f"{active_days}/4",
-                    "検索回数":
-                        f"{search_count}回"
-                })
-
-            except Exception as e:
-                # print(uid, e)
-                st.error(f"{uid}: {e}")
-
-        st.markdown("### 📈 テスター利用状況一覧")
-
-        st.dataframe(
-            pd.DataFrame(usage_rows),
-            use_container_width=True,
-            hide_index=True
-        )
-        total_all_cost = sum(
-            float(row["累計コスト"].replace("円", ""))
-            for row in usage_rows
-        )
-
-        total_all_chats = sum(
-            int(row["総会話数"].replace("回", ""))
-            for row in usage_rows
-        )
-
-        overall_avg_cost = (
-            total_all_cost / total_all_chats
-            if total_all_chats > 0
-            else 0
-        )
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric(
-            "全テスター累計コスト",
-            f"{total_all_cost:.2f}円"
-        )
-
-        col2.metric(
-            "全テスター総会話数",
-            f"{total_all_chats}回"
-        )
-
-        col3.metric(
-            "全体平均・1会話コスト",
-            f"{overall_avg_cost:.3f}円"
-        )
-
-        # ──────────────────────────────────────────────────────────────────
-        # 📊 【確定最終製品版】 テスター管理・分析の部屋（インデント完全修正型）
-        # ──────────────────────────────────────────────────────────────────
-        all_tester_logs = None
-        try:
-            # 1. データベースの user_token_stats テーブルからユーザー取得
-            tester_users_res = supabase.table("user_token_stats").select("user_id").execute()
-            
-            # 🟢 直前で引っこ抜いた「tester_users_res.data」の名前を正確にスキャンして名簿を作成します
-            if tester_users_res.data:
-                user_list = sorted(list(set([u["user_id"] for u in tester_users_res.data if u.get("user_id")])))
+            if not tester_summary:
+                st.info("MVP2テスターの利用データはまだありません。")
             else:
-                user_list = [CURRENT_USER_ID]
-        except Exception as e_list:
-            st.error(f"名簿取得エラー: {e_list}")
-            print(f"⚠️ 名簿取得エラー: {e_list}")
-            user_list = [CURRENT_USER_ID]
+                summary_rows = []
 
-        if not user_list:
-            user_list = [CURRENT_USER_ID]
-        
-        # 🎨 ユーザー切り替えプルダウンを最上部に美しく表示
-        st.markdown("### 👥 テスター選択（管理者権限）")
-        selected_target_user_id = st.selectbox(
-            "テスターのIDを選択してください",
-            options=user_list,
-            index=user_list.index(CURRENT_USER_ID) if CURRENT_USER_ID in user_list else 0,
-            key="admin_user_selector"
-        )
-        st.divider()
+                for row in tester_summary:
+                    first_used_at = row.get("first_used_at")
+                    last_used_at = row.get("last_used_at")
+                    first_used_text = "-"
+                    last_used_text = "-"
 
-        if st.button(
-            "📖 会話履歴を表示",
-            key="show_user_logs_button"
-        ):
-            st.session_state["show_user_logs"] = True
+                    if first_used_at:
+                        first_used_text = datetime.fromisoformat(
+                            str(first_used_at).replace("Z", "+00:00")
+                        ).astimezone(JST).strftime("%Y-%m-%d")
 
-        # プルダウンで選択肢したテスターのログを表示
-        try:
-            if (
-                tester_users_res.data
-                and st.session_state.get(
-                    "show_user_logs",
-                    False
-                )
-            ):
+                    if last_used_at:
+                        last_used_text = datetime.fromisoformat(
+                            str(last_used_at).replace("Z", "+00:00")
+                        ).astimezone(JST).strftime("%Y-%m-%d %H:%M")
 
-                selected_logs = (
-                    supabase
-                    .table("messages")
-                    .select(
-                        "role,"
-                        "content,"
-                        "created_at,"
-                        "message_id,"
-                        "response_mode"
-                    )
-                    .eq("user_id", selected_target_user_id)
-                    .order("created_at", desc=True)
-                    .limit(300)
-                    .execute()
-                )
-                logs = selected_logs.data or []
+                    summary_rows.append({
+                        "ユーザーID": row.get("user_id", ""),
+                        "プラン": row.get("user_plan", "未設定"),
+                        "開始日": first_used_text,
+                        "最終利用": last_used_text,
+                        "利用日数": int(row.get("active_day_count", 0) or 0),
+                        "会話数": int(row.get("chat_count", 0) or 0),
+                        "検索数": int(row.get("search_count", 0) or 0),
+                        "計画会話数": int(row.get("plan_chat_count", 0) or 0),
+                        "エラー数": int(row.get("error_count", 0) or 0),
+                    })
 
-                # grouped_logs = {}
-                # for log in tester_users_res.data:
-                #     uid = log.get("user_id", "unknown")
-                #     if uid not in grouped_logs:
-                #         grouped_logs[uid] = []
-                #     grouped_logs[uid].append(log)
-
-                selected_user_info = users.get(
-                    selected_target_user_id,
-                    {}
+                st.markdown("#### 📈 テスター利用状況")
+                st.dataframe(
+                    pd.DataFrame(summary_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "利用日数": st.column_config.NumberColumn(format="%d日"),
+                        "会話数": st.column_config.NumberColumn(format="%d回"),
+                        "検索数": st.column_config.NumberColumn(format="%d回"),
+                        "計画会話数": st.column_config.NumberColumn(format="%d回"),
+                        "エラー数": st.column_config.NumberColumn(format="%d件"),
+                    },
                 )
 
-                user_name = selected_user_info.get("ユーザー名", "")
-                honorific = selected_user_info.get("呼び方", "")
+                metric_cols = st.columns(4)
+                metric_cols[0].metric("テスター数", f"{len(summary_rows)}人")
+                metric_cols[1].metric("総会話数", f"{sum(row['会話数'] for row in summary_rows)}回")
+                metric_cols[2].metric("総検索数", f"{sum(row['検索数'] for row in summary_rows)}回")
+                metric_cols[3].metric("エラー数", f"{sum(row['エラー数'] for row in summary_rows)}件")
 
-                if not user_name or user_name == "未設定":
-                    target_display_user_name = "私"
-                else:
-                    target_display_user_name = (
-                        f"{user_name}{honorific}"
-                        if honorific != "（呼び捨て/なし）"
-                        else user_name
+                st.divider()
+                st.markdown("#### 💬 会話内容の連続確認")
+
+                user_options = [row["ユーザーID"] for row in summary_rows if row["ユーザーID"]]
+                selected_quality_user = st.selectbox(
+                    "確認するテスター",
+                    options=user_options,
+                    key="mvp2_quality_user",
+                )
+
+                filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 1.2])
+
+                with filter_col1:
+                    quality_limit = st.selectbox(
+                        "取得件数",
+                        options=[50, 100, 200, 300],
+                        index=1,
+                        key="mvp2_quality_limit",
                     )
 
-                target_ai_name = selected_user_info.get("AI名称", "")
+                with filter_col2:
+                    role_filter = st.selectbox(
+                        "表示対象",
+                        options=["すべて", "ユーザー発言", "AI回答"],
+                        key="mvp2_quality_role_filter",
+                    )
 
-                if not target_ai_name or target_ai_name == "未設定":
-                    target_ai_name = "コンシェルジュ"
-                
-                # 💡 選ばれたターゲットテスターのデータだけを狙い撃ちで表示します！
-                # if selected_target_user_id in grouped_logs:
-                #     logs = grouped_logs[selected_target_user_id]
-                if logs:
-                    st.markdown(f"### 👤 テスターID: `{selected_target_user_id}`")
-                        
-                    # 該当テスターの会話の往復履歴を時系列に沿って表示
-                    for l in logs:
-                        role = l.get("role", "user")
-                        content = l.get("content", "")
-                        created_at = l.get("created_at", "")
-                        clean_time = created_at.replace("T", " ")[:16]
-                            
-                        if role == "user":
-                            st.markdown(
-                                f"&nbsp;&nbsp;💫 `[{clean_time}]` "
-                                f"**{target_display_user_name}**: 「{content}」"
-                            )
-                        else:
-                            st.markdown(
-                                f"&nbsp;&nbsp;🔮 `[{clean_time}]` "
-                                f"**{target_ai_name}**: {content}"
-                            )
-                    st.markdown("---")
-                else:
-                    st.info(f"テスター `{selected_target_user_id}` による会話の足跡は、まだデータベースに記録されていません。")
-            else:
-                st.info("テスターによる会話の足跡は、まだデータベースに記録されていません。")
-                
-        except Exception as e:
-            st.error(f"テスター会話ログのデータ抽出に失敗しました: {e}")
+                with filter_col3:
+                    only_search = st.checkbox(
+                        "検索ありのみ",
+                        key="mvp2_quality_search_only",
+                    )
+
+                if st.button("会話履歴を表示", key="show_mvp2_quality_messages", type="primary"):
+                    st.session_state["show_mvp2_quality_messages"] = True
+
+                if st.session_state.get("show_mvp2_quality_messages", False):
+                    messages_response = supabase.rpc(
+                        "get_mvp2_quality_messages",
+                        {
+                            "p_user_id": str(selected_quality_user),
+                            "p_limit": int(quality_limit),
+                        },
+                    ).execute()
+
+                    quality_= messages_response.data or []
+
+                    if role_filter == "ユーザー発言":
+                        quality_messages = [
+                            row for row in quality_messages
+                            if row.get("role") == "user"
+                        ]
+                    elif role_filter == "AI回答":
+                        quality_messages = [
+                            row for row in quality_messages
+                            if row.get("role") == "assistant"
+                        ]
+
+                    if only_search:
+                        quality_messages = [
+                            row for row in quality_messages
+                            if bool(row.get("search_executed"))
+                        ]
+
+                    if not quality_messages:
+                        st.info("指定した条件に該当する会話はありません。")
+                    else:
+                        st.caption(f"{selected_quality_user}：{len(quality_messages)}件表示")
+
+                        for message in quality_messages:
+                            role = str(message.get("role", ""))
+                            content = str(message.get("content", ""))
+                            message_id = str(message.get("message_id", "") or "-")
+                            response_mode = str(message.get("response_mode", "") or "-")
+                            model_name = str(message.get("model_name", "") or "-").strip()
+                            processing_time = float(message.get("processing_time", 0) or 0)
+                            search_executed = bool(message.get("search_executed"))
+                            created_at = message.get("created_at")
+                            created_text = "-"
+
+                            if created_at:
+                                created_text = datetime.fromisoformat(
+                                    str(created_at).replace("Z", "+00:00")
+                                ).astimezone(JST).strftime("%Y-%m-%d %H:%M:%S")
+
+                            label = "👤 ユーザー" if role == "user" else "🤖 AI"
+
+                            with st.container(border=True):
+                                st.markdown(f"**{label}｜{created_text}**")
+                                st.write(content)
+
+                                metadata_cols = st.columns(4)
+                                metadata_cols[0].caption(f"message_id：{message_id}")
+                                metadata_cols[1].caption(f"モード：{response_mode}")
+                                metadata_cols[2].caption(f"モデル：{model_name}")
+                                metadata_cols[3].caption(
+                                    f"検索：{'あり' if search_executed else 'なし'}"
+                                    f"｜処理時間：{processing_time:.2f}秒"
+                                )
+
+        except Exception as error:
+            st.error("MVP2会話品質監視データの取得に失敗しました。")
+            print(f"MVP2品質監視エラー: {type(error).__name__}: {error}")
     
 st.markdown("<br>", unsafe_allow_html=True)
 st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
