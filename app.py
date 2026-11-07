@@ -1942,27 +1942,44 @@ def update_memory(memory_id: int, new_fact: str) -> bool:
 # 設定登録（RPC関数呼び出し）関数
 def save_all_user_settings(settings_dict: dict) -> bool:
     try:
-        response = (
-            supabase
-            .rpc(
-                "save_all_user_settings_rpc",
-                {
-                    "p_user_id": str(CURRENT_USER_ID),
-                    "p_settings": settings_dict,
-                    "p_is_dev_site": bool(is_dev_site)
-                }
-            )
-            .execute()
-        )
+        previous_personality = str(current_style_preset or "").strip()
+        new_personality = str(settings_dict.get("人格", "")).strip()
+
+        response = supabase.rpc(
+            "save_all_user_settings_rpc",
+            {
+                "p_user_id": str(CURRENT_USER_ID),
+                "p_settings": settings_dict,
+                "p_is_dev_site": bool(is_dev_site),
+            },
+        ).execute()
 
         result = response.data or {}
-        return bool(result.get("success", False))
+        save_succeeded = bool(result.get("success", False))
+
+        if save_succeeded and new_personality and new_personality != previous_personality:
+            try:
+                supabase.table("system_audit_logs").insert({
+                    "user_id": str(CURRENT_USER_ID),
+                    "user_plan": str(current_plan_type),
+                    "event_type": "PERSONALITY_UPDATE_SUCCESS",
+                    "details": f"変更前={previous_personality} | 変更後={new_personality}",
+                    "in_tokens": 0,
+                    "out_tokens": 0,
+                    "processing_time": 0,
+                    "api_cost": 0,
+                    "total_yen_cost": 0,
+                }).execute()
+            except Exception as audit_error:
+                print(
+                    "人格変更監査ログ保存エラー: "
+                    f"{type(audit_error).__name__}: {audit_error}"
+                )
+
+        return save_succeeded
 
     except Exception as error:
-        st.error(
-            "一括設定保存エラー: "
-            f"{type(error).__name__}: {error}"
-        )
+        st.error(f"一括設定保存エラー: {type(error).__name__}: {error}")
         return False
 # ==========================================
 
@@ -25200,7 +25217,7 @@ if is_admin:
                         "📝 計画反映回数": {"free": 0, "light": 0, "standard": 0},
                         "📅 総アクティブ稼働日数": {"free": 0, "light": 0, "standard": 0},
                         "🚨 1日会話上限（ガードレール）の接触回数": {"free": 0, "light": 0, "standard": 0},
-                        "🎨 キャラクター・口調変更の実行回数": {"free": 0, "light": 0, "standard": 0},
+                        "🎨 人格変更の実行回数": {"free": 0, "light": 0, "standard": 0},
                         "🚫 制限緩和：追加検索タスクの制御回数": {"free": 0, "light": 0, "standard": 0},
                     }
                     user_active_dates = {}
@@ -25229,7 +25246,7 @@ if is_admin:
                         elif action == "DAILY_LIMIT_EXCEEDED":
                             stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += event_count
                         elif action == "SETTING_UPDATE_SUCCESS":
-                            stats_matrix["🎨 キャラクター・口調変更の実行回数"][p_key] += event_count
+                            stats_matrix["🎨 人格変更の実行回数"][p_key] += event_count
                         elif action == "PROMPT_BLOCKED_SEARCH":
                             stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += event_count
 
