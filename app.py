@@ -306,7 +306,7 @@ if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
 
 CURRENT_USER_ID = AUTH_LEGACY_USER_ID
 
-if st.sidebar.button("ログアウト"):
+if st.button("ログアウト", key="logout_button"):
     supabase.auth.sign_out()
 
     st.session_state.access_token = None
