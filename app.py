@@ -72,13 +72,13 @@ def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase = init_supabase()
 
-@st.cache_resource
-def init_supabase_admin() -> Client:
-    return create_client(
-        SUPABASE_URL,
-        st.secrets["SUPABASE_SECRET_KEY"]
-    )
-supabase_admin = init_supabase_admin()
+# @st.cache_resource
+# def init_supabase_admin() -> Client:
+#     return create_client(
+#         SUPABASE_URL,
+#         st.secrets["SUPABASE_SECRET_KEY"]
+#     )
+# supabase_admin = init_supabase_admin()
 # supabase = supabase_admin
 
 genai.configure(api_key=GEMINI_API_KEY)
