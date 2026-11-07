@@ -1084,6 +1084,179 @@ alter function public.match_user_memories(
 set search_path to '';
 
 -- =========================================
+-- 15. 管理者用ユーザーKPI取得RPC
+-- =========================================
+
+create or replace function public.get_admin_user_kpi(
+    p_user_id text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+declare
+    result_data jsonb;
+begin
+    if not exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role = 'admin'
+    ) then
+        raise exception 'access denied';
+    end if;
+
+    select jsonb_build_object(
+        'start_date',
+        (
+            select min(created_at)
+            from public.messages
+            where user_id = p_user_id
+        ),
+        'last_date',
+        (
+            select max(created_at)
+            from public.messages
+            where user_id = p_user_id
+        ),
+        'search_count',
+        (
+            select count(*)
+            from public.search_logs
+            where user_id = p_user_id
+        ),
+        'search_judge_count',
+        count(*) filter (
+            where event_type = 'RESPONSE_ROUTER'
+        ),
+        'search_judge_total_cost',
+        coalesce(
+            sum(api_cost) filter (
+                where event_type = 'RESPONSE_ROUTER'
+            ),
+            0
+        ),
+        'search_judge_total_in',
+        coalesce(
+            sum(in_tokens) filter (
+                where event_type = 'RESPONSE_ROUTER'
+            ),
+            0
+        ),
+        'search_judge_total_out',
+        coalesce(
+            sum(out_tokens) filter (
+                where event_type = 'RESPONSE_ROUTER'
+            ),
+            0
+        ),
+        'search_exec_count',
+        count(*) filter (
+            where event_type = 'SEARCH_EXECUTION'
+        ),
+        'search_exec_total_cost',
+        coalesce(
+            sum(api_cost) filter (
+                where event_type = 'SEARCH_EXECUTION'
+            ),
+            0
+        ),
+        'search_exec_total_in',
+        coalesce(
+            sum(in_tokens) filter (
+                where event_type = 'SEARCH_EXECUTION'
+            ),
+            0
+        ),
+        'search_exec_total_out',
+        coalesce(
+            sum(out_tokens) filter (
+                where event_type = 'SEARCH_EXECUTION'
+            ),
+            0
+        ),
+        'calc_clarification_count',
+        count(*) filter (
+            where event_type =
+                'general_calculation_clarification'
+        ),
+        'calc_clarification_cost',
+        coalesce(
+            sum(api_cost) filter (
+                where event_type =
+                    'general_calculation_clarification'
+            ),
+            0
+        ),
+        'calc_clarification_in',
+        coalesce(
+            sum(in_tokens) filter (
+                where event_type =
+                    'general_calculation_clarification'
+            ),
+            0
+        ),
+        'calc_clarification_out',
+        coalesce(
+            sum(out_tokens) filter (
+                where event_type =
+                    'general_calculation_clarification'
+            ),
+            0
+        ),
+        'calc_success',
+        count(*) filter (
+            where event_type = 'CALCULATION_SUCCESS'
+        ),
+        'calc_missing',
+        count(*) filter (
+            where event_type =
+                'CALCULATION_MISSING_FIELDS'
+        ),
+        'calc_error',
+        count(*) filter (
+            where event_type = 'CALCULATION_ERROR'
+        ),
+        'calc_extract_cost',
+        coalesce(
+            sum(api_cost) filter (
+                where event_type = 'CALCULATION_EXTRACTION'
+            ),
+            0
+        ),
+        'calc_extract_in',
+        coalesce(
+            sum(in_tokens) filter (
+                where event_type = 'CALCULATION_EXTRACTION'
+            ),
+            0
+        ),
+        'calc_extract_out',
+        coalesce(
+            sum(out_tokens) filter (
+                where event_type = 'CALCULATION_EXTRACTION'
+            ),
+            0
+        )
+    )
+    into result_data
+    from public.system_audit_logs
+    where user_id = p_user_id;
+
+    return result_data;
+end;
+$function$;
+
+revoke execute
+on function public.get_admin_user_kpi(text)
+from public, anon;
+
+grant execute
+on function public.get_admin_user_kpi(text)
+to authenticated;
+
+-- =========================================
 -- Security Advisor確認メモ
 -- =========================================
 --
