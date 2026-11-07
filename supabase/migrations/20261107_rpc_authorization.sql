@@ -680,15 +680,23 @@ from public, anon, authenticated;
 -- 13. ポイント消費RPCの本人確認
 -- =========================================
 
-alter function public.use_user_points(
-    text,
-    bigint,
-    text,
-    text,
-    text,
-    text
-)
-rename to use_user_points_internal;
+do $$
+begin
+    if to_regprocedure(
+        'public.use_user_points_internal(text,bigint,text,text,text,text)'
+    ) is null then
+        alter function public.use_user_points(
+            text,
+            bigint,
+            text,
+            text,
+            text,
+            text
+        )
+        rename to use_user_points_internal;
+    end if;
+end;
+$$;
 
 revoke execute
 on function public.use_user_points_internal(
@@ -701,7 +709,7 @@ on function public.use_user_points_internal(
 )
 from public, anon, authenticated;
 
-create function public.use_user_points(
+create or replace function public.use_user_points(
     p_user_id text,
     p_points bigint,
     p_reason_code text,
