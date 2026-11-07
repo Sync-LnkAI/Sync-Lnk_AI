@@ -527,3 +527,85 @@ revoke execute on functions from public, anon;
 grant usage, select
 on all sequences in schema public
 to authenticated;
+
+-- =========================================
+-- 12. memoriesのRLSポリシー
+-- =========================================
+
+alter table public.memories
+enable row level security;
+
+drop policy if exists
+    "users_can_read_own_memories"
+on public.memories;
+
+drop policy if exists
+    "users_can_insert_own_memories"
+on public.memories;
+
+drop policy if exists
+    "users_can_update_own_memories"
+on public.memories;
+
+drop policy if exists
+    "users_can_delete_own_memories"
+on public.memories;
+
+create policy "users_can_read_own_memories"
+on public.memories
+for select
+to authenticated
+using (
+    user_id = (
+        select legacy_user_id
+        from public.user_id_links
+        where auth_user_id = auth.uid()
+    )
+);
+
+create policy "users_can_insert_own_memories"
+on public.memories
+for insert
+to authenticated
+with check (
+    user_id = (
+        select legacy_user_id
+        from public.user_id_links
+        where auth_user_id = auth.uid()
+    )
+);
+
+create policy "users_can_update_own_memories"
+on public.memories
+for update
+to authenticated
+using (
+    user_id = (
+        select legacy_user_id
+        from public.user_id_links
+        where auth_user_id = auth.uid()
+    )
+)
+with check (
+    user_id = (
+        select legacy_user_id
+        from public.user_id_links
+        where auth_user_id = auth.uid()
+    )
+);
+
+create policy "users_can_delete_own_memories"
+on public.memories
+for delete
+to authenticated
+using (
+    user_id = (
+        select legacy_user_id
+        from public.user_id_links
+        where auth_user_id = auth.uid()
+    )
+);
+
+grant select, insert, update, delete
+on public.memories
+to authenticated;
