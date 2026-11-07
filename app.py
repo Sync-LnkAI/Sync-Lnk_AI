@@ -25370,10 +25370,10 @@ if is_admin:
                         key="mvp2_quality_search_only",
                     )
 
-                if st.button("会話履歴を表示", key="show_mvp2_quality_messages", type="primary"):
-                    st.session_state["show_mvp2_quality_messages"] = True
+                if st.button("会話履歴を表示", key="mvp2_quality_load_button", type="primary"):
+                    st.session_state["mvp2_quality_load"] = True
 
-                if st.session_state.get("show_mvp2_quality_messages", False):
+                if st.session_state.get("mvp2_quality_load", False):
                     messages_response = supabase.rpc(
                         "get_mvp2_quality_messages",
                         {
