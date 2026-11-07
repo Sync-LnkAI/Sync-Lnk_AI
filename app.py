@@ -25407,43 +25407,79 @@ if is_admin:
                     if not quality_messages:
                         st.info("指定した条件に該当する会話はありません。")
                     else:
-                        st.caption(
-                            f"{selected_quality_user}："
-                            f"{len(quality_messages)}件表示"
+                        grouped_messages = {}
+
+                        for row in quality_messages:
+                            message_id = str(row.get("message_id", "") or "")
+                            group_key = message_id or f"row_{row.get('id', '')}"
+
+                            if group_key not in grouped_messages:
+                                grouped_messages[group_key] = {
+                                    "message_id": message_id or "-",
+                                    "messages": [],
+                                    "response_mode": str(row.get("response_mode", "") or "-"),
+                                    "model_name": str(row.get("model_name", "") or "-").strip(),
+                                    "processing_time": float(row.get("processing_time", 0) or 0),
+                                    "search_executed": bool(row.get("search_executed")),
+                                    "latest_at": "",
+                                }
+
+                            grouped_messages[group_key]["messages"].append(row)
+                            grouped_messages[group_key]["search_executed"] |= bool(row.get("search_executed"))
+
+                            if float(row.get("processing_time", 0) or 0) > grouped_messages[group_key]["processing_time"]:
+                                grouped_messages[group_key]["processing_time"] = float(row.get("processing_time", 0) or 0)
+
+                            if row.get("model_name"):
+                                grouped_messages[group_key]["model_name"] = str(row["model_name"]).strip()
+
+                            if row.get("response_mode"):
+                                grouped_messages[group_key]["response_mode"] = str(row["response_mode"])
+
+                            created_at = str(row.get("created_at", "") or "")
+                            if created_at > grouped_messages[group_key]["latest_at"]:
+                                grouped_messages[group_key]["latest_at"] = created_at
+
+                        conversation_groups = sorted(
+                            grouped_messages.values(),
+                            key=lambda group: group["latest_at"],
+                            reverse=True,
                         )
 
-                        for message in quality_messages:
-                            role = str(message.get("role", ""))
-                            content = str(message.get("content", ""))
-                            message_id = str(message.get("message_id", "") or "-")
-                            response_mode = str(message.get("response_mode", "") or "-")
-                            model_name = str(message.get("model_name", "") or "-").strip()
-                            processing_time = float(
-                                message.get("processing_time", 0) or 0
+                        st.caption(f"{selected_quality_user}：{len(conversation_groups)}会話表示")
+
+                        for group in conversation_groups:
+                            messages = sorted(
+                                group["messages"],
+                                key=lambda row: str(row.get("created_at", "") or ""),
                             )
-                            search_executed = bool(message.get("search_executed"))
-                            created_at = message.get("created_at")
-                            created_text = "-"
 
-                            if created_at:
-                                created_text = datetime.fromisoformat(
-                                    str(created_at).replace("Z", "+00:00")
-                                ).astimezone(JST).strftime("%Y-%m-%d %H:%M:%S")
+                            for message in messages:
+                                role = str(message.get("role", ""))
+                                content = str(message.get("content", ""))
+                                created_at = message.get("created_at")
+                                created_text = "-"
 
-                            label = "👤 ユーザー" if role == "user" else "🤖 AI"
+                                if created_at:
+                                    created_text = datetime.fromisoformat(
+                                        str(created_at).replace("Z", "+00:00")
+                                    ).astimezone(JST).strftime("%Y-%m-%d %H:%M:%S")
 
-                            with st.container(border=True):
+                                label = "👤 ユーザー" if role == "user" else "🤖 AI"
                                 st.markdown(f"**{label}｜{created_text}**")
                                 st.write(content)
 
-                                metadata_cols = st.columns(4)
-                                metadata_cols[0].caption(f"message_id：{message_id}")
-                                metadata_cols[1].caption(f"モード：{response_mode}")
-                                metadata_cols[2].caption(f"モデル：{model_name}")
-                                metadata_cols[3].caption(
-                                    f"検索：{'あり' if search_executed else 'なし'}"
-                                    f"｜処理時間：{processing_time:.2f}秒"
-                                )
+                            search_text = "あり" if group["search_executed"] else "なし"
+
+                            st.caption(
+                                f"message_id：{group['message_id']}　｜　"
+                                f"モード：{group['response_mode']}　｜　"
+                                f"モデル：{group['model_name']}　｜　"
+                                f"検索：{search_text}　｜　"
+                                f"処理時間：{group['processing_time']:.2f}秒"
+                            )
+
+                            st.divider()
 
         except Exception as error:
             # st.error("MVP2会話品質監視データの取得に失敗しました。")
