@@ -229,7 +229,7 @@ begin
         coalesce(logs.user_plan, '🆓 無料プラン'),
         coalesce(logs.event_type, ''),
         count(*),
-        coalesce(sum(logs.total_yen_cost), 0),
+        coalesce(sum(logs.total_yen_cost), 0)::numeric,
         count(distinct logs.user_id),
         count(
             distinct (
