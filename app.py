@@ -25373,7 +25373,7 @@ if is_admin:
                 if st.button("会話履歴を表示", key="mvp2_quality_load_button", type="primary"):
                     st.session_state["mvp2_quality_load"] = True
 
-                if st.session_state.get("mvp2_quality_load", False):
+                if st.session_state.get("mvp2_quality_loaded", False):
                     messages_response = supabase.rpc(
                         "get_mvp2_quality_messages",
                         {
@@ -25382,7 +25382,7 @@ if is_admin:
                         },
                     ).execute()
 
-                    quality_= messages_response.data or []
+                    quality_messages = messages_response.data or []
 
                     if role_filter == "ユーザー発言":
                         quality_messages = [
@@ -25404,7 +25404,10 @@ if is_admin:
                     if not quality_messages:
                         st.info("指定した条件に該当する会話はありません。")
                     else:
-                        st.caption(f"{selected_quality_user}：{len(quality_messages)}件表示")
+                        st.caption(
+                            f"{selected_quality_user}："
+                            f"{len(quality_messages)}件表示"
+                        )
 
                         for message in quality_messages:
                             role = str(message.get("role", ""))
@@ -25412,7 +25415,9 @@ if is_admin:
                             message_id = str(message.get("message_id", "") or "-")
                             response_mode = str(message.get("response_mode", "") or "-")
                             model_name = str(message.get("model_name", "") or "-").strip()
-                            processing_time = float(message.get("processing_time", 0) or 0)
+                            processing_time = float(
+                                message.get("processing_time", 0) or 0
+                            )
                             search_executed = bool(message.get("search_executed"))
                             created_at = message.get("created_at")
                             created_text = "-"
