@@ -14872,6 +14872,16 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
     )
 
     try:
+        expire_result = (
+            supabase
+            .rpc("expire_own_entitlements")
+            .execute()
+        )
+
+        expire_data = expire_result.data or {}
+        expired_entitlement_count = int(expire_data.get("entitlements_expired", 0))
+        expired_grant_count = int(expire_data.get("grants_expired", 0))
+
         response = (
             supabase
             .table("user_entitlements")
@@ -14961,17 +14971,6 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                     "今後は広告が表示されます。"
                 )
 
-            (
-                supabase
-                .table("user_entitlements")
-                .update({
-                    "status": "expired",
-                    "expiration_notified_at": now_jst.isoformat()
-                })
-                .eq("id", entitlement_id)
-                .execute()
-            )
-
             notices.append({
                 "entitlement_code": entitlement_code,
                 "message": notice_message
@@ -15027,17 +15026,6 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 )
             else:
                 notice_message = ("期限付き追加機能の有効期限が終了しました。")
-
-            (
-                supabase
-                .table("user_entitlement_grants")
-                .update({
-                    "status": "expired",
-                    "expiration_notified_at": now_jst.isoformat()
-                })
-                .eq("id", grant_id)
-                .execute()
-            )
 
             notices.append({
                 "entitlement_code": entitlement_code,
