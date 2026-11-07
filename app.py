@@ -273,10 +273,23 @@ if not user_param:
 CURRENT_USER_ID = str(user_param).strip()
 
 if not CURRENT_USER_ID:
-    st.error("🔒 アクセス権限がありません")
+    st.error("🔒 URLが正しくありません")
     st.info(
-        "招待URLが正しくありません。"
-        "発行された専用URLからアクセスしてください。"
+        "発行された専用URLをそのまま開いてください。"
+        "URLをコピーした場合は、途中で切れていないか確認してください。"
+    )
+    st.stop()
+
+expected_signature = create_invite_signature(CURRENT_USER_ID)
+
+if not signature_param or not hmac.compare_digest(
+    str(signature_param),
+    expected_signature,
+):
+    st.error("🔒 URLが正しくありません")
+    st.info(
+        "発行された専用URLをそのまま開いてください。"
+        "URLをコピーした場合は、途中で切れていないか確認してください。"
     )
     st.stop()
 
@@ -285,7 +298,7 @@ if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
     st.info(
         "このURLに登録されているアカウントと、"
         "入力されたメールアドレスが一致していません。"
-        "招待を受けたメールアドレスでログインしてください。"
+        "正しいメールアドレスでログインしてください。"
     )
     st.stop()
 
@@ -299,56 +312,6 @@ if st.sidebar.button("ログアウト"):
 
     st.rerun()
 
-# if (CURRENT_USER_ID == ADMIN_USER_ID and not signature_param):
-#     st.info(
-#         "管理者用URLを発行するには、"
-#         "招待URL署名用の秘密文字列を入力してください。"
-#     )
-
-#     with st.form("admin_url_bootstrap_form"):
-#         bootstrap_secret = st.text_input(
-#             "招待URL署名用の秘密文字列",
-#             type="password",
-#         )
-#         issue_admin_url = st.form_submit_button("管理者用URLを発行")
-
-#     if issue_admin_url:
-#         if hmac.compare_digest(
-#             bootstrap_secret,
-#             INVITE_SIGNING_SECRET,
-#         ):
-#             admin_invite_url = create_signed_invite_url(
-#                 APP_BASE_URL,
-#                 ADMIN_USER_ID,
-#             )
-
-#             st.success("管理者用URLを発行しました。")
-#             st.write("🔗 管理者用の署名付きURL")
-#             st.code(
-#                 admin_invite_url,
-#                 language=None,
-#             )
-#         else:
-#             st.error("秘密文字列が一致しません。")
-
-#     st.stop()
-
-expected_signature = create_invite_signature(CURRENT_USER_ID)
-
-if not signature_param or not hmac.compare_digest(
-    str(signature_param),
-    expected_signature,
-):
-    st.error("🔒 アクセス権限がありません")
-    st.info(
-        "招待URLの署名を確認できません。"
-        "発行された専用URLからアクセスしてください。"
-    )
-    st.stop()
-
-
-# アプリのURLパラメーター（または headless 状態）を見て、自動学習の書き込み先を全自動で仕分けます
-# is_dev_site = st.query_params.get("dev") is not None or st.config.get_option("server.headless") == False
 is_dev_site = (
     st.query_params.get("dev") is not None 
     or st.config.get_option("server.headless") == False
