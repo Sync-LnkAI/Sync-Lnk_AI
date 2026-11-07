@@ -23970,7 +23970,11 @@ if is_admin:
             st.markdown("**👤 ユーザー別・稼働状況およびタイムライン**")
             all_users = [ADMIN_USER_ID]
             try:
-                user_res = supabase.table("user_token_stats").select("user_id").execute()
+                user_res = (
+                    supabase
+                    .rpc("get_admin_user_list")
+                    .execute()
+                )
                 if user_res.data: 
                     all_users = sorted(list({row["user_id"] for row in user_res.data if row.get("user_id")}))
             except Exception: 
