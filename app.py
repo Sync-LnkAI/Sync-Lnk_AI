@@ -288,7 +288,10 @@ id_link_result = (
     .maybe_single()
     .execute()
 )
-if not id_link_result.data:
+
+id_link_data = getattr(id_link_result, "data", None) or {}
+
+if not id_link_data:
     st.error("🔒 ユーザー登録情報を確認できませんでした")
     st.info(
         "アカウントの利用設定が完了していません。"
@@ -297,7 +300,7 @@ if not id_link_result.data:
     st.stop()
 
 AUTH_LEGACY_USER_ID = str(
-    id_link_result.data["legacy_user_id"]
+    id_link_data["legacy_user_id"]
 ).strip()
 
 if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
