@@ -182,6 +182,44 @@ def calculate_ai_cost(
 MAX_INPUT_CHARS = 1000
 BURST_LIMIT_SECONDS = 5  # 1分3通 ＝ 平均20秒に1通以上の連投を弾く
 
+# =========================================
+# 招待URLの検証
+# =========================================
+user_param = st.query_params.get("user")
+signature_param = st.query_params.get("sig")
+
+if not user_param:
+    st.error("🔒 アクセス権限がありません")
+    st.info("このアプリは招待制のクローズドテスト中です。正しい専用の招待URLからアクセスしてください。")
+    st.stop()
+
+CURRENT_USER_ID = str(user_param).strip()
+
+if not CURRENT_USER_ID:
+    st.error("🔒 URLが正しくありません")
+    st.info(
+        "発行された専用URLをそのまま開いてください。"
+        "URLをコピーした場合は、途中で切れていないか確認してください。"
+    )
+    st.stop()
+
+expected_signature = create_invite_signature(CURRENT_USER_ID)
+
+# 署名確認
+if not signature_param or not hmac.compare_digest(
+    str(signature_param),
+    expected_signature,
+):
+    st.error("🔒 URLが正しくありません")
+    st.info(
+        "発行された専用URLをそのまま開いてください。"
+        "URLをコピーした場合は、途中で切れていないか確認してください。"
+    )
+    st.stop()
+
+# =========================================
+# ログイン処理
+# =========================================
 # Supabase Authのログイン処理
 if "access_token" not in st.session_state:
     st.session_state.access_token = None
@@ -229,7 +267,7 @@ if not auth_response or not auth_response.user:
             st.error("メールアドレスまたはパスワードが正しくありません。")
 
     st.stop()
-# =========================================
+
 authenticated_user = supabase.auth.get_user().user
 AUTH_USER_ID = str(authenticated_user.id).strip()
 role_result = (
@@ -257,42 +295,6 @@ AUTH_LEGACY_USER_ID = str(
     id_link_result.data["legacy_user_id"]
 ).strip()
 
-
-
-# =========================================
-# 招待URLの検証
-# =========================================
-user_param = st.query_params.get("user")
-signature_param = st.query_params.get("sig")
-
-if not user_param:
-    st.error("🔒 アクセス権限がありません")
-    st.info("このアプリは招待制のクローズドテスト中です。正しい専用の招待URLからアクセスしてください。")
-    st.stop()
-
-CURRENT_USER_ID = str(user_param).strip()
-
-if not CURRENT_USER_ID:
-    st.error("🔒 URLが正しくありません")
-    st.info(
-        "発行された専用URLをそのまま開いてください。"
-        "URLをコピーした場合は、途中で切れていないか確認してください。"
-    )
-    st.stop()
-
-expected_signature = create_invite_signature(CURRENT_USER_ID)
-
-if not signature_param or not hmac.compare_digest(
-    str(signature_param),
-    expected_signature,
-):
-    st.error("🔒 URLが正しくありません")
-    st.info(
-        "発行された専用URLをそのまま開いてください。"
-        "URLをコピーした場合は、途中で切れていないか確認してください。"
-    )
-    st.stop()
-
 if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
     st.error("🔒 ログイン情報を確認できませんでした")
     st.info(
@@ -311,6 +313,7 @@ if st.sidebar.button("ログアウト"):
     st.session_state.refresh_token = None
 
     st.rerun()
+# =========================================
 
 is_dev_site = (
     st.query_params.get("dev") is not None 
