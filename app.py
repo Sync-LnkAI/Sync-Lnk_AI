@@ -261,21 +261,6 @@ IS_ADMIN = bool(
     and role_result.data.get("role") == "admin"
 )
 
-if IS_ADMIN:
-    general_user_id = st.text_input(
-        "ryuudesu_user"
-    )
-
-    if st.button("一般ユーザー用URLを発行"):
-        general_user_url = create_signed_invite_url(
-            APP_BASE_URL,
-            general_user_id,
-        )
-
-        st.code(
-            general_user_url,
-            language=None,
-        )
 id_link_result = (
     supabase.table("user_id_links")
     .select("legacy_user_id")
