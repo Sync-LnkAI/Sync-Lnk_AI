@@ -24133,181 +24133,139 @@ if is_admin:
 
             try:
                 if audit_display_section == "usage_summary":
-                    user_logs = (
+                    kpi_response = (
                         supabase
-                        .table("messages")
-                        .select("created_at", "role")
-                        .eq("user_id", selected_audit_user)
-                        .execute()
-                        .data
-                    )
-                
-                if user_logs:
-                    # 使用開始日・最終会話日・総稼働日数を計算
-                    timestamps = [
-                        datetime.fromisoformat(
-                            m.get("created_at").replace("Z", "+00:00")
-                        )
-                        for m in user_logs
-                        if m.get("created_at")
-                    ]
-                    if timestamps:
-                        start_date = min(timestamps).strftime("%Y/%m/%d")
-                        last_date = max(timestamps).strftime("%Y/%m/%d")
-
-                    # system_audit_logsから検索コストを集計
-                    judge_cost_res = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("*")
-                        .eq("user_id", selected_audit_user)
-                        .eq("event_type", "RESPONSE_ROUTER")
-                        .execute()
-                    )
-
-                    judge_rows = judge_cost_res.data or []
-
-                    search_judge_count = len(judge_rows)
-
-                    search_judge_total_cost = sum(
-                        float(row.get("api_cost", 0) or 0)
-                        for row in judge_rows
-                    )
-
-                    search_judge_total_in = sum(
-                        int(row.get("in_tokens", 0) or 0)
-                        for row in judge_rows
-                    )
-
-                    search_judge_total_out = sum(
-                        int(row.get("out_tokens", 0) or 0)
-                        for row in judge_rows
-                    )
-                    # 検索回数を取得
-                    search_res = (
-                        supabase
-                        .table("search_logs")
-                        .select("*")
-                        .eq("user_id", selected_audit_user)
-                        .execute()
-                    )
-                    search_count = len(search_res.data or [])
-
-                    # google検索データ
-                    search_exec_res = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("*")
-                        .eq("user_id", selected_audit_user)
-                        .eq("event_type", "SEARCH_EXECUTION")
-                        .execute()
-                    )
-                    search_exec_rows = search_exec_res.data or []
-                    search_exec_count = len(search_exec_rows)
-                    search_exec_total_cost = sum(
-                        float(row.get("api_cost", 0) or 0)
-                        for row in search_exec_rows
-                    )
-                    search_exec_total_in = sum(
-                        int(row.get("in_tokens", 0) or 0)
-                        for row in search_exec_rows
-                    )
-                    search_exec_total_out = sum(
-                        int(row.get("out_tokens", 0) or 0)
-                        for row in search_exec_rows
-                    )
-                    # 汎用計算の曖昧回答判定AIデータ
-                    calc_clarification_res = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("in_tokens", "out_tokens", "api_cost")
-                        .eq("user_id", selected_audit_user)
-                        .eq("event_type", "general_calculation_clarification")
-                        .execute()
-                    )
-
-                    calc_clarification_rows = (calc_clarification_res.data or [])
-                    calc_clarification_count = len(calc_clarification_rows)
-
-                    calc_clarification_cost = sum(
-                        float(row.get("api_cost", 0) or 0)
-                        for row in calc_clarification_rows
-                    )
-
-                    calc_clarification_in = sum(
-                        int(row.get("in_tokens", 0) or 0)
-                        for row in calc_clarification_rows
-                    )
-
-                    calc_clarification_out = sum(
-                        int(row.get("out_tokens", 0) or 0)
-                        for row in calc_clarification_rows
-                    )
-
-                    # python計算データを取得
-                    calc_logs = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("event_type")
-                        .eq("user_id", selected_audit_user)
-                        .in_(
-                            "event_type",
-                            [
-                                "CALCULATION_SUCCESS",
-                                "CALCULATION_MISSING_FIELDS",
-                                "CALCULATION_ERROR"
-                            ]
+                        .rpc(
+                            "get_admin_user_kpi",
+                            "p_user_id": str(selected_audit_user),
                         )
                         .execute()
                     )
 
-                    calc_success = 0
-                    calc_missing = 0
-                    calc_error = 0
+                    kpi_data = kpi_response.data or {}
 
-                    for row in (calc_logs.data or []):
-                        event = row.get("event_type", "")
+                    start_at = kpi_data.get("start_date")
+                    last_at = kpi_data.get("last_date")
 
-                        if event == "CALCULATION_SUCCESS":
-                            calc_success += 1
+                    if start_at:
+                        start_date = datetime.fromisoformat(
+                            str(start_at).replace("Z", "+00:00")
+                        ).strftime("%Y/%m/%d")
 
-                        elif event == (
-                            "CALCULATION_MISSING_FIELDS"
-                        ):
-                            calc_missing += 1
+                    if last_at:
+                        last_date = datetime.fromisoformat(
+                            str(last_at).replace("Z", "+00:00")
+                        ).strftime("%Y/%m/%d")
 
-                        elif event == "CALCULATION_ERROR":
-                            calc_error += 1
+                    search_count = int(kpi_data.get("search_count", 0) or 0)
 
-                    calc_total = (calc_success + calc_missing + calc_error)
-
-                    calc_extract_res = (
-                        supabase
-                        .table("system_audit_logs")
-                        .select("api_cost, in_tokens, out_tokens")
-                        .eq("user_id", selected_audit_user)
-                        .eq("event_type", "CALCULATION_EXTRACTION")
-                        .execute()
+                    search_judge_count = int(
+                        kpi_data.get(
+                            "search_judge_count",
+                            0,
+                        ) or 0
+                    )
+                    search_judge_total_cost = float(
+                        kpi_data.get(
+                            "search_judge_total_cost",
+                            0,
+                        ) or 0
+                    )
+                    search_judge_total_in = int(
+                        kpi_data.get(
+                            "search_judge_total_in",
+                            0,
+                        ) or 0
+                    )
+                    search_judge_total_out = int(
+                        kpi_data.get(
+                            "search_judge_total_out",
+                            0,
+                        ) or 0
                     )
 
-                    calc_extract_cost = sum(
-                        float(x.get("api_cost", 0) or 0)
-                        for x in (calc_extract_res.data or [])
+                    search_exec_count = int(
+                        kpi_data.get(
+                            "search_exec_count",
+                            0,
+                        ) or 0
+                    )
+                    search_exec_total_cost = float(
+                        kpi_data.get(
+                            "search_exec_total_cost",
+                            0,
+                        ) or 0
+                    )
+                    search_exec_total_in = int(
+                        kpi_data.get(
+                            "search_exec_total_in",
+                            0,
+                        ) or 0
+                    )
+                    search_exec_total_out = int(
+                        kpi_data.get(
+                            "search_exec_total_out",
+                            0,
+                        ) or 0
                     )
 
-                    calc_extract_in = sum(
-                        int(x.get("in_tokens", 0) or 0)
-                        for x in (calc_extract_res.data or [])
+                    calc_clarification_count = int(
+                        kpi_data.get(
+                            "calc_clarification_count",
+                            0,
+                        ) or 0
+                    )
+                    calc_clarification_cost = float(
+                        kpi_data.get(
+                            "calc_clarification_cost",
+                            0,
+                        ) or 0
+                    )
+                    calc_clarification_in = int(
+                        kpi_data.get(
+                            "calc_clarification_in",
+                            0,
+                        ) or 0
+                    )
+                    calc_clarification_out = int(
+                        kpi_data.get(
+                            "calc_clarification_out",
+                            0,
+                        ) or 0
                     )
 
-                    calc_extract_out = sum(
-                        int(x.get("out_tokens", 0) or 0)
-                        for x in (calc_extract_res.data or [])
+                    calc_success = int(kpi_data.get("calc_success", 0) or 0)
+                    calc_missing = int(kpi_data.get("calc_missing", 0) or 0)
+                    calc_error = int(kpi_data.get("calc_error", 0) or 0)
+
+                    calc_total = (
+                        calc_success
+                        + calc_missing
+                        + calc_error
+                    )
+
+                    calc_extract_cost = float(
+                        kpi_data.get(
+                            "calc_extract_cost",
+                            0,
+                        ) or 0
+                    )
+                    calc_extract_in = int(
+                        kpi_data.get(
+                            "calc_extract_in",
+                            0,
+                        ) or 0
+                    )
+                    calc_extract_out = int(
+                        kpi_data.get(
+                            "calc_extract_out",
+                            0,
+                        ) or 0
                     )
 
             except Exception as e:
                 print(
-                    f"統計取得エラー: "
+                    "統計取得エラー: "
                     f"{type(e).__name__}: {e}"
                 )
 
