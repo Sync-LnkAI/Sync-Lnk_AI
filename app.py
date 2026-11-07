@@ -24137,7 +24137,7 @@ if is_admin:
                         supabase
                         .rpc(
                             "get_admin_user_kpi",
-                            "p_user_id": str(selected_audit_user),
+                            {"p_user_id": str(selected_audit_user)},
                         )
                         .execute()
                     )
