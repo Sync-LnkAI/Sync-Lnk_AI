@@ -14971,7 +14971,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
                     if saved_personality in PREMIUM_PRESETS:
                         (
-                            supabase_admin
+                            supabase
                             .table(DB_MEMORIES_TABLE)
                             .update({
                                 "fact": f"人格: {default_personality}"
@@ -14998,7 +14998,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 )
 
             (
-                supabase_admin
+                supabase
                 .table("user_entitlements")
                 .update({
                     "status": "expired",
@@ -15014,7 +15014,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
             })
 
         grant_response = (
-            supabase_admin
+            supabase
             .table("user_entitlement_grants")
             .select(
                 "id, entitlement_code, quantity, expires_at, "
@@ -15065,7 +15065,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
                 notice_message = ("期限付き追加機能の有効期限が終了しました。")
 
             (
-                supabase_admin
+                supabase
                 .table("user_entitlement_grants")
                 .update({
                     "status": "expired",
