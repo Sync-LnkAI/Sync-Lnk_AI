@@ -14894,171 +14894,125 @@ def get_active_entitlement(
 # 期限切れ権利の検出・状態更新・関連設定のリセットを行う関数
 def reconcile_expired_entitlements(user_id: str) -> list[dict]:
     notices = []
-    now_jst = datetime.now(JST)
     default_personality = (
         "🧠 設定なし ➔ "
         "【特定のキャラクターを設定しない（標準）】"
     )
 
     try:
-        expire_result = (
-            supabase
-            .rpc("expire_own_entitlements")
-            .execute()
-        )
-
+        expire_result = supabase.rpc("expire_own_entitlements").execute()
         expire_data = expire_result.data or {}
-        expired_entitlement_count = int(expire_data.get("entitlements_expired", 0))
-        expired_grant_count = int(expire_data.get("grants_expired", 0))
+        expired_entitlements = expire_data.get("expired_entitlements") or []
+        expired_grants = expire_data.get("expired_grants") or []
+        premium_expired = bool(expire_data.get("premium_personality_expired"))
+        premium_still_active = bool(expire_data.get("premium_personality_still_active"))
 
-        response = (
-            supabase
-            .table("user_entitlements")
-            .select(
-                "id, entitlement_code, expires_at, "
-                "expiration_notified_at"
+        if premium_expired and not premium_still_active:
+            personality_response = (
+                supabase.table(DB_MEMORIES_TABLE)
+                .select("id, fact")
+                .eq("user_id", str(user_id))
+                .eq("source", "manual")
+                .like("fact", "人格:%")
+                .limit(1)
+                .execute()
             )
-            .eq("user_id", str(user_id))
-            .eq("status", "active")
-            .not_.is_("expires_at", "null")
-            .is_("expiration_notified_at", "null")
-            .execute()
-        )
-        # if DEBUG_MODE:
-        #     st.write("DEBUG 期限切れ権利照合")
-        #     st.json({
-        #         "user_id": str(user_id),
-        #         "now_jst": now_jst.isoformat(),
-        #         "entitlement_rows": response.data or []
-        #     })
 
-        # user_entitlementsの期限切れ処理
-        for entitlement in response.data or []:
-            expires_at = entitlement.get("expires_at")
-            if not expires_at:
+            personality_rows = personality_response.data or []
+            personality_was_reset = False
+
+            if personality_rows:
+                personality_row = personality_rows[0]
+                saved_personality = str(
+                    personality_row.get("fact", "") or ""
+                ).replace("人格:", "", 1).strip()
+
+                if saved_personality in PREMIUM_PRESETS:
+                    (
+                        supabase.table(DB_MEMORIES_TABLE)
+                        .update({"fact": f"人格: {default_personality}"})
+                        .eq("id", personality_row["id"])
+                        .execute()
+                    )
+                    personality_was_reset = True
+
+                    supabase.table("system_audit_logs").insert({
+                        "user_id": str(user_id),
+                        "user_plan": str(current_plan_type),
+                        "event_type": "ENTITLEMENT_EXPIRED_RESET",
+                        "details": (
+                            "entitlement_code=premium_personality"
+                            f" | 変更前={saved_personality}"
+                            f" | 変更後={default_personality}"
+                        ),
+                        "in_tokens": 0,
+                        "out_tokens": 0,
+                        "processing_time": 0,
+                        "api_cost": 0,
+                        "total_yen_cost": 0,
+                    }).execute()
+
+            if personality_was_reset:
+                notices.append({
+                    "entitlement_code": "premium_personality",
+                    "message": (
+                        "有料人格パスの有効期限が終了しました。"
+                        "AIの人格は「設定なし（標準）」へ変更されました。"
+                    ),
+                })
+            else:
+                notices.append({
+                    "entitlement_code": "premium_personality",
+                    "message": (
+                        "有料人格パスの有効期限が終了しました。"
+                        "現在の人格は無料で利用できる設定のため、"
+                        "人格設定は変更されていません。"
+                    ),
+                })
+
+        for entitlement in expired_entitlements:
+            code = str(entitlement.get("entitlement_code", "") or "")
+
+            if code == "premium_personality":
                 continue
 
-            try:
-                expires_datetime = datetime.fromisoformat(
-                    str(expires_at).replace("Z", "+00:00")
-                ).astimezone(JST)
-            except (ValueError, TypeError):
-                continue
-
-            if expires_datetime > now_jst:
-                continue
-
-            entitlement_id = entitlement.get("id")
-            entitlement_code = str(entitlement.get("entitlement_code", "") or "")
-
-            notice_message = ("期限付き追加機能の有効期限が終了しました。")
-
-            if entitlement_code == "premium_personality":
-                personality_response = (
-                    supabase
-                    .table(DB_MEMORIES_TABLE)
-                    .select("id, fact")
-                    .eq("user_id", str(user_id))
-                    .eq("source", "manual")
-                    .like("fact", "人格:%")
-                    .limit(1)
-                    .execute()
-                )
-
-                personality_rows = personality_response.data or []
-                if personality_rows:
-                    personality_row = personality_rows[0]
-                    saved_personality = str(
-                        personality_row.get("fact", "") or ""
-                    ).replace("人格:", "", 1).strip()
-
-                    if saved_personality in PREMIUM_PRESETS:
-                        (
-                            supabase
-                            .table(DB_MEMORIES_TABLE)
-                            .update({
-                                "fact": f"人格: {default_personality}"
-                            })
-                            .eq("id", personality_row["id"])
-                            .execute()
-                        )
-
-                        notice_message = (
-                            "有料人格パスの有効期限が終了しました。"
-                            "AIの人格は「設定なし（標準）」へ変更されました。"
-                        )
-                    else:
-                        notice_message = (
-                            "有料人格パスの有効期限が終了しました。"
-                            "現在の人格は無料で利用できる設定のため、"
-                            "人格設定は変更されていません。"
-                        )
-
-            elif entitlement_code == "ad_free":
-                notice_message = (
+            if code == "ad_free":
+                message = (
                     "広告OFFの有効期限が終了しました。"
                     "今後は広告が表示されます。"
                 )
+            else:
+                message = ("期限付き追加機能の有効期限が終了しました。")
 
             notices.append({
-                "entitlement_code": entitlement_code,
-                "message": notice_message
+                "entitlement_code": code,
+                "message": message,
             })
 
-        grant_response = (
-            supabase
-            .table("user_entitlement_grants")
-            .select(
-                "id, entitlement_code, quantity, expires_at, "
-                "expiration_notified_at"
-            )
-            .eq("user_id", str(user_id))
-            .eq("status", "active")
-            .execute()
-        )
-
-        # 追加枠の期限切れ処理
-        for grant in grant_response.data or []:
-            expires_at = grant.get("expires_at")
-            notified_at = grant.get("expiration_notified_at")
-
-            if not expires_at or notified_at:
-                continue
-
-            try:
-                expires_datetime = datetime.fromisoformat(
-                    str(expires_at).replace("Z", "+00:00")
-                ).astimezone(JST)
-            except (ValueError, TypeError):
-                continue
-
-            if expires_datetime > now_jst:
-                continue
-
-            grant_id = grant.get("id")
-            entitlement_code = str(
-                grant.get("entitlement_code", "") or ""
-            )
+        for grant in expired_grants:
+            code = str(grant.get("entitlement_code", "") or "")
             quantity = int(grant.get("quantity", 0) or 0)
 
-            if entitlement_code == "daily_chat_plus":
-                notice_message = (
+            if code == "daily_chat_plus":
+                message = (
                     f"1日の会話上限＋{quantity}回の"
                     "有効期限が終了しました。"
                     "今後は現在の会員プランの上限が適用されます。"
                 )
-            elif entitlement_code == "saved_chat_plus":
-                notice_message = (
+            elif code == "saved_chat_plus":
+                message = (
                     f"会話保存枠＋{quantity}件の"
                     "有効期限が終了しました。"
                     "今後は現在の会員プランの保存上限が適用されます。"
                 )
             else:
-                notice_message = ("期限付き追加機能の有効期限が終了しました。")
+                message = (
+                    "期限付き追加機能の有効期限が終了しました。"
+                )
 
             notices.append({
-                "entitlement_code": entitlement_code,
-                "message": notice_message
+                "entitlement_code": code,
+                "message": message,
             })
 
         return notices
