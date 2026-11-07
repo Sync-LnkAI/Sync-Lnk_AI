@@ -313,13 +313,13 @@ if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
 
 CURRENT_USER_ID = AUTH_LEGACY_USER_ID
 
-if st.button("ログアウト", key="logout_button"):
-    supabase.auth.sign_out()
+# if st.button("ログアウト", key="logout_button"):
+#     supabase.auth.sign_out()
 
-    st.session_state.access_token = None
-    st.session_state.refresh_token = None
+#     st.session_state.access_token = None
+#     st.session_state.refresh_token = None
 
-    st.rerun()
+#     st.rerun()
 # =========================================
 
 is_dev_site = (
@@ -16848,7 +16848,26 @@ with all_tabs[0]:
         current_point_balance = get_user_point_balance(CURRENT_USER_ID)
         available_points = int(current_point_balance.get("available_points", 0) or 0)
 
-        status_col, point_detail_col = st.columns([8, 2], vertical_alignment="center")
+        # status_col, point_detail_col = st.columns([8, 2], vertical_alignment="center")
+
+        # with status_col:
+        #     st.caption(
+        #         f"{current_plan_type}"
+        #         f"　｜　本日の会話：{db_count} / {db_max}回"
+        #         f"　｜　保有ポイント：{available_points:,}pt"
+        #     )
+
+        # with point_detail_col:
+        #     if st.button(
+        #         "ポイント詳細",
+        #         key="open_point_detail_dialog",
+        #         # use_container_width=True
+        #     ):
+        #         show_point_detail_dialog()
+        status_col, point_detail_col, logout_col = st.columns(
+            [7, 1.5, 1.5],
+            vertical_alignment="center",
+        )
 
         with status_col:
             st.caption(
@@ -16861,9 +16880,20 @@ with all_tabs[0]:
             if st.button(
                 "ポイント詳細",
                 key="open_point_detail_dialog",
-                # use_container_width=True
             ):
                 show_point_detail_dialog()
+
+        with logout_col:
+            if st.button(
+                "ログアウト",
+                key="logout_button",
+            ):
+                supabase.auth.sign_out()
+
+                st.session_state.access_token = None
+                st.session_state.refresh_token = None
+
+                st.rerun()
 
         pending_detail_request = dict(
             st.session_state.get("pending_detail_request", {}) or {}
