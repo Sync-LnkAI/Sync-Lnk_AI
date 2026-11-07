@@ -287,9 +287,16 @@ id_link_result = (
     supabase.table("user_id_links")
     .select("legacy_user_id")
     .eq("auth_user_id", AUTH_USER_ID)
-    .single()
+    .maybe_single()
     .execute()
 )
+if not id_link_result.data:
+    st.error("🔒 ユーザー登録情報を確認できませんでした")
+    st.info(
+        "アカウントの利用設定が完了していません。"
+        "管理者へお問い合わせください。"
+    )
+    st.stop()
 
 AUTH_LEGACY_USER_ID = str(
     id_link_result.data["legacy_user_id"]
