@@ -25438,8 +25438,12 @@ if is_admin:
                                 )
 
         except Exception as error:
-            st.error("MVP2会話品質監視データの取得に失敗しました。")
-            print(f"MVP2品質監視エラー: {type(error).__name__}: {error}")
+            # st.error("MVP2会話品質監視データの取得に失敗しました。")
+            # print(f"MVP2品質監視エラー: {type(error).__name__}: {error}")
+            st.error(
+                "MVP2会話品質監視データの取得に失敗しました。"
+                f"\n\n{type(error).__name__}: {error}"
+            )
     
 st.markdown("<br>", unsafe_allow_html=True)
 st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
