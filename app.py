@@ -203,7 +203,8 @@ if (
 auth_response = supabase.auth.get_user()
 
 if not auth_response or not auth_response.user:
-    st.caption("ログイン")
+    # st.caption("ログイン")
+    st.markdown("**ログイン**")
 
     with st.form("login_form"):
         login_email = st.text_input("メールアドレス")
@@ -280,7 +281,12 @@ if not CURRENT_USER_ID:
     st.stop()
 
 if CURRENT_USER_ID != AUTH_LEGACY_USER_ID:
-    st.error("🔒 この招待URLはログイン中のユーザー用ではありません。")
+    st.error("🔒 ログイン情報を確認できませんでした")
+    st.info(
+        "このURLに登録されているアカウントと、"
+        "入力されたメールアドレスが一致していません。"
+        "招待を受けたメールアドレスでログインしてください。"
+    )
     st.stop()
 
 CURRENT_USER_ID = AUTH_LEGACY_USER_ID
