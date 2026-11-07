@@ -14952,7 +14952,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
             if entitlement_code == "premium_personality":
                 personality_response = (
-                    supabase_admin
+                    supabase
                     .table(DB_MEMORIES_TABLE)
                     .select("id, fact")
                     .eq("user_id", str(user_id))
