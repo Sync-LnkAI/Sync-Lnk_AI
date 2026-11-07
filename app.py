@@ -63,28 +63,12 @@ def create_signed_invite_url(base_url: str, user_id: str) -> str:
         f"&sig={signature}"
     )
 
-# try:
-#     from openai import OpenAI
-# except Exception:
-#     OpenAI = None
-
 def init_supabase() -> Client:
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 supabase = init_supabase()
 
-# @st.cache_resource
-# def init_supabase_admin() -> Client:
-#     return create_client(
-#         SUPABASE_URL,
-#         st.secrets["SUPABASE_SECRET_KEY"]
-#     )
-# supabase_admin = init_supabase_admin()
-# supabase = supabase_admin
-
 genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-
-
 
 # ==========================================
 # AI構成
@@ -24656,15 +24640,13 @@ if is_admin:
                 try:
                     case_res = (
                         supabase
-                        .table("calculation_cases")
-                        .select("*")
-                        .eq(
-                            "user_id",
-                            selected_audit_user
-                        )
-                        .order(
-                            "updated_at",
-                            desc=True
+                        .rpc(
+                            "get_admin_calculation_cases",
+                            {
+                                "p_user_id": str(
+                                    selected_audit_user
+                                )
+                            },
                         )
                         .execute()
                     )
