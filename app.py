@@ -278,10 +278,8 @@ role_result = (
     .execute()
 )
 
-IS_ADMIN = bool(
-    role_result.data
-    and role_result.data.get("role") == "admin"
-)
+role_data = getattr(role_result, "data", None,) or {}
+IS_ADMIN = (role_data.get("role") == "admin")
 
 id_link_result = (
     supabase.table("user_id_links")
