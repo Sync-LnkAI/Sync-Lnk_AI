@@ -770,3 +770,15 @@ on function public.use_user_points(
     text
 )
 to authenticated;
+
+-- =========================================
+-- Security Advisor確認メモ
+-- =========================================
+--
+-- authenticatedが実行可能なSECURITY DEFINER関数は、
+-- 全件でauth.uid()による本人確認または管理者確認を実装済み。
+-- 全件でsearch_pathを空文字に固定済み。
+--
+-- Security Advisorの
+-- authenticated_security_definer_function_executable警告は、
+-- 意図的に公開している認証済みユーザー向けRPCに対する警告。
