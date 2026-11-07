@@ -1257,6 +1257,191 @@ on function public.get_admin_user_kpi(text)
 to authenticated;
 
 -- =========================================
+-- 16. MVP2 会話品質監視RPC
+-- =========================================
+
+create or replace function public.get_mvp2_tester_summary()
+returns table (
+    user_id text,
+    user_plan text,
+    first_used_at timestamptz,
+    last_used_at timestamptz,
+    active_day_count bigint,
+    chat_count bigint,
+    search_count bigint,
+    plan_chat_count bigint,
+    error_count bigint
+)
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+begin
+    if not exists (
+        select 1
+        from public.user_roles as roles
+        where roles.user_id = auth.uid()
+          and roles.role = 'admin'
+    ) then
+        raise exception 'access denied';
+    end if;
+
+    return query
+    select
+        links.legacy_user_id::text,
+        coalesce(
+            (
+                select logs.user_plan
+                from public.system_audit_logs as logs
+                where logs.user_id = links.legacy_user_id
+                  and logs.user_plan is not null
+                order by logs.created_at desc
+                limit 1
+            ),
+            '未設定'
+        )::text,
+        min(msg.created_at)::timestamptz,
+        max(msg.created_at)::timestamptz,
+        count(
+            distinct (
+                msg.created_at
+                at time zone 'Asia/Tokyo'
+            )::date
+        )::bigint,
+        count(*) filter (
+            where msg.role = 'user'
+        )::bigint,
+        (
+            select count(*)
+            from public.system_audit_logs as logs
+            where logs.user_id = links.legacy_user_id
+              and logs.event_type = 'SEARCH_EXECUTION'
+        )::bigint,
+        (
+            select count(*)
+            from public.system_audit_logs as logs
+            where logs.user_id = links.legacy_user_id
+              and logs.event_type = 'PLAN_CHAT_SUCCESS'
+        )::bigint,
+        (
+            select count(*)
+            from public.system_audit_logs as logs
+            where logs.user_id = links.legacy_user_id
+              and (
+                  logs.event_type ilike 'ERROR%'
+                  or logs.event_type = 'CALCULATION_ERROR'
+              )
+        )::bigint
+    from public.user_id_links as links
+    inner join public.user_roles as roles
+        on roles.user_id = links.auth_user_id
+    left join public.messages as msg
+        on msg.user_id = links.legacy_user_id
+    where roles.role = 'user'
+    group by links.legacy_user_id
+    order by max(msg.created_at) desc nulls last;
+end;
+$function$;
+
+create or replace function public.get_mvp2_quality_messages(
+    p_user_id text,
+    p_limit integer default 100
+)
+returns table (
+    id bigint,
+    message_id text,
+    role text,
+    content text,
+    response_mode text,
+    created_at timestamptz,
+    processing_time numeric,
+    model_name text,
+    search_executed boolean
+)
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+begin
+    if not exists (
+        select 1
+        from public.user_roles as roles
+        where roles.user_id = auth.uid()
+          and roles.role = 'admin'
+    ) then
+        raise exception 'access denied';
+    end if;
+
+    return query
+    select
+        msg.id::bigint,
+        msg.message_id::text,
+        msg.role::text,
+        msg.content::text,
+        msg.response_mode::text,
+        msg.created_at::timestamptz,
+        coalesce(
+            (
+                select sum(logs.processing_time)::numeric
+                from public.system_audit_logs as logs
+                where logs.user_id = p_user_id
+                  and logs.message_id = msg.message_id
+            ),
+            0::numeric
+        ),
+        coalesce(
+            (
+                select trim(
+                    substring(
+                        logs.details
+                        from 'model=([^|]+)'
+                    )
+                )
+                from public.system_audit_logs as logs
+                where logs.user_id = p_user_id
+                  and logs.message_id = msg.message_id
+                  and logs.details like '%model=%'
+                order by logs.created_at desc
+                limit 1
+            ),
+            ''
+        )::text,
+        exists (
+            select 1
+            from public.system_audit_logs as logs
+            where logs.user_id = p_user_id
+              and logs.message_id = msg.message_id
+              and logs.event_type = 'SEARCH_EXECUTION'
+        )
+    from public.messages as msg
+    where msg.user_id = p_user_id
+    order by msg.created_at desc
+    limit greatest(
+        1,
+        least(coalesce(p_limit, 100), 500)
+    );
+end;
+$function$;
+
+revoke execute
+on function public.get_mvp2_tester_summary()
+from public, anon;
+
+revoke execute
+on function public.get_mvp2_quality_messages(text, integer)
+from public, anon;
+
+grant execute
+on function public.get_mvp2_tester_summary()
+to authenticated;
+
+grant execute
+on function public.get_mvp2_quality_messages(text, integer)
+to authenticated;
+
+-- =========================================
 -- Security Advisor確認メモ
 -- =========================================
 --
