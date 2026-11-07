@@ -14909,7 +14909,7 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict]:
 
     try:
         response = (
-            supabase_admin
+            supabase
             .table("user_entitlements")
             .select(
                 "id, entitlement_code, expires_at, "
