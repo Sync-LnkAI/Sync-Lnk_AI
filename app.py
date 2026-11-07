@@ -25122,19 +25122,30 @@ if is_admin:
                                     float(item.get("clarification_time", 0.0) or 0.0)
                                 ])
 
+                                # msg_res = (
+                                #     supabase
+                                #     .table("messages")
+                                #     .select(
+                                #         "role,"
+                                #         "content,"
+                                #         "created_at,"
+                                #         "message_id,"
+                                #         "response_mode"
+                                #     )
+                                #     .eq("user_id", selected_audit_user)
+                                #     .eq("message_id", item["id"])
+                                #     .order("created_at", desc=False)
+                                #     .execute()
+                                # )
                                 msg_res = (
                                     supabase
-                                    .table("messages")
-                                    .select(
-                                        "role,"
-                                        "content,"
-                                        "created_at,"
-                                        "message_id,"
-                                        "response_mode"
+                                    .rpc(
+                                        "get_admin_user_messages",
+                                        {
+                                            "p_user_id": str(selected_audit_user),
+                                            "p_message_id": str(item["id"]),
+                                        },
                                     )
-                                    .eq("user_id", selected_audit_user)
-                                    .eq("message_id", item["id"])
-                                    .order("created_at", desc=False)
                                     .execute()
                                 )
 
