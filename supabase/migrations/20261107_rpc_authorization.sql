@@ -570,6 +570,270 @@ grant execute
 on function public.get_plan_project_count(text, text)
 to authenticated;
 
+drop function if exists
+public.get_user_processing_type_summary(
+    text,
+    timestamp with time zone,
+    timestamp with time zone
+);
+
+create function public.get_user_processing_type_summary(
+    p_user_id text,
+    p_start_at timestamp with time zone default null,
+    p_end_at timestamp with time zone default null
+)
+returns table (
+    processing_type text,
+    execution_count bigint,
+    total_in_tokens bigint,
+    total_out_tokens bigint,
+    total_processing_time double precision,
+    average_processing_time double precision,
+    total_api_cost numeric,
+    router_yen_cost numeric,
+    search_yen_cost numeric,
+    answer_yen_cost numeric,
+    total_yen_cost numeric,
+    average_yen_cost numeric,
+    maximum_yen_cost numeric
+)
+language plpgsql
+stable
+security definer
+set search_path to ''
+as $function$
+begin
+    if not exists (
+        select 1
+        from public.user_roles
+        where user_id = auth.uid()
+          and role = 'admin'
+    ) then
+        raise exception 'access denied';
+    end if;
+
+    return query
+    with execution_rows as (
+        -- 通常会話・簡易Analysis
+        select
+            coalesce(
+                nullif(
+                    trim(
+                        substring(
+                            chat.details
+                            from '処理区分=([^|]+)'
+                        )
+                    ),
+                    ''
+                ),
+                'unclassified'
+            ) as processing_type,
+            chat.message_id,
+            coalesce(chat.in_tokens, 0)::bigint
+                as in_tokens,
+            coalesce(chat.out_tokens, 0)::bigint
+                as out_tokens,
+            coalesce(chat.processing_time, 0)::double precision
+                as processing_time,
+            coalesce(chat.api_cost, 0)::numeric
+                as api_cost,
+            coalesce(router.router_cost, 0)::numeric
+                as router_cost,
+            coalesce(search.search_cost, 0)::numeric
+                as search_cost,
+            coalesce(
+                chat.total_yen_cost,
+                chat.api_cost,
+                0
+            )::numeric as answer_cost
+        from public.system_audit_logs as chat
+
+        left join lateral (
+            select
+                sum(
+                    coalesce(
+                        router_log.total_yen_cost,
+                        router_log.api_cost,
+                        0
+                    )
+                )::numeric as router_cost
+            from public.system_audit_logs as router_log
+            where router_log.user_id = chat.user_id
+              and router_log.message_id = chat.message_id
+              and router_log.event_type in (
+                  'RESPONSE_ROUTER',
+                  'CALCULATION_TOOL_ROUTER'
+              )
+        ) as router on true
+
+        left join lateral (
+            select
+                sum(
+                    coalesce(
+                        search_log.total_yen_cost,
+                        search_log.api_cost,
+                        0
+                    )
+                )::numeric as search_cost
+            from public.system_audit_logs as search_log
+            where search_log.user_id = chat.user_id
+              and search_log.message_id = chat.message_id
+              and search_log.event_type = 'SEARCH_EXECUTION'
+        ) as search on true
+
+        where chat.user_id = p_user_id
+          and chat.event_type = 'CHAT_SUCCESS'
+          and chat.details not like
+              '%処理区分=simple_search%'
+          and chat.details not like
+              '%処理区分=real_estate_calculation%'
+          and (
+              p_start_at is null
+              or chat.created_at >= p_start_at
+          )
+          and (
+              p_end_at is null
+              or chat.created_at < p_end_at
+          )
+
+        union all
+
+        -- 簡易検索
+        select
+            'simple_search'::text,
+            search_log.message_id,
+            coalesce(search_log.in_tokens, 0)::bigint,
+            coalesce(search_log.out_tokens, 0)::bigint,
+            coalesce(
+                search_log.processing_time,
+                0
+            )::double precision,
+            coalesce(search_log.api_cost, 0)::numeric,
+            coalesce(router.router_cost, 0)::numeric,
+            coalesce(
+                search_log.total_yen_cost,
+                search_log.api_cost,
+                0
+            )::numeric,
+            0::numeric
+        from public.system_audit_logs as search_log
+
+        left join lateral (
+            select
+                sum(
+                    coalesce(
+                        router_log.total_yen_cost,
+                        router_log.api_cost,
+                        0
+                    )
+                )::numeric as router_cost
+            from public.system_audit_logs as router_log
+            where router_log.user_id = search_log.user_id
+              and router_log.message_id = search_log.message_id
+              and router_log.event_type = 'RESPONSE_ROUTER'
+        ) as router on true
+
+        where search_log.user_id = p_user_id
+          and search_log.event_type = 'SEARCH_EXECUTION'
+          and search_log.details like
+              '%処理区分=simple_search%'
+          and (
+              p_start_at is null
+              or search_log.created_at >= p_start_at
+          )
+          and (
+              p_end_at is null
+              or search_log.created_at < p_end_at
+          )
+
+        union all
+
+        -- 完了した不動産売却計算
+        select
+            'real_estate_calculation'::text,
+            success.message_id,
+            coalesce(extraction.in_tokens, 0)::bigint,
+            coalesce(extraction.out_tokens, 0)::bigint,
+            coalesce(
+                extraction.processing_time,
+                0
+            )::double precision,
+            coalesce(extraction.api_cost, 0)::numeric,
+            coalesce(router.router_cost, 0)::numeric,
+            0::numeric,
+            coalesce(
+                extraction.total_yen_cost,
+                extraction.api_cost,
+                0
+            )::numeric
+        from public.system_audit_logs as success
+
+        left join public.system_audit_logs as extraction
+          on extraction.user_id = success.user_id
+         and extraction.message_id = success.message_id
+         and extraction.event_type =
+             'CALCULATION_EXTRACTION'
+
+        left join lateral (
+            select
+                sum(
+                    coalesce(
+                        router_log.total_yen_cost,
+                        router_log.api_cost,
+                        0
+                    )
+                )::numeric as router_cost
+            from public.system_audit_logs as router_log
+            where router_log.user_id = success.user_id
+              and router_log.message_id = success.message_id
+              and router_log.event_type in (
+                  'RESPONSE_ROUTER',
+                  'CALCULATION_TOOL_ROUTER'
+              )
+        ) as router on true
+
+        where success.user_id = p_user_id
+          and success.event_type = 'CALCULATION_SUCCESS'
+          and success.details like '%tool=real_estate_sale%'
+          and (
+              p_start_at is null
+              or success.created_at >= p_start_at
+          )
+          and (
+              p_end_at is null
+              or success.created_at < p_end_at
+          )
+    ),
+    calculated_rows as (
+        select
+            rows.*,
+            (
+                rows.router_cost
+                + rows.search_cost
+                + rows.answer_cost
+            )::numeric as execution_total_cost
+        from execution_rows as rows
+    )
+    select
+        rows.processing_type,
+        count(*)::bigint,
+        sum(rows.in_tokens)::bigint,
+        sum(rows.out_tokens)::bigint,
+        sum(rows.processing_time)::double precision,
+        avg(rows.processing_time)::double precision,
+        sum(rows.api_cost)::numeric,
+        sum(rows.router_cost)::numeric,
+        sum(rows.search_cost)::numeric,
+        sum(rows.answer_cost)::numeric,
+        sum(rows.execution_total_cost)::numeric,
+        avg(rows.execution_total_cost)::numeric,
+        max(rows.execution_total_cost)::numeric
+    from calculated_rows as rows
+    group by rows.processing_type
+    order by count(*) desc;
+end;
+$function$;
+
 grant execute
 on function public.get_user_processing_type_summary(
     text,
