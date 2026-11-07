@@ -25245,7 +25245,7 @@ if is_admin:
                             stats_matrix["📝 計画反映回数"][p_key] += event_count
                         elif action == "DAILY_LIMIT_EXCEEDED":
                             stats_matrix["🚨 1日会話上限（ガードレール）の接触回数"][p_key] += event_count
-                        elif action == "SETTING_UPDATE_SUCCESS":
+                        elif action == "PERSONALITY_UPDATE_SUCCESS":
                             stats_matrix["🎨 人格変更の実行回数"][p_key] += event_count
                         elif action == "PROMPT_BLOCKED_SEARCH":
                             stats_matrix["🚫 制限緩和：追加検索タスクの制御回数"][p_key] += event_count
