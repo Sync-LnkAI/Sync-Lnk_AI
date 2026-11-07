@@ -232,10 +232,15 @@ if (
     st.session_state.access_token
     and st.session_state.refresh_token
 ):
-    supabase.auth.set_session(
-        st.session_state.access_token,
-        st.session_state.refresh_token,
-    )
+    try:
+        supabase.auth.set_session(
+            st.session_state.access_token,
+            st.session_state.refresh_token,
+        )
+    except Exception:
+        st.session_state.access_token = None
+        st.session_state.refresh_token = None
+        st.rerun()
 
 # 未ログインならログイン画面を表示
 auth_response = supabase.auth.get_user()
