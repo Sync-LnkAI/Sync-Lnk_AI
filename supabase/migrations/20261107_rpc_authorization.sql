@@ -772,6 +772,54 @@ on function public.use_user_points(
 to authenticated;
 
 -- =========================================
+-- 14. 関数のsearch_path固定
+-- =========================================
+
+alter function public.update_updated_at_column()
+set search_path to '';
+
+alter function public.get_user_processing_type_total_summary(
+    text,
+    timestamp with time zone,
+    timestamp with time zone
+)
+set search_path to '';
+
+alter function public.match_messages(
+    vector,
+    double precision,
+    integer,
+    bigint,
+    character varying
+)
+set search_path to '';
+
+alter function public.match_messages_all(
+    vector,
+    double precision,
+    integer,
+    text
+)
+set search_path to '';
+
+alter function public.match_messages_all(
+    vector,
+    double precision,
+    integer,
+    text,
+    text[]
+)
+set search_path to '';
+
+alter function public.match_user_memories(
+    vector,
+    double precision,
+    integer,
+    text
+)
+set search_path to '';
+
+-- =========================================
 -- Security Advisor確認メモ
 -- =========================================
 --
