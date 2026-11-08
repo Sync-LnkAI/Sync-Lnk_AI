@@ -1687,21 +1687,58 @@ def build_past_log_comparison_text(
 
     return user_content
 
+def has_past_conversation_reference(user_input: str) -> bool:
+    """過去の会話内容を尋ねている明示表現をコード側で判定する。"""
+    text = str(user_input or "").strip().lower()
+    if not text:
+        return False
+
+    patterns = (
+        r"前に.*話",
+        r"以前に.*話",
+        r"前.*言った",
+        r"以前.*言った",
+        r"この前.*話",
+        r"昔.*話",
+        r"前の会話",
+        r"過去の会話",
+        r"覚えてる",
+        r"覚えている",
+        r"記憶にある",
+        r"話したっけ",
+        r"言ったっけ",
+        r"何だったっけ",
+        r"なんだったっけ",
+        r"前回.*話",
+        r"前にも",
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
+# ==================================================================
+
+def get_past_log_created_after(user_id: str):
+    """会員種別に応じた過去会話検索の開始日時を返す。Standardは全期間。"""
+    subscription = get_user_subscription(user_id)
+    plan_code = str(subscription.get("plan_code", "free") or "free").strip()
+
+    if plan_code == "standard":
+        return None
+
+    search_days = 365 if plan_code == "light" else 90
+    return (datetime.now(JST) - timedelta(days=search_days)).isoformat()
+# ==================================================================
+
 # ==================================================================
 # 🔍【新設】 文字×ベクトルの最強ハイブリッド過去ログ検索（追加原価0円）
 # ==================================================================
-def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None):
+def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None, created_after=None):
     """
-    直近履歴を除外し、それ以前の会話から関連する過去会話を検索する。
+    直近履歴を除外し、会員プランの参照期間内から関連する過去会話を検索する。
     """
     start_time = time.time()
 
     excluded_message_ids = [
         str(message_id).strip()
-        for message_id in (
-            excluded_message_ids
-            or []
-        )
+        for message_id in (excluded_message_ids or [])
         if str(message_id).strip()
     ]
 
@@ -1709,25 +1746,19 @@ def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None):
         return []
 
     try:
-        query_embedding = get_embedding(
-            query_text,
-            task_type="RETRIEVAL_QUERY"
-        )
-        
+        query_embedding = get_embedding(query_text, task_type="RETRIEVAL_QUERY")
         if not query_embedding:
             return []
 
         # ① ベクトル類似度検索の実行（1本道仕様：全メッセージから検索するRPC）
-        response = supabase.rpc(
-            "match_messages_all",
-            {
+        response = supabase.rpc("match_messages_all_scoped",{
                 "query_embedding": query_embedding,
-                "match_threshold": 0.60,  # ゴミデータを拾わない厳格な合格ライン
+                "match_threshold": 0.60,
                 "match_count": PAST_LOG_CANDIDATE_COUNT,
                 "filter_user_id": CURRENT_USER_ID,
-                "p_excluded_message_ids": excluded_message_ids
-            }
-        ).execute()
+                "p_excluded_message_ids": excluded_message_ids,
+                "p_created_after": created_after
+        }).execute()
 
         results = response.data if response.data else []
 
@@ -7030,71 +7061,57 @@ def build_past_log_search_queries(
 #====================================
 
 # 複数語での過去会話検索を並列実行する関数
-def search_past_logs_parallel(
-    search_queries: list,
-    excluded_message_ids: list = None,
-    max_workers: int = 3
-) -> list:
-    """
-    複数の検索語で過去会話検索を並列実行し、
-    全検索の完了を待って結果を返す。
-    """
-
+def search_past_logs_parallel(search_queries: list, excluded_message_ids: list = None, created_after=None, max_workers: int = 3) -> list:
+    """複数の検索語で、指定期間内の過去会話検索を並列実行する。"""
     queries = [
         str(query or "").strip()
         for query in (search_queries or [])
         if str(query or "").strip()
     ]
-
     queries = list(dict.fromkeys(queries))
 
     if not queries:
         return []
 
-    # 検索が1件だけならスレッドを作らない
     if len(queries) == 1:
-        return [
-            {
-                "query": queries[0], 
-                "results": search_past_logs_hybrid(
-                    queries[0],
-                    excluded_message_ids=excluded_message_ids
-                )
-            }
-        ]
+        return [{
+            "query": queries[0],
+            "results": search_past_logs_hybrid(
+                queries[0],
+                excluded_message_ids=excluded_message_ids,
+                created_after=created_after
+            )
+        }]
 
     worker_count = min(max_workers, len(queries))
-
     search_results_by_query = {}
 
     with ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_to_query = {
-            executor.submit(search_past_logs_hybrid, query, excluded_message_ids): query
+            executor.submit(
+                search_past_logs_hybrid,
+                query,
+                excluded_message_ids,
+                created_after
+            ): query
             for query in queries
         }
 
         for future in as_completed(future_to_query):
             query = future_to_query[future]
-
             try:
                 search_results_by_query[query] = future.result() or []
-
             except Exception as search_error:
                 print(
-                    "過去会話並列検索エラー: "
-                    f"query={query} | "
-                    f"{type(search_error).__name__}: "
-                    f"{search_error}"
+                    f"過去会話並列検索エラー: query={query} | "
+                    f"{type(search_error).__name__}: {search_error}"
                 )
-
                 search_results_by_query[query] = []
 
-    # as_completedは完了順になるため、
-    # 元の検索語順へ戻して返す
     return [
         {
             "query": query,
-            "results": (search_results_by_query.get(query, []))
+            "results": search_results_by_query.get(query, [])
         }
         for query in queries
     ]
@@ -19326,23 +19343,32 @@ with all_tabs[0]:
                                 debug_text("DEBUG matched_keywords", matched_keywords)
                                 debug_text("DEBUG related_keywords", related_keywords)
 
-                                search_queries = (
-                                    build_past_log_search_queries(
-                                        original_keywords=keywords,
-                                        related_memory_lines=related_keywords,
-                                        max_queries=3
-                                    )
+                                past_reference_detected = has_past_conversation_reference(user_input)
+
+                                search_queries = build_past_log_search_queries(
+                                    original_keywords=keywords,
+                                    related_memory_lines=related_keywords,
+                                    max_queries=3
                                 )
-                                # debug_json("DEBUG past_log_search_queries",search_queries)
+
+                                # 「以前話した」「覚えてる？」などの場合は、縮約されたキーワードだけでなく、
+                                # ユーザー入力全文を最優先の検索語として必ず含める
+                                if past_reference_detected:
+                                    search_queries = list(dict.fromkeys([user_input] + search_queries))[:3]
+
+                                past_log_created_after = get_past_log_created_after(CURRENT_USER_ID)
+
+                                debug_text("DEBUG past_reference_detected", past_reference_detected)
+                                debug_text("DEBUG past_log_created_after", past_log_created_after)
+                                debug_json("DEBUG past_log_search_queries", search_queries)
 
                                 search_start_time = time.time()
 
-                                parallel_past_log_results = (
-                                    search_past_logs_parallel(
-                                        search_queries = search_queries,
-                                        excluded_message_ids = recent_context_message_ids,
-                                        max_workers=3
-                                    )
+                                parallel_past_log_results = search_past_logs_parallel(
+                                    search_queries=search_queries,
+                                    excluded_message_ids=recent_context_message_ids,
+                                    created_after=past_log_created_after,
+                                    max_workers=3
                                 )
                                 # debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
