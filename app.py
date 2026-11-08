@@ -19416,7 +19416,7 @@ with all_tabs[0]:
 
                                 past_logs_context = merge_parallel_past_log_results(
                                     parallel_results=parallel_past_log_results,
-                                    final_count=PAST_LOG_FINAL_COUNT
+                                    final_conversation_count=PAST_LOG_FINAL_COUNT
                                 )
 
                                 # past_logs_context = (
