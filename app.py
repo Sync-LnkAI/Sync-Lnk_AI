@@ -1231,6 +1231,7 @@ def get_messages(target_id: str, chat_room: str = "talk", plan_project_id=None) 
         )
         return []
 
+# 会話保存関数
 def save_message(
     role: str,
     content: str,
@@ -1243,22 +1244,19 @@ def save_message(
     requires_estimation: bool = False,
     general_calculation_result: dict | None = None
 ) -> bool:
-    
     embedding_data = None
-    
-    if (role == "user" and response_mode != "micro_chat"):
+
+    # 過去を尋ね直しているだけのユーザー発言は、過去会話検索の候補から除外
+    past_search_eligible = not (
+        role == "user"
+        and is_past_recall_question(content)
+    )
+
+    if role == "user" and response_mode != "micro_chat":
         try:
-            embedding_data = get_embedding(
-                content,
-                task_type="RETRIEVAL_DOCUMENT"
-            )
+            embedding_data = get_embedding(content, task_type="RETRIEVAL_DOCUMENT")
         except Exception as emb_err:
-            print(
-                f"⚠️ Embedding生成失敗: "
-                f"{type(emb_err).__name__}: {emb_err}"
-                f"{emb_err}"
-            )
-        
+            print(f"⚠️ Embedding生成失敗: {type(emb_err).__name__}: {emb_err}")
             embedding_data = None
 
     try:
@@ -1268,34 +1266,31 @@ def save_message(
             "content": content,
             "embedding": embedding_data,
             "message_id": message_id,
-            "response_mode": (response_mode if response_mode else None),
-            "processing_type": (processing_type if processing_type else None),
+            "response_mode": response_mode if response_mode else None,
+            "processing_type": processing_type if processing_type else None,
             "requires_estimation": bool(requires_estimation),
             "general_calculation_result": (
                 make_json_safe(general_calculation_result)
                 if isinstance(general_calculation_result, dict)
                 else None
             ),
-            "parent_message_id": (parent_message_id if parent_message_id else None),
+            "parent_message_id": parent_message_id if parent_message_id else None,
             "chat_room": chat_room,
-            "plan_project_id": plan_project_id
+            "plan_project_id": plan_project_id,
+            "past_search_eligible": past_search_eligible
         }
 
         supabase.table("messages").insert(data).execute()
         return True
 
     except Exception as db_err:
-        error_text = (
-            f"{type(db_err).__name__}: {db_err}"
-        )
-
-        # デバッグログ出力
         print(f"❌ [DB書き込み致命的瞬断エラー] {type(db_err).__name__}: {db_err}")
-        
-        # エラー画面表示
-        st.error("メッセージの送信に失敗しました。電波環境の良い場所でもう一度送信ボタンを押してください。")
-        
+        st.error(
+            "メッセージの送信に失敗しました。"
+            "電波環境の良い場所でもう一度送信ボタンを押してください。"
+        )
         return False
+# ==========================================
 
 # 会話回数カウント関数
 # def increment_conversation_count():
@@ -1713,6 +1708,34 @@ def has_past_conversation_reference(user_input: str) -> bool:
         r"前にも",
     )
     return any(re.search(pattern, text) for pattern in patterns)
+# ==================================================================
+
+def is_past_recall_question(content: str) -> bool:
+    """過去の事実ではなく、過去を尋ね直しているだけの質問かを判定する。"""
+    text = str(content or "").strip().lower()
+
+    if not text or not has_past_conversation_reference(text):
+        return False
+
+    question_patterns = (
+        r"何の.*だった",
+        r"何だった",
+        r"なんだった",
+        r"覚えてる",
+        r"覚えている",
+        r"記憶にある",
+        r"話したっけ",
+        r"言ったっけ",
+        r"何て言った",
+        r"なんて言った",
+        r"教えて",
+        r"[？?]$",
+    )
+
+    return any(
+        re.search(pattern, text)
+        for pattern in question_patterns
+    )
 # ==================================================================
 
 def get_past_log_created_after(user_id: str):
