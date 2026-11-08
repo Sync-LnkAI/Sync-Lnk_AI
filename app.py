@@ -1683,59 +1683,46 @@ def build_past_log_comparison_text(
     return user_content
 
 def has_past_conversation_reference(user_input: str) -> bool:
-    """過去の会話内容を尋ねている明示表現をコード側で判定する。"""
-    text = str(user_input or "").strip().lower()
+    """以前の会話内容や過去の出来事を参照しようとしている発言かを判定する。"""
+    text = re.sub(r"\s+", " ", str(user_input or "")).strip().lower()
+
     if not text:
         return False
 
     patterns = (
-        r"前に.*話",
-        r"以前に.*話",
-        r"前.*言った",
-        r"以前.*言った",
-        r"この前.*話",
-        r"昔.*話",
-        r"前の会話",
-        r"過去の会話",
-        r"覚えてる",
-        r"覚えている",
-        r"記憶にある",
-        r"話したっけ",
-        r"言ったっけ",
-        r"何だったっけ",
-        r"なんだったっけ",
-        r"前回.*話",
-        r"前にも",
+        r"(前に|以前に|この前|前回|昔|前の会話|過去の会話).*(話|言|聞|相談|覚え|記憶)",
+        r"(覚えてる|覚えている|覚えてます|記憶にある|思い出せる)",
+        r"(話した|言った|聞いた|相談した).*(っけ|？|\?)$",
+        r"^(何|なん|どれ|どこ|いつ|誰).*(だった|だっけ|話した|言った|聞いた).*(？|\?)?$",
+        r"^(前に|以前に|この前|前回).*(何|なん|どれ|どう).*(？|\?)?$",
+        r"^(この話|その話|あの話|前の話|以前の話|前回の話).*(覚え|教えて|出して)",
     )
+
     return any(re.search(pattern, text) for pattern in patterns)
 # ==================================================================
 
 def is_past_recall_question(content: str) -> bool:
-    """過去の事実ではなく、過去を尋ね直しているだけの質問かを判定する。"""
-    text = str(content or "").strip().lower()
+    """新しい事実を含まない、明確で短い過去会話の再質問だけを判定する。"""
+    text = re.sub(r"\s+", " ", str(content or "")).strip().lower()
 
-    if not text or not has_past_conversation_reference(text):
+    if not text:
         return False
 
-    question_patterns = (
-        r"何の.*だった",
-        r"何だった",
-        r"なんだった",
-        r"覚えてる",
-        r"覚えている",
-        r"記憶にある",
-        r"話したっけ",
-        r"言ったっけ",
-        r"何て言った",
-        r"なんて言った",
-        r"教えて",
-        r"[？?]$",
+    # 長い発言は新しい事情や事実を含む可能性があるため、検索対象として残す
+    if len(text) > 60:
+        return False
+
+    recall_patterns = (
+        r"^(何|なん)の.+だった(?:っけ)?[？?]?$",
+        r"^(何|なん)を.+(?:話した|言った|聞いた)(?:っけ)?[？?]?$",
+        r"^(何|なん)て(?:話した|言った|聞いた)(?:っけ)?[？?]?$",
+        r"^(前に|以前に|この前|前回).*(何|なん|どれ|どこ|いつ|誰|どう).*[？?]?$",
+        r"^(前に|以前に|この前|前回).*(話した|言った|聞いた)(?:っけ)?[？?]?$",
+        r"^(この話|その話|あの話|前の話|以前の話|前回の話).*(覚えてる|覚えている|教えて|出して)[？?]?$",
+        r"^(覚えてる|覚えている|覚えてます|記憶にある|思い出せる)[？?]?$",
     )
 
-    return any(
-        re.search(pattern, text)
-        for pattern in question_patterns
-    )
+    return any(re.search(pattern, text) for pattern in recall_patterns)
 # ==================================================================
 
 def get_past_log_created_after(user_id: str):
