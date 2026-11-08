@@ -1720,6 +1720,9 @@ def is_past_recall_question(content: str) -> bool:
         r"^(前に|以前に|この前|前回).*(話した|言った|聞いた)(?:っけ)?[？?]?$",
         r"^(この話|その話|あの話|前の話|以前の話|前回の話).*(覚えてる|覚えている|教えて|出して)[？?]?$",
         r"^(覚えてる|覚えている|覚えてます|記憶にある|思い出せる)[？?]?$",
+        r"^.*(話|内容|こと).*(覚えてる|覚えている|覚えてます)[？?]?$",
+        r"^.*(話した|言った|聞いた).*(っけ|？|\?)$",
+        r"^.*(何の|何を|何て|なんて).*(だった|話した|言った|聞いた).*[？?]?$",
     )
 
     return any(re.search(pattern, text) for pattern in recall_patterns)
@@ -19380,14 +19383,48 @@ with all_tabs[0]:
                                     created_after=past_log_created_after,
                                     max_workers=3
                                 )
+
                                 debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
-                                past_logs_context = (
-                                    merge_parallel_past_log_results(
-                                        parallel_results=(parallel_past_log_results),
-                                        final_conversation_count=3
-                                    )
+                                if past_reference_detected:
+                                    filtered_parallel_results = []
+
+                                    for query_group in parallel_past_log_results:
+                                        filtered_results = []
+
+                                        for item in query_group.get("results", []):
+                                            role = str(item.get("role", "") or "").strip()
+                                            content = str(item.get("content", "") or "").strip()
+
+                                            # ユーザーの再確認質問は、過去の答えを探す根拠として使用しない
+                                            if role == "user" and is_past_recall_question(content):
+                                                continue
+
+                                            filtered_results.append(item)
+
+                                        filtered_parallel_results.append({
+                                            "query": query_group.get("query", ""),
+                                            "results": filtered_results
+                                        })
+
+                                    parallel_past_log_results = filtered_parallel_results
+
+                                debug_json(
+                                    "DEBUG filtered_parallel_past_log_results",
+                                    parallel_past_log_results
                                 )
+
+                                past_logs_context = merge_parallel_past_log_results(
+                                    parallel_results=parallel_past_log_results,
+                                    final_count=PAST_LOG_FINAL_COUNT
+                                )
+
+                                # past_logs_context = (
+                                #     merge_parallel_past_log_results(
+                                #         parallel_results=(parallel_past_log_results),
+                                #         final_conversation_count=3
+                                #     )
+                                # )
                                 debug_json("DEBUG past_logs_context", past_logs_context)
 
                                 search_elapsed = (time.time() - search_start_time)                          
