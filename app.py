@@ -2263,28 +2263,60 @@ SUMMARY_MEMORY_CONFIG = {
     }
 }
 
+def save_summary_analysis_log(*, user_id: str, status: str, previous_summary=None, generated_summary=None, saved_summary=None, previous_message_count=None, new_message_count=None, total_message_count=None, trigger_message_id=None, model_name=None, input_tokens=None, output_tokens=None, processing_time=None, error_message=None) -> None:
+    """長期記憶要約の解析ログを保存する。ログ保存失敗では要約本体を停止しない。"""
+    target_user_id = str(user_id or "").strip()
+
+    if target_user_id not in {"ryuudesu_master_1310", "ryuudesu_user"}:
+        return
+
+    try:
+        supabase.rpc("insert_user_memory_summary_log", {
+            "p_user_id": target_user_id,
+            "p_status": str(status or "").strip(),
+            "p_previous_summary": previous_summary,
+            "p_generated_summary": generated_summary,
+            "p_saved_summary": saved_summary,
+            "p_previous_message_count": previous_message_count,
+            "p_new_message_count": new_message_count,
+            "p_total_message_count": total_message_count,
+            "p_trigger_message_id": str(trigger_message_id or "").strip() or None,
+            "p_model_name": str(model_name or "").strip() or None,
+            "p_input_tokens": input_tokens,
+            "p_output_tokens": output_tokens,
+            "p_processing_time": processing_time,
+            "p_error_message": error_message,
+        }).execute()
+    except Exception as log_err:
+        print(f"⚠️ 要約解析ログ保存エラー: {type(log_err).__name__}: {log_err}")
+
+
 def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 無料プラン") -> bool:
     """
     🧠 【記憶の要約】
     現在の要約と新しい通常会話を統合し、会員プランごとの文字数上限内で長期記憶を更新する。
-    バックグラウンドの別スレッドで全自動で処理。
+    要約処理の成功・失敗と、更新前・AI生成・実保存の要約を解析ログへ保存する。
     """
-    try:
-        # アカウント識別用に現在の動的ユーザーID（CURRENT_USER_ID）を完全にマージ
-        target_user_id = CURRENT_USER_ID
-        subscription = get_user_subscription(target_user_id)
-        summary_plan_code = str(
-            subscription.get("plan_code", "free") or "free"
-        ).strip()
-        summary_plan_label = str(
-            subscription.get("plan_label", "🆓 無料プラン") or "🆓 無料プラン"
-        ).strip()
+    target_user_id = str(CURRENT_USER_ID or "").strip()
+    previous_summary = None
+    generated_summary = None
+    embed_fact = None
+    last_summarized_message_count = None
+    messages_added_since_last_summary = None
+    total_message_count = None
+    summary_processing_seconds = None
+    in_t = None
+    out_t = None
+    start_summary_time = None
 
+    try:
+        subscription = get_user_subscription(target_user_id)
+        summary_plan_code = str(subscription.get("plan_code", "free") or "free").strip()
+        summary_plan_label = str(subscription.get("plan_label", "🆓 無料プラン") or "🆓 無料プラン").strip()
         plan_summary_prompt_block = ""
-        
+
         if summary_plan_code == "standard":
             plan_summary_context = get_plan_overall_summary(target_user_id)
-
             if plan_summary_context:
                 plan_summary_prompt_block = f"""
                 【現在の計画情報】
@@ -2296,135 +2328,50 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
                 ・通常会話から得た重要な記憶を、計画情報だけで置き換えないでください。
                 ・計画情報を含めた要約全体を、指定された文字数上限以内に収めてください。
                 """.strip()
-        
-        summary_config = (
-            SUMMARY_MEMORY_CONFIG.get(
-                summary_plan_label,
-                SUMMARY_MEMORY_CONFIG["🆓 無料プラン"]
-            )
-        )
-        summary_plan_features = get_plan_features(summary_plan_code)
-        summary_max_chars = int(
-            summary_plan_features.get(
-                "summary_max_chars",
-                PLAN_FEATURES["free"]["summary_max_chars"]
-            )
-        )
-        summary_detail_rule = summary_config["detail_rule"]
 
-        # 要約処理時間の計測開始
+        summary_config = SUMMARY_MEMORY_CONFIG.get(summary_plan_label, SUMMARY_MEMORY_CONFIG["🆓 無料プラン"])
+        summary_plan_features = get_plan_features(summary_plan_code)
+        summary_max_chars = int(summary_plan_features.get("summary_max_chars", PLAN_FEATURES["free"]["summary_max_chars"]))
+        summary_detail_rule = summary_config["detail_rule"]
         start_summary_time = datetime.now(JST)
 
-        # messagesの総件数を取得
         try:
-            count_res = (
-                supabase
-                .table("messages")
-                .select("id", count="exact")
-                .eq("user_id", target_user_id)
-                .eq("chat_room", "talk")
-                .limit(1)
-                .execute()
-            )
-
+            count_res = supabase.table("messages").select("id", count="exact").eq("user_id", target_user_id).eq("chat_room", "talk").limit(1).execute()
             total_message_count = int(count_res.count or 0)
-            # save_debug_log(
-            #     event_type="SUMMARY_START",
-            #     details=f"messages={total_message_count}"
-            # )
-            save_debug_log(
-                event_type="SUMMARY_START",
-                details=f"messages={total_message_count}"
-            )
-
+            save_debug_log(event_type="SUMMARY_START", details=f"messages={total_message_count}")
         except Exception as db_err:
-            print(
-                f"⚠️ 要約用件数取得エラー: "
-                f"{type(db_err).__name__}: {db_err}"
-            )
-
+            save_summary_analysis_log(user_id=target_user_id, status="failed", total_message_count=total_message_count, trigger_message_id=message_id, model_name=SUMMARY_MODEL_NAME, error_message=f"要約用件数取得エラー: {type(db_err).__name__}: {db_err}")
+            print(f"⚠️ 要約用件数取得エラー: {type(db_err).__name__}: {db_err}")
             return False
 
-        # 最新10件以内なら押し出された履歴がない
         if total_message_count <= MAX_CONTEXT_MESSAGES:
             return True
 
-        # 現在保存されている要約と、前回要約時の件数を取得
-        mem_check = (
-            supabase
-            .table(DB_MEMORIES_TABLE)
-            .select("id, fact, last_summarized_message_count")
-            .eq("user_id",target_user_id)
-            .eq("source","summary")
-            .order("id",desc=True)
-            .limit(1)
-            .execute()
-        )
+        mem_check = supabase.table(DB_MEMORIES_TABLE).select("id, fact, last_summarized_message_count").eq("user_id", target_user_id).eq("source", "summary").order("id", desc=True).limit(1).execute()
 
         if mem_check.data:
             summary_row = mem_check.data[0]
-
-            last_summarized_message_count = int(
-                summary_row.get("last_summarized_message_count") or 0
-            )
-
-            previous_summary = str(
-                summary_row.get("fact", "") or ""
-            ).strip()
-
+            last_summarized_message_count = int(summary_row.get("last_summarized_message_count") or 0)
+            previous_summary = str(summary_row.get("fact", "") or "").strip()
         else:
             summary_row = None
             last_summarized_message_count = 0
             previous_summary = "既存の要約なし"
 
-        messages_added_since_last_summary = max(
-            0,
-            total_message_count
-            - last_summarized_message_count
-        )
+        messages_added_since_last_summary = max(0, total_message_count - last_summarized_message_count)
+        save_debug_log(event_type="SUMMARY_DEBUG", details=f"total={total_message_count} | last={last_summarized_message_count} | added={messages_added_since_last_summary}")
 
-        save_debug_log(
-            event_type="SUMMARY_DEBUG",
-            details=(
-                f"total={total_message_count}"
-                f" | last={last_summarized_message_count}"
-                f" | added={messages_added_since_last_summary}"
-            )
-        )
-
-        # 最新100件より前のmicro_chatを意味検索対象から除外
         cleared_embedding_count = cleanup_old_micro_chats()
-        
         if cleared_embedding_count > 0:
-            print(
-                f"古いmicro_chatのベクトル解放: "
-                f"{cleared_embedding_count}行"
-            )
+            print(f"古いmicro_chatのベクトル解放: {cleared_embedding_count}行")
 
-        # 期限切れ計算メモの削除
-        expired_case_count = (cleanup_expired_calculation_cases())
+        cleanup_expired_calculation_cases()
 
-
-        # 初回以外は、前回要約から10件増えるまで何もしない
-        if (
-            last_summarized_message_count > 0
-            and messages_added_since_last_summary < SUMMARY_INTERVAL_MESSAGES
-        ):
+        if last_summarized_message_count > 0 and messages_added_since_last_summary < SUMMARY_INTERVAL_MESSAGES:
             return True
 
-        # 最新10件より前だけが要約対象
-        summarizable_end_index = max(
-            0,
-            total_message_count - MAX_CONTEXT_MESSAGES
-        )
-
-        # 前回の時点で、どこまで要約対象になっていたか
-        previous_summarizable_end_index = max(
-            0,
-            last_summarized_message_count - MAX_CONTEXT_MESSAGES
-        )
-
-        # 今回新しく要約対象になった範囲
+        summarizable_end_index = max(0, total_message_count - MAX_CONTEXT_MESSAGES)
+        previous_summarizable_end_index = max(0, last_summarized_message_count - MAX_CONTEXT_MESSAGES)
         range_start = previous_summarizable_end_index
         range_end = summarizable_end_index - 1
 
@@ -2432,48 +2379,33 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
             return True
 
         try:
-            summary_messages_res = (
-                supabase
-                .table("messages")
-                .select("role, content, created_at")
-                .eq("user_id", target_user_id)
-                .eq("chat_room", "talk")
-                .order("created_at", desc=False)
-                .range(range_start, range_end)
-                .execute()
-            )
-
-            new_messages_for_summary = (
-                summary_messages_res.data or []
-            )
-
+            summary_messages_res = supabase.table("messages").select("role, content, created_at").eq("user_id", target_user_id).eq("chat_room", "talk").order("created_at", desc=False).range(range_start, range_end).execute()
+            new_messages_for_summary = summary_messages_res.data or []
         except Exception as db_err:
-            print(
-                f"⚠️ 要約対象メッセージ取得エラー: "
-                f"{type(db_err).__name__}: {db_err}"
-            )
+            if start_summary_time is not None:
+                summary_processing_seconds = (datetime.now(JST) - start_summary_time).total_seconds()
 
+            save_summary_analysis_log(
+                user_id=target_user_id, status="failed", previous_summary=previous_summary,
+                previous_message_count=last_summarized_message_count,
+                new_message_count=messages_added_since_last_summary,
+                total_message_count=total_message_count, trigger_message_id=message_id,
+                model_name=SUMMARY_MODEL_NAME, processing_time=summary_processing_seconds,
+                error_message=f"要約対象メッセージ取得エラー: {type(db_err).__name__}: {db_err}"
+            )
+            print(f"⚠️ 要約対象メッセージ取得エラー: {type(db_err).__name__}: {db_err}")
             return False
 
         if not new_messages_for_summary:
             return True
 
         conversation_lines = []
-
         for m in new_messages_for_summary:
-            role_label = (
-                "ユーザー"
-                if m.get("role") == "user"
-                else "コンシェルジュ"
-            )
-
-            conversation_lines.append(
-                f"・{role_label}: {m.get('content', '')}"
-            )
+            role_label = "ユーザー" if m.get("role") == "user" else "コンシェルジュ"
+            conversation_lines.append(f"・{role_label}: {m.get('content', '')}")
 
         conversation_text = "\n".join(conversation_lines)
 
-        # 🧠 Google Gemini に対する、バックグラウンド処理専用の要約指示書（システムプロンプト）の構築
         summary_instruction = f"""
         あなたは優秀な記憶整理システムです。
         今回新たに要約対象となった会話ログから、数週間から数か月後の会話でも役立つ長期的な情報だけを抽出してください。
@@ -2520,6 +2452,9 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ・新しい情報が加わっても、変更または削除が明示されていない既存情報は維持してください。
         ・話題に出なかったことを理由に、「なし」、__REPLACE__、__DELETE__を出力してはいけません。
         ・既存情報の変更や削除は、ユーザーが明示した場合だけ出力してください。
+        ・__REPLACE__を出力する前に、既存カテゴリ内の各事実を1件ずつ確認してください。
+        ・新しい会話で否定・変更・削除されていない既存事実は、__REPLACE__後の全文にも必ず残してください。
+        ・今回言及されていない既存事実を、短縮や要約を理由に省略してはいけません。
 
         【差分出力ルール】
         ・既存内容を残して新しい情報を追加する場合は、__APPEND__を使用してください。
@@ -2547,19 +2482,14 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         【出力形式】
         ・趣味:
         __APPEND__ または __REPLACE__ に続けて内容
-
         ・継続的な嗜好:
         __APPEND__ または __REPLACE__ に続けて内容
-
         ・仕事:
         __APPEND__ または __REPLACE__ に続けて内容
-
         ・継続中のプロジェクト:
         __APPEND__ または __REPLACE__ に続けて内容
-
         ・家族構成:
         __APPEND__ または __REPLACE__ に続けて内容
-
         ・生活習慣:
         __APPEND__ または __REPLACE__ に続けて内容
 
@@ -2575,158 +2505,120 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ・今回のユーザー発言から判断できる差分だけを、指定された形式で出力してください。
         """
 
-        # contents_for_summary = [
-        #     {
-        #         "role": "user",
-        #         "parts": [
-        #             f"[指示書]\n"
-        #             f"{summary_instruction}\n\n"
-        #             f"[現在保存されている要約]\n"
-        #             f"{previous_summary}\n\n"
-        #             f"[今回新しく要約へ統合する会話]\n"
-        #             f"{conversation_text}"
-        #         ]
-        #     }
-        # ]
         contents_for_summary = (
-            f"[指示書]\n"
-            f"{summary_instruction}\n\n"
-            f"[現在保存されている要約]\n"
-            f"{previous_summary}\n\n"
-            f"[今回新しく要約へ統合する会話]\n"
-            f"{conversation_text}"
+            f"[指示書]\n{summary_instruction}\n\n"
+            f"[現在保存されている要約]\n{previous_summary}\n\n"
+            f"[今回新しく要約へ統合する会話]\n{conversation_text}"
         )
-        
-        # 🧠 要約専用モデル（SUMMARY_MODEL_NAME）へ通信を送信
-        # response = genai.GenerativeModel(model_name=SUMMARY_MODEL_NAME).generate_content(contents_for_summary)
 
-        # モデル特有のデータ構造から、安全にテキストを抽出する防衛ライン
-        # if hasattr(response, "candidates") and response.candidates:
-        #     new_summary = response.candidates[0].content.parts[0].text
-        # else:
-        #     new_summary = response.text
         summary_result = generate_ai_response(
-            provider=SUMMARY_PROVIDER,
-            system_instruction="",
-            user_prompt=contents_for_summary,
-            model_name=SUMMARY_MODEL_NAME
+            provider=SUMMARY_PROVIDER, system_instruction="",
+            user_prompt=contents_for_summary, model_name=SUMMARY_MODEL_NAME
         )
 
         generated_summary = str(summary_result.get("text", "") or "").strip()
+        in_t = int(summary_result.get("in_tokens", 0) or 0)
+        out_t = int(summary_result.get("out_tokens", 0) or 0)
 
         if not generated_summary:
+            summary_processing_seconds = (datetime.now(JST) - start_summary_time).total_seconds()
+            save_summary_analysis_log(
+                user_id=target_user_id, status="failed", previous_summary=previous_summary,
+                generated_summary=generated_summary, previous_message_count=last_summarized_message_count,
+                new_message_count=messages_added_since_last_summary, total_message_count=total_message_count,
+                trigger_message_id=message_id, model_name=SUMMARY_MODEL_NAME, input_tokens=in_t,
+                output_tokens=out_t, processing_time=summary_processing_seconds,
+                error_message="AIの要約出力が空でした"
+            )
             return False
 
         previous_summary_dict = parse_summary_memory_to_dict(previous_summary)
         summary_updates = parse_summary_memory_to_dict(generated_summary)
-        merged_summary_dict = merge_summary_memory_dicts(
-            previous_summary_dict,
-            summary_updates
-        )
-        fitted_summary_dict = fit_summary_memory_to_limit(
-            merged_summary_dict,
-            summary_max_chars
-        )
+        merged_summary_dict = merge_summary_memory_dicts(previous_summary_dict, summary_updates)
+        fitted_summary_dict = fit_summary_memory_to_limit(merged_summary_dict, summary_max_chars)
         new_summary = build_summary_memory_text(fitted_summary_dict)
 
         if not new_summary:
+            summary_processing_seconds = (datetime.now(JST) - start_summary_time).total_seconds()
+            save_summary_analysis_log(
+                user_id=target_user_id, status="failed", previous_summary=previous_summary,
+                generated_summary=generated_summary, previous_message_count=last_summarized_message_count,
+                new_message_count=messages_added_since_last_summary, total_message_count=total_message_count,
+                trigger_message_id=message_id, model_name=SUMMARY_MODEL_NAME, input_tokens=in_t,
+                output_tokens=out_t, processing_time=summary_processing_seconds,
+                error_message="要約の統合結果が空でした"
+            )
             return False
 
         embed_fact = f"【記憶の要約サマリー】\n{new_summary}"
         new_vector = get_embedding(embed_fact, task_type="RETRIEVAL_DOCUMENT")
 
         if summary_row is not None:
-            # 既存の要約レコードが存在する場合は、最新のテキストと本物のベクトル数値でアップデート！
             update_data = {
                 "fact": embed_fact,
                 "updated_at": datetime.now(JST).isoformat(),
-                "last_summarized_message_count":total_message_count
+                "last_summarized_message_count": total_message_count
             }
             if new_vector is not None:
                 update_data["embedding"] = new_vector
-            (
-                    supabase
-                    .table(DB_MEMORIES_TABLE)
-                    .update(update_data)
-                    .eq("id", summary_row["id"])
-                    .execute()
-            )
-            
+
+            supabase.table(DB_MEMORIES_TABLE).update(update_data).eq("id", summary_row["id"]).execute()
         else:
-            # 記憶の器がまだ作成されていない最初の1回目は、新しくインサート
             insert_data = {
                 "user_id": target_user_id,
                 "category": "基本情報",
                 "source": "summary",
                 "fact": embed_fact,
                 "updated_at": datetime.now(JST).isoformat(),
-                "last_summarized_message_count":total_message_count
+                "last_summarized_message_count": total_message_count
             }
             if new_vector is not None:
                 insert_data["embedding"] = new_vector
 
-            (
-                    supabase
-                    .table(DB_MEMORIES_TABLE)
-                    .insert(insert_data)
-                    .execute()
-            )
+            supabase.table(DB_MEMORIES_TABLE).insert(insert_data).execute()
 
-        # ⏱️ 【時間計測の終了】 要約にかかった本物の処理秒数を確定させます
-        end_summary_time = datetime.now(JST)
-        summary_processing_seconds = (end_summary_time - start_summary_time).total_seconds()
+        summary_processing_seconds = (datetime.now(JST) - start_summary_time).total_seconds()
 
-        # 計測されたトークン数と処理秒数を、その場で直接「SUMMARY_SUCCESS」としてインサート
-        # if hasattr(response, "usage_metadata") and response.usage_metadata:
-        #     in_t = response.usage_metadata.prompt_token_count
-        #     out_t = response.usage_metadata.candidates_token_count
-        in_t = int(summary_result.get("in_tokens", 0) or 0)
-        out_t = int(summary_result.get("out_tokens", 0) or 0)
-            
-        # 1. データベースの累計トークン金庫へ加算
-        add_permanent_tokens(target_user_id, "summary", in_t, out_t)
-        
-        # 2026年最新のGemini Flash-Lite原価レートで要約単体のコストを算出
-        # sum_in_cost = in_t * PRICE_BACKGROUND_IN
-        # sum_out_cost = out_t * PRICE_BACKGROUND_OUT
-        # sum_yen = sum_in_cost + sum_out_cost
-        sum_yen = calculate_ai_cost(
-            provider=SUMMARY_PROVIDER,
-            in_tokens=in_t,
-            out_tokens=out_t
+        save_summary_analysis_log(
+            user_id=target_user_id, status="success", previous_summary=previous_summary,
+            generated_summary=generated_summary, saved_summary=embed_fact,
+            previous_message_count=last_summarized_message_count,
+            new_message_count=messages_added_since_last_summary, total_message_count=total_message_count,
+            trigger_message_id=message_id, model_name=SUMMARY_MODEL_NAME,
+            input_tokens=in_t, output_tokens=out_t, processing_time=summary_processing_seconds
         )
 
-        # 3. 既存の保存関数（レシーバー）を裏口からダイレクトに呼び出し、単独ログとして独立インサート！
+        add_permanent_tokens(target_user_id, "summary", in_t, out_t)
+        sum_yen = calculate_ai_cost(provider=SUMMARY_PROVIDER, in_tokens=in_t, out_tokens=out_t)
+
         save_system_audit_log(
-            user_id=target_user_id,
-            plan_type=current_plan_type,
-            event_type="SUMMARY_SUCCESS", # 独立したイベントとして識別させます
-            processing_time=float(summary_processing_seconds),
-            in_t=int(in_t),
-            out_t=int(out_t),
+            user_id=target_user_id, plan_type=current_plan_type, event_type="SUMMARY_SUCCESS",
+            processing_time=float(summary_processing_seconds), in_t=int(in_t), out_t=int(out_t),
             api_cost=float(sum_yen),
-            # details=f"記憶の要約完了（独立ログ仕様）",
-            details=(
-                f"provider={SUMMARY_PROVIDER}"
-                f" | model={SUMMARY_MODEL_NAME}"
-                f" | 記憶要約完了"
-            ),
+            details=f"provider={SUMMARY_PROVIDER} | model={SUMMARY_MODEL_NAME} | 記憶要約完了",
             message_id=str(message_id)
         )
 
-        # 4. メインスレッドの監査ログ（タブ3）への保険用マージ変数代入
-        #st.session_state.summary_in_tokens = int(in_t)
-        #st.session_state.summary_out_tokens = int(out_t)
-        #st.session_state.summary_processing_time = float(summary_processing_seconds)
-
-        save_debug_log(
-            event_type="SUMMARY_END",
-            details=f"messages={total_message_count}"
-        )
+        save_debug_log(event_type="SUMMARY_END", details=f"messages={total_message_count}")
         return True
 
     except Exception as bg_err:
-        # メインスレッド側の稼働を阻害しないよう、エラーはログにエスケープして安全弁を閉じます
+        if summary_processing_seconds is None and start_summary_time is not None:
+            try:
+                summary_processing_seconds = (datetime.now(JST) - start_summary_time).total_seconds()
+            except Exception:
+                summary_processing_seconds = None
+
+        save_summary_analysis_log(
+            user_id=target_user_id, status="failed", previous_summary=previous_summary,
+            generated_summary=generated_summary, saved_summary=embed_fact,
+            previous_message_count=last_summarized_message_count,
+            new_message_count=messages_added_since_last_summary, total_message_count=total_message_count,
+            trigger_message_id=message_id, model_name=SUMMARY_MODEL_NAME,
+            input_tokens=in_t, output_tokens=out_t, processing_time=summary_processing_seconds,
+            error_message=f"{type(bg_err).__name__}: {bg_err}"
+        )
+
         print(f"⚠️ バックグラウンド自動要約処理エラー: {type(bg_err).__name__}: {bg_err}")
         return False
 #===================================================
