@@ -19390,25 +19390,42 @@ with all_tabs[0]:
                                     filtered_parallel_results = []
 
                                     for query_group in parallel_past_log_results:
+                                        raw_results = query_group.get("results", []) or []
+
+                                        excluded_conversation_ids = {
+                                            str(item.get("message_id", "") or "").strip()
+                                            for item in raw_results
+                                            if (
+                                                str(item.get("role", "") or "").strip() == "user"
+                                                and is_past_recall_question(str(item.get("content", "") or ""))
+                                                and str(item.get("message_id", "") or "").strip()
+                                            )
+                                        }
+
                                         filtered_results = []
 
-                                        for item in query_group.get("results", []):
+                                        for item in raw_results:
                                             role = str(item.get("role", "") or "").strip()
                                             content = str(item.get("content", "") or "").strip()
+                                            item_message_id = str(item.get("message_id", "") or "").strip()
 
-                                            # ユーザーの再確認質問は、過去の答えを探す根拠として使用しない
-                                            if role == "user" and is_past_recall_question(content):
+                                            # 再確認質問と、その質問へのAI回答を会話単位で除外
+                                            if item_message_id and item_message_id in excluded_conversation_ids:
+                                                continue
+
+                                            # message_idがない旧データの再確認質問を除外
+                                            if role == "user" and not item_message_id and is_past_recall_question(content):
                                                 continue
 
                                             filtered_results.append(item)
 
                                         filtered_parallel_results.append({
                                             "query": query_group.get("query", ""),
-                                            "results": filtered_results
+                                            "results": filtered_results,
                                         })
 
                                     parallel_past_log_results = filtered_parallel_results
-
+                                                                
                                 debug_json(
                                     "DEBUG filtered_parallel_past_log_results",
                                     parallel_past_log_results
