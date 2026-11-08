@@ -17959,7 +17959,7 @@ with all_tabs[0]:
                         # with st.chat_message("user", avatar=current_user_avatar):
                         # with st.chat_message("user"):
                         # st.write(f"【{display_user_name}】: {clean_bold_markdown(user_input)}")
-                        st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
+                        # st.markdown(f"{display_user_name}: {clean_bold_markdown(user_input)}")
 
                         # メッセージIDの自動生成
                         import uuid
