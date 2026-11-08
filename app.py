@@ -19380,7 +19380,7 @@ with all_tabs[0]:
                                     created_after=past_log_created_after,
                                     max_workers=3
                                 )
-                                # debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
+                                debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
                                 past_logs_context = (
                                     merge_parallel_past_log_results(
