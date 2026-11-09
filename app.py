@@ -14841,20 +14841,27 @@ def reconcile_expired_entitlements(user_id: str) -> list[dict] | None:
                     )
                     personality_was_reset = True
 
-                    supabase.table("system_audit_logs").insert({
-                        "user_id": str(user_id),
-                        "event_type": "ENTITLEMENT_EXPIRED_RESET",
-                        "details": (
+                    subscription = get_user_subscription(str(user_id))
+                    audit_plan_label = str(
+                        subscription.get("plan_label", PLAN_LABELS["free"])
+                        or PLAN_LABELS["free"]
+                    ).strip()
+
+                    save_system_audit_log(
+                        user_id=str(user_id),
+                        plan_type=audit_plan_label,
+                        event_type="ENTITLEMENT_EXPIRED_RESET",
+                        processing_time=0.0,
+                        in_t=0,
+                        out_t=0,
+                        api_cost=0.0,
+                        details=(
                             "entitlement_code=premium_personality"
                             f" | 変更前={saved_personality}"
                             f" | 変更後={default_personality}"
                         ),
-                        "in_tokens": 0,
-                        "out_tokens": 0,
-                        "processing_time": 0,
-                        "api_cost": 0,
-                        "total_yen_cost": 0,
-                    }).execute()
+                        message_id=""
+                    )
 
             if personality_was_reset:
                 notices.append({
