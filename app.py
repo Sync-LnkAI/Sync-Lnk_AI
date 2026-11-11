@@ -3528,6 +3528,12 @@ def build_past_conversation_answer_instruction(
     ・関連する過去のユーザー発言全体を比較し、現在の質問へ直接答える内容を探してください。
     ・候補の順番だけで判断しないでください。
     ・ユーザー自身が述べた事実、体験、人物、場所、作品、予定などを根拠にしてください。
+    ・「ユーザー発言」を主な根拠として使用してください。
+    ・「当時のAI回答（補助情報）」は、対応するユーザー発言の内容を補足する場合だけ使用してください。
+    ・当時のAI回答だけを根拠に、ユーザーの体験、予定、嗜好、家族情報などを新しく作らないでください。
+    ・当時のAI回答が非回答、推測、またはユーザー発言と矛盾する内容の場合は使用しないでください。
+    ・過去発言から確認できる事実だけを回答し、当時の会話の雰囲気、感想、反応、楽しさなどを補って表現しないでください。
+    ・質問への答えを一部しか確認できない場合は、確認できた内容を先に答え、その後に確認できなかった内容を明示してください。
     ・直近の会話に含まれる過去のAI回答は、事実の根拠にしないでください。
     ・関連する過去のユーザー発言に根拠がある場合は、「覚えていない」「記録がない」「分からない」と回答しないでください。
     ・候補にない作品名、人物、日時、場所、出来事を推測しないでください。
@@ -3541,6 +3547,39 @@ def build_past_conversation_answer_instruction(
     ・候補番号、内部処理、検索、類似度について説明しないでください。
     ・太字装飾記号は使用しないでください。
     """.strip()
+#================================================
+
+# 過去会話採用候補を「ユーザー発言＋対応AI回答」へ整形する関数
+def format_past_conversation_question_context(candidates: list) -> str:
+    """採用済みの過去ユーザー発言と、対応するAI回答を会話単位で整形する。"""
+    conversation_blocks = []
+
+    for index, item in enumerate(candidates or [], start=1):
+        user_content = str(item.get("content", "") or "").strip()
+        assistant_content = str(item.get("assistant_content", "") or "").strip()
+        created_at = str(item.get("created_at", "") or "").strip()
+
+        if not user_content:
+            continue
+
+        block_lines = [
+            f"【過去会話候補 {index}】",
+            f"発言日時: {created_at or '日時不明'}",
+            f"ユーザー発言: {user_content}",
+        ]
+
+        if assistant_content:
+            block_lines.append(
+                f"当時のAI回答（補助情報）: {assistant_content}"
+            )
+
+        conversation_blocks.append("\n".join(block_lines))
+
+    return (
+        "\n\n".join(conversation_blocks)
+        if conversation_blocks
+        else "関連する過去会話は見つかりませんでした。"
+    )
 #================================================
 
 # 検索関数
@@ -19586,6 +19625,9 @@ with all_tabs[0]:
                                         parallel_results=parallel_past_log_results,
                                         max_items=10
                                     )
+                                    past_logs_context = attach_assistant_responses_to_candidates(
+                                        past_logs_context
+                                    )
                                 else:
                                     past_logs_context = merge_parallel_past_log_results(
                                         parallel_results=parallel_past_log_results,
@@ -19686,11 +19728,24 @@ with all_tabs[0]:
                         
                         if past_logs_context:
                             logs_text = []
+
                             for log in past_logs_context:
-                                role_name = display_user_name if log.get("role") == "user" else current_concierge_name
-                                raw_date = log.get("created_at", "")
-                                clean_date = raw_date.replace("T", " ")[:16] if raw_date else "日時不明"
-                                logs_text.append(f"・[{clean_date}] {role_name}: {log.get('content', '')}")
+                                role_name = (
+                                    display_user_name
+                                    if log.get("role") == "user"
+                                    else current_concierge_name
+                                )
+                                raw_date = str(log.get("created_at", "") or "")
+                                clean_date = (
+                                    raw_date.replace("T", " ")[:16]
+                                    if raw_date
+                                    else "日時不明"
+                                )
+                                logs_text.append(
+                                    f"・[{clean_date}] "
+                                    f"{role_name}: {log.get('content', '')}"
+                                )
+
                             past_logs_str = "\n".join(logs_text)
 
                             # st.code(past_logs_str, language="text")
@@ -19698,10 +19753,16 @@ with all_tabs[0]:
                         else:
                             past_logs_str = "該当する過去ログなし"
 
+                        # 過去会話についての質問では、
+                        # 採用したユーザー発言と対応AI回答を会話単位で再整形
+                        if past_conversation_question_detected:
+                            past_logs_str = format_past_conversation_question_context(
+                                past_logs_context
+                            )
+
                         # ==========================================
                         # 独立したPython計算ツール判定
                         # ==========================================
-
                         tool_router_elapsed = 0.0
                         tool_route_confidence = 0.0
                         tool_router_in_t = 0
