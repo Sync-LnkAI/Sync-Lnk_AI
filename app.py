@@ -1708,24 +1708,363 @@ def is_past_recall_question(content: str) -> bool:
     if not text:
         return False
 
-    # 長い発言は新しい事情や事実を含む可能性があるため、検索対象として残す
+    # 長い発言は新しい事情や事実を含む可能性があるため検索対象として残す
     if len(text) > 60:
         return False
 
-    recall_patterns = (
-        r"^(何|なん)の.+だった(?:っけ)?[？?]?$",
-        r"^(何|なん)を.+(?:話した|言った|聞いた)(?:っけ)?[？?]?$",
-        r"^(何|なん)て(?:話した|言った|聞いた)(?:っけ)?[？?]?$",
-        r"^(前に|以前に|この前|前回).*(何|なん|どれ|どこ|いつ|誰|どう).*[？?]?$",
-        r"^(前に|以前に|この前|前回).*(話した|言った|聞いた)(?:っけ)?[？?]?$",
-        r"^(この話|その話|あの話|前の話|以前の話|前回の話).*(覚えてる|覚えている|教えて|出して)[？?]?$",
-        r"^(覚えてる|覚えている|覚えてます|記憶にある|思い出せる)[？?]?$",
-        r"^.*(話|内容|こと).*(覚えてる|覚えている|覚えてます)[？?]?$",
-        r"^.*(話した|言った|聞いた).*(っけ|？|\?)$",
-        r"^.*(何の|何を|何て|なんて).*(だった|話した|言った|聞いた).*[？?]?$",
+    # 過去の会話・記憶を参照する表現
+    past_reference_pattern = (
+        r"(前に|以前に|この前|前回|前の|以前の|過去に|"
+        r"話した|話してた|話していた|話ってしてた|"
+        r"言った|言ってた|言っていた|"
+        r"聞いた|聞いてた|聞いていた|"
+        r"覚えてる|覚えている|覚えてます|記憶にある|思い出せる)"
     )
 
-    return any(re.search(pattern, text) for pattern in recall_patterns)
+    # 内容を尋ね直す表現
+    recall_question_pattern = (
+        r"(何|なん|何の|なんの|何を|なんて|どれ|どこ|いつ|誰|だれ|どう|"
+        r"どんな|どの|他に|ほかに|"
+        r"だったっけ|だっけ|したっけ|してたっけ|していたっけ|"
+        r"覚えてる|覚えている|覚えてます|記憶にある|思い出せる)"
+    )
+
+    # 会話内容を示す語
+    conversation_target_pattern = (
+        r"(話|内容|こと|会話|発言|質問|回答)"
+    )
+
+    has_past_reference = bool(
+        re.search(past_reference_pattern, text)
+    )
+    has_recall_question = bool(
+        re.search(recall_question_pattern, text)
+    )
+    has_conversation_target = bool(
+        re.search(conversation_target_pattern, text)
+    )
+
+    # 過去の会話を参照し、その内容を尋ね直している
+    if (
+        has_past_reference
+        and has_recall_question
+        and has_conversation_target
+    ):
+        return True
+
+    # 「何の話をしたっけ？」など、過去表現を別途含まない短い再質問
+    if re.search(
+        r"(何|なん|どんな|どの|他に|ほかに).*(話|内容|こと|会話).*(っけ|覚えてる|覚えている|[？?])$",
+        text
+    ):
+        return True
+
+    # 「ドラマの話もしてたっけ？」など、対象名から始まる再質問
+    if re.search(
+        r".*(話|内容|こと|会話).*(したっけ|してたっけ|していたっけ|覚えてる|覚えている|[？?])$",
+        text
+    ):
+        return True
+
+    return False
+# ==================================================================
+
+# 新しい事実を含まない再質問だけを除外する関数
+def filter_parallel_past_recall_questions_with_ai(
+    parallel_results: list,
+    audit_message_id: str = ""
+) -> tuple[list, dict]:
+    """並列検索結果を1回のAI判定で分類し、新しい事実を含まない再質問を会話単位で除外する。"""
+    start_time = time.time()
+    before_conversation_ids = set()
+    candidate_by_id = {}
+
+    for query_group in (parallel_results or []):
+        for item in (query_group.get("results", []) or []):
+            if not isinstance(item, dict):
+                continue
+
+            role = str(item.get("role", "") or "").strip()
+            content = str(item.get("content", "") or "").strip()
+
+            if role != "user" or not content:
+                continue
+
+            message_id = str(item.get("message_id", "") or "").strip()
+            candidate_id = message_id or f"legacy_{item.get('id', '')}"
+
+            before_conversation_ids.add(candidate_id)
+
+            if candidate_id not in candidate_by_id:
+                candidate_by_id[candidate_id] = {
+                    "id": candidate_id,
+                    "content": content
+                }
+
+    before_count = len(before_conversation_ids)
+
+    default_metrics = {
+        "processing_time": 0.0,
+        "in_tokens": 0,
+        "out_tokens": 0,
+        "api_cost": 0.0,
+        "before_count": before_count,
+        "after_count": before_count,
+        "excluded_count": 0,
+        "excluded_items": [],
+        "provider": BACKGROUND_PROVIDER,
+        "model_name": SEARCH_MODEL_NAME,
+        "status": "skipped"
+    }
+
+    if not candidate_by_id:
+        default_metrics["processing_time"] = time.time() - start_time
+        return parallel_results or [], default_metrics
+
+    classification_items = list(candidate_by_id.values())
+
+    prompt = f"""
+    あなたは、過去会話検索で取得されたユーザー発言を分類するシステムです。
+
+    【分類】
+    recall_question:
+    過去の会話内容や以前の回答を尋ね直しているだけで、ユーザー自身の新しい事実、経験、意見、条件、訂正、追加情報を含まない発言。
+
+    factual_statement:
+    ユーザー自身の経験、行動、好み、状況、意見、予定など、現在の回答の根拠として使用できる情報を含む発言。
+
+    mixed:
+    過去会話の再質問を含むが、同時に新しい事実、条件、訂正、追加情報も含む発言。
+
+    【判定ルール】
+    ・言葉の表面ではなく、発言全体の意味で判定してください。
+    ・方言、口語、誤字、音声入力、主語省略にも対応してください。
+    ・質問文でも、新しい事実や条件を含む場合はrecall_questionにしないでください。
+    ・判断に迷う場合はmixedにしてください。
+    ・入力に存在するidを変更しないでください。
+    ・すべての候補を1件ずつ出力してください。
+    ・JSON以外の説明やMarkdownは出力しないでください。
+
+    【候補】
+    {json.dumps(classification_items, ensure_ascii=False)}
+
+    【出力形式】
+    {{
+    "results": [
+        {{
+        "id": "入力と同じid",
+        "classification": "recall_question",
+        "contains_new_fact": false,
+        "confidence": 0.95
+        }}
+    ]
+    }}
+    """.strip()
+
+    try:
+        ai_result = generate_ai_response(
+            provider=BACKGROUND_PROVIDER,
+            system_instruction="",
+            user_prompt=prompt,
+            response_format_json=True,
+            model_name=SEARCH_MODEL_NAME
+        )
+
+        raw_text = str(ai_result.get("text", "") or "").strip()
+        clean_text = (
+            raw_text
+            .replace("```json", "")
+            .replace("```JSON", "")
+            .replace("```", "")
+            .strip()
+        )
+
+        parsed_data = json.loads(clean_text)
+
+        if not isinstance(parsed_data, dict):
+            raise ValueError("再質問判定結果がobject形式ではありません")
+
+        classification_results = parsed_data.get("results", [])
+
+        if not isinstance(classification_results, list):
+            raise ValueError("再質問判定結果のresultsが配列ではありません")
+
+        classification_by_id = {
+            str(result.get("id", "") or "").strip(): result
+            for result in classification_results
+            if isinstance(result, dict)
+            and str(result.get("id", "") or "").strip()
+        }
+
+        excluded_ids = set()
+        excluded_items = []
+
+        for candidate_id, candidate in candidate_by_id.items():
+            classification = classification_by_id.get(candidate_id, {})
+
+            classification_name = str(
+                classification.get("classification", "") or ""
+            ).strip().lower()
+
+            contains_new_fact = classification.get(
+                "contains_new_fact",
+                True
+            )
+
+            if not isinstance(contains_new_fact, bool):
+                contains_new_fact = True
+
+            try:
+                confidence = float(
+                    classification.get("confidence", 0.0) or 0.0
+                )
+            except (TypeError, ValueError):
+                confidence = 0.0
+
+            confidence = max(0.0, min(confidence, 1.0))
+
+            should_exclude = (
+                classification_name == "recall_question"
+                and contains_new_fact is False
+                and confidence >= 0.85
+            )
+
+            if should_exclude:
+                excluded_ids.add(candidate_id)
+                excluded_items.append({
+                    "id": candidate_id,
+                    "content": candidate.get("content", ""),
+                    "classification": classification_name,
+                    "contains_new_fact": contains_new_fact,
+                    "confidence": confidence
+                })
+
+        filtered_parallel_results = []
+
+        for query_group in (parallel_results or []):
+            filtered_results = []
+
+            for item in (query_group.get("results", []) or []):
+                if not isinstance(item, dict):
+                    continue
+
+                message_id = str(
+                    item.get("message_id", "") or ""
+                ).strip()
+
+                if message_id:
+                    conversation_id = message_id
+                else:
+                    conversation_id = f"legacy_{item.get('id', '')}"
+
+                if conversation_id in excluded_ids:
+                    continue
+
+                filtered_results.append(item)
+
+            filtered_parallel_results.append({
+                "query": query_group.get("query", ""),
+                "results": filtered_results
+            })
+
+        in_tokens = int(ai_result.get("in_tokens", 0) or 0)
+        out_tokens = int(ai_result.get("out_tokens", 0) or 0)
+        api_cost = calculate_ai_cost(
+            provider=BACKGROUND_PROVIDER,
+            in_tokens=in_tokens,
+            out_tokens=out_tokens
+        )
+        processing_time = time.time() - start_time
+        after_count = max(0, before_count - len(excluded_ids))
+
+        metrics = {
+            "processing_time": processing_time,
+            "in_tokens": in_tokens,
+            "out_tokens": out_tokens,
+            "api_cost": api_cost,
+            "before_count": before_count,
+            "after_count": after_count,
+            "excluded_count": len(excluded_ids),
+            "excluded_items": excluded_items,
+            "provider": str(
+                ai_result.get("provider", BACKGROUND_PROVIDER)
+                or BACKGROUND_PROVIDER
+            ),
+            "model_name": str(
+                ai_result.get("model_name", SEARCH_MODEL_NAME)
+                or SEARCH_MODEL_NAME
+            ),
+            "status": "success"
+        }
+
+        debug_json(
+            "DEBUG past_recall_classification_result",
+            {
+                "ai_result": ai_result,
+                "metrics": metrics
+            }
+        )
+
+        try:
+            supabase.table("system_audit_logs").insert({
+                "user_id": str(CURRENT_USER_ID),
+                "user_plan": current_plan_type,
+                "event_type": "past_recall_classification",
+                "processing_time": processing_time,
+                "in_tokens": in_tokens,
+                "out_tokens": out_tokens,
+                "api_cost": api_cost,
+                "details": (
+                    f"provider={metrics['provider']} | "
+                    f"model={metrics['model_name']} | "
+                    f"before={before_count} | "
+                    f"after={after_count} | "
+                    f"excluded={len(excluded_ids)}"
+                ),
+                "message_id": str(audit_message_id or "")
+            }).execute()
+        except Exception as audit_error:
+            print(
+                "過去会話再質問判定ログ保存エラー: "
+                f"{type(audit_error).__name__}: {audit_error}"
+            )
+
+        return filtered_parallel_results, metrics
+
+    except Exception as classification_error:
+        processing_time = time.time() - start_time
+        error_text = (
+            "過去会話再質問一括判定エラー: "
+            f"{type(classification_error).__name__}: "
+            f"{classification_error}"
+        )
+
+        print(error_text)
+        debug_text("DEBUG past_recall_classification_error", error_text)
+
+        default_metrics.update({
+            "processing_time": processing_time,
+            "status": "error",
+            "error": error_text
+        })
+
+        try:
+            supabase.table("system_audit_logs").insert({
+                "user_id": str(CURRENT_USER_ID),
+                "user_plan": current_plan_type,
+                "event_type": "past_recall_classification_error",
+                "processing_time": processing_time,
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "api_cost": 0.0,
+                "details": error_text,
+                "message_id": str(audit_message_id or "")
+            }).execute()
+        except Exception:
+            pass
+
+        # 判定失敗時は検索候補を消さない
+        return parallel_results or [], default_metrics
 # ==================================================================
 
 def get_past_log_created_after(user_id: str):
@@ -1820,25 +2159,13 @@ def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None, 
         # グループ化前にassistant回答を取得
         # ==========================================
         enriched_candidates = attach_assistant_responses_to_candidates(results)
-
-        # ==========================================
-        # 過去会話を尋ね直しただけの再質問を除外
-        # 件数絞り込みの前に実行する
-        # ==========================================
-        enriched_candidates = [
-            item
-            for item in enriched_candidates
-            if not is_past_recall_question(
-                str(item.get("content", "") or "")
-            )
-        ]
         
         # ==========================================
         # user + assistantの会話単位でグループ化
         # ==========================================
         user_results = select_grouped_past_logs(
             candidate_results=enriched_candidates,
-            final_count=PAST_LOG_FINAL_COUNT,
+            final_count=PAST_LOG_CANDIDATE_COUNT,
             duplicate_threshold=(
                 PAST_LOG_DUPLICATE_THRESHOLD
             )
@@ -19591,46 +19918,32 @@ with all_tabs[0]:
 
                                 debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
+                                past_recall_metrics = {
+                                    "processing_time": 0.0,
+                                    "in_tokens": 0,
+                                    "out_tokens": 0,
+                                    "api_cost": 0.0,
+                                    "before_count": 0,
+                                    "after_count": 0,
+                                    "excluded_count": 0,
+                                    "excluded_items": [],
+                                    "provider": BACKGROUND_PROVIDER,
+                                    "model_name": SEARCH_MODEL_NAME,
+                                    "status": "skipped"
+                                }
+
                                 if past_conversation_question_detected:
-                                    filtered_parallel_results = []
+                                    (
+                                        parallel_past_log_results,
+                                        past_recall_metrics
+                                    ) = filter_parallel_past_recall_questions_with_ai(
+                                        parallel_results=parallel_past_log_results
+                                    )
 
-                                    for query_group in parallel_past_log_results:
-                                        raw_results = query_group.get("results", []) or []
-
-                                        excluded_conversation_ids = {
-                                            str(item.get("message_id", "") or "").strip()
-                                            for item in raw_results
-                                            if (
-                                                str(item.get("role", "") or "").strip() == "user"
-                                                and is_past_recall_question(str(item.get("content", "") or ""))
-                                                and str(item.get("message_id", "") or "").strip()
-                                            )
-                                        }
-
-                                        filtered_results = []
-
-                                        for item in raw_results:
-                                            role = str(item.get("role", "") or "").strip()
-                                            content = str(item.get("content", "") or "").strip()
-                                            item_message_id = str(item.get("message_id", "") or "").strip()
-
-                                            # 再確認質問と、その質問へのAI回答を会話単位で除外
-                                            if item_message_id and item_message_id in excluded_conversation_ids:
-                                                continue
-
-                                            # message_idがない旧データの再確認質問を除外
-                                            if role == "user" and not item_message_id and is_past_recall_question(content):
-                                                continue
-
-                                            filtered_results.append(item)
-
-                                        filtered_parallel_results.append({
-                                            "query": query_group.get("query", ""),
-                                            "results": filtered_results,
-                                        })
-
-                                    parallel_past_log_results = filtered_parallel_results
-                                                                
+                                debug_json(
+                                    "DEBUG past_recall_metrics",
+                                    past_recall_metrics
+                                )
                                 debug_json(
                                     "DEBUG filtered_parallel_past_log_results",
                                     parallel_past_log_results
