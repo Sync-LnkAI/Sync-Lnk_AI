@@ -2477,6 +2477,17 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         ・テレワークや出社は、仕事ではなく生活習慣として扱ってください。
         ・趣味、継続的な嗜好、継続中のプロジェクトを混同しないでください。
 
+        【分類・継続性・重複の判定ルール】
+        ・情報は、言葉そのものではなく、ユーザーがその活動や事柄をどのような目的・位置付けで継続しているかに基づいて分類してください。
+        ・趣味、嗜好、仕事、プロジェクト、生活習慣の複数に該当しそうな場合は、会話上もっとも明確な目的を優先してください。判断できない場合は保存しないでください。
+        ・一度だけ行った行動、単発の体験、その日だけの出来事、一時的な感想は、継続的な情報として保存しないでください。
+        ・継続的な情報として保存できるのは、反復、継続、習慣、好み、長期的な取り組みのいずれかが、ユーザーの発言から明確に確認できる場合だけです。
+        ・既存項目と新しい情報が同じ対象、活動、目的を示している場合は、別項目として追加しないでください。
+        ・既存項目の言い換え、進捗、作業段階、具体例、部分的な説明だけでは、新しい項目を追加しないでください。
+        ・新しい情報が既存項目を明確に訂正、変更、終了、または具体化する場合だけ、既存項目を更新してください。
+        ・既存項目を更新する場合も、重複する表現を残さず、意味を保った1つの項目へ統合してください。
+        ・今回の会話だけでは継続性、分類先、既存項目との違いを確定できない場合は、変更なしとして扱ってください。
+
         【保存対象外】
         ・明日や来週などの一時的な予定
         ・当日の出来事や一時的な感想
@@ -2543,6 +2554,16 @@ def check_and_summarize_history(message_id: str, current_plan_type: str = "🆓 
         {plan_summary_prompt_block}
 
         {summary_detail_rule}
+
+        【出力前の確認】
+        差分を出力する前に、各項目について次を確認してください。
+        1. ユーザー本人の発言だけを根拠にしているか
+        2. 単発の出来事を継続的な情報として扱っていないか
+        3. 既存項目の言い換えや一部分を、別項目として重複追加していないか
+        4. 分類先が会話上の目的と一致しているか
+        5. 明確な追加、変更、訂正、終了がない既存情報を変更していないか
+
+        1つでも確定できない場合、その項目は出力しないでください。
 
         【最終指示】
         ・長期記憶として必要な事実だけを簡潔に出力してください。
@@ -3466,6 +3487,61 @@ def generate_ai_response(
 #         result["out_tokens"]
 #     )
 
+# 過去会話質問の回答専用プロンプト作成関数
+def build_past_conversation_answer_instruction(
+    *,
+    concierge_name: str,
+    display_user_name: str,
+    first_person: str,
+    style_preset: str,
+    response_length_prompt: str,
+    emoji_setting_prompt: str,
+    short_history: str,
+    past_user_messages: str
+) -> str:
+    """過去の会話内容そのものを質問された場合の最終回答用プロンプトを作る。"""
+    return f"""
+    あなたの名前は「{concierge_name}」です。
+    対話相手の名前は「{display_user_name}」です。
+    一人称は「{first_person}」を使用してください。
+
+    【現在の人格】
+    {STYLE_PRESETS.get(style_preset, "")}
+
+    【回答の長さ】
+    {response_length_prompt}
+
+    【絵文字の使用方針】
+    {emoji_setting_prompt}
+
+    【目的】
+    ユーザーは、以前の会話内容について質問しています。
+    関連する過去のユーザー発言を確認し、現在の質問へ直接回答してください。
+
+    【直近の会話】
+    {short_history}
+
+    【関連する過去のユーザー発言】
+    {past_user_messages}
+
+    【回答ルール】
+    ・関連する過去のユーザー発言全体を比較し、現在の質問へ直接答える内容を探してください。
+    ・候補の順番だけで判断しないでください。
+    ・ユーザー自身が述べた事実、体験、人物、場所、作品、予定などを根拠にしてください。
+    ・直近の会話に含まれる過去のAI回答は、事実の根拠にしないでください。
+    ・関連する過去のユーザー発言に根拠がある場合は、「覚えていない」「記録がない」「分からない」と回答しないでください。
+    ・候補にない作品名、人物、日時、場所、出来事を推測しないでください。
+    ・一部だけ確認できる場合は、確認できた内容と確認できない内容を分けてください。
+    ・複数の発言が矛盾する場合は、日時が新しいユーザー発言を優先してください。
+    ・現在の質問へ必要な内容だけを簡潔に回答してください。
+    ・十分な根拠が見つからない場合だけ、確認できなかったことを伝えてください。
+
+    【出力形式】
+    ・回答本文だけを出力してください。
+    ・候補番号、内部処理、検索、類似度について説明しないでください。
+    ・太字装飾記号は使用しないでください。
+    """.strip()
+#================================================
 
 # 検索関数
 from google import genai as search_genai
@@ -7219,6 +7295,68 @@ def merge_parallel_past_log_results(
     return merged_results
 #====================================
 
+# 過去会話質問時の専用候補を作る関数
+def build_past_conversation_question_results(
+    parallel_results: list,
+    max_items: int = 10
+) -> list:
+    """
+    過去の会話内容そのものを質問された場合に、
+    最終回答AIへ渡す過去のユーザー発言を作る。
+    """
+    query_user_results = []
+
+    for query_group in (parallel_results or []):
+        user_results = []
+
+        for item in (query_group.get("results", []) or []):
+            role = str(item.get("role", "") or "").strip()
+            content = str(item.get("content", "") or "").strip()
+
+            if role != "user" or not content:
+                continue
+
+            if is_past_recall_question(content):
+                continue
+
+            user_results.append(item)
+
+        query_user_results.append(user_results)
+
+    selected_results = []
+    used_keys = set()
+    result_index = 0
+
+    while len(selected_results) < max_items:
+        found_new_item = False
+
+        for user_results in query_user_results:
+            if result_index >= len(user_results):
+                continue
+
+            item = user_results[result_index]
+            item_id = str(item.get("id", "") or "").strip()
+            content = str(item.get("content", "") or "").strip()
+
+            unique_key = item_id or normalize_past_log_text(content)
+
+            if not unique_key or unique_key in used_keys:
+                continue
+
+            used_keys.add(unique_key)
+            selected_results.append(item)
+            found_new_item = True
+
+            if len(selected_results) >= max_items:
+                break
+
+        if not found_new_item:
+            break
+
+        result_index += 1
+
+    return selected_results
+#====================================
 
 def classify_search_and_response_mode(
     user_input: str,
@@ -19363,7 +19501,9 @@ with all_tabs[0]:
                                 debug_text("DEBUG matched_keywords", matched_keywords)
                                 debug_text("DEBUG related_keywords", related_keywords)
 
-                                past_reference_detected = has_past_conversation_reference(user_input)
+                                past_conversation_question_detected = (
+                                    has_past_conversation_reference(user_input)
+                                )
 
                                 search_queries = build_past_log_search_queries(
                                     original_keywords=keywords,
@@ -19373,12 +19513,15 @@ with all_tabs[0]:
 
                                 # 「以前話した」「覚えてる？」などの場合は、縮約されたキーワードだけでなく、
                                 # ユーザー入力全文を最優先の検索語として必ず含める
-                                if past_reference_detected:
+                                if past_conversation_question_detected:
                                     search_queries = list(dict.fromkeys([user_input] + search_queries))[:3]
 
                                 past_log_created_after = get_past_log_created_after(CURRENT_USER_ID)
 
-                                debug_text("DEBUG past_reference_detected", past_reference_detected)
+                                debug_text(
+                                    "DEBUG past_conversation_question_detected",
+                                    past_conversation_question_detected
+                                )
                                 debug_text("DEBUG past_log_created_after", past_log_created_after)
                                 debug_json("DEBUG past_log_search_queries", search_queries)
 
@@ -19393,7 +19536,7 @@ with all_tabs[0]:
 
                                 debug_json("DEBUG parallel_past_log_results", parallel_past_log_results)
 
-                                if past_reference_detected:
+                                if past_conversation_question_detected:
                                     filtered_parallel_results = []
 
                                     for query_group in parallel_past_log_results:
@@ -19438,10 +19581,16 @@ with all_tabs[0]:
                                     parallel_past_log_results
                                 )
 
-                                past_logs_context = merge_parallel_past_log_results(
-                                    parallel_results=parallel_past_log_results,
-                                    final_conversation_count=PAST_LOG_FINAL_COUNT
-                                )
+                                if past_conversation_question_detected:
+                                    past_logs_context = build_past_conversation_question_results(
+                                        parallel_results=parallel_past_log_results,
+                                        max_items=10
+                                    )
+                                else:
+                                    past_logs_context = merge_parallel_past_log_results(
+                                        parallel_results=parallel_past_log_results,
+                                        final_conversation_count=PAST_LOG_FINAL_COUNT
+                                    )
 
                                 # past_logs_context = (
                                 #     merge_parallel_past_log_results(
@@ -22377,6 +22526,18 @@ with all_tabs[0]:
                             {active_calc_prompt}
                             {general_calculation_context}
                             """
+
+                        if past_conversation_question_detected:
+                            system_instruction = build_past_conversation_answer_instruction(
+                                concierge_name=current_concierge_name,
+                                display_user_name=display_user_name,
+                                first_person=current_first_person,
+                                style_preset=current_style_preset,
+                                response_length_prompt=response_length_prompt,
+                                emoji_setting_prompt=emoji_setting_prompt,
+                                short_history=reply_recent_history,
+                                past_user_messages=reply_past_logs
+                            )
 
                         recent_messages = all_messages[-MAX_CONTEXT_MESSAGES:]
 
@@ -25452,4 +25613,4 @@ if is_admin:
             )
     
 st.markdown("<br>", unsafe_allow_html=True)
-st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
+st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")OK
