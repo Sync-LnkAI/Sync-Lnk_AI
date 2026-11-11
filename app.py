@@ -25613,4 +25613,4 @@ if is_admin:
             )
     
 st.markdown("<br>", unsafe_allow_html=True)
-st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")OK
+st.caption("© 2026 Sync-Lnk // AI. All rights reserved.")
