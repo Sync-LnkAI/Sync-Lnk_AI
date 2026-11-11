@@ -1775,7 +1775,7 @@ def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None, 
 
         results = response.data if response.data else []
 
-        # ② 救済網：文字の部分一致（LIKE検索）をハイブリッドで重ねる
+        # ベクトル検索候補に対して文字列の部分一致ボーナスを加算
         # ユーザーの発言から2文字以上の重要な名詞・キーワードの塊を簡易的に抽出
         keywords = [w.group() for w in re.finditer(r'[一-龠々𠮷々〆]+|[ぁ-ん]{2,}|[ァ-ヶー]{2,}', query_text) if len(w.group()) >= 2]
 
@@ -1819,8 +1819,20 @@ def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None, 
         # ==========================================
         # グループ化前にassistant回答を取得
         # ==========================================
-        enriched_candidates = (attach_assistant_responses_to_candidates(results))
+        enriched_candidates = attach_assistant_responses_to_candidates(results)
 
+        # ==========================================
+        # 過去会話を尋ね直しただけの再質問を除外
+        # 件数絞り込みの前に実行する
+        # ==========================================
+        enriched_candidates = [
+            item
+            for item in enriched_candidates
+            if not is_past_recall_question(
+                str(item.get("content", "") or "")
+            )
+        ]
+        
         # ==========================================
         # user + assistantの会話単位でグループ化
         # ==========================================
@@ -3530,6 +3542,8 @@ def build_past_conversation_answer_instruction(
     ・ユーザー自身が述べた事実、体験、人物、場所、作品、予定などを根拠にしてください。
     ・「ユーザー発言」を主な根拠として使用してください。
     ・「当時のAI回答（補助情報）」は、対応するユーザー発言の内容を補足する場合だけ使用してください。
+    ・当時のAI回答にだけ含まれ、対応するユーザー発言では確認できない情報は、ユーザー本人の発言として断定しないでください。
+    ・その情報が現在の質問への回答に必要な場合は、「当時のAI回答では〇〇と案内していました」と、情報源を明示してください。
     ・当時のAI回答だけを根拠に、ユーザーの体験、予定、嗜好、家族情報などを新しく作らないでください。
     ・当時のAI回答が非回答、推測、またはユーザー発言と矛盾する内容の場合は使用しないでください。
     ・過去発言から確認できる事実だけを回答し、当時の会話の雰囲気、感想、反応、楽しさなどを補って表現しないでください。
@@ -3541,6 +3555,8 @@ def build_past_conversation_answer_instruction(
     ・複数の発言が矛盾する場合は、日時が新しいユーザー発言を優先してください。
     ・現在の質問へ必要な内容だけを簡潔に回答してください。
     ・十分な根拠が見つからない場合だけ、確認できなかったことを伝えてください。
+    ・現在の人格設定に示された口調、距離感、語彙、話し方を自然に反映してください。
+    ・過去会話を確認した報告書のような定型表現は避け、現在の人格で普段の会話として自然に回答してください。
 
     【出力形式】
     ・回答本文だけを出力してください。
