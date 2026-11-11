@@ -1839,6 +1839,8 @@ def filter_parallel_past_recall_questions_with_ai(
     【判定ルール】
     ・特定の単語、語尾、文型だけで分類せず、発言全体の意味と参照対象で判断してください。
     ・質問の対象が過去のユーザーとAIの会話内容そのものである場合だけ、recall_questionまたはmixedにしてください。
+    ・その質問への回答に過去のユーザーとAIの会話履歴が必要な場合だけ、recall_questionまたはmixedにしてください。
+    ・会話履歴がなくても一般知識や外部情報から回答できる質問は、contains_new_factがfalseであってもfactual_statementにしてください。
     ・会話外の対象について尋ねる通常の質問はrecall_questionにしないでください。
     ・過去の会話を参照していても、新しい情報を含む場合はmixedにしてください。
     ・方言、口語、誤字、音声入力、主語の省略にも対応してください。
@@ -19962,11 +19964,15 @@ with all_tabs[0]:
                                         past_logs_context
                                     )
                                 else:
+                                    debug_text(
+                                        "DEBUG PAST_LOG_FINAL_COUNT",
+                                        PAST_LOG_FINAL_COUNT
+                                    )
                                     past_logs_context = merge_parallel_past_log_results(
                                         parallel_results=parallel_past_log_results,
                                         final_conversation_count=PAST_LOG_FINAL_COUNT
                                     )
-
+                                    
                                 # past_logs_context = (
                                 #     merge_parallel_past_log_results(
                                 #         parallel_results=(parallel_past_log_results),
