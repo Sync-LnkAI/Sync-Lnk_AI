@@ -1824,7 +1824,7 @@ def filter_parallel_past_recall_questions_with_ai(
     classification_items = list(candidate_by_id.values())
 
     prompt = f"""
-    あなたは、過去会話検索で取得されたユーザー発言を分類するシステムです。
+    あなたは、互いに独立したユーザー発言を1件ずつ判定するシステムです。各発言がどの処理から取得されたかは判定に関係ありません。
 
     【分類】
     recall_question:
