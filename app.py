@@ -19955,70 +19955,30 @@ with all_tabs[0]:
                                     parallel_past_log_results
                                 )
 
+                                debug_text(
+                                        "DEBUG PAST_LOG_FINAL_COUNT",
+                                        PAST_LOG_FINAL_COUNT
+                                    )
+                                
                                 if past_conversation_question_detected:
                                     past_logs_context = build_past_conversation_question_results(
                                         parallel_results=parallel_past_log_results,
-                                        max_items=10
+                                        max_items=PAST_LOG_FINAL_COUNT
                                     )
                                     past_logs_context = attach_assistant_responses_to_candidates(
                                         past_logs_context
                                     )
                                 else:
-                                    debug_text(
-                                        "DEBUG PAST_LOG_FINAL_COUNT",
-                                        PAST_LOG_FINAL_COUNT
-                                    )
                                     past_logs_context = merge_parallel_past_log_results(
                                         parallel_results=parallel_past_log_results,
                                         final_conversation_count=PAST_LOG_FINAL_COUNT
                                     )
                                     
-                                # past_logs_context = (
-                                #     merge_parallel_past_log_results(
-                                #         parallel_results=(parallel_past_log_results),
-                                #         final_conversation_count=3
-                                #     )
-                                # )
                                 debug_json("DEBUG past_logs_context", past_logs_context)
 
                                 search_elapsed = (time.time() - search_start_time)                          
 
-                        
-                        # debug_text("DEBUG requires_estimation", requires_estimation)
-
-                        # numeric_estimate_instruction = ""
-                        # if requires_estimation:
-                        #     numeric_estimate_instruction = """
-                        #     【数値試算のルール】
-                        #     ・Pythonによる計算結果が提供されている場合は、その数値を正確に使用し、独自に再計算や補正をしないでください。
-                        #     ・Pythonによる計算結果がない場合は、ユーザーが提示した情報と検索結果で確認できる事実だけを使用してください。
-                        #     ・再現可能な単純計算ができる場合は、その結果を「単純計算による参考値」と明示してください。
-                        #     ・確認できない料率、係数、相場、割合、契約条件を推測してはいけません。
-                        #     ・正式な結果に必要な条件が不足している場合は、参考値と確定値を区別し、不足条件と確認方法を説明してください。
-                        #     ・再現可能な計算ができない場合は、無理に数値を作らないでください。
-                        #     ・冒頭の結果、計算式、内訳、まとめの数値を一致させてください。
-
-                        #     回答順:
-                        #     1. Python計算結果または再現可能な参考値
-                        #     2. 計算方法と前提
-                        #     3. 正式な結果との差が生じる要因
-                        #     4. 正確な確認方法
-                        #     """
-
-                        # 計算が必要な場合の専用プロンプトの代入
                         active_calc_prompt = CALC_PROMPT if requires_estimation else ""
-
-                        # search_start_time = time.time()
-                        
-                        # enhanced_memory_search_query = (
-                        #     f"{memory_search_query} "
-                        #     f"{memory_related_keywords}"
-                        # ).strip()
-                        # enhanced_memory_search_query = []
-                        # past_logs_context = search_past_logs_hybrid(user_input)
-                        # past_logs_context = search_past_logs_hybrid(related_keywords_text)
-
-                        # search_elapsed = time.time() - search_start_time
 
                         if need_search and response_mode == "analysis":
                             processing_type = "simple_search_analysis"
