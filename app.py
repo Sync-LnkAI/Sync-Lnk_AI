@@ -1774,7 +1774,7 @@ def filter_parallel_past_recall_questions_with_ai(
     parallel_results: list,
     audit_message_id: str = ""
 ) -> tuple[list, dict]:
-    """並列検索結果を1回のAI判定で分類し、新しい事実を含まない再質問を会話単位で除外する。"""
+    """並列検索結果を小分けにAI判定し、新しい事実を含まない再質問を会話単位で除外する。"""
     start_time = time.time()
     before_conversation_ids = set()
     candidate_by_id = {}
@@ -1814,6 +1814,8 @@ def filter_parallel_past_recall_questions_with_ai(
         "excluded_items": [],
         "provider": BACKGROUND_PROVIDER,
         "model_name": SEARCH_MODEL_NAME,
+        "batch_count": 0,
+        "failed_batch_count": 0,
         "status": "skipped"
     }
 
@@ -1823,255 +1825,329 @@ def filter_parallel_past_recall_questions_with_ai(
 
     classification_items = list(candidate_by_id.values())
 
-    prompt = f"""
-    あなたは、互いに独立したユーザー発言を1件ずつ判定するシステムです。各発言がどの処理から取得されたかは判定に関係ありません。
+    # 一度に大量の候補を渡すと、前後の候補に引っ張られて
+    # 通常質問まで再質問として判定されるため、5件ずつ判定する
+    batch_size = 5
+    classification_batches = [
+        classification_items[index:index + batch_size]
+        for index in range(0, len(classification_items), batch_size)
+    ]
+
+    system_instruction = """
+    あなたは、ユーザー発言の参照対象を分類するシステムです。
+
+    各候補は互いに独立した発言として、1件ずつ判定してください。
 
     【分類】
+
     recall_question:
-    過去のユーザーとAIの会話で、何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言。現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報を含まないものに限る。
+    過去のユーザーとAIの会話で、何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言。
+    現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報を含まないものに限ります。
 
     factual_statement:
-    ユーザー自身に関する事実、経験、行動、好み、状況、意見、予定などを含む発言。または、過去のユーザーとAIの会話ではなく、特定の対象、出来事、人物、作品、方法、予定、一般知識などについて尋ねる発言。
+    ユーザー自身に関する事実、経験、行動、好み、状況、意見、予定などを含む発言。
+    または、過去のユーザーとAIの会話ではなく、特定の対象、出来事、人物、作品、方法、予定、一般知識などについて尋ねる通常の質問。
 
     mixed:
-    過去のユーザーとAIの会話内容を確認しているが、同時に現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報も含む発言。
+    過去のユーザーとAIの会話内容を確認している一方で、現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報も含む発言。
 
-    【判定ルール】
-    ・各候補は単独の発言として判定し、過去会話検索で取得されたことや、他の候補が再質問であることを判定根拠にしないでください。
-    ・特定の単語、語尾、文型だけで分類せず、発言全体の意味と参照対象で判断してください。
-    ・質問の対象が過去のユーザーとAIの会話内容そのものである場合だけ、recall_questionまたはmixedにしてください。
-    ・その質問への回答に過去のユーザーとAIの会話履歴が必要な場合だけ、recall_questionまたはmixedにしてください。
-    ・会話履歴がなくても一般知識や外部情報から回答できる質問は、contains_new_factがfalseであってもfactual_statementにしてください。
-    ・会話外の対象について尋ねる通常の質問はrecall_questionにしないでください。
-    ・過去の会話を参照していても、新しい情報を含む場合はmixedにしてください。
-    ・方言、口語、誤字、音声入力、主語の省略にも対応してください。
+    【重要な判定ルール】
+
+    ・「だっけ」「だったっけ」という語尾だけでrecall_questionにしないでください。
+    ・質問の対象が、過去のユーザーとAIの会話内容そのものである場合だけrecall_questionまたはmixedにしてください。
+    ・その質問への回答に過去のユーザーとAIの会話履歴が必要な場合だけrecall_questionまたはmixedにしてください。
+    ・一般知識や外部情報から回答できる質問はfactual_statementです。
+    ・作品、人物、放送予定などについて尋ねる質問は、語尾が「だっけ」でもfactual_statementです。
+    ・過去の会話を参照していても、新しい情報を含む場合はmixedです。
     ・判断に迷う場合は、必要な情報を誤って除外しないようmixedにしてください。
-    ・classificationはrecall_question、factual_statement、mixedのいずれかにしてください。
     ・contains_new_factは、新しい情報を含む場合だけtrueにしてください。
     ・入力に存在するidを変更しないでください。
     ・すべての候補を1件ずつ出力してください。
     ・JSON以外の説明やMarkdownは出力しないでください。
 
-    【候補】
-    {json.dumps(classification_items, ensure_ascii=False)}
+    【分類例】
 
-    【出力形式】
-    {{
-    "results": [
-        {{
-        "id": "入力と同じid",
-        "classification": "recall_question | factual_statement | mixed",
-        "contains_new_fact": false,
-        "confidence": 0.95
-        }}
-    ]
-    }}
+    「前に何のドラマの話をしたっけ？」
+    → recall_question、contains_new_fact=false
+
+    「以前にドラマの話ってしてたっけ？」
+    → recall_question、contains_new_fact=false
+
+    「VIVANTの主人公って誰だっけ？」
+    → factual_statement、contains_new_fact=false
+
+    「VIVANTの次回の放送予定は分かる？」
+    → factual_statement、contains_new_fact=false
+
+    「最近はVIVANTを見てるって言わなかったっけ？」
+    → mixed、contains_new_fact=true
     """.strip()
 
-    try:
-        ai_result = generate_ai_response(
-            provider=BACKGROUND_PROVIDER,
-            system_instruction="",
-            user_prompt=prompt,
-            response_format_json=True,
-            model_name=SEARCH_MODEL_NAME
-        )
+    classification_by_id = {}
+    total_in_tokens = 0
+    total_out_tokens = 0
+    provider_name = BACKGROUND_PROVIDER
+    model_name = SEARCH_MODEL_NAME
+    failed_batch_count = 0
+    batch_debug_results = []
 
-        raw_text = str(ai_result.get("text", "") or "").strip()
-        clean_text = (
-            raw_text
-            .replace("```json", "")
-            .replace("```JSON", "")
-            .replace("```", "")
-            .strip()
-        )
+    for batch_index, classification_batch in enumerate(
+        classification_batches,
+        start=1
+    ):
+        user_prompt = f"""
+【候補】
+{json.dumps(classification_batch, ensure_ascii=False)}
 
-        parsed_data = json.loads(clean_text)
+【出力形式】
+{{
+  "results": [
+    {{
+      "id": "入力と同じid",
+      "classification": "recall_question | factual_statement | mixed",
+      "contains_new_fact": false,
+      "confidence": 0.95
+    }}
+  ]
+}}
+""".strip()
 
-        if not isinstance(parsed_data, dict):
-            raise ValueError("再質問判定結果がobject形式ではありません")
-
-        classification_results = parsed_data.get("results", [])
-
-        if not isinstance(classification_results, list):
-            raise ValueError("再質問判定結果のresultsが配列ではありません")
-
-        classification_by_id = {
-            str(result.get("id", "") or "").strip(): result
-            for result in classification_results
-            if isinstance(result, dict)
-            and str(result.get("id", "") or "").strip()
-        }
-
-        excluded_ids = set()
-        excluded_items = []
-
-        for candidate_id, candidate in candidate_by_id.items():
-            classification = classification_by_id.get(candidate_id, {})
-
-            classification_name = str(
-                classification.get("classification", "") or ""
-            ).strip().lower()
-
-            contains_new_fact = classification.get(
-                "contains_new_fact",
-                True
+        try:
+            ai_result = generate_ai_response(
+                provider=BACKGROUND_PROVIDER,
+                system_instruction=system_instruction,
+                user_prompt=user_prompt,
+                response_format_json=True,
+                model_name=SEARCH_MODEL_NAME
             )
 
-            if not isinstance(contains_new_fact, bool):
-                contains_new_fact = True
+            raw_text = str(ai_result.get("text", "") or "").strip()
+            clean_text = (
+                raw_text
+                .replace("```json", "")
+                .replace("```JSON", "")
+                .replace("```", "")
+                .strip()
+            )
 
-            try:
-                confidence = float(
-                    classification.get("confidence", 0.0) or 0.0
+            parsed_data = json.loads(clean_text)
+
+            if not isinstance(parsed_data, dict):
+                raise ValueError(
+                    f"再質問判定結果がobject形式ではありません: batch={batch_index}"
                 )
-            except (TypeError, ValueError):
-                confidence = 0.0
 
-            confidence = max(0.0, min(confidence, 1.0))
+            batch_results = parsed_data.get("results", [])
 
-            should_exclude = (
-                classification_name == "recall_question"
-                and contains_new_fact is False
-                and confidence >= 0.85
+            if not isinstance(batch_results, list):
+                raise ValueError(
+                    f"再質問判定結果のresultsが配列ではありません: batch={batch_index}"
+                )
+
+            valid_batch_ids = {
+                str(item.get("id", "") or "").strip()
+                for item in classification_batch
+            }
+
+            for result in batch_results:
+                if not isinstance(result, dict):
+                    continue
+
+                result_id = str(result.get("id", "") or "").strip()
+
+                if not result_id or result_id not in valid_batch_ids:
+                    continue
+
+                classification_by_id[result_id] = result
+
+            batch_in_tokens = int(ai_result.get("in_tokens", 0) or 0)
+            batch_out_tokens = int(ai_result.get("out_tokens", 0) or 0)
+
+            total_in_tokens += batch_in_tokens
+            total_out_tokens += batch_out_tokens
+
+            provider_name = str(
+                ai_result.get("provider", provider_name)
+                or provider_name
+            )
+            model_name = str(
+                ai_result.get("model_name", model_name)
+                or model_name
             )
 
-            if should_exclude:
-                excluded_ids.add(candidate_id)
-                excluded_items.append({
-                    "id": candidate_id,
-                    "content": candidate.get("content", ""),
-                    "classification": classification_name,
-                    "contains_new_fact": contains_new_fact,
-                    "confidence": confidence
-                })
-
-        filtered_parallel_results = []
-
-        for query_group in (parallel_results or []):
-            filtered_results = []
-
-            for item in (query_group.get("results", []) or []):
-                if not isinstance(item, dict):
-                    continue
-
-                message_id = str(
-                    item.get("message_id", "") or ""
-                ).strip()
-
-                if message_id:
-                    conversation_id = message_id
-                else:
-                    conversation_id = f"legacy_{item.get('id', '')}"
-
-                if conversation_id in excluded_ids:
-                    continue
-
-                filtered_results.append(item)
-
-            filtered_parallel_results.append({
-                "query": query_group.get("query", ""),
-                "results": filtered_results
+            batch_debug_results.append({
+                "batch_index": batch_index,
+                "candidate_count": len(classification_batch),
+                "status": "success",
+                "in_tokens": batch_in_tokens,
+                "out_tokens": batch_out_tokens,
+                "results": batch_results
             })
 
-        in_tokens = int(ai_result.get("in_tokens", 0) or 0)
-        out_tokens = int(ai_result.get("out_tokens", 0) or 0)
-        api_cost = calculate_ai_cost(
-            provider=BACKGROUND_PROVIDER,
-            in_tokens=in_tokens,
-            out_tokens=out_tokens
-        )
-        processing_time = time.time() - start_time
-        after_count = max(0, before_count - len(excluded_ids))
+        except Exception as batch_error:
+            failed_batch_count += 1
 
-        metrics = {
-            "processing_time": processing_time,
-            "in_tokens": in_tokens,
-            "out_tokens": out_tokens,
-            "api_cost": api_cost,
-            "before_count": before_count,
-            "after_count": after_count,
-            "excluded_count": len(excluded_ids),
-            "excluded_items": excluded_items,
-            "provider": str(
-                ai_result.get("provider", BACKGROUND_PROVIDER)
-                or BACKGROUND_PROVIDER
-            ),
-            "model_name": str(
-                ai_result.get("model_name", SEARCH_MODEL_NAME)
-                or SEARCH_MODEL_NAME
-            ),
-            "status": "success"
-        }
-
-        debug_json(
-            "DEBUG past_recall_classification_result",
-            {
-                "ai_result": ai_result,
-                "metrics": metrics
-            }
-        )
-
-        try:
-            supabase.table("system_audit_logs").insert({
-                "user_id": str(CURRENT_USER_ID),
-                "user_plan": current_plan_type,
-                "event_type": "past_recall_classification",
-                "processing_time": processing_time,
-                "in_tokens": in_tokens,
-                "out_tokens": out_tokens,
-                "api_cost": api_cost,
-                "details": (
-                    f"provider={metrics['provider']} | "
-                    f"model={metrics['model_name']} | "
-                    f"before={before_count} | "
-                    f"after={after_count} | "
-                    f"excluded={len(excluded_ids)}"
-                ),
-                "message_id": str(audit_message_id or "")
-            }).execute()
-        except Exception as audit_error:
-            print(
-                "過去会話再質問判定ログ保存エラー: "
-                f"{type(audit_error).__name__}: {audit_error}"
+            error_text = (
+                f"過去会話再質問判定バッチエラー: "
+                f"batch={batch_index} | "
+                f"{type(batch_error).__name__}: {batch_error}"
             )
 
-        return filtered_parallel_results, metrics
+            print(error_text)
 
-    except Exception as classification_error:
-        processing_time = time.time() - start_time
-        error_text = (
-            "過去会話再質問一括判定エラー: "
-            f"{type(classification_error).__name__}: "
-            f"{classification_error}"
+            batch_debug_results.append({
+                "batch_index": batch_index,
+                "candidate_count": len(classification_batch),
+                "status": "error",
+                "error": error_text
+            })
+
+    excluded_ids = set()
+    excluded_items = []
+
+    for candidate_id, candidate in candidate_by_id.items():
+        classification = classification_by_id.get(candidate_id)
+
+        # 判定結果がない候補は安全側で残す
+        if not isinstance(classification, dict):
+            continue
+
+        classification_name = str(
+            classification.get("classification", "") or ""
+        ).strip().lower()
+
+        contains_new_fact = classification.get(
+            "contains_new_fact",
+            True
         )
 
-        print(error_text)
-        debug_text("DEBUG past_recall_classification_error", error_text)
-
-        default_metrics.update({
-            "processing_time": processing_time,
-            "status": "error",
-            "error": error_text
-        })
+        if not isinstance(contains_new_fact, bool):
+            contains_new_fact = True
 
         try:
-            supabase.table("system_audit_logs").insert({
-                "user_id": str(CURRENT_USER_ID),
-                "user_plan": current_plan_type,
-                "event_type": "past_recall_classification_error",
-                "processing_time": processing_time,
-                "in_tokens": 0,
-                "out_tokens": 0,
-                "api_cost": 0.0,
-                "details": error_text,
-                "message_id": str(audit_message_id or "")
-            }).execute()
-        except Exception:
-            pass
+            confidence = float(
+                classification.get("confidence", 0.0) or 0.0
+            )
+        except (TypeError, ValueError):
+            confidence = 0.0
 
-        # 判定失敗時は検索候補を消さない
-        return parallel_results or [], default_metrics
+        confidence = max(0.0, min(confidence, 1.0))
+
+        should_exclude = (
+            classification_name == "recall_question"
+            and contains_new_fact is False
+            and confidence >= 0.85
+        )
+
+        if should_exclude:
+            excluded_ids.add(candidate_id)
+            excluded_items.append({
+                "id": candidate_id,
+                "content": candidate.get("content", ""),
+                "classification": classification_name,
+                "contains_new_fact": contains_new_fact,
+                "confidence": confidence
+            })
+
+    filtered_parallel_results = []
+
+    for query_group in (parallel_results or []):
+        filtered_results = []
+
+        for item in (query_group.get("results", []) or []):
+            if not isinstance(item, dict):
+                continue
+
+            message_id = str(
+                item.get("message_id", "") or ""
+            ).strip()
+
+            conversation_id = (
+                message_id
+                if message_id
+                else f"legacy_{item.get('id', '')}"
+            )
+
+            # 同じmessage_idを持つuserとassistantを会話単位で除外
+            if conversation_id in excluded_ids:
+                continue
+
+            filtered_results.append(item)
+
+        filtered_parallel_results.append({
+            "query": query_group.get("query", ""),
+            "results": filtered_results
+        })
+
+    processing_time = time.time() - start_time
+    after_count = max(0, before_count - len(excluded_ids))
+
+    api_cost = calculate_ai_cost(
+        provider=provider_name,
+        in_tokens=total_in_tokens,
+        out_tokens=total_out_tokens
+    )
+
+    if failed_batch_count == 0:
+        status = "success"
+    elif failed_batch_count < len(classification_batches):
+        status = "partial_success"
+    else:
+        status = "error"
+
+    metrics = {
+        "processing_time": processing_time,
+        "in_tokens": total_in_tokens,
+        "out_tokens": total_out_tokens,
+        "api_cost": api_cost,
+        "before_count": before_count,
+        "after_count": after_count,
+        "excluded_count": len(excluded_ids),
+        "excluded_items": excluded_items,
+        "provider": provider_name,
+        "model_name": model_name,
+        "batch_count": len(classification_batches),
+        "failed_batch_count": failed_batch_count,
+        "status": status
+    }
+
+    debug_json(
+        "DEBUG past_recall_classification_result",
+        {
+            "batches": batch_debug_results,
+            "metrics": metrics
+        }
+    )
+
+    try:
+        supabase.table("system_audit_logs").insert({
+            "user_id": str(CURRENT_USER_ID),
+            "user_plan": current_plan_type,
+            "event_type": "past_recall_classification",
+            "processing_time": processing_time,
+            "in_tokens": total_in_tokens,
+            "out_tokens": total_out_tokens,
+            "api_cost": api_cost,
+            "details": (
+                f"provider={provider_name} | "
+                f"model={model_name} | "
+                f"batches={len(classification_batches)} | "
+                f"failed_batches={failed_batch_count} | "
+                f"before={before_count} | "
+                f"after={after_count} | "
+                f"excluded={len(excluded_ids)} | "
+                f"status={status}"
+            ),
+            "message_id": str(audit_message_id or "")
+        }).execute()
+
+    except Exception as audit_error:
+        print(
+            "過去会話再質問判定ログ保存エラー: "
+            f"{type(audit_error).__name__}: {audit_error}"
+        )
+
+    return filtered_parallel_results, metrics
 # ==================================================================
 
 def get_past_log_created_after(user_id: str):
