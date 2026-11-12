@@ -2229,6 +2229,56 @@ def filter_parallel_past_recall_questions_with_ai(
             "results": filtered_results
         })
 
+    analysis_candidates = []
+    for query_group in (parallel_results or []):
+        query_text = str(query_group.get("query", "") or "")
+
+        for item in (query_group.get("results", []) or []):
+            if not isinstance(item, dict) or item.get("role") != "user":
+                continue
+
+            message_id = str(item.get("message_id", "") or "").strip()
+            candidate_id = message_id or f"legacy_{item.get('id', '')}"
+            classification = classification_by_id.get(candidate_id, {})
+
+            analysis_candidates.append({
+                "query": query_text,
+                "id": candidate_id,
+                "message_id": message_id or None,
+                "content": str(item.get("content", "") or ""),
+                "created_at": item.get("created_at"),
+                "similarity": float(item.get("similarity", 0.0) or 0.0),
+                "final_score": float(item.get("final_score", 0.0) or 0.0),
+                "aggregated_score": float(item.get("aggregated_score", item.get("final_score", 0.0)) or 0.0),
+                "sent_to_ai": candidate_id in ai_candidate_by_id,
+                "classification": str(classification.get("classification", "") or "") or None,
+                "contains_new_fact": classification.get("contains_new_fact"),
+                "confidence": float(classification.get("confidence", 0.0) or 0.0) if classification else None,
+                "excluded": candidate_id in excluded_ids
+            })
+
+    analysis_data = {
+        "version": 1,
+        "search_queries": [
+            str(query_group.get("query", "") or "")
+            for query_group in (parallel_results or [])
+        ],
+        "query_result_counts": {
+            str(query_group.get("query", "") or ""): len(query_group.get("results", []) or [])
+            for query_group in (parallel_results or [])
+        },
+        "before_count": before_count,
+        "ai_candidate_count": len(ai_candidate_by_id),
+        "unique_content_count": unique_content_count,
+        "duplicate_content_count": duplicate_content_count,
+        "after_count": after_count,
+        "excluded_count": len(excluded_ids),
+        "batch_count": len(classification_batches),
+        "failed_batch_count": failed_batch_count,
+        "candidates": analysis_candidates,
+        "excluded_items": excluded_items
+    }
+
     processing_time = time.time() - start_time
     after_count = max(0, before_count - len(excluded_ids))
 
@@ -2294,6 +2344,7 @@ def filter_parallel_past_recall_questions_with_ai(
                 f"excluded={len(excluded_ids)} | "
                 f"status={status}"
             ),
+            "analysis_data": analysis_data,
             "message_id": str(audit_message_id or "")
         }).execute()
 
@@ -9984,8 +10035,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -23312,7 +23363,7 @@ with all_tabs[0]:
                             )
 
                             # メインチャット処理の最終再描画
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
