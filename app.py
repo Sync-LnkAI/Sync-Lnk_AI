@@ -1911,7 +1911,7 @@ def filter_parallel_past_recall_questions_with_ai(
     }
 
     unique_content_count = len(classification_items)
-    duplicate_content_count = max(0, before_count - unique_content_count)
+    duplicate_content_count = max(0, len(ai_candidate_by_id) - unique_content_count)
 
     # 重複排除後の候補を5件ずつ分割
     batch_size = 5
