@@ -2229,6 +2229,9 @@ def filter_parallel_past_recall_questions_with_ai(
             "results": filtered_results
         })
 
+    processing_time = time.time() - start_time
+    after_count = max(0, before_count - len(excluded_ids))
+
     analysis_candidates = []
     for query_group in (parallel_results or []):
         query_text = str(query_group.get("query", "") or "")
@@ -2278,9 +2281,6 @@ def filter_parallel_past_recall_questions_with_ai(
         "candidates": analysis_candidates,
         "excluded_items": excluded_items
     }
-
-    processing_time = time.time() - start_time
-    after_count = max(0, before_count - len(excluded_ids))
 
     api_cost = calculate_ai_cost(
         provider=provider_name,
