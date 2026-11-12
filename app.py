@@ -1868,28 +1868,37 @@ def filter_parallel_past_recall_questions_with_ai(
     ]
 
     system_instruction = """
-    候補を互いに独立したユーザー発言として分類してください。
+    候補を互いに独立したユーザー発言として判定してください。
 
-    分類:
-    - recall_question: 過去のユーザーとAIの会話内容だけを確認する発言。新しい事実を含まない。
-    - factual_statement: ユーザー自身の事実・経験・意見、または作品・人物・予定・一般知識などを尋ねる通常の質問。
-    - mixed: 過去会話を確認しながら、新しい事実・経験・意見・条件・訂正も含む発言。
+    各候補について、次の2項目を別々に判定します。
+
+    requires_past_conversation:
+    回答するために、そのユーザーとAIの過去会話を確認する必要がある場合はtrue。
+    作品、人物、出来事、予定、方法、一般知識など、過去会話を確認しなくても回答できる場合はfalse。
+
+    contains_new_fact:
+    現在の回答に利用できる新しい事実、経験、行動、好み、状況、意見、予定、条件、訂正、追加情報をユーザーが伝えている場合はtrue。
+    過去に何を話したか確認しているだけの場合や、質問対象について尋ねているだけの場合はfalse。
 
     ルール:
-    - 文末表現や特定の単語だけで分類せず、発言全体が何を参照しているかで判断する。
-    - 質問の対象が、過去のユーザーとAIの会話内容そのものである場合だけrecall_questionまたはmixedにする。
-    - 回答の根拠として過去のユーザーとAIの会話履歴が必要な場合だけrecall_questionまたはmixedにする。
-    - 過去の会話ではなく、特定の作品、人物、出来事、予定、方法、一般知識など、会話外の対象について尋ねる質問はfactual_statementにする。
-    - 会話履歴を参照しなくても回答できる質問はfactual_statementにする。
-    - 迷う場合はmixedにする。
-    - contains_new_factは新しい情報を含む場合だけtrueにする。
-    - idを変更せず、全候補をJSONで返す。
+    - 文末表現や特定の単語だけで判定せず、発言全体の参照対象と意味で判断する。
+    - 過去の会話で何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言は、requires_past_conversation=true。
+    - 過去の会話ではなく、会話外の対象自体について尋ねる発言は、requires_past_conversation=false。
+    - 過去会話の確認と新しい情報の提示を同時に行う発言は、両方をtrueにする。
+    - 判断に迷う場合は、必要な情報を誤って除外しないようcontains_new_fact=trueにする。
+    - 入力に存在するidを変更しない。
+    - すべての候補を1件ずつ出力する。
     - JSON以外の説明やMarkdownは出力しない。
 
     例:
-    「前に私がどんな予定を話したか覚えてる？」→ recall_question、false
-    「この作品の主人公は誰？」→ factual_statement、false
-    「前に仕事の予定を話したけど、開始日は来月15日に変わった。前の予定も覚えてる？」→ mixed、true
+    「前に私がどんな予定を話したか覚えてる？」
+    → requires_past_conversation=true、contains_new_fact=false
+
+    「この作品の主人公は誰？」
+    → requires_past_conversation=false、contains_new_fact=false
+
+    「前に仕事の予定を話したけど、開始日は来月15日に変わった。前の予定も覚えてる？」
+    → requires_past_conversation=true、contains_new_fact=true
     """.strip()
 
     def classify_batch(batch_index: int, classification_batch: list) -> dict:
@@ -1905,7 +1914,7 @@ def filter_parallel_past_recall_questions_with_ai(
         "results": [
             {{
             "id": "入力と同じid",
-            "classification": "recall_question | factual_statement | mixed",
+            "requires_past_conversation": true,
             "contains_new_fact": false,
             "confidence": 0.95
             }}
@@ -2087,14 +2096,24 @@ def filter_parallel_past_recall_questions_with_ai(
         if not isinstance(classification, dict):
             continue
 
-        classification_name = str(
-            classification.get("classification", "") or ""
-        ).strip().lower()
+        requires_past_conversation = classification.get(
+            "requires_past_conversation"
+        )
+        contains_new_fact = classification.get("contains_new_fact")
 
-        contains_new_fact = classification.get("contains_new_fact", True)
+        # 真偽値以外や欠落があれば、安全側で候補を残す
+        if not isinstance(requires_past_conversation, bool):
+            requires_past_conversation = False
 
         if not isinstance(contains_new_fact, bool):
             contains_new_fact = True
+
+        if requires_past_conversation and not contains_new_fact:
+            classification_name = "recall_question"
+        elif requires_past_conversation and contains_new_fact:
+            classification_name = "mixed"
+        else:
+            classification_name = "factual_statement"
 
         try:
             confidence = float(
@@ -2106,7 +2125,7 @@ def filter_parallel_past_recall_questions_with_ai(
         confidence = max(0.0, min(confidence, 1.0))
 
         should_exclude = (
-            classification_name == "recall_question"
+            requires_past_conversation is True
             and contains_new_fact is False
             and confidence >= 0.85
         )
@@ -2117,6 +2136,7 @@ def filter_parallel_past_recall_questions_with_ai(
                 "id": candidate_id,
                 "content": candidate.get("content", ""),
                 "classification": classification_name,
+                "requires_past_conversation": requires_past_conversation,
                 "contains_new_fact": contains_new_fact,
                 "confidence": confidence
             })
