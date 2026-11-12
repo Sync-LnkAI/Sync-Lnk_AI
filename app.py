@@ -4510,6 +4510,7 @@ def generate_detailed_search_analysis_response(
     )
 
     search_elapsed = time.time() - search_start_time
+
     detail_answer = str(search_result.get("text", "") or "").strip()
 
     if not detail_answer:
@@ -9928,8 +9929,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -20155,7 +20156,11 @@ with all_tabs[0]:
                                     
                                 debug_json("DEBUG past_logs_context", past_logs_context)
 
-                                search_elapsed = (time.time() - search_start_time)                          
+                                search_elapsed = time.time() - search_start_time
+                                past_recall_elapsed = float(
+                                    past_recall_metrics.get("processing_time", 0.0) or 0.0
+                                )
+                                search_elapsed = max(0.0, search_elapsed - past_recall_elapsed)
 
                         active_calc_prompt = CALC_PROMPT if requires_estimation else ""
 
@@ -23251,7 +23256,7 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
