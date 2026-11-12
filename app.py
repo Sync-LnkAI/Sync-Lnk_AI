@@ -1876,18 +1876,20 @@ def filter_parallel_past_recall_questions_with_ai(
     - mixed: 過去会話を確認しながら、新しい事実・経験・意見・条件・訂正も含む発言。
 
     ルール:
-    - 「だっけ」などの語尾だけでrecall_questionにしない。
-    - 過去の会話履歴がなければ答えられない質問だけをrecall_questionまたはmixedにする。
-    - 一般知識や外部情報で回答できる質問はfactual_statementにする。
+    - 文末表現や特定の単語だけで分類せず、発言全体が何を参照しているかで判断する。
+    - 質問の対象が、過去のユーザーとAIの会話内容そのものである場合だけrecall_questionまたはmixedにする。
+    - 回答の根拠として過去のユーザーとAIの会話履歴が必要な場合だけrecall_questionまたはmixedにする。
+    - 過去の会話ではなく、特定の作品、人物、出来事、予定、方法、一般知識など、会話外の対象について尋ねる質問はfactual_statementにする。
+    - 会話履歴を参照しなくても回答できる質問はfactual_statementにする。
     - 迷う場合はmixedにする。
     - contains_new_factは新しい情報を含む場合だけtrueにする。
     - idを変更せず、全候補をJSONで返す。
     - JSON以外の説明やMarkdownは出力しない。
 
     例:
-    「前に何のドラマの話をしたっけ？」→ recall_question、false
-    「VIVANTの主人公って誰だっけ？」→ factual_statement、false
-    「最近はVIVANTを見てるって言わなかったっけ？」→ mixed、true
+    「前に私がどんな予定を話したか覚えてる？」→ recall_question、false
+    「この作品の主人公は誰？」→ factual_statement、false
+    「前に仕事の予定を話したけど、開始日は来月15日に変わった。前の予定も覚えてる？」→ mixed、true
     """.strip()
 
     def classify_batch(batch_index: int, classification_batch: list) -> dict:
