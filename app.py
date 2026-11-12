@@ -1774,7 +1774,7 @@ def filter_parallel_past_recall_questions_with_ai(
     parallel_results: list,
     audit_message_id: str = ""
 ) -> tuple[list, dict]:
-    """並列検索結果を小分けにAI判定し、新しい事実を含まない再質問を会話単位で除外する。"""
+    """候補を内容単位で重複排除し、分割・並列判定して、事実を含まない再質問を会話単位で除外する。"""
     start_time = time.time()
     before_conversation_ids = set()
     candidate_by_id = {}
@@ -1792,7 +1792,6 @@ def filter_parallel_past_recall_questions_with_ai(
 
             message_id = str(item.get("message_id", "") or "").strip()
             candidate_id = message_id or f"legacy_{item.get('id', '')}"
-
             before_conversation_ids.add(candidate_id)
 
             if candidate_id not in candidate_by_id:
@@ -1809,6 +1808,8 @@ def filter_parallel_past_recall_questions_with_ai(
         "out_tokens": 0,
         "api_cost": 0.0,
         "before_count": before_count,
+        "unique_content_count": 0,
+        "duplicate_content_count": 0,
         "after_count": before_count,
         "excluded_count": 0,
         "excluded_items": [],
@@ -1823,10 +1824,43 @@ def filter_parallel_past_recall_questions_with_ai(
         default_metrics["processing_time"] = time.time() - start_time
         return parallel_results or [], default_metrics
 
-    classification_items = list(candidate_by_id.values())
+    # 全候補を内容単位で重複排除
+    content_groups = {}
 
-    # 一度に大量の候補を渡すと、前後の候補に引っ張られて
-    # 通常質問まで再質問として判定されるため、5件ずつ判定する
+    for candidate_id, candidate in candidate_by_id.items():
+        content = str(candidate.get("content", "") or "").strip()
+        normalized_content = unicodedata.normalize("NFKC", content)
+        normalized_content = re.sub(r"\s+", " ", normalized_content).strip().lower()
+
+        if not normalized_content:
+            normalized_content = f"__empty__{candidate_id}"
+
+        if normalized_content not in content_groups:
+            content_groups[normalized_content] = {
+                "representative_id": candidate_id,
+                "content": content,
+                "candidate_ids": []
+            }
+
+        content_groups[normalized_content]["candidate_ids"].append(candidate_id)
+
+    classification_items = [
+        {
+            "id": group["representative_id"],
+            "content": group["content"]
+        }
+        for group in content_groups.values()
+    ]
+
+    representative_to_candidate_ids = {
+        group["representative_id"]: list(group["candidate_ids"])
+        for group in content_groups.values()
+    }
+
+    unique_content_count = len(classification_items)
+    duplicate_content_count = max(0, before_count - unique_content_count)
+
+    # 重複排除後の候補を5件ずつ分割
     batch_size = 5
     classification_batches = [
         classification_items[index:index + batch_size]
@@ -1834,83 +1868,48 @@ def filter_parallel_past_recall_questions_with_ai(
     ]
 
     system_instruction = """
-    あなたは、ユーザー発言の参照対象を分類するシステムです。
+    候補を互いに独立したユーザー発言として分類してください。
 
-    各候補は互いに独立した発言として、1件ずつ判定してください。
+    分類:
+    - recall_question: 過去のユーザーとAIの会話内容だけを確認する発言。新しい事実を含まない。
+    - factual_statement: ユーザー自身の事実・経験・意見、または作品・人物・予定・一般知識などを尋ねる通常の質問。
+    - mixed: 過去会話を確認しながら、新しい事実・経験・意見・条件・訂正も含む発言。
 
-    【分類】
+    ルール:
+    - 「だっけ」などの語尾だけでrecall_questionにしない。
+    - 過去の会話履歴がなければ答えられない質問だけをrecall_questionまたはmixedにする。
+    - 一般知識や外部情報で回答できる質問はfactual_statementにする。
+    - 迷う場合はmixedにする。
+    - contains_new_factは新しい情報を含む場合だけtrueにする。
+    - idを変更せず、全候補をJSONで返す。
+    - JSON以外の説明やMarkdownは出力しない。
 
-    recall_question:
-    過去のユーザーとAIの会話で、何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言。
-    現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報を含まないものに限ります。
-
-    factual_statement:
-    ユーザー自身に関する事実、経験、行動、好み、状況、意見、予定などを含む発言。
-    または、過去のユーザーとAIの会話ではなく、特定の対象、出来事、人物、作品、方法、予定、一般知識などについて尋ねる通常の質問。
-
-    mixed:
-    過去のユーザーとAIの会話内容を確認している一方で、現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報も含む発言。
-
-    【重要な判定ルール】
-
-    ・「だっけ」「だったっけ」という語尾だけでrecall_questionにしないでください。
-    ・質問の対象が、過去のユーザーとAIの会話内容そのものである場合だけrecall_questionまたはmixedにしてください。
-    ・その質問への回答に過去のユーザーとAIの会話履歴が必要な場合だけrecall_questionまたはmixedにしてください。
-    ・一般知識や外部情報から回答できる質問はfactual_statementです。
-    ・作品、人物、放送予定などについて尋ねる質問は、語尾が「だっけ」でもfactual_statementです。
-    ・過去の会話を参照していても、新しい情報を含む場合はmixedです。
-    ・判断に迷う場合は、必要な情報を誤って除外しないようmixedにしてください。
-    ・contains_new_factは、新しい情報を含む場合だけtrueにしてください。
-    ・入力に存在するidを変更しないでください。
-    ・すべての候補を1件ずつ出力してください。
-    ・JSON以外の説明やMarkdownは出力しないでください。
-
-    【分類例】
-
-    「前に何のドラマの話をしたっけ？」
-    → recall_question、contains_new_fact=false
-
-    「以前にドラマの話ってしてたっけ？」
-    → recall_question、contains_new_fact=false
-
-    「VIVANTの主人公って誰だっけ？」
-    → factual_statement、contains_new_fact=false
-
-    「VIVANTの次回の放送予定は分かる？」
-    → factual_statement、contains_new_fact=false
-
-    「最近はVIVANTを見てるって言わなかったっけ？」
-    → mixed、contains_new_fact=true
+    例:
+    「前に何のドラマの話をしたっけ？」→ recall_question、false
+    「VIVANTの主人公って誰だっけ？」→ factual_statement、false
+    「最近はVIVANTを見てるって言わなかったっけ？」→ mixed、true
     """.strip()
 
-    classification_by_id = {}
-    total_in_tokens = 0
-    total_out_tokens = 0
-    provider_name = BACKGROUND_PROVIDER
-    model_name = SEARCH_MODEL_NAME
-    failed_batch_count = 0
-    batch_debug_results = []
+    def classify_batch(batch_index: int, classification_batch: list) -> dict:
+        """1バッチをAIで分類する。"""
+        batch_start_time = time.time()
 
-    for batch_index, classification_batch in enumerate(
-        classification_batches,
-        start=1
-    ):
         user_prompt = f"""
-【候補】
-{json.dumps(classification_batch, ensure_ascii=False)}
+        【候補】
+        {json.dumps(classification_batch, ensure_ascii=False)}
 
-【出力形式】
-{{
-  "results": [
-    {{
-      "id": "入力と同じid",
-      "classification": "recall_question | factual_statement | mixed",
-      "contains_new_fact": false,
-      "confidence": 0.95
-    }}
-  ]
-}}
-""".strip()
+        【出力形式】
+        {{
+        "results": [
+            {{
+            "id": "入力と同じid",
+            "classification": "recall_question | factual_statement | mixed",
+            "contains_new_fact": false,
+            "confidence": 0.95
+            }}
+        ]
+        }}
+        """.strip()
 
         try:
             ai_result = generate_ai_response(
@@ -1933,82 +1932,156 @@ def filter_parallel_past_recall_questions_with_ai(
             parsed_data = json.loads(clean_text)
 
             if not isinstance(parsed_data, dict):
-                raise ValueError(
-                    f"再質問判定結果がobject形式ではありません: batch={batch_index}"
-                )
+                raise ValueError("再質問判定結果がobject形式ではありません")
 
             batch_results = parsed_data.get("results", [])
 
             if not isinstance(batch_results, list):
-                raise ValueError(
-                    f"再質問判定結果のresultsが配列ではありません: batch={batch_index}"
-                )
+                raise ValueError("再質問判定結果のresultsが配列ではありません")
 
             valid_batch_ids = {
                 str(item.get("id", "") or "").strip()
                 for item in classification_batch
             }
 
-            for result in batch_results:
-                if not isinstance(result, dict):
-                    continue
+            valid_results = [
+                result
+                for result in batch_results
+                if isinstance(result, dict)
+                and str(result.get("id", "") or "").strip() in valid_batch_ids
+            ]
 
-                result_id = str(result.get("id", "") or "").strip()
-
-                if not result_id or result_id not in valid_batch_ids:
-                    continue
-
-                classification_by_id[result_id] = result
-
-            batch_in_tokens = int(ai_result.get("in_tokens", 0) or 0)
-            batch_out_tokens = int(ai_result.get("out_tokens", 0) or 0)
-
-            total_in_tokens += batch_in_tokens
-            total_out_tokens += batch_out_tokens
-
-            provider_name = str(
-                ai_result.get("provider", provider_name)
-                or provider_name
-            )
-            model_name = str(
-                ai_result.get("model_name", model_name)
-                or model_name
-            )
-
-            batch_debug_results.append({
+            return {
                 "batch_index": batch_index,
                 "candidate_count": len(classification_batch),
                 "status": "success",
-                "in_tokens": batch_in_tokens,
-                "out_tokens": batch_out_tokens,
-                "results": batch_results
-            })
+                "processing_time": time.time() - batch_start_time,
+                "in_tokens": int(ai_result.get("in_tokens", 0) or 0),
+                "out_tokens": int(ai_result.get("out_tokens", 0) or 0),
+                "provider": str(
+                    ai_result.get("provider", BACKGROUND_PROVIDER)
+                    or BACKGROUND_PROVIDER
+                ),
+                "model_name": str(
+                    ai_result.get("model_name", SEARCH_MODEL_NAME)
+                    or SEARCH_MODEL_NAME
+                ),
+                "results": valid_results
+            }
 
         except Exception as batch_error:
-            failed_batch_count += 1
-
             error_text = (
-                f"過去会話再質問判定バッチエラー: "
-                f"batch={batch_index} | "
+                f"過去会話再質問判定バッチエラー: batch={batch_index} | "
                 f"{type(batch_error).__name__}: {batch_error}"
             )
-
             print(error_text)
 
-            batch_debug_results.append({
+            return {
                 "batch_index": batch_index,
                 "candidate_count": len(classification_batch),
                 "status": "error",
+                "processing_time": time.time() - batch_start_time,
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "provider": BACKGROUND_PROVIDER,
+                "model_name": SEARCH_MODEL_NAME,
+                "results": [],
                 "error": error_text
-            })
+            }
 
+    # 最大3バッチを並列実行
+    batch_execution_results = []
+
+    if classification_batches:
+        worker_count = min(3, len(classification_batches))
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_batch_index = {
+                executor.submit(
+                    classify_batch,
+                    batch_index,
+                    classification_batch
+                ): batch_index
+                for batch_index, classification_batch
+                in enumerate(classification_batches, start=1)
+            }
+
+            for future in as_completed(future_to_batch_index):
+                batch_index = future_to_batch_index[future]
+
+                try:
+                    batch_execution_results.append(future.result())
+                except Exception as unexpected_error:
+                    error_text = (
+                        f"過去会話再質問判定並列実行エラー: batch={batch_index} | "
+                        f"{type(unexpected_error).__name__}: {unexpected_error}"
+                    )
+                    print(error_text)
+
+                    batch_execution_results.append({
+                        "batch_index": batch_index,
+                        "candidate_count": 0,
+                        "status": "error",
+                        "processing_time": 0.0,
+                        "in_tokens": 0,
+                        "out_tokens": 0,
+                        "provider": BACKGROUND_PROVIDER,
+                        "model_name": SEARCH_MODEL_NAME,
+                        "results": [],
+                        "error": error_text
+                    })
+
+    batch_execution_results.sort(
+        key=lambda item: item.get("batch_index", 0)
+    )
+
+    # 代表候補の判定結果を、同じ内容を持つ元の全IDへ反映
+    classification_by_id = {}
+    total_in_tokens = 0
+    total_out_tokens = 0
+    failed_batch_count = 0
+    provider_name = BACKGROUND_PROVIDER
+    model_name = SEARCH_MODEL_NAME
+
+    for batch_result in batch_execution_results:
+        total_in_tokens += int(batch_result.get("in_tokens", 0) or 0)
+        total_out_tokens += int(batch_result.get("out_tokens", 0) or 0)
+
+        if batch_result.get("status") != "success":
+            failed_batch_count += 1
+            continue
+
+        provider_name = str(
+            batch_result.get("provider", provider_name) or provider_name
+        )
+        model_name = str(
+            batch_result.get("model_name", model_name) or model_name
+        )
+
+        for classification in (batch_result.get("results", []) or []):
+            representative_id = str(
+                classification.get("id", "") or ""
+            ).strip()
+
+            if not representative_id:
+                continue
+
+            related_candidate_ids = representative_to_candidate_ids.get(
+                representative_id,
+                [representative_id]
+            )
+
+            for candidate_id in related_candidate_ids:
+                classification_by_id[candidate_id] = dict(classification)
+
+    # 新しい事実を含まない再質問のみ除外
     excluded_ids = set()
     excluded_items = []
 
     for candidate_id, candidate in candidate_by_id.items():
         classification = classification_by_id.get(candidate_id)
 
-        # 判定結果がない候補は安全側で残す
+        # 判定結果が欠けた候補は、安全側で残す
         if not isinstance(classification, dict):
             continue
 
@@ -2016,10 +2089,7 @@ def filter_parallel_past_recall_questions_with_ai(
             classification.get("classification", "") or ""
         ).strip().lower()
 
-        contains_new_fact = classification.get(
-            "contains_new_fact",
-            True
-        )
+        contains_new_fact = classification.get("contains_new_fact", True)
 
         if not isinstance(contains_new_fact, bool):
             contains_new_fact = True
@@ -2049,6 +2119,7 @@ def filter_parallel_past_recall_questions_with_ai(
                 "confidence": confidence
             })
 
+    # 同じmessage_idを持つuser・assistantを会話単位で除外
     filtered_parallel_results = []
 
     for query_group in (parallel_results or []):
@@ -2058,17 +2129,13 @@ def filter_parallel_past_recall_questions_with_ai(
             if not isinstance(item, dict):
                 continue
 
-            message_id = str(
-                item.get("message_id", "") or ""
-            ).strip()
-
+            message_id = str(item.get("message_id", "") or "").strip()
             conversation_id = (
                 message_id
                 if message_id
                 else f"legacy_{item.get('id', '')}"
             )
 
-            # 同じmessage_idを持つuserとassistantを会話単位で除外
             if conversation_id in excluded_ids:
                 continue
 
@@ -2101,6 +2168,8 @@ def filter_parallel_past_recall_questions_with_ai(
         "out_tokens": total_out_tokens,
         "api_cost": api_cost,
         "before_count": before_count,
+        "unique_content_count": unique_content_count,
+        "duplicate_content_count": duplicate_content_count,
         "after_count": after_count,
         "excluded_count": len(excluded_ids),
         "excluded_items": excluded_items,
@@ -2114,7 +2183,7 @@ def filter_parallel_past_recall_questions_with_ai(
     debug_json(
         "DEBUG past_recall_classification_result",
         {
-            "batches": batch_debug_results,
+            "batches": batch_execution_results,
             "metrics": metrics
         }
     )
@@ -2131,9 +2200,11 @@ def filter_parallel_past_recall_questions_with_ai(
             "details": (
                 f"provider={provider_name} | "
                 f"model={model_name} | "
+                f"before={before_count} | "
+                f"unique={unique_content_count} | "
+                f"duplicates={duplicate_content_count} | "
                 f"batches={len(classification_batches)} | "
                 f"failed_batches={failed_batch_count} | "
-                f"before={before_count} | "
                 f"after={after_count} | "
                 f"excluded={len(excluded_ids)} | "
                 f"status={status}"
