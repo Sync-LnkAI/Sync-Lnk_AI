@@ -1868,37 +1868,48 @@ def filter_parallel_past_recall_questions_with_ai(
     ]
 
     system_instruction = """
-    候補を互いに独立したユーザー発言として判定してください。
+    候補を互いに独立したユーザー発言として、1件ずつ分類してください。
 
-    各候補について、次の2項目を別々に判定します。
+    【分類】
+    recall_question:
+    過去のユーザーとAIの会話で、何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言。
+    現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報を含まないものに限る。
 
-    requires_past_conversation:
-    回答するために、そのユーザーとAIの過去会話を確認する必要がある場合はtrue。
-    作品、人物、出来事、予定、方法、一般知識など、過去会話を確認しなくても回答できる場合はfalse。
+    factual_statement:
+    ユーザー自身に関する事実、経験、行動、好み、状況、意見、予定などを含む発言。
+    または、過去のユーザーとAIの会話ではなく、作品、人物、出来事、予定、方法、一般知識など、会話外の対象について尋ねる通常の質問。
 
-    contains_new_fact:
-    現在の回答に利用できる新しい事実、経験、行動、好み、状況、意見、予定、条件、訂正、追加情報をユーザーが伝えている場合はtrue。
-    過去に何を話したか確認しているだけの場合や、質問対象について尋ねているだけの場合はfalse。
+    mixed:
+    過去のユーザーとAIの会話内容を確認している一方で、現在の回答に利用できる新しい事実、経験、意見、条件、訂正、追加情報も含む発言。
 
-    ルール:
-    - 文末表現や特定の単語だけで判定せず、発言全体の参照対象と意味で判断する。
-    - 過去の会話で何を話したか、何を伝えたか、どのような回答を受けたかを確認する発言は、requires_past_conversation=true。
-    - 過去の会話ではなく、会話外の対象自体について尋ねる発言は、requires_past_conversation=false。
-    - 過去会話の確認と新しい情報の提示を同時に行う発言は、両方をtrueにする。
-    - 判断に迷う場合は、必要な情報を誤って除外しないようcontains_new_fact=trueにする。
-    - 入力に存在するidを変更しない。
-    - すべての候補を1件ずつ出力する。
-    - JSON以外の説明やMarkdownは出力しない。
+    【判定手順】
+    1. 発言が参照している対象を確認する。
+    2. 対象が過去のユーザーとAIの会話内容そのものかを確認する。
+    3. 回答にそのユーザーの過去会話履歴が必要かを確認する。
+    4. ユーザーが新しい情報も伝えているかを確認する。
+    5. 上記の結果からclassificationとcontains_new_factを決定する。
 
-    例:
-    「前に私がどんな予定を話したか覚えてる？」
-    → requires_past_conversation=true、contains_new_fact=false
+    【判定ルール】
+    ・各候補は、同じバッチ内の他候補に影響されず、独立して判定する。
+    ・特定の単語、文末表現、疑問形だけを根拠に分類しない。
+    ・過去会話で何を話したかを確認する発言だけをrecall_questionまたはmixedにする。
+    ・会話履歴を確認しなくても、対象自体の知識や外部情報から回答できる質問はfactual_statementにする。
+    ・ユーザー自身の事実、経験、好み、予定、訂正などを伝える発言は、質問形式を含んでいても新しい情報として扱う。
+    ・過去会話の確認だけならrecall_questionとし、contains_new_fact=falseにする。
+    ・過去会話の確認と新しい情報の提示が共存する場合はmixedとし、contains_new_fact=trueにする。
+    ・過去会話を確認する必要がない場合はfactual_statementにする。
+    ・判断に迷う場合は、必要な情報を誤って除外しないようmixedにする。
+    ・入力に存在するidを変更しない。
+    ・すべての候補を1件ずつ出力する。
+    ・classificationはrecall_question、factual_statement、mixedのいずれかにする。
+    ・contains_new_factは、新しい情報を含む場合だけtrueにする。
+    ・JSON以外の説明やMarkdownは出力しない。
 
-    「この作品の主人公は誰？」
-    → requires_past_conversation=false、contains_new_fact=false
-
-    「前に仕事の予定を話したけど、開始日は来月15日に変わった。前の予定も覚えてる？」
-    → requires_past_conversation=true、contains_new_fact=true
+    【例】
+    「以前の会話で、私が旅行先として挙げた場所はどこ？」→ recall_question、contains_new_fact=false
+    「この小説を書いた人物は誰？」→ factual_statement、contains_new_fact=false
+    「私は来月から新しい仕事を始める予定です」→ factual_statement、contains_new_fact=true
+    「前に仕事の予定を話したけど、開始日は来月15日に変わった。前の予定も覚えてる？」→ mixed、contains_new_fact=true
     """.strip()
 
     def classify_batch(batch_index: int, classification_batch: list) -> dict:
@@ -1914,7 +1925,7 @@ def filter_parallel_past_recall_questions_with_ai(
         "results": [
             {{
             "id": "入力と同じid",
-            "requires_past_conversation": true,
+            "classification": "recall_question | factual_statement | mixed",
             "contains_new_fact": false,
             "confidence": 0.95
             }}
@@ -2096,24 +2107,22 @@ def filter_parallel_past_recall_questions_with_ai(
         if not isinstance(classification, dict):
             continue
 
-        requires_past_conversation = classification.get(
-            "requires_past_conversation"
-        )
-        contains_new_fact = classification.get("contains_new_fact")
+        classification_name = str(
+            classification.get("classification", "") or ""
+        ).strip().lower()
 
-        # 真偽値以外や欠落があれば、安全側で候補を残す
-        if not isinstance(requires_past_conversation, bool):
-            requires_past_conversation = False
+        contains_new_fact = classification.get("contains_new_fact", True)
+
+        # 不正な分類結果や真偽値以外は、安全側で候補を残す
+        if classification_name not in {
+            "recall_question",
+            "factual_statement",
+            "mixed"
+        }:
+            classification_name = "mixed"
 
         if not isinstance(contains_new_fact, bool):
             contains_new_fact = True
-
-        if requires_past_conversation and not contains_new_fact:
-            classification_name = "recall_question"
-        elif requires_past_conversation and contains_new_fact:
-            classification_name = "mixed"
-        else:
-            classification_name = "factual_statement"
 
         try:
             confidence = float(
@@ -2125,7 +2134,7 @@ def filter_parallel_past_recall_questions_with_ai(
         confidence = max(0.0, min(confidence, 1.0))
 
         should_exclude = (
-            requires_past_conversation is True
+            classification_name == "recall_question"
             and contains_new_fact is False
             and confidence >= 0.85
         )
@@ -2136,7 +2145,6 @@ def filter_parallel_past_recall_questions_with_ai(
                 "id": candidate_id,
                 "content": candidate.get("content", ""),
                 "classification": classification_name,
-                "requires_past_conversation": requires_past_conversation,
                 "contains_new_fact": contains_new_fact,
                 "confidence": confidence
             })
