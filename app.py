@@ -1808,6 +1808,7 @@ def filter_parallel_past_recall_questions_with_ai(
         "out_tokens": 0,
         "api_cost": 0.0,
         "before_count": before_count,
+        "ai_candidate_count": 0,
         "unique_content_count": 0,
         "duplicate_content_count": 0,
         "after_count": before_count,
@@ -1824,10 +1825,62 @@ def filter_parallel_past_recall_questions_with_ai(
         default_metrics["processing_time"] = time.time() - start_time
         return parallel_results or [], default_metrics
 
-    # 全候補を内容単位で重複排除
+    # 再質問の可能性がある候補だけAI判定へ回す。
+    # Falseの候補は削除せず、そのまま検索候補として残す。
+    ai_candidate_by_id = {
+        candidate_id: candidate
+        for candidate_id, candidate in candidate_by_id.items()
+        if is_past_recall_question(
+            str(candidate.get("content", "") or "")
+        )
+    }
+
+    # コード判定で再質問候補がなければ、AIを呼ばず全候補を残す
+    if not ai_candidate_by_id:
+        processing_time = time.time() - start_time
+        metrics = {
+            **default_metrics,
+            "processing_time": processing_time,
+            "ai_candidate_count": 0,
+            "status": "skipped_no_recall_candidates"
+        }
+
+        try:
+            supabase.table("system_audit_logs").insert({
+                "user_id": str(CURRENT_USER_ID),
+                "user_plan": current_plan_type,
+                "event_type": "past_recall_classification",
+                "processing_time": processing_time,
+                "in_tokens": 0,
+                "out_tokens": 0,
+                "api_cost": 0.0,
+                "details": (
+                    f"provider=none | "
+                    f"model=none | "
+                    f"before={before_count} | "
+                    f"ai_candidates=0 | "
+                    f"unique=0 | "
+                    f"duplicates=0 | "
+                    f"batches=0 | "
+                    f"failed_batches=0 | "
+                    f"after={before_count} | "
+                    f"excluded=0 | "
+                    f"status=skipped_no_recall_candidates"
+                ),
+                "message_id": str(audit_message_id or "")
+            }).execute()
+        except Exception as audit_error:
+            print(
+                "過去会話再質問判定ログ保存エラー: "
+                f"{type(audit_error).__name__}: {audit_error}"
+            )
+
+        return parallel_results or [], metrics
+
+    # AI判定対象だけを内容単位で重複排除
     content_groups = {}
 
-    for candidate_id, candidate in candidate_by_id.items():
+    for candidate_id, candidate in ai_candidate_by_id.items():
         content = str(candidate.get("content", "") or "").strip()
         normalized_content = unicodedata.normalize("NFKC", content)
         normalized_content = re.sub(r"\s+", " ", normalized_content).strip().lower()
@@ -2198,6 +2251,7 @@ def filter_parallel_past_recall_questions_with_ai(
         "out_tokens": total_out_tokens,
         "api_cost": api_cost,
         "before_count": before_count,
+        "ai_candidate_count": len(ai_candidate_by_id),
         "unique_content_count": unique_content_count,
         "duplicate_content_count": duplicate_content_count,
         "after_count": after_count,
@@ -2231,6 +2285,7 @@ def filter_parallel_past_recall_questions_with_ai(
                 f"provider={provider_name} | "
                 f"model={model_name} | "
                 f"before={before_count} | "
+                f"ai_candidates={len(ai_candidate_by_id)} | "
                 f"unique={unique_content_count} | "
                 f"duplicates={duplicate_content_count} | "
                 f"batches={len(classification_batches)} | "
@@ -9929,8 +9984,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -23256,7 +23311,8 @@ with all_tabs[0]:
                                 search_time=float(search_elapsed)
                             )
 
-                            st.rerun()
+                            # メインチャット処理の最終再描画
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
