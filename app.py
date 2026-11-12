@@ -20261,6 +20261,64 @@ with all_tabs[0]:
                                     )
                                     
                                 debug_json("DEBUG past_logs_context", past_logs_context)
+                                
+                                try:
+                                    selected_items = []
+
+                                    for item in (past_logs_context or []):
+                                        if not isinstance(item, dict) or item.get("role") != "user":
+                                            continue
+
+                                        selected_items.append({
+                                            "id": item.get("id"),
+                                            "message_id": str(item.get("message_id", "") or "") or None,
+                                            "content": str(item.get("content", "") or ""),
+                                            "created_at": item.get("created_at"),
+                                            "similarity": float(item.get("similarity", 0.0) or 0.0),
+                                            "final_score": float(item.get("final_score", 0.0) or 0.0),
+                                            "original_final_score": float(
+                                                item.get("original_final_score", item.get("final_score", 0.0))
+                                                or 0.0
+                                            ),
+                                            "aggregated_score": float(
+                                                item.get("aggregated_score", item.get("final_score", 0.0))
+                                                or 0.0
+                                            ),
+                                            "repeat_message_count": int(item.get("repeat_message_count", 1) or 1),
+                                            "repeat_date_count": int(item.get("repeat_date_count", 1) or 1),
+                                            "repeat_bonus": float(item.get("repeat_bonus", 0.0) or 0.0),
+                                            "assistant_message_count": len(item.get("assistant_messages", []) or []),
+                                            "assistant_content": str(item.get("assistant_content", "") or "")
+                                        })
+
+                                    supabase.table("system_audit_logs").insert({
+                                        "user_id": str(CURRENT_USER_ID),
+                                        "user_plan": current_plan_type,
+                                        "event_type": "past_log_final_selection",
+                                        "processing_time": 0.0,
+                                        "in_tokens": 0,
+                                        "out_tokens": 0,
+                                        "api_cost": 0.0,
+                                        "details": (
+                                            f"search_query_count={len(search_queries)} | "
+                                            f"selected_count={len(selected_items)} | "
+                                            f"final_limit={PAST_LOG_FINAL_COUNT}"
+                                        ),
+                                        "analysis_data": {
+                                            "version": 1,
+                                            "search_queries": list(search_queries or []),
+                                            "final_selected_count": len(selected_items),
+                                            "final_limit": PAST_LOG_FINAL_COUNT,
+                                            "selected_items": selected_items
+                                        },
+                                        "message_id": str(current_msg_id)
+                                    }).execute()
+
+                                except Exception as selection_log_error:
+                                    print(
+                                        "過去会話最終採用ログ保存エラー: "
+                                        f"{type(selection_log_error).__name__}: {selection_log_error}"
+                                    )
 
                                 search_elapsed = time.time() - search_start_time
                                 past_recall_elapsed = float(
