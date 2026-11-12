@@ -20121,7 +20121,8 @@ with all_tabs[0]:
                                         parallel_past_log_results,
                                         past_recall_metrics
                                     ) = filter_parallel_past_recall_questions_with_ai(
-                                        parallel_results=parallel_past_log_results
+                                        parallel_results=parallel_past_log_results,
+                                        audit_message_id=str(current_msg_id)
                                     )
 
                                 debug_json(
