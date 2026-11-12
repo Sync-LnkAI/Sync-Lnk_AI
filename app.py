@@ -2166,7 +2166,7 @@ def search_past_logs_hybrid(query_text: str, excluded_message_ids: list = None, 
         # グループ化前にassistant回答を取得
         # ==========================================
         enriched_candidates = attach_assistant_responses_to_candidates(results)
-        
+
         # ==========================================
         # user + assistantの会話単位でグループ化
         # ==========================================
