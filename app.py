@@ -25424,6 +25424,7 @@ if is_admin:
                                     "general_type_time": 0.0, "general_type_in": 0, "general_type_out": 0, "general_type_cost": 0.0, "general_type_details": "",
                                     "general_calc_time": 0.0, "general_calc_in": 0, "general_calc_out": 0, "general_calc_cost": 0.0, "general_calc_details": "",
                                     "clarification_time": 0.0, "clarification_in": 0, "clarification_out": 0, "clarification_cost": 0.0, "clarification_details": "",
+                                    "past_recall_time": 0.0, "past_recall_in": 0, "past_recall_out": 0, "past_recall_cost": 0.0, "past_recall_details": "",
                                     "search_time": 0.0, "search_in": 0, "search_out": 0,
                                     "search_exec_time": 0.0, "search_exec_in": 0, "search_exec_out": 0, "search_exec_cost": 0.0,
                                     "total_yen": 0.0, "total_time": 0.0, "processing_type": "unclassified",
@@ -25467,6 +25468,13 @@ if is_admin:
                                     log.get("details", "")
                                 )
                             
+                            elif action == "past_recall_classification":
+                                merged_logs[msg_id]["past_recall_time"] = proc_time
+                                merged_logs[msg_id]["past_recall_in"] = in_t
+                                merged_logs[msg_id]["past_recall_out"] = out_t
+                                merged_logs[msg_id]["past_recall_cost"] = cost
+                                merged_logs[msg_id]["past_recall_details"] = log.get("details", "")
+
                             elif action == "CALCULATION_TOOL_ROUTER":
                                 merged_logs[msg_id]["tool_time"] = proc_time
                                 merged_logs[msg_id]["tool_in"] = in_t
@@ -25720,6 +25728,7 @@ if is_admin:
                                     float(item.get("reflection_time", 0.0) or 0.0),
                                     float(item.get("sum_time",0.0) or 0.0),
                                     float(item.get("search_time",0.0) or 0.0),
+                                    float(item.get("past_recall_time", 0.0) or 0.0),
                                     float(item.get("tool_time",0.0) or 0.0),
                                     float(item.get("general_type_time", 0.0) or 0.0),
                                     float(item.get("general_calc_time", 0.0) or 0.0),
@@ -25795,6 +25804,7 @@ if is_admin:
                                     | 📝 **計画書への反映** | {item['reflection_time']:.2f} 秒 | {item['reflection_in']} t | {item['reflection_out']} t | ¥{item['reflection_cost']:.4f} | {item['reflection_details']} |
                                     | 🧠 **裏スレッド記憶の要約** | {item['sum_time']:.2f} 秒 | {item['sum_in']} t | {item['sum_out']} t | ¥{item['sum_cost']:.4f} | {item['summary_details']} |
                                     | 🔍 **過去会話・意味検索** | {item['search_time']:.2f} 秒 | {item['search_in']} t | {item['search_out']} t | ¥0.0000 | |
+                                    | 🧹 **過去会話の再質問除外判定** | {item['past_recall_time']:.2f} 秒 | {item['past_recall_in']} t | {item['past_recall_out']} t | ¥{item['past_recall_cost']:.4f} | {item['past_recall_details']} |
                                     | 🧮 **計算ツール判定** | {item['tool_time']:.2f} 秒 | {item['tool_in']} t | {item['tool_out']} t | ¥{item['tool_cost']:.4f} | {item['tool_details']} |
                                     | 🧭 **汎用計算タイプ判定** | {item['general_type_time']:.2f} 秒 | {item['general_type_in']} t | {item['general_type_out']} t | ¥{item['general_type_cost']:.4f} | {item['general_type_details']} |
                                     | 🔢 **汎用計算条件抽出** | {item['general_calc_time']:.2f} 秒 | {item['general_calc_in']} t | {item['general_calc_out']} t | ¥{item['general_calc_cost']:.4f} | {item['general_calc_details']} |
