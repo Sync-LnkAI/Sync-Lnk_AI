@@ -335,7 +335,7 @@ is_dev_site = (
     or CURRENT_USER_ID == USUAL_USER_ID
 )
 
-DB_MEMORIES_TABLE = "user_memories" if is_dev_site else "user_memories_tester"
+DB_MEMORIES_TABLE = "user_memories"
 # ==========================================
 
 #過去会話の類似判定・集約関数用の定数定義
