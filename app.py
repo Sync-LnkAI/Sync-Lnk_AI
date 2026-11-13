@@ -20157,6 +20157,22 @@ with all_tabs[0]:
                                 requires_estimation = True
                                 route_source = "calculation_clarification"
                             
+                            past_conversation_question_detected = False
+                            past_logs_context = []
+                            past_recall_metrics = {
+                                "processing_time": 0.0,
+                                "in_tokens": 0,
+                                "out_tokens": 0,
+                                "api_cost": 0.0,
+                                "before_count": 0,
+                                "after_count": 0,
+                                "excluded_count": 0,
+                                "excluded_items": [],
+                                "provider": BACKGROUND_PROVIDER,
+                                "model_name": SEARCH_MODEL_NAME,
+                                "status": "skipped"
+                            }
+                            
                             # 通常会話・相談など、ユーザー固有の文脈が役立つ場合だけ
                             # 関連する過去会話を検索する
                             if response_mode in {"conversation", "support", "default"}:
