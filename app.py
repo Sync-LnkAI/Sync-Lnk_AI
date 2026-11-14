@@ -7082,8 +7082,11 @@ def localize_general_calculation_error(
 GENERAL_CALCULATION_ANSWER_RULES = {
     "compound_interest": """
     ・compounding_per_year_defaultedがtrueの場合だけ、
-      「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
+    「複利回数の指定がないため、年1回複利として計算しました」と結果の前に明記してください。
     ・compounding_per_year_defaultedがfalseの場合は、複利回数の補完について言及しないでください。
+    ・final_amount_displayがある場合は、「運用後の合計額」として必ず表示してください。
+    ・profit_displayがある場合は、「運用益」として表示してください。
+    ・運用後の金額を尋ねる質問では、運用益だけを表示せず、「運用後の合計額」を先に表示してください。
     """.strip(),
 
     "recurring_investment": """
