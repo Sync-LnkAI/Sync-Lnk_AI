@@ -11493,10 +11493,11 @@ def extract_real_estate_sale_parameters(
     次の表現は building_structure として扱ってください。
 
     ・木造 → wood
-    ・軽量鉄骨造 → light_steel
-    ・鉄骨造 → steel
-    ・RC造 → rc
-    ・SRC造 → src
+    ・軽量鉄骨造、軽量鉄骨 → light_steel
+    ・重量鉄骨造、重量鉄骨 → steel
+    ・鉄骨造、鉄骨 → steel
+    ・RC造、RC、鉄筋コンクリート造 → rc
+    ・SRC造、SRC、鉄骨鉄筋コンクリート造 → src
 
     構造が不明な場合は null にしてください。
 
@@ -11616,6 +11617,68 @@ def extract_real_estate_sale_parameters(
             "NFKC",
             str(user_input or "")
         )
+
+        normalized_user_input = unicodedata.normalize(
+            "NFKC",
+            str(user_input or "")
+        )
+
+        # 建物構造が最新発言に明示されている場合は、
+        # AI抽出結果より優先して確定する
+        explicit_building_structure = None
+
+        if any(
+            keyword in normalized_user_input
+            for keyword in {
+                "SRC造",
+                "鉄骨鉄筋コンクリート造"
+            }
+        ):
+            explicit_building_structure = "src"
+
+        elif any(
+            keyword in normalized_user_input
+            for keyword in {
+                "RC造",
+                "鉄筋コンクリート造"
+            }
+        ):
+            explicit_building_structure = "rc"
+
+        elif any(
+            keyword in normalized_user_input
+            for keyword in {
+                "重量鉄骨造",
+                "重量鉄骨"
+            }
+        ):
+            explicit_building_structure = "steel"
+
+        elif any(
+            keyword in normalized_user_input
+            for keyword in {
+                "軽量鉄骨造",
+                "軽量鉄骨"
+            }
+        ):
+            explicit_building_structure = "light_steel"
+
+        elif any(
+            keyword in normalized_user_input
+            for keyword in {
+                "鉄骨造",
+                "鉄骨"
+            }
+        ):
+            explicit_building_structure = "steel"
+
+        elif "木造" in normalized_user_input:
+            explicit_building_structure = "wood"
+
+        if explicit_building_structure is not None:
+            raw_arguments["building_structure"] = (
+                explicit_building_structure
+            )
 
         mentions_building_age = any(
             keyword in normalized_user_input
@@ -12023,6 +12086,43 @@ def normalize_real_estate_sale_arguments(
             if normalized_property_usage is not None:
                 normalized["property_usage"] = normalized_property_usage
             continue
+
+            if key == "building_structure":
+                structure_text = (
+                    unicodedata.normalize("NFKC",str(value))
+                    .strip()
+                    .lower()
+                )
+
+                structure_mapping = {
+                    "wood": "wood",
+                    "木造": "wood",
+
+                    "light_steel": "light_steel",
+                    "軽量鉄骨造": "light_steel",
+                    "軽量鉄骨": "light_steel",
+
+                    "steel": "steel",
+                    "重量鉄骨造": "steel",
+                    "重量鉄骨": "steel",
+                    "鉄骨造": "steel",
+                    "鉄骨": "steel",
+
+                    "rc": "rc",
+                    "rc造": "rc",
+                    "鉄筋コンクリート造": "rc",
+
+                    "src": "src",
+                    "src造": "src",
+                    "鉄骨鉄筋コンクリート造": "src"
+                }
+
+                normalized_structure = structure_mapping.get(structure_text)
+
+                if normalized_structure is not None:
+                    normalized["building_structure"] = (normalized_structure)
+
+                continue
 
         # 金額、取得費率、法人実効税率
         if key in REAL_ESTATE_NUMERIC_FIELDS:
