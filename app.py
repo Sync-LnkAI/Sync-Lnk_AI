@@ -20903,8 +20903,11 @@ with all_tabs[0]:
 
                             if (
                                 calculation_tool == "none"
-                                and requires_estimation
-                                and not need_search
+                                and (
+                                    requires_estimation
+                                    or has_calculation_request_phrase
+                                    or has_multiple_calculation_values
+                                )
                             ):
                                 calculation_tool = "general_calculation"
 
