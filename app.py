@@ -5808,33 +5808,24 @@ def calculate_fire_insurance_refund(
 
     start_date = None
     end_date = None
-
-    if elapsed_months is not None:
-        elapsed_months_d = to_decimal(elapsed_months)
-    elif contract_start_date and cancellation_date:
+    if contract_start_date and cancellation_date:
         try:
-            start_date = datetime.strptime(
-                str(contract_start_date), "%Y-%m-%d"
-            ).date()
-            end_date = datetime.strptime(
-                str(cancellation_date), "%Y-%m-%d"
-            ).date()
+            start_date = parse_date(contract_start_date)
+            end_date = parse_date(cancellation_date)
         except ValueError:
             raise ValueError("保険日付はYYYY-MM-DD形式にしてください")
-
         if end_date < start_date:
             raise ValueError("解約予定日は契約開始日以後にしてください")
-
         completed_months = (
             (end_date.year - start_date.year) * 12
             + end_date.month
             - start_date.month
         )
-
         if end_date.day < start_date.day:
             completed_months -= 1
-
         elapsed_months_d = Decimal(str(completed_months))
+    elif elapsed_months is not None:
+        elapsed_months_d = to_decimal(elapsed_months)
     else:
         raise ValueError(
             "elapsed_monthsまたは契約開始日と解約予定日が必要です"
