@@ -11554,6 +11554,18 @@ def extract_real_estate_sale_parameters(
     3,000万円控除を自動適用してはいけません。
     ・適用の確認が取れていない場合はnullにしてください。
 
+    【建物の取得区分】
+    ・建物を新築で取得した、新築で購入した、新築物件だった場合は、building_acquisition_typeをnewにしてください。
+    ・建物を中古で取得した、中古で購入した、中古物件だった場合は、building_acquisition_typeをusedにしてください。
+    ・新築か中古か明示されていない場合は、building_acquisition_typeをnullにしてください。
+    ・建物の築年数だけを理由に、新築または中古を推測してはいけません。
+
+    【建物の耐用年数】
+    ・申告、固定資産台帳、減価償却明細などで使用している耐用年数が明示された場合は、building_useful_lifeに年数を整数で設定してください。
+    ・「耐用年数は21年」「申告では21年」は、building_useful_lifeを21にしてください。
+    ・中古建物でも耐用年数が明示されていない場合は、AIで計算せずnullにしてください。
+    ・新築建物で耐用年数が明示されていない場合もnullにし、構造別の法定耐用年数はPython側で設定してください。
+
     【建物構造】
     次の表現は building_structure として扱ってください。
 
@@ -11586,6 +11598,8 @@ def extract_real_estate_sale_parameters(
     ・建物取得費
     ・購入時諸費用
     ・建物構造
+    ・新築または中古
+    ・建物の耐用年数
     ・取得年月
     ・取得日
     ・売却日
@@ -11597,6 +11611,9 @@ def extract_real_estate_sale_parameters(
     例
     木造 → building_structure = "wood"
     RC造 → building_structure = "rc"
+    中古で購入 → building_acquisition_type = "used"
+    新築で購入 → building_acquisition_type = "new"
+    耐用年数は21年 → building_useful_life = 21
     2018年購入 → building_acquisition_date
     8年前に購入 → building_acquisition_date
     長期譲渡 → holding_period_type = "long_term"
@@ -11624,6 +11641,8 @@ def extract_real_estate_sale_parameters(
             "building_acquisition_cost": null,
             "building_tax_basis": null,
             "building_structure": null,
+            "building_acquisition_type": null,
+            "building_useful_life": null,
             "building_acquisition_date": null,
             "accumulated_depreciation": null,
             "acquisition_related_costs": null,
@@ -11912,6 +11931,8 @@ REAL_ESTATE_SALE_ALLOWED_FIELDS = {
     "building_acquisition_cost",
     "building_tax_basis",
     "building_structure",
+    "building_acquisition_type",
+    "building_useful_life",
     "building_acquisition_date",
     "accumulated_depreciation",
     "acquisition_related_costs",
@@ -11945,6 +11966,7 @@ REAL_ESTATE_NUMERIC_FIELDS = {
     "other_cash_expenses",
     "special_deduction",
     "corporate_effective_tax_rate",
+    "building_useful_life",
     "deemed_acquisition_cost_rate"
 }
 
@@ -11978,12 +12000,19 @@ def calculate_building_depreciation(
     building_original_cost,
     building_structure,
     building_acquisition_date,
-    property_usage
+    property_usage,
+    building_useful_life=None
 ) -> dict:
 
     original_cost = to_decimal(building_original_cost)
 
-    useful_life = Decimal(BUILDING_USEFUL_LIFE[building_structure])
+    if building_useful_life is not None:
+        useful_life = to_decimal(building_useful_life)
+    else:
+        useful_life = Decimal(BUILDING_USEFUL_LIFE[building_structure])
+
+    if useful_life <= Decimal("0"):
+        raise ValueError("建物の耐用年数は1年以上で指定してください")
 
     acquired_date = parse_date(building_acquisition_date)
 
@@ -12152,42 +12181,61 @@ def normalize_real_estate_sale_arguments(
                 normalized["property_usage"] = normalized_property_usage
             continue
 
-            if key == "building_structure":
-                structure_text = (
-                    unicodedata.normalize("NFKC",str(value))
-                    .strip()
-                    .lower()
-                )
+        if key == "building_structure":
+            structure_text = (
+                unicodedata.normalize("NFKC",str(value))
+                .strip()
+                .lower()
+            )
 
-                structure_mapping = {
-                    "wood": "wood",
-                    "木造": "wood",
+            structure_mapping = {
+                "wood": "wood",
+                "木造": "wood",
 
-                    "light_steel": "light_steel",
-                    "軽量鉄骨造": "light_steel",
-                    "軽量鉄骨": "light_steel",
+                "light_steel": "light_steel",
+                "軽量鉄骨造": "light_steel",
+                "軽量鉄骨": "light_steel",
 
-                    "steel": "steel",
-                    "重量鉄骨造": "steel",
-                    "重量鉄骨": "steel",
-                    "鉄骨造": "steel",
-                    "鉄骨": "steel",
+                "steel": "steel",
+                "重量鉄骨造": "steel",
+                "重量鉄骨": "steel",
+                "鉄骨造": "steel",
+                "鉄骨": "steel",
 
-                    "rc": "rc",
-                    "rc造": "rc",
-                    "鉄筋コンクリート造": "rc",
+                "rc": "rc",
+                "rc造": "rc",
+                "鉄筋コンクリート造": "rc",
 
-                    "src": "src",
-                    "src造": "src",
-                    "鉄骨鉄筋コンクリート造": "src"
-                }
+                "src": "src",
+                "src造": "src",
+                "鉄骨鉄筋コンクリート造": "src"
+            }
 
-                normalized_structure = structure_mapping.get(structure_text)
+            normalized_structure = structure_mapping.get(structure_text)
 
-                if normalized_structure is not None:
-                    normalized["building_structure"] = (normalized_structure)
+            if normalized_structure is not None:
+                normalized["building_structure"] = (normalized_structure)
 
-                continue
+            continue
+            
+        if key == "building_acquisition_type":
+            acquisition_type_text = unicodedata.normalize("NFKC", str(value)).strip().lower()
+            acquisition_type_mapping = {
+                "new": "new",
+                "新築": "new",
+                "新築取得": "new",
+                "新築購入": "new",
+                "新築物件": "new",
+                "used": "used",
+                "中古": "used",
+                "中古取得": "used",
+                "中古購入": "used",
+                "中古物件": "used"
+            }
+            normalized_acquisition_type = acquisition_type_mapping.get(acquisition_type_text)
+            if normalized_acquisition_type is not None:
+                normalized["building_acquisition_type"] = normalized_acquisition_type
+            continue
 
         # 金額、取得費率、法人実効税率
         if key in REAL_ESTATE_NUMERIC_FIELDS:
@@ -12328,6 +12376,8 @@ REAL_ESTATE_FIELD_LABELS = {
     "building_tax_basis": "建物未償却残高または建物簿価",
     "acquisition_related_costs": "購入時諸費用（仲介手数料・登記費用・不動産取得税など）",
     "building_structure": "建物構造",
+    "building_acquisition_type": "建物を新築で取得したか中古で取得したか",
+    "building_useful_life": "申告で使用している建物の耐用年数",
     "building_acquisition_date": "建物取得年月",
     "acquisition_date": "取得日",
     "sale_date": "売却日",
@@ -12487,6 +12537,19 @@ def get_real_estate_sale_missing_fields(
     building_cost = to_decimal(arguments.get("building_acquisition_cost",Decimal("0")))
     building_tax_basis = arguments.get("building_tax_basis")
     property_usage = arguments.get("property_usage")
+    building_acquisition_type = arguments.get("building_acquisition_type")
+    building_useful_life = arguments.get("building_useful_life")
+
+    if building_cost > Decimal("0"):
+        if building_acquisition_type not in {"new", "used"}:
+            missing_fields.append("building_acquisition_type")
+        elif building_acquisition_type == "used":
+            try:
+                useful_life_is_valid = building_useful_life is not None and to_decimal(building_useful_life) > Decimal("0")
+            except (ValueError, TypeError, ArithmeticError):
+                useful_life_is_valid = False
+            if not useful_life_is_valid:
+                missing_fields.append("building_useful_life")
 
     if (
         building_cost > Decimal("0")
@@ -12512,6 +12575,8 @@ def get_real_estate_sale_missing_fields(
             building_original_cost > Decimal("0")
             and building_structure
             and building_acquisition_date
+            and building_acquisition_type in {"new", "used"}
+            and (building_acquisition_type == "new" or building_useful_life is not None)
         )
 
         if not can_auto_calculate:
@@ -12589,6 +12654,18 @@ def format_missing_fields_message(
                 "src": "SRC造"
             }
             value = structure_labels.get(str(value), value)
+        
+        elif key == "building_acquisition_type":
+            if value == "new":
+                value = "新築"
+            elif value == "used":
+                value = "中古"
+        elif key == "building_useful_life":
+            try:
+                value = f"{int(value)}年"
+            except Exception:
+                pass
+        
         elif key == "use_deemed_acquisition_cost":
             value = (
                 "使用する"
@@ -12790,30 +12867,29 @@ def execute_real_estate_sale_calculation(
         )
     )
 
+    building_acquisition_type = normalized_arguments.get("building_acquisition_type")
+    building_useful_life = normalized_arguments.get("building_useful_life")
+
     can_compare_building_tax_basis = (
         input_building_tax_basis is not None
         and building_acquisition_cost is not None
         and building_structure
         and building_acquisition_date
+        and building_acquisition_type in {"new", "used"}
+        and (
+            building_acquisition_type == "new"
+            or building_useful_life is not None
+        )
     )
 
     if can_compare_building_tax_basis:
 
-        theoretical_depreciation_result = (
-            calculate_building_depreciation(
-                building_original_cost=(
-                    building_acquisition_cost
-                ),
-                building_structure=(
-                    building_structure
-                ),
-                building_acquisition_date=(
-                    building_acquisition_date
-                ),
-                property_usage=(
-                    property_usage
-                )
-            )
+        theoretical_depreciation_result = calculate_building_depreciation(
+            building_original_cost=building_acquisition_cost,
+            building_structure=building_structure,
+            building_acquisition_date=building_acquisition_date,
+            property_usage=property_usage,
+            building_useful_life=building_useful_life if building_acquisition_type == "used" else None
         )
 
         theoretical_building_tax_basis = int(
@@ -12866,14 +12942,17 @@ def execute_real_estate_sale_calculation(
             and building_structure
             and building_acquisition_date
             and property_usage in {"owner_occupied", "investment"}
+            and building_acquisition_type in {"new", "used"}
+            and (building_acquisition_type == "new" or building_useful_life is not None)
         ):
 
             depreciation_result = calculate_building_depreciation(
-                    building_original_cost=building_original_cost,
-                    building_structure=building_structure,
-                    building_acquisition_date=building_acquisition_date,
-                    property_usage=property_usage
-                )
+                building_original_cost=building_original_cost,
+                building_structure=building_structure,
+                building_acquisition_date=building_acquisition_date,
+                property_usage=property_usage,
+                building_useful_life=building_useful_life if building_acquisition_type == "used" else None
+            )
             
             if "depreciation_result" in locals():
                 debug_json(
@@ -13069,6 +13148,8 @@ def execute_real_estate_sale_calculation(
         result_condition_fields = {
             "property_usage",
             "building_structure",
+            "building_acquisition_type",
+            "building_useful_life",
             "acquisition_date",
             "building_acquisition_date",
             "sale_date",
@@ -13244,6 +13325,8 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
 
     property_usage = str(result.get("property_usage", "") or "")
     building_structure = str(result.get("building_structure", "") or "")
+    building_acquisition_type = str(result.get("building_acquisition_type", "") or "")
+    building_useful_life = result.get("building_useful_life")
     acquisition_date = str(result.get("acquisition_date", "") or "")
     building_acquisition_date = str(result.get("building_acquisition_date", "") or "")
 
@@ -13258,6 +13341,12 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     structure_label = structure_labels.get(
         building_structure, building_structure
     )
+
+    acquisition_type_labels = {"new": "新築", "used": "中古"}
+        building_acquisition_type_label = acquisition_type_labels.get(
+            building_acquisition_type,
+            building_acquisition_type
+        )
 
     lines = [
         "計算結果は以下になりました。",
@@ -13291,6 +13380,12 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
 
     if structure_label:
         lines.append(f"・建物構造：{structure_label}")
+    
+    if building_acquisition_type_label:
+        lines.append(f"・建物の取得区分：{building_acquisition_type_label}")
+
+    if building_useful_life is not None:
+        lines.append(f"・建物の耐用年数：{int(building_useful_life)}年")
 
     lines.extend([
         f"・売却価格：{sale_price:,}円",
@@ -13397,13 +13492,16 @@ def format_real_estate_result_detailed(
     building_structure = str(
         result.get("building_structure", "") or ""
     )
+    building_acquisition_type = str(
+        result.get("building_acquisition_type", "") or ""
+    )
+    building_useful_life = result.get("building_useful_life")
     acquisition_date = str(
         result.get("acquisition_date", "") or ""
     )
     building_acquisition_date = str(
         result.get("building_acquisition_date", "") or ""
     )
-
     ownership_labels = {
         "individual": "個人",
         "corporate": "法人"
@@ -13435,6 +13533,12 @@ def format_real_estate_result_detailed(
     )
     structure_label = structure_labels.get(
         building_structure, building_structure
+    )
+
+    acquisition_type_labels = {"new": "新築", "used": "中古"}
+    building_acquisition_type_label = acquisition_type_labels.get(
+        building_acquisition_type,
+        building_acquisition_type
     )
 
     sale_price = yen("sale_price")
@@ -13549,6 +13653,12 @@ def format_real_estate_result_detailed(
 
     if structure_label:
         lines.append(f"・建物構造：{structure_label}")
+    
+    if building_acquisition_type_label:
+        lines.append(f"・建物の取得区分：{building_acquisition_type_label}")
+
+    if building_useful_life is not None:
+        lines.append(f"・建物の耐用年数：{int(building_useful_life)}年")
 
     lines.extend([
         f"・売却価格：{sale_price:,}円",
