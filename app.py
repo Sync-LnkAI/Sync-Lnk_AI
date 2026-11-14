@@ -7103,8 +7103,7 @@ GENERAL_CALCULATION_ANSWER_RULES = {
     ・保険会社所定の短期率、手数料、契約条件などは考慮していないことを簡潔に説明してください。
     ・正確な返戻額は、保険会社または代理店への確認が必要であることを案内してください。
     ・結果を、実際に支払われる返戻金として断定してはいけません。
-    ・cancellation_date_defaultedがtrueの場合は、解約日の指定がなかったため、
-    cancellation_dateを解約日として計算したことを結果の前に明記してください。
+    ・cancellation_date_defaultedがtrueの場合は、解約日の「日」が指定されていないため、cancellation_dateを仮の解約日として計算したことを結果の前に明記してください。
     ・cancellation_date_defaultedがfalseの場合は、解約日の補完について言及しないでください。
     """.strip()
 }
