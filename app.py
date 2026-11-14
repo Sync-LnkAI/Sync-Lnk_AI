@@ -13443,8 +13443,13 @@ def format_real_estate_result_detailed(
     building_cost = yen("building_acquisition_cost")
     depreciation = yen("accumulated_depreciation")
     building_basis = yen("building_tax_basis")
+    theoretical_building_basis = int(
+        result.get("theoretical_building_tax_basis", 0) or 0
+    )
+    building_basis_difference = int(
+        result.get("building_tax_basis_difference", 0) or 0
+    )
     acquisition_costs = yen("acquisition_related_costs")
-    building_cost_basis_difference = max(building_cost - building_basis, 0)
     acquisition_basis = yen("applied_acquisition_basis")
     brokerage_fee = yen("brokerage_fee")
     transfer_expenses = yen("transfer_expenses")
@@ -13556,14 +13561,7 @@ def format_real_estate_result_detailed(
 
     if building_basis_source == "user_provided":
         lines.extend([
-            f"・入力された建物未償却残高：{building_basis:,}円",
-            f"・建物取得価額との差額：{building_cost_basis_difference:,}円",
-            (
-                "　※この差額は建物取得価額から入力された"
-                "未償却残高を差し引いた金額です。"
-                "税務上の減価償却累計額は、固定資産台帳や"
-                "減価償却明細で確認してください。"
-            )
+            f"・入力された建物未償却残高：{building_basis:,}円"
         ])
     else:
         lines.extend([
@@ -13685,8 +13683,8 @@ def format_real_estate_result_detailed(
 
     lines.extend([
         "",
-        "【仲介手数料】",
-        f"・仲介手数料：{brokerage_fee:,}円",
+        "【売却時費用】",
+        f"・売却時仲介手数料：{brokerage_fee:,}円",
     ])
 
     if brokerage_fee_method == "statutory_max_estimate":
@@ -13756,13 +13754,27 @@ def format_real_estate_result_detailed(
         lines.extend([
             "",
             "【建物未償却残高の確認】",
+            f"・入力された建物未償却残高：{building_basis:,}円",
             (
-                "入力された建物未償却残高と、建物取得価額、"
-                "構造、取得年月から算出した金額に差があります。"
+                f"・建物取得価額・構造・取得年月から算出した"
+                f"理論上の未償却残高："
+                f"{theoretical_building_basis:,}円"
+            ),
+            (
+                f"・差額："
+                f"{building_basis_difference:,}円"
+            ),
+            (
+                "入力値と理論値の差が100万円を超えているため、"
+                "確認対象として表示しています。"
             ),
             (
                 "今回の計算では、入力された建物未償却残高を"
                 "採用しています。"
+            ),
+            (
+                "固定資産台帳または減価償却明細で、"
+                "入力値が正しいか確認してください。"
             )
         ])
 
