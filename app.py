@@ -18908,7 +18908,7 @@ with all_tabs[0]:
                 elif calculation_pending_display:
                     release_button_label = "計算を終了"
                 else:
-                    release_button_label = "選択を解除"
+                    release_button_label = "計算を終了"
 
                 if st.button(
                     release_button_label,
