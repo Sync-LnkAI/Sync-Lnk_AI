@@ -9664,6 +9664,17 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 rf")"
                 rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?:"
+                rf"購入(?:時)?(?:の)?仲介手数料|"
+                rf"取得(?:時)?(?:の)?仲介手数料|"
+                rf"購入(?:時)?(?:の)?登記費用(?:等)?|"
+                rf"取得(?:時)?(?:の)?登記費用(?:等)?|"
+                rf"不動産取得税"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
             )
         ],
         "total_acquisition_cost": [
@@ -9679,6 +9690,15 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
         ],
         "brokerage_fee": [
             (
+                rf"(?:"
+                rf"売却(?:時)?(?:の)?仲介手数料|"
+                rf"今回(?:の)?売却(?:の)?仲介手数料"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?<!購入)(?<!取得)"
                 rf"仲介手数料"
                 rf"\s*(?:は|が|を|:)?\s*"
                 rf"(?P<amount>{amount_part})"
@@ -9731,6 +9751,45 @@ def extract_explicit_real_estate_amounts(user_input: str) -> dict:
                 pass
 
             break
+
+    purchase_cost_pattern = (
+        rf"(?:"
+        rf"購入(?:時)?(?:の)?仲介手数料|"
+        rf"取得(?:時)?(?:の)?仲介手数料|"
+        rf"購入(?:時)?(?:の)?登記費用(?:等)?|"
+        rf"取得(?:時)?(?:の)?登記費用(?:等)?|"
+        rf"不動産取得税"
+        rf")"
+        rf"\s*(?:は|が|を|:)?\s*"
+        rf"(?P<amount>{amount_part})"
+    )
+
+    purchase_cost_matches = list(
+        re.finditer(
+            purchase_cost_pattern,
+            normalized_text,
+            flags=re.IGNORECASE
+        )
+    )
+
+    if purchase_cost_matches:
+        purchase_cost_total = Decimal("0")
+
+        for match in purchase_cost_matches:
+            try:
+                purchase_cost_total += to_decimal(match.group("amount"))
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                continue
+
+        extracted_amounts["acquisition_related_costs"] = purchase_cost_total
+
+        # 購入時の仲介手数料を
+        # 売却時仲介手数料として扱わない
+        extracted_amounts.pop("brokerage_fee", None)
 
     return extracted_amounts
 #==============================================
@@ -11356,11 +11415,17 @@ def extract_real_estate_sale_parameters(
     ・金額が曖昧な場合はnullにしてください。
 
     【仲介手数料】
-    ・ユーザーが仲介手数料の金額を明示した場合は、brokerage_feeへ円単位の整数で設定してください。
-    ・ユーザーが仲介手数料の金額を明示していない場合は、brokerage_feeをnullにしてください。
-    ・仲介手数料を自動計算する場合でも、AI側で計算してはいけません。nullのまま出力し、Python側の計算に任せてください。
-    ・仲介手数料が不要または0円と明示された場合は、brokerage_feeを0にしてください。
-    ・ユーザーが「仲介手数料は自動計算」、「仲介手数料を自動で」、「仲介手数料は計算して」などと明示した場合は、brokerage_fee を null にしてください。
+    ・売却仲介手数料、売却時仲介手数料、今回の売却にかかる仲介手数料は、brokerage_feeへ円単位の整数で設定してください。
+    ・購入仲介手数料、購入時仲介手数料、取得時仲介手数料は、売却時のbrokerage_feeではありません。
+    ・購入仲介手数料は購入時諸費用に含まれるため、acquisition_related_costsとして扱ってください。
+    ・購入仲介手数料と、購入登記費用、取得時登記費用、不動産取得税などが同時に明示された場合は、それらを合計してacquisition_related_costsへ設定してください。
+    ・「購入仲介手数料」と明示された金額を、 brokerage_feeへ設定してはいけません。
+    ・不動産売却計算の継続中に、確認項目として売却時仲介手数料を求めている場合の「仲介手数料」は、brokerage_feeとして扱ってください。
+    ・それ以外で、単に「仲介手数料」とだけ書かれ、購入時か売却時か判断できない場合は、brokerage_feeとacquisition_related_costsの両方をnullにしてください。
+    ・売却時の仲介手数料が明示されていない場合は、brokerage_feeをnullにしてください。
+    ・売却時仲介手数料を自動計算する場合でも、AI側で計算してはいけません。brokerage_feeをnullのまま出力し、Python側の計算に任せてください。
+    ・売却時仲介手数料が不要または0円と明示された場合だけ、brokerage_feeを0にしてください。
+    ・ユーザーが「仲介手数料は自動計算」「売却仲介手数料を自動で」「売却仲介手数料は計算して」などと明示した場合は、brokerage_feeをnullにしてください。
 
     【取得費】
     ・次の表現は total_acquisition_cost として扱ってください。
