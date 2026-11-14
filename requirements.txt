@@ -5,3 +5,5 @@ websockets
 google-generativeai
 openai
 janome
+fastapi
+uvicorn[standard]

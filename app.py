@@ -18,6 +18,8 @@ from difflib import SequenceMatcher
 from janome.tokenizer import Tokenizer
 from concurrent.futures import (ThreadPoolExecutor, as_completed)
 
+from backend.app.calculations.general import calculate_compound_interest
+
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -5418,50 +5420,6 @@ def get_general_calculation_missing_fields(calculation_type: str, parameters: di
             missing_fields.append("calculation_mode")
 
     return list(dict.fromkeys(missing_fields))
-#================================================
-
-# 複利運用のPython計算関数
-def calculate_compound_interest(
-    principal,
-    annual_rate,
-    years,
-    compounding_per_year
-) -> dict:
-    principal_d = to_decimal(principal)
-    annual_rate_d = to_decimal(annual_rate)
-    years_d = to_decimal(years)
-    compounding_per_year_d = to_decimal(compounding_per_year)
-
-    if principal_d < 0:
-        raise ValueError("principalは0以上にしてください")
-    if annual_rate_d < 0:
-        raise ValueError("annual_rateは0以上にしてください")
-    if years_d <= 0:
-        raise ValueError("yearsは0より大きくしてください")
-    if compounding_per_year_d <= 0:
-        raise ValueError("compounding_per_yearは0より大きくしてください")
-    if compounding_per_year_d != compounding_per_year_d.to_integral_value():
-        raise ValueError("compounding_per_yearは整数にしてください")
-
-    period_count = years_d * compounding_per_year_d
-    if period_count != period_count.to_integral_value():
-        raise ValueError("運用期間と複利回数から求めた期間数が整数になりません")
-
-    periodic_rate = annual_rate_d / compounding_per_year_d
-    final_amount = principal_d * (
-        Decimal("1") + periodic_rate
-    ) ** int(period_count)
-    profit = final_amount - principal_d
-
-    return {
-        "principal": round_yen(principal_d),
-        "annual_rate": float(annual_rate_d),
-        "years": float(years_d),
-        "compounding_per_year": int(compounding_per_year_d),
-        "period_count": int(period_count),
-        "final_amount": round_yen(final_amount),
-        "profit": round_yen(profit)
-    }
 #================================================
 
 # 定期積立のPython計算関数
@@ -25287,11 +25245,7 @@ if is_admin:
             audit_facts = []
             if audit_display_section == "user_settings":
                 try:
-                    selected_memory_table = (
-                        "user_memories"
-                        if selected_audit_user in [ADMIN_USER_ID, USUAL_USER_ID]
-                        else "user_memories_tester"
-                    )
+                    selected_memory_table = DB_MEMORIES_TABLE
                     u_memories = supabase.table(selected_memory_table).select("*").eq("user_id", selected_audit_user).execute()
                     if u_memories.data:
                         for m in u_memories.data:
