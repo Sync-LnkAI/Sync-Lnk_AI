@@ -9319,6 +9319,26 @@ def should_structurally_inherit_previous_calculation(
     )
 # ==========================================
 
+# 計算ツール判定を起動する代表的な表現
+CALCULATION_REQUEST_PHRASES = (
+    "計算して",
+    "計算すると",
+    "計算したら",
+    "算出して",
+    "算出すると",
+    "試算して",
+    "試算すると",
+    "シミュレーション",
+    "いくらになる",
+    "いくらですか",
+    "いくら？",
+    "何円になる",
+    "どのくらいになる",
+    "どれくらいになる",
+    "結果はいくら",
+)
+# ==========================================
+
 # 不動産計算要否判定関数
 REAL_ESTATE_SALE_HINT_WORDS = {
     "不動産売却",
@@ -20800,6 +20820,26 @@ with all_tabs[0]:
                         debug_text("DEBUG need_search", need_search)
                         debug_text("DEBUG response_mode", response_mode)
 
+                        normalized_calculation_input = unicodedata.normalize(
+                            "NFKC",
+                            str(user_input or "")
+                        )
+
+                        has_calculation_request_phrase = any(
+                            phrase in normalized_calculation_input
+                            for phrase in CALCULATION_REQUEST_PHRASES
+                        )
+
+                        calculation_value_count = len(
+                            re.findall(
+                                r"\d[\d,]*(?:\.\d+)?\s*"
+                                r"(?:億円|万円|円|パーセント|%|％|か月|ヶ月|年|月|回)",
+                                normalized_calculation_input,
+                            )
+                        )
+
+                        has_multiple_calculation_values = calculation_value_count >= 2
+
                         # ==========================================
                         # 計算ツール判定の実行制御
                         # ==========================================
@@ -20833,8 +20873,13 @@ with all_tabs[0]:
                             general_calculation_type = None
                             should_run_tool_router = False
 
-                        # 計算関連ワードがあれば優先
-                        elif contains_real_estate_hint or requires_estimation:
+                        # 計算依頼の可能性があれば、検索判定より計算ツール判定を優先
+                        elif (
+                            contains_real_estate_hint
+                            or requires_estimation
+                            or has_calculation_request_phrase
+                            or has_multiple_calculation_values
+                        ):
                             # debug_text("DEBUG entered_contains_calculation_hint", True)
 
                             should_run_tool_router = True
