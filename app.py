@@ -13578,7 +13578,7 @@ def format_real_estate_result_detailed(
     ])
 
     if building_basis_source == "user_provided":
-        lines.extend("建物未償却残高は、入力された金額を取得費へ反映しています。")
+        lines.extend(["建物未償却残高は、入力された金額を取得費へ反映しています。"])
     else:
         lines.extend([
             depreciation_method_text,
