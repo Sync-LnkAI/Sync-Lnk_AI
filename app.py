@@ -18813,6 +18813,29 @@ with all_tabs[0]:
                         import uuid
                         current_msg_id = f"msg_{uuid.uuid4().hex[:8]}"
 
+                        # ==========================================
+                        # このターンの過去会話検索用共通初期値
+                        # ==========================================
+                        past_conversation_question_detected = False
+                        past_log_search_queries = []
+                        parallel_past_log_results = []
+                        filtered_parallel_past_log_results = []
+                        past_logs_context = []
+                        past_logs_str = "該当する過去ログなし"
+                        past_recall_metrics = {
+                            "processing_time": 0.0,
+                            "in_tokens": 0,
+                            "out_tokens": 0,
+                            "api_cost": 0.0,
+                            "before_count": 0,
+                            "after_count": 0,
+                            "excluded_count": 0,
+                            "excluded_items": [],
+                            "provider": BACKGROUND_PROVIDER,
+                            "model_name": SEARCH_MODEL_NAME,
+                            "status": "skipped"
+                        }
+
                         pending_calculation_clarification = dict(
                             st.session_state.get("pending_calculation_clarification", {}) or {}
                         )
@@ -20061,7 +20084,6 @@ with all_tabs[0]:
                             and should_resume_real_estate_calculation(user_input)
                         )
 
-                        past_logs_context = []
                         search_elapsed = 0.0
                         requires_estimation = False
                         inherit_previous_calculation = False
@@ -20156,22 +20178,6 @@ with all_tabs[0]:
                                 response_mode = "analysis"
                                 requires_estimation = True
                                 route_source = "calculation_clarification"
-                            
-                            past_conversation_question_detected = False
-                            past_logs_context = []
-                            past_recall_metrics = {
-                                "processing_time": 0.0,
-                                "in_tokens": 0,
-                                "out_tokens": 0,
-                                "api_cost": 0.0,
-                                "before_count": 0,
-                                "after_count": 0,
-                                "excluded_count": 0,
-                                "excluded_items": [],
-                                "provider": BACKGROUND_PROVIDER,
-                                "model_name": SEARCH_MODEL_NAME,
-                                "status": "skipped"
-                            }
                             
                             # 通常会話・相談など、ユーザー固有の文脈が役立つ場合だけ
                             # 関連する過去会話を検索する
