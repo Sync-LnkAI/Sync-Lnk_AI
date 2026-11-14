@@ -13343,10 +13343,10 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     )
 
     acquisition_type_labels = {"new": "新築", "used": "中古"}
-        building_acquisition_type_label = acquisition_type_labels.get(
-            building_acquisition_type,
-            building_acquisition_type
-        )
+    building_acquisition_type_label = acquisition_type_labels.get(
+        building_acquisition_type,
+        building_acquisition_type
+    )
 
     lines = [
         "計算結果は以下になりました。",
