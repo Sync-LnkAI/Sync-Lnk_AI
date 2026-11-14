@@ -20905,7 +20905,6 @@ with all_tabs[0]:
                                 and (
                                     requires_estimation
                                     or has_calculation_request_phrase
-                                    or has_multiple_calculation_values
                                 )
                             ):
                                 calculation_tool = "general_calculation"
