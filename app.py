@@ -12584,7 +12584,7 @@ def format_missing_fields_message(
             structure_labels = {
                 "wood": "木造",
                 "light_steel": "軽量鉄骨造",
-                "steel": "鉄骨造",
+                "steel": "重量鉄骨造",
                 "rc": "RC造",
                 "src": "SRC造"
             }
@@ -13237,7 +13237,7 @@ def format_real_estate_result_simple(result: dict, case_name: str = "") -> str:
     structure_labels = {
         "wood": "木造",
         "light_steel": "軽量鉄骨造",
-        "steel": "鉄骨造",
+        "steel": "重量鉄骨造",
         "rc": "RC造",
         "src": "SRC造"
     }
@@ -13419,7 +13419,7 @@ def format_real_estate_result_detailed(
     structure_labels = {
         "wood": "木造",
         "light_steel": "軽量鉄骨造",
-        "steel": "鉄骨造",
+        "steel": "重量鉄骨造",
         "rc": "RC造",
         "src": "SRC造"
     }
@@ -13444,13 +13444,12 @@ def format_real_estate_result_detailed(
     depreciation = yen("accumulated_depreciation")
     building_basis = yen("building_tax_basis")
     acquisition_costs = yen("acquisition_related_costs")
+    building_cost_basis_difference = max(building_cost - building_basis, 0)
     acquisition_basis = yen("applied_acquisition_basis")
     brokerage_fee = yen("brokerage_fee")
     transfer_expenses = yen("transfer_expenses")
     other_cash_expenses = yen("other_cash_expenses")
-    gain_before_deduction = yen(
-        "capital_gain_before_deduction"
-    )
+    gain_before_deduction = yen("capital_gain_before_deduction")
     special_deduction = yen("special_deduction")
     taxable_gain = yen("taxable_gain")
     estimated_tax_value = result.get("estimated_tax")
@@ -13553,25 +13552,33 @@ def format_real_estate_result_detailed(
         "【取得費と減価償却】",
         f"・土地取得価額：{land_cost:,}円",
         f"・建物取得価額：{building_cost:,}円",
-        (
-            "・減価償却累計額：未計算"
-            if building_basis_source == "user_provided"
-            else f"・減価償却累計額：{depreciation:,}円"
-        ),
-        f"・建物未償却残高：{building_basis:,}円",
+    ])
+
+    if building_basis_source == "user_provided":
+        lines.extend([
+            f"・入力された建物未償却残高：{building_basis:,}円",
+            f"・建物取得価額との差額：{building_cost_basis_difference:,}円",
+            (
+                "　※この差額は建物取得価額から入力された"
+                "未償却残高を差し引いた金額です。"
+                "税務上の減価償却累計額は、固定資産台帳や"
+                "減価償却明細で確認してください。"
+            )
+        ])
+    else:
+        lines.extend([
+            f"・減価償却累計額：{depreciation:,}円",
+            f"・建物未償却残高：{building_basis:,}円",
+        ])
+
+    lines.extend([
         f"・購入時諸費用：{acquisition_costs:,}円",
         f"・計算採用取得費：{acquisition_basis:,}円",
         "",
     ])
 
     if building_basis_source == "user_provided":
-        lines.extend([
-            "建物未償却残高は、入力された金額を使用しています。",
-            (
-                f"・採用した建物未償却残高："
-                f"{building_basis:,}円"
-            )
-        ])
+        lines.extend("建物未償却残高は、入力された金額を取得費へ反映しています。")
     else:
         lines.extend([
             depreciation_method_text,
