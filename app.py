@@ -10107,8 +10107,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -23780,7 +23780,7 @@ with all_tabs[0]:
                             )
 
                             # メインチャット処理の最終再描画
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
