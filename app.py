@@ -23740,7 +23740,7 @@ with all_tabs[0]:
                             )
 
                             # メインチャット処理の最終再描画
-                            st.rerun()
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
