@@ -19065,7 +19065,7 @@ with all_tabs[0]:
                             # display_message(current_concierge_name, ai_reply)
                             st.session_state.force_message_reload = True
                             # st.stop()
-                            st.rerun()
+                            # st.rerun()
 
                         # ==========================================
                         # 案件名称変更の検出と変更処理
@@ -21523,7 +21523,7 @@ with all_tabs[0]:
                                 # display_message(current_concierge_name, ai_reply)
                                 st.session_state.force_message_reload = True
                                 # st.stop()
-                                st.rerun()
+                                # st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
                             unsupported_category = str(
