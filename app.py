@@ -21,6 +21,8 @@ from concurrent.futures import (ThreadPoolExecutor, as_completed)
 from backend.app.calculations.general import (
     calculate_compound_interest,
     calculate_percentage_calculation,
+    calculate_recurring_investment,
+    calculate_simple_interest,
 )
 
 # 日本時間（UTC+9時間）
@@ -5424,110 +5426,6 @@ def get_general_calculation_missing_fields(calculation_type: str, parameters: di
     return list(dict.fromkeys(missing_fields))
 #================================================
 
-# 定期積立のPython計算関数
-def calculate_recurring_investment(
-    initial_principal,
-    contribution_amount,
-    contributions_per_year,
-    annual_rate,
-    years,
-    compounding_per_year,
-    contribution_timing
-) -> dict:
-    initial_principal_d = to_decimal(initial_principal or 0)
-    contribution_amount_d = to_decimal(contribution_amount)
-    contributions_per_year_d = to_decimal(contributions_per_year)
-    annual_rate_d = to_decimal(annual_rate)
-    years_d = to_decimal(years)
-    compounding_per_year_d = to_decimal(compounding_per_year)
-    normalized_timing = str(contribution_timing or "").strip().lower()
-
-    if initial_principal_d < 0:
-        raise ValueError("initial_principalは0以上にしてください")
-    if contribution_amount_d < 0:
-        raise ValueError("contribution_amountは0以上にしてください")
-    if annual_rate_d < 0:
-        raise ValueError("annual_rateは0以上にしてください")
-    if years_d <= 0:
-        raise ValueError("yearsは0より大きくしてください")
-    if contributions_per_year_d <= 0:
-        raise ValueError("contributions_per_yearは0より大きくしてください")
-    if compounding_per_year_d <= 0:
-        raise ValueError("compounding_per_yearは0より大きくしてください")
-    if contributions_per_year_d != contributions_per_year_d.to_integral_value():
-        raise ValueError("contributions_per_yearは整数にしてください")
-    if compounding_per_year_d != compounding_per_year_d.to_integral_value():
-        raise ValueError("compounding_per_yearは整数にしてください")
-    if normalized_timing not in {"beginning", "end"}:
-        raise ValueError("contribution_timingはbeginningまたはendにしてください")
-
-    contributions_per_year_i = int(contributions_per_year_d)
-    compounding_per_year_i = int(compounding_per_year_d)
-
-    if compounding_per_year_i % contributions_per_year_i != 0:
-        raise ValueError("複利回数は積立回数の整数倍にしてください")
-
-    contribution_count = years_d * contributions_per_year_d
-    compounding_period_count = years_d * compounding_per_year_d
-
-    if contribution_count != contribution_count.to_integral_value():
-        raise ValueError("積立期間から求めた積立回数が整数になりません")
-    if compounding_period_count != compounding_period_count.to_integral_value():
-        raise ValueError("運用期間から求めた複利回数が整数になりません")
-
-    contribution_count_i = int(contribution_count)
-    compounding_period_count_i = int(compounding_period_count)
-    
-    periodic_rate = (Decimal("1") + annual_rate_d) ** (
-        Decimal("1") / compounding_per_year_d
-    ) - Decimal("1")
-
-    compound_periods_per_contribution = (
-        compounding_per_year_i // contributions_per_year_i
-    )
-    contribution_period_rate = (
-        Decimal("1") + periodic_rate
-    ) ** compound_periods_per_contribution - Decimal("1")
-
-    initial_principal_final = initial_principal_d * (
-        Decimal("1") + periodic_rate
-    ) ** compounding_period_count_i
-
-    if contribution_period_rate == 0:
-        contributions_final = contribution_amount_d * contribution_count_i
-    else:
-        contributions_final = contribution_amount_d * (
-            (
-                Decimal("1") + contribution_period_rate
-            ) ** contribution_count_i
-            - Decimal("1")
-        ) / contribution_period_rate
-
-        if normalized_timing == "beginning":
-            contributions_final *= Decimal("1") + contribution_period_rate
-
-    total_contributions = (
-        initial_principal_d
-        + contribution_amount_d * contribution_count_i
-    )
-    final_amount = initial_principal_final + contributions_final
-    profit = final_amount - total_contributions
-
-    return {
-        "initial_principal": round_yen(initial_principal_d),
-        "contribution_amount": round_yen(contribution_amount_d),
-        "contributions_per_year": contributions_per_year_i,
-        "annual_rate": float(annual_rate_d),
-        "years": float(years_d),
-        "compounding_per_year": compounding_per_year_i,
-        "contribution_timing": normalized_timing,
-        "contribution_count": contribution_count_i,
-        "total_contributions": round_yen(total_contributions),
-        "final_amount": round_yen(final_amount),
-        "profit": round_yen(profit)
-    }
-#================================================
-
 # 元利均等返済のPython計算関数
 def calculate_loan_payment(
     principal,
@@ -5596,35 +5494,6 @@ def calculate_loan_payment(
         "payment_amount": round_yen(payment_amount),
         "total_payment": round_yen(total_payment),
         "total_interest": round_yen(total_interest)
-    }
-#================================================
-
-# 単利計算関数
-def calculate_simple_interest(
-    principal,
-    annual_rate,
-    years
-) -> dict:
-    principal_d = to_decimal(principal)
-    annual_rate_d = to_decimal(annual_rate)
-    years_d = to_decimal(years)
-
-    if principal_d < 0:
-        raise ValueError("principalは0以上にしてください")
-    if annual_rate_d < 0:
-        raise ValueError("annual_rateは0以上にしてください")
-    if years_d <= 0:
-        raise ValueError("yearsは0より大きくしてください")
-
-    interest = principal_d * annual_rate_d * years_d
-    final_amount = principal_d + interest
-
-    return {
-        "principal": round_yen(principal_d),
-        "annual_rate": float(annual_rate_d),
-        "years": float(years_d),
-        "interest": round_yen(interest),
-        "final_amount": round_yen(final_amount)
     }
 #================================================
 
@@ -9948,8 +9817,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -21305,6 +21174,10 @@ with all_tabs[0]:
                                         )
                                     )
                                 )
+                            
+                            extraction_before_structural_inheritance = copy.deepcopy(
+                                general_calculation_extraction_result
+                            )
             
                             if not is_ambiguous_extraction and not inherit_previous_calculation:
                                 structural_inheritance_result = should_structurally_inherit_previous_calculation(
@@ -21392,32 +21265,35 @@ with all_tabs[0]:
                                         )
                                     )
                                 )
-                                
+
+                                clarification_source_cases = extraction_before_structural_inheritance.get(
+                                    "cases",
+                                    []
+                                )
+                                clarification_source_case = (
+                                    clarification_source_cases[0]
+                                    if clarification_source_cases
+                                    else {}
+                                )
                                 clarification_previous_state = {
                                     "calculation_type": general_calculation_type,
                                     "money_display_style": clarification_money_style,
                                     "cases": [
                                         {
                                             "case_name": str(
-                                                ambiguous_item.get(
-                                                    "case_name",
-                                                    ""
-                                                )
+                                                ambiguous_item.get("case_name", "")
+                                                or clarification_source_case.get("case_name", "")
                                                 or "基本ケース"
                                             ).strip(),
-                                            "parameters": {
-                                                "calculation_mode": (
-                                                    ambiguous_calculation_mode
-                                                    if ambiguous_calculation_mode
-                                                    else None
-                                                )
-                                            },
-                                            "explicit_fields": (
-                                                ["calculation_mode"]
-                                                if ambiguous_calculation_mode
-                                                else []
+                                            "parameters": copy.deepcopy(
+                                                clarification_source_case.get("parameters", {})
                                             ),
-                                            "inherited_fields": []
+                                            "explicit_fields": copy.deepcopy(
+                                                clarification_source_case.get("explicit_fields", [])
+                                            ),
+                                            "inherited_fields": copy.deepcopy(
+                                                clarification_source_case.get("inherited_fields", [])
+                                            )
                                         }
                                     ]
                                 }
@@ -22895,7 +22771,7 @@ with all_tabs[0]:
                                 # )
                                 st.session_state.force_message_reload = True
                                 # st.stop()
-                                st.rerun()
+                                # st.rerun()
 
                             if calculation_status == "missing_fields":
                                 # 条件不足の場合は、
@@ -23621,7 +23497,7 @@ with all_tabs[0]:
                             )
 
                             # メインチャット処理の最終再描画
-                            st.rerun()
+                            # st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"

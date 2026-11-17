@@ -143,3 +143,125 @@ def calculate_percentage_calculation(
         "result_percent": float(result_value * Decimal("100")) if result_type == "rate" else None
     }
 #================================================
+
+# 単利計算関数
+def calculate_simple_interest(
+    principal: Any,
+    annual_rate: Any,
+    years: Any
+) -> dict:
+    principal_d = to_decimal(principal)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+
+    if principal_d < 0:
+        raise ValueError("principalは0以上にしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+
+    interest = principal_d * annual_rate_d * years_d
+    final_amount = principal_d + interest
+
+    return {
+        "principal": round_to_integer(principal_d),
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "interest": round_to_integer(interest),
+        "final_amount": round_to_integer(final_amount)
+    }
+#================================================
+
+# 定期積立のPython計算関数
+def calculate_recurring_investment(
+    initial_principal: Any,
+    contribution_amount: Any,
+    contributions_per_year: Any,
+    annual_rate: Any,
+    years: Any,
+    compounding_per_year: Any,
+    contribution_timing: str
+) -> dict:
+    initial_principal_d = to_decimal(initial_principal or 0)
+    contribution_amount_d = to_decimal(contribution_amount)
+    contributions_per_year_d = to_decimal(contributions_per_year)
+    annual_rate_d = to_decimal(annual_rate)
+    years_d = to_decimal(years)
+    compounding_per_year_d = to_decimal(compounding_per_year)
+    normalized_timing = str(contribution_timing or "").strip().lower()
+
+    if initial_principal_d < 0:
+        raise ValueError("initial_principalは0以上にしてください")
+    if contribution_amount_d < 0:
+        raise ValueError("contribution_amountは0以上にしてください")
+    if annual_rate_d < 0:
+        raise ValueError("annual_rateは0以上にしてください")
+    if years_d <= 0:
+        raise ValueError("yearsは0より大きくしてください")
+    if contributions_per_year_d <= 0:
+        raise ValueError("contributions_per_yearは0より大きくしてください")
+    if compounding_per_year_d <= 0:
+        raise ValueError("compounding_per_yearは0より大きくしてください")
+    if contributions_per_year_d != contributions_per_year_d.to_integral_value():
+        raise ValueError("contributions_per_yearは整数にしてください")
+    if compounding_per_year_d != compounding_per_year_d.to_integral_value():
+        raise ValueError("compounding_per_yearは整数にしてください")
+    if normalized_timing not in {"beginning", "end"}:
+        raise ValueError("contribution_timingはbeginningまたはendにしてください")
+
+    contributions_per_year_i = int(contributions_per_year_d)
+    compounding_per_year_i = int(compounding_per_year_d)
+
+    if compounding_per_year_i % contributions_per_year_i != 0:
+        raise ValueError("複利回数は積立回数の整数倍にしてください")
+
+    contribution_count = years_d * contributions_per_year_d
+    compounding_period_count = years_d * compounding_per_year_d
+
+    if contribution_count != contribution_count.to_integral_value():
+        raise ValueError("積立期間から求めた積立回数が整数になりません")
+    if compounding_period_count != compounding_period_count.to_integral_value():
+        raise ValueError("運用期間から求めた複利回数が整数になりません")
+
+    contribution_count_i = int(contribution_count)
+    compounding_period_count_i = int(compounding_period_count)
+    periodic_rate = (Decimal("1") + annual_rate_d) ** (
+        Decimal("1") / compounding_per_year_d
+    ) - Decimal("1")
+    compound_periods_per_contribution = compounding_per_year_i // contributions_per_year_i
+    contribution_period_rate = (
+        Decimal("1") + periodic_rate
+    ) ** compound_periods_per_contribution - Decimal("1")
+    initial_principal_final = initial_principal_d * (
+        Decimal("1") + periodic_rate
+    ) ** compounding_period_count_i
+
+    if contribution_period_rate == 0:
+        contributions_final = contribution_amount_d * contribution_count_i
+    else:
+        contributions_final = contribution_amount_d * (
+            (Decimal("1") + contribution_period_rate) ** contribution_count_i
+            - Decimal("1")
+        ) / contribution_period_rate
+        if normalized_timing == "beginning":
+            contributions_final *= Decimal("1") + contribution_period_rate
+
+    total_contributions = initial_principal_d + contribution_amount_d * contribution_count_i
+    final_amount = initial_principal_final + contributions_final
+    profit = final_amount - total_contributions
+
+    return {
+        "initial_principal": round_to_integer(initial_principal_d),
+        "contribution_amount": round_to_integer(contribution_amount_d),
+        "contributions_per_year": contributions_per_year_i,
+        "annual_rate": float(annual_rate_d),
+        "years": float(years_d),
+        "compounding_per_year": compounding_per_year_i,
+        "contribution_timing": normalized_timing,
+        "contribution_count": contribution_count_i,
+        "total_contributions": round_to_integer(total_contributions),
+        "final_amount": round_to_integer(final_amount),
+        "profit": round_to_integer(profit)
+    }
+#================================================
