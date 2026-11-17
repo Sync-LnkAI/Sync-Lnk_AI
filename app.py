@@ -8917,6 +8917,18 @@ REAL_ESTATE_DETAILED_RESULT_PROMPT = """
     """.strip()
 # ==========================================
 
+# 入力構造による計算リセット判定関数
+def count_calculation_values(user_input: str) -> int:
+    normalized_input = unicodedata.normalize("NFKC", str(user_input or ""))
+    return len(
+        re.findall(
+            r"\d[\d,]*(?:\.\d+)?\s*"
+            r"(?:億円|万円|円|パーセント|%|％|か月|ヶ月|年|月|回)",
+            normalized_input
+        )
+    )
+# ==========================================
+
 # 汎用計算共通のリセット判定関数
 def has_calculation_reset_intent(
     user_input: str
@@ -18871,6 +18883,13 @@ with all_tabs[0]:
                             st.session_state[
                                 "pending_calculation_clarification"
                             ] = {}
+                        if (
+                            pending_calculation_clarification
+                            and count_calculation_values(user_input) >= 2
+                        ):
+                            pending_calculation_clarification = {}
+                            st.session_state["pending_calculation_clarification"] = {}
+                        
                         resolved_calculation_clarification = None
                         calculation_clarification_unresolved = False
 
@@ -20546,14 +20565,7 @@ with all_tabs[0]:
                             for phrase in CALCULATION_REQUEST_PHRASES
                         )
 
-                        calculation_value_count = len(
-                            re.findall(
-                                r"\d[\d,]*(?:\.\d+)?\s*"
-                                r"(?:億円|万円|円|パーセント|%|％|か月|ヶ月|年|月|回)",
-                                normalized_calculation_input,
-                            )
-                        )
-
+                        calculation_value_count = count_calculation_values(user_input)
                         has_multiple_calculation_values = calculation_value_count >= 2
 
                         # ==========================================
