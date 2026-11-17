@@ -9268,8 +9268,16 @@ def normalize_japanese_number_text(
 
 # 単独金額抽出関数
 def extract_single_amount_from_text(value: str):
-    text = str(value or "").translate(str.maketrans("０１２３４５６７８９．，", "0123456789.,"))
-    amount_pattern = r"(?<![0-9])(?:(?:[0-9]+(?:\.[0-9]+)?)億(?:[0-9]+(?:\.[0-9]+)?万)?|(?:[0-9]+(?:\.[0-9]+)?)万|(?:[0-9]+(?:\.[0-9]+)?)円)(?![0-9])"
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    amount_pattern = (
+        r"(?<![0-9])(?:"
+        r"[0-9][0-9,]*(?:\.[0-9]+)?億"
+        r"(?:[0-9][0-9,]*(?:\.[0-9]+)?万)?"
+        r"(?:[0-9][0-9,]*)?"
+        r"|[0-9][0-9,]*(?:\.[0-9]+)?万(?:[0-9][0-9,]*)?"
+        r"|[0-9][0-9,]*(?:\.[0-9]+)?"
+        r")円?(?![0-9])"
+    )
     matches = re.findall(amount_pattern, text)
 
     if len(matches) != 1:
