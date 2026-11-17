@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from backend.app.calculations.general import (
     calculate_compound_interest,
+    calculate_loan_payment,
     calculate_percentage_calculation,
     calculate_recurring_investment,
     calculate_simple_interest,
@@ -8,6 +9,8 @@ from backend.app.calculations.general import (
 from backend.app.schemas.calculations import (
     CompoundInterestRequest,
     CompoundInterestResponse,
+    LoanPaymentRequest,
+    LoanPaymentResponse,
     PercentageCalculationRequest,
     PercentageCalculationResponse,
     RecurringInvestmentRequest,
@@ -131,6 +134,34 @@ def recurring_investment(request: RecurringInvestmentRequest):
         return {
             "status": "success",
             "calculation_type": "recurring_investment",
+            "result": result
+        }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+@router.post(
+    "/loan-payment",
+    response_model=LoanPaymentResponse,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "計算条件が不正な場合"
+        }
+    }
+)
+def loan_payment(request: LoanPaymentRequest):
+    try:
+        result = calculate_loan_payment(
+            principal=request.principal,
+            annual_rate=request.annual_rate,
+            years=request.years,
+            payments_per_year=request.payments_per_year,
+            repayment_method=request.repayment_method,
+            bonus_payment=request.bonus_payment
+        )
+        return {
+            "status": "success",
+            "calculation_type": "loan_payment",
             "result": result
         }
     except ValueError as error:

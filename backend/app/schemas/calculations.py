@@ -93,3 +93,28 @@ class RecurringInvestmentResponse(BaseModel):
     status: Literal["success"]
     calculation_type: Literal["recurring_investment"]
     result: RecurringInvestmentResult
+
+class LoanPaymentRequest(BaseModel):
+    principal: float
+    annual_rate: float
+    years: float
+    payments_per_year: int = 12
+    repayment_method: Literal["equal_payment"] = "equal_payment"
+    bonus_payment: float = 0
+
+class LoanPaymentResult(BaseModel):
+    principal: int
+    annual_rate: float
+    years: float
+    payments_per_year: int
+    repayment_method: Literal["equal_payment"]
+    bonus_payment: int
+    payment_count: int
+    payment_amount: int
+    total_payment: int
+    total_interest: int
+
+class LoanPaymentResponse(BaseModel):
+    status: Literal["success"]
+    calculation_type: Literal["loan_payment"]
+    result: LoanPaymentResult

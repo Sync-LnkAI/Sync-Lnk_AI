@@ -20,6 +20,7 @@ from concurrent.futures import (ThreadPoolExecutor, as_completed)
 
 from backend.app.calculations.general import (
     calculate_compound_interest,
+    calculate_loan_payment,
     calculate_percentage_calculation,
     calculate_recurring_investment,
     calculate_simple_interest,
@@ -5424,77 +5425,6 @@ def get_general_calculation_missing_fields(calculation_type: str, parameters: di
             missing_fields.append("calculation_mode")
 
     return list(dict.fromkeys(missing_fields))
-#================================================
-
-# 元利均等返済のPython計算関数
-def calculate_loan_payment(
-    principal,
-    annual_rate,
-    years,
-    payments_per_year,
-    repayment_method,
-    bonus_payment
-) -> dict:
-    principal_d = to_decimal(principal)
-    annual_rate_d = to_decimal(annual_rate)
-    years_d = to_decimal(years)
-    payments_per_year_d = to_decimal(payments_per_year)
-    bonus_payment_d = to_decimal(bonus_payment)
-    normalized_method = str(repayment_method or "").strip().lower()
-
-    if principal_d <= 0:
-        raise ValueError("principalは0より大きくしてください")
-    if annual_rate_d < 0:
-        raise ValueError("annual_rateは0以上にしてください")
-    if years_d <= 0:
-        raise ValueError("yearsは0より大きくしてください")
-    if payments_per_year_d <= 0:
-        raise ValueError("payments_per_yearは0より大きくしてください")
-    if payments_per_year_d != payments_per_year_d.to_integral_value():
-        raise ValueError("payments_per_yearは整数にしてください")
-    if normalized_method != "equal_payment":
-        raise ValueError("現在対応している返済方式は元利均等返済だけです")
-    if bonus_payment_d != 0:
-        raise ValueError("現在はボーナス返済なしの計算だけに対応しています")
-
-    payment_count = years_d * payments_per_year_d
-
-    if payment_count != payment_count.to_integral_value():
-        raise ValueError("返済期間から求めた返済回数が整数になりません")
-
-    payment_count_i = int(payment_count)
-    payments_per_year_i = int(payments_per_year_d)
-    periodic_rate = annual_rate_d / payments_per_year_d
-
-    if periodic_rate == 0:
-        payment_amount = principal_d / payment_count_i
-    else:
-        growth_factor = (
-            Decimal("1") + periodic_rate
-        ) ** payment_count_i
-
-        payment_amount = (
-            principal_d
-            * periodic_rate
-            * growth_factor
-            / (growth_factor - Decimal("1"))
-        )
-
-    total_payment = payment_amount * payment_count_i
-    total_interest = total_payment - principal_d
-
-    return {
-        "principal": round_yen(principal_d),
-        "annual_rate": float(annual_rate_d),
-        "years": float(years_d),
-        "payments_per_year": payments_per_year_i,
-        "repayment_method": normalized_method,
-        "bonus_payment": round_yen(bonus_payment_d),
-        "payment_count": payment_count_i,
-        "payment_amount": round_yen(payment_amount),
-        "total_payment": round_yen(total_payment),
-        "total_interest": round_yen(total_interest)
-    }
 #================================================
 
 # 火災保険の簡易解約返戻金計算関数
