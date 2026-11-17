@@ -10929,7 +10929,7 @@ def extract_general_calculation_parameters(
                 "should_calculate": False,
                 "calculation_type": normalized_calculation_type,
                 "inherit_previous_conditions": normalized_inherit_previous_conditions,
-                "cases": [],
+                "cases": filtered_cases,
                 "ambiguous_fields": normalized_ambiguous_fields,
                 "extraction_status": "ambiguous_fields",
                 "in_tokens": in_tokens,
