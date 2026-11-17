@@ -9773,8 +9773,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-# DEBUG_MODE = False
-DEBUG_MODE = True
+DEBUG_MODE = False
+# DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -19027,8 +19027,8 @@ with all_tabs[0]:
 
                             # display_message(current_concierge_name, ai_reply)
                             st.session_state.force_message_reload = True
-                            st.stop()
-                            # st.rerun()
+                            # st.stop()
+                            st.rerun()
 
                         # ==========================================
                         # 案件名称変更の検出と変更処理
@@ -21478,8 +21478,8 @@ with all_tabs[0]:
 
                                 # display_message(current_concierge_name, ai_reply)
                                 st.session_state.force_message_reload = True
-                                st.stop()
-                                # st.rerun()
+                                # st.stop()
+                                st.rerun()
                                                     
                         elif calculation_tool == "general_calculation":
                             unsupported_category = str(
@@ -22727,7 +22727,7 @@ with all_tabs[0]:
                                 # )
                                 st.session_state.force_message_reload = True
                                 # st.stop()
-                                # st.rerun()
+                                st.rerun()
 
                             if calculation_status == "missing_fields":
                                 # 条件不足の場合は、
@@ -23453,7 +23453,7 @@ with all_tabs[0]:
                             )
 
                             # メインチャット処理の最終再描画
-                            # st.rerun()
+                            st.rerun()
 
                         except Exception as gemini_err:
                             error_detail = f"{type(gemini_err).__name__}: {str(gemini_err)}"
