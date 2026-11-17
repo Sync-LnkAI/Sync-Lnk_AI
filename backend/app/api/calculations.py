@@ -1,8 +1,13 @@
 from fastapi import APIRouter, HTTPException
-from backend.app.calculations.general import (calculate_compound_interest)
+from backend.app.calculations.general import (
+    calculate_compound_interest,
+    calculate_percentage_calculation,
+)
 from backend.app.schemas.calculations import (
     CompoundInterestRequest,
     CompoundInterestResponse,
+    PercentageCalculationRequest,
+    PercentageCalculationResponse,
 )
 from backend.app.schemas.common import ErrorResponse
 
@@ -44,3 +49,29 @@ def compound_interest(
             status_code=400,
             detail=str(error)
         ) from error
+
+@router.post(
+    "/percentage",
+    response_model=PercentageCalculationResponse,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "計算条件が不正な場合"
+        }
+    }
+)
+def percentage_calculation(request: PercentageCalculationRequest):
+    try:
+        result = calculate_percentage_calculation(
+            base_value=request.base_value,
+            comparison_value=request.comparison_value,
+            rate=request.rate,
+            calculation_mode=request.calculation_mode
+        )
+        return {
+            "status": "success",
+            "calculation_type": "percentage_calculation",
+            "result": result
+        }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error

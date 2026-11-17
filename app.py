@@ -18,8 +18,10 @@ from difflib import SequenceMatcher
 from janome.tokenizer import Tokenizer
 from concurrent.futures import (ThreadPoolExecutor, as_completed)
 
-from backend.app.calculations.general import calculate_compound_interest
-
+from backend.app.calculations.general import (
+    calculate_compound_interest,
+    calculate_percentage_calculation,
+)
 
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
@@ -5623,135 +5625,6 @@ def calculate_simple_interest(
         "years": float(years_d),
         "interest": round_yen(interest),
         "final_amount": round_yen(final_amount)
-    }
-#================================================
-
-# 割合・増減率・差額の計算関数
-def calculate_percentage_calculation(
-    base_value,
-    comparison_value,
-    rate,
-    calculation_mode
-) -> dict:
-    normalized_mode = str(calculation_mode or "").strip().lower()
-    allowed_modes = {
-        "percentage_of_value",
-        "ratio",
-        "percentage_change",
-        "difference",
-        "discounted_value",
-        "increased_value"
-    }
-
-    if normalized_mode not in allowed_modes:
-        raise ValueError("対応していないcalculation_modeです")
-
-    base_value_d = (
-        to_decimal(base_value)
-        if base_value is not None
-        else None
-    )
-    comparison_value_d = (
-        to_decimal(comparison_value)
-        if comparison_value is not None
-        else None
-    )
-    rate_d = (
-        to_decimal(rate)
-        if rate is not None
-        else None
-    )
-
-    if base_value_d is not None and base_value_d < 0:
-        raise ValueError("base_valueは0以上にしてください")
-    if comparison_value_d is not None and comparison_value_d < 0:
-        raise ValueError("comparison_valueは0以上にしてください")
-    if rate_d is not None and rate_d < 0:
-        raise ValueError("rateは0以上にしてください")
-
-    if normalized_mode in {
-        "percentage_of_value",
-        "discounted_value",
-        "increased_value"
-    }:
-        if base_value_d is None or rate_d is None:
-            raise ValueError("base_valueとrateが必要です")
-
-    if normalized_mode in {
-        "ratio",
-        "percentage_change",
-        "difference"
-    }:
-        if base_value_d is None or comparison_value_d is None:
-            raise ValueError("base_valueとcomparison_valueが必要です")
-
-    if normalized_mode == "percentage_of_value":
-        result_value = base_value_d * rate_d
-
-    elif normalized_mode == "ratio":
-        if base_value_d == 0:
-            raise ValueError("割合計算のbase_valueを0にはできません")
-        result_value = comparison_value_d / base_value_d
-
-    elif normalized_mode == "percentage_change":
-        if base_value_d == 0:
-            raise ValueError("増減率計算のbase_valueを0にはできません")
-        result_value = (
-            comparison_value_d - base_value_d
-        ) / base_value_d
-
-    elif normalized_mode == "difference":
-        result_value = comparison_value_d - base_value_d
-
-    elif normalized_mode == "discounted_value":
-        if rate_d > 1:
-            raise ValueError("割引率は0から1の範囲にしてください")
-        result_value = base_value_d * (
-            Decimal("1") - rate_d
-        )
-
-    else:
-        result_value = base_value_d * (
-            Decimal("1") + rate_d
-        )
-
-    result_type = (
-        "rate"
-        if normalized_mode in {
-            "ratio",
-            "percentage_change"
-        }
-        else "value"
-    )
-
-    return {
-        "calculation_mode": normalized_mode,
-        "base_value": (
-            float(base_value_d)
-            if base_value_d is not None
-            else None
-        ),
-        "comparison_value": (
-            float(comparison_value_d)
-            if comparison_value_d is not None
-            else None
-        ),
-        "rate": (
-            float(rate_d)
-            if rate_d is not None
-            else None
-        ),
-        "result_type": result_type,
-        "result": (
-            float(result_value)
-            if result_type == "rate"
-            else round_yen(result_value)
-        ),
-        "result_percent": (
-            float(result_value * Decimal("100"))
-            if result_type == "rate"
-            else None
-        )
     }
 #================================================
 
