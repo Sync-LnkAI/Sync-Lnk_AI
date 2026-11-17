@@ -7178,7 +7178,11 @@ GENERAL_CALCULATION_COMMON_EXTRACTION_PROMPT = """
     ・数値だけでなく、頻度、方式、タイミング、あり・なし、0、内部値へ正規化した条件もexplicit_fieldsへ含めてください。
     ・値を設定した項目とexplicit_fieldsの対応を出力前に確認してください。
     ・曖昧な条件がない場合はambiguous_fieldsを空配列にしてください。
-    ・値の設定先を一意に確定できない場合は、should_calculateをfalse、casesを空配列とし、ambiguous_fieldsへ格納してください。
+    ・値の設定先を一意に確定できない項目がある場合でも、曖昧でない条件はcasesのparametersとexplicit_fieldsへ保持してください。
+    ・曖昧な値だけはparametersの候補項目へ設定せず、該当する候補項目をnullにしてambiguous_fieldsへ格納してください。
+    ・ambiguous_fieldsがある場合もcasesを空配列にせず、曖昧でない条件を保持したcaseを出力してください。
+    ・ambiguous_fieldsがある場合はshould_calculateをfalseにしてください。
+    ・確認によって曖昧な項目の設定先が確定した後、casesに保持した他の明示条件と組み合わせて計算を継続できる構造にしてください。
     ・ambiguous_fieldsの各要素にはcase_name、input_value、candidate_fields、calculation_modeを設定してください。
     ・candidate_fieldsには、候補となるparametersの項目名だけを設定してください。
     ・calculation_modeを判断できない場合はnullにしてください。
