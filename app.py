@@ -9224,6 +9224,47 @@ def extract_single_amount_from_text(value: str):
     return int(amount) if amount == amount.to_integral_value() else float(amount)
 #============================================
 
+# 毎月積立の明示条件抽出関数
+def extract_monthly_recurring_investment_conditions(value: str):
+    text = unicodedata.normalize("NFKC", str(value or ""))
+
+    amount_match = re.search(
+        r"毎月\s*([0-9][0-9,]*(?:\.[0-9]+)?万(?:[0-9][0-9,]*)?|[0-9][0-9,]*(?:\.[0-9]+)?)円",
+        text
+    )
+    rate_match = re.search(r"年利\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*%", text)
+    years_match = re.search(r"([0-9][0-9,]*(?:\.[0-9]+)?)\s*年間?", text)
+
+    if not amount_match or not rate_match or not years_match:
+        return None
+
+    try:
+        contribution_amount = Decimal(
+            normalize_japanese_number_text(amount_match.group(1))
+        )
+        annual_rate = Decimal(rate_match.group(1).replace(",", "")) / Decimal("100")
+        years = Decimal(years_match.group(1).replace(",", ""))
+    except (ValueError, TypeError, InvalidOperation):
+        return None
+
+    if contribution_amount < 0 or annual_rate < 0 or years <= 0:
+        return None
+
+    return {
+        "initial_principal": None,
+        "contribution_amount": (
+            int(contribution_amount)
+            if contribution_amount == contribution_amount.to_integral_value()
+            else float(contribution_amount)
+        ),
+        "contributions_per_year": 12,
+        "annual_rate": float(annual_rate),
+        "years": int(years) if years == years.to_integral_value() else float(years),
+        "compounding_per_year": None,
+        "contribution_timing": None
+    }
+#============================================
+
 # 不動産売却の明示的な金額を原文から抽出する関数
 def extract_explicit_real_estate_amounts(user_input: str) -> dict:
     normalized_text = unicodedata.normalize(
@@ -9773,8 +9814,8 @@ def make_json_safe(value):
 # ==========================================
 # DEBUG表示
 # ==========================================
-DEBUG_MODE = False
-# DEBUG_MODE = True
+# DEBUG_MODE = False
+DEBUG_MODE = True
 # DEBUG_MODE = (
 #     CURRENT_USER_ID
 #     == ADMIN_USER_ID
@@ -10696,6 +10737,31 @@ def extract_general_calculation_parameters(
         extracted_data = json.loads(clean_text)
         if not isinstance(extracted_data, dict):
             raise ValueError("汎用計算条件の抽出結果がobject形式ではありません")
+        
+        if normalized_calculation_type == "recurring_investment":
+            monthly_conditions = extract_monthly_recurring_investment_conditions(
+                user_input
+            )
+
+            if monthly_conditions:
+                extracted_data = {
+                    "should_calculate": True,
+                    "calculation_type": "recurring_investment",
+                    "cases": [
+                        {
+                            "case_name": "毎月積立",
+                            "parameters": monthly_conditions,
+                            "explicit_fields": [
+                                "contribution_amount",
+                                "contributions_per_year",
+                                "annual_rate",
+                                "years"
+                            ],
+                            "inherited_fields": []
+                        }
+                    ],
+                    "ambiguous_fields": []
+                }
         
         should_calculate = bool(extracted_data.get("should_calculate", False))
 
