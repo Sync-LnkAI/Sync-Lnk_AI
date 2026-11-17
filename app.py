@@ -7232,7 +7232,9 @@ GENERAL_CALCULATION_EXTRACTION_PROMPTS = {
     【抽出ルール】
     ・一定額を定期的に追加投資する場合に使用してください。
     ・初期元本が未指定ならinitial_principalをnull、ないことや0円が明示された場合は0にしてください。
-    ・毎月積立はcontributions_per_yearを12、毎年積立は1にしてください。
+    ・「毎月○円」「毎年○円」「年○回○円」のように、積立頻度とセットで指定された金額はcontribution_amountへ設定してください。
+    ・「毎月○円」の場合はcontributions_per_yearを12、「毎年○円」の場合は1として設定し、contribution_amountとcontributions_per_yearをexplicit_fieldsへ含めてください。
+    ・初期元本として明示されていない金額をinitial_principalの候補にせず、ambiguous_fieldsへ格納してはいけません。
     ・積立頻度が未指定ならcontributions_per_yearをnullにしてください。
     ・毎月複利はcompounding_per_yearを12、年1回複利は1にしてください。
     ・複利頻度が未指定ならcompounding_per_yearをnullにしてください。
