@@ -118,3 +118,26 @@ class LoanPaymentResponse(BaseModel):
     status: Literal["success"]
     calculation_type: Literal["loan_payment"]
     result: LoanPaymentResult
+
+class FireInsuranceRefundRequest(BaseModel):
+    paid_premium: float
+    contract_months: int
+    elapsed_months: int | None = None
+    contract_start_date: str | None = None
+    cancellation_date: str | None = None
+    cancellation_date_defaulted: bool = False
+
+class FireInsuranceRefundResult(BaseModel):
+    paid_premium: int
+    contract_months: int
+    elapsed_months: int
+    remaining_months: int
+    refund_amount: int
+    contract_start_date: str | None
+    cancellation_date: str | None
+    cancellation_date_defaulted: bool
+
+class FireInsuranceRefundResponse(BaseModel):
+    status: Literal["success"]
+    calculation_type: Literal["fire_insurance_refund"]
+    result: FireInsuranceRefundResult

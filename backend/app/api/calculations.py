@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from backend.app.calculations.general import (
     calculate_compound_interest,
+    calculate_fire_insurance_refund,
     calculate_loan_payment,
     calculate_percentage_calculation,
     calculate_recurring_investment,
@@ -9,6 +10,8 @@ from backend.app.calculations.general import (
 from backend.app.schemas.calculations import (
     CompoundInterestRequest,
     CompoundInterestResponse,
+    FireInsuranceRefundRequest,
+    FireInsuranceRefundResponse,
     LoanPaymentRequest,
     LoanPaymentResponse,
     PercentageCalculationRequest,
@@ -166,3 +169,38 @@ def loan_payment(request: LoanPaymentRequest):
         }
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
+@router.post(
+    "/fire-insurance-refund",
+    response_model=FireInsuranceRefundResponse,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "計算条件が不正な場合"
+        }
+    }
+)
+def fire_insurance_refund(request: FireInsuranceRefundRequest):
+    try:
+        result = calculate_fire_insurance_refund(
+            paid_premium=request.paid_premium,
+            contract_months=request.contract_months,
+            elapsed_months=request.elapsed_months,
+            contract_start_date=request.contract_start_date,
+            cancellation_date=request.cancellation_date,
+            cancellation_date_defaulted=(
+                request.cancellation_date_defaulted
+            )
+        )
+
+        return {
+            "status": "success",
+            "calculation_type": "fire_insurance_refund",
+            "result": result
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        ) from error

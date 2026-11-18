@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -328,5 +329,98 @@ def calculate_loan_payment(
         "payment_amount": round_to_integer(payment_amount),
         "total_payment": round_to_integer(total_payment),
         "total_interest": round_to_integer(total_interest)
+    }
+#================================================
+
+# 火災保険の簡易解約返戻金計算関数
+def calculate_fire_insurance_refund(
+    paid_premium: Any,
+    contract_months: Any,
+    elapsed_months: Any = None,
+    contract_start_date: str | None = None,
+    cancellation_date: str | None = None,
+    cancellation_date_defaulted: bool = False
+) -> dict:
+    paid_premium_d = to_decimal(paid_premium)
+    contract_months_d = to_decimal(contract_months)
+
+    if paid_premium_d <= 0:
+        raise ValueError("paid_premiumは0より大きくしてください")
+    if contract_months_d <= 0:
+        raise ValueError("contract_monthsは0より大きくしてください")
+    if contract_months_d != contract_months_d.to_integral_value():
+        raise ValueError("contract_monthsは整数にしてください")
+
+    start_date = None
+    end_date = None
+
+    if contract_start_date and cancellation_date:
+        try:
+            start_date = date.fromisoformat(contract_start_date)
+            end_date = date.fromisoformat(cancellation_date)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "保険日付はYYYY-MM-DD形式にしてください"
+            ) from error
+
+        if end_date < start_date:
+            raise ValueError(
+                "解約予定日は契約開始日以後にしてください"
+            )
+
+        completed_months = (
+            (end_date.year - start_date.year) * 12
+            + end_date.month
+            - start_date.month
+        )
+
+        if end_date.day < start_date.day:
+            completed_months -= 1
+
+        elapsed_months_d = Decimal(str(completed_months))
+
+    elif elapsed_months is not None:
+        elapsed_months_d = to_decimal(elapsed_months)
+
+    else:
+        raise ValueError(
+            "elapsed_monthsまたは契約開始日と解約予定日が必要です"
+        )
+
+    if elapsed_months_d < 0:
+        raise ValueError("elapsed_monthsは0以上にしてください")
+    if elapsed_months_d != elapsed_months_d.to_integral_value():
+        raise ValueError("elapsed_monthsは整数にしてください")
+    if elapsed_months_d > contract_months_d:
+        raise ValueError(
+            "elapsed_monthsはcontract_months以下にしてください"
+        )
+
+    remaining_months = contract_months_d - elapsed_months_d
+    refund_amount = (
+        paid_premium_d
+        * remaining_months
+        / contract_months_d
+    )
+
+    return {
+        "paid_premium": round_to_integer(paid_premium_d),
+        "contract_months": int(contract_months_d),
+        "elapsed_months": int(elapsed_months_d),
+        "remaining_months": int(remaining_months),
+        "refund_amount": round_to_integer(refund_amount),
+        "contract_start_date": (
+            start_date.isoformat()
+            if start_date
+            else None
+        ),
+        "cancellation_date": (
+            end_date.isoformat()
+            if end_date
+            else None
+        ),
+        "cancellation_date_defaulted": bool(
+            cancellation_date_defaulted
+        )
     }
 #================================================
