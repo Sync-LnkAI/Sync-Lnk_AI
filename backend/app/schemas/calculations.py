@@ -194,3 +194,29 @@ class RealEstateSaleResponse(BaseModel):
     status: Literal["success"]
     calculation_type: Literal["real_estate_sale"]
     result: RealEstateSaleResult
+
+class BuildingDepreciationRequest(BaseModel):
+    building_original_cost: float
+    building_structure: Literal[
+        "wood", "light_steel", "steel", "rc", "src"
+    ]
+    building_acquisition_date: str
+    property_usage: Literal["owner_occupied", "business"]
+    building_useful_life: float | None = None
+
+class BuildingDepreciationResult(BaseModel):
+    building_original_cost: int
+    building_structure: str
+    building_acquisition_date: str
+    property_usage: str
+    building_useful_life: float
+    calculation_date: str
+    elapsed_days: int
+    elapsed_years: float
+    accumulated_depreciation: int
+    building_tax_basis: int
+
+class BuildingDepreciationResponse(BaseModel):
+    status: Literal["success"]
+    calculation_type: Literal["building_depreciation"]
+    result: BuildingDepreciationResult

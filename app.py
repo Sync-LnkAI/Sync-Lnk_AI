@@ -19,6 +19,7 @@ from janome.tokenizer import Tokenizer
 from concurrent.futures import (ThreadPoolExecutor, as_completed)
 
 from backend.app.calculations.general import (
+    calculate_building_depreciation,
     calculate_compound_interest,
     calculate_fire_insurance_refund,
     calculate_loan_payment,
@@ -11305,53 +11306,6 @@ NON_BUSINESS_DEPRECIATION_RATE = {
 # 建物未償却残高と理論簿価の差異警告基準
 # 100万円を超える差異がある場合に警告する
 BUILDING_TAX_BASIS_WARNING_THRESHOLD = Decimal("1000000")
-
-def calculate_building_depreciation(
-    building_original_cost,
-    building_structure,
-    building_acquisition_date,
-    property_usage,
-    building_useful_life=None
-) -> dict:
-
-    original_cost = to_decimal(building_original_cost)
-
-    if building_useful_life is not None:
-        useful_life = to_decimal(building_useful_life)
-    else:
-        useful_life = Decimal(BUILDING_USEFUL_LIFE[building_structure])
-
-    if useful_life <= Decimal("0"):
-        raise ValueError("建物の耐用年数は1年以上で指定してください")
-
-    acquired_date = parse_date(building_acquisition_date)
-
-    today = datetime.now(JST).date()
-
-    elapsed_days = (today - acquired_date).days
-
-    elapsed_years = Decimal(str(elapsed_days / 365.25))
-
-    if property_usage == "owner_occupied":
-        depreciation_rate = NON_BUSINESS_DEPRECIATION_RATE[building_structure]
-        accumulated_depreciation = (
-            original_cost
-            * Decimal("0.9")
-            * depreciation_rate
-            * elapsed_years
-        )
-        accumulated_depreciation = min(accumulated_depreciation, original_cost * Decimal("0.95"))
-
-    else:
-        annual_depreciation = (original_cost / useful_life)
-        accumulated_depreciation = min(annual_depreciation * elapsed_years, original_cost)
-
-    building_tax_basis = (original_cost - accumulated_depreciation)
-
-    return {
-        "accumulated_depreciation":round_yen(accumulated_depreciation),
-        "building_tax_basis":round_yen(building_tax_basis)
-    }
 
 def normalize_real_estate_sale_arguments(
     arguments: dict,

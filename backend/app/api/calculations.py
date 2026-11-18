@@ -5,6 +5,7 @@ from backend.app.calculations.general import (
     calculate_loan_payment,
     calculate_percentage_calculation,
     calculate_real_estate_sale,
+    calculate_building_depreciation,
     calculate_recurring_investment,
     calculate_simple_interest,
 )
@@ -19,6 +20,8 @@ from backend.app.schemas.calculations import (
     PercentageCalculationResponse,
     RealEstateSaleRequest,
     RealEstateSaleResponse,
+    BuildingDepreciationRequest,
+    BuildingDepreciationResponse,
     RecurringInvestmentRequest,
     RecurringInvestmentResponse,
     SimpleInterestRequest,
@@ -239,6 +242,28 @@ def real_estate_sale(request: RealEstateSaleRequest):
         return {
             "status": "success",
             "calculation_type": "real_estate_sale",
+            "result": result
+        }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+@router.post(
+    "/building-depreciation",
+    response_model=BuildingDepreciationResponse,
+    responses={400: {"model": ErrorResponse, "description": "計算条件が不正な場合"}}
+)
+def building_depreciation(request: BuildingDepreciationRequest):
+    try:
+        result = calculate_building_depreciation(
+            building_original_cost=request.building_original_cost,
+            building_structure=request.building_structure,
+            building_acquisition_date=request.building_acquisition_date,
+            property_usage=request.property_usage,
+            building_useful_life=request.building_useful_life
+        )
+        return {
+            "status": "success",
+            "calculation_type": "building_depreciation",
             "result": result
         }
     except ValueError as error:

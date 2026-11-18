@@ -1,6 +1,6 @@
 import calendar
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -115,6 +115,23 @@ def determine_individual_holding_type(
         return "long_term"
 
     return "short_term"
+#================================================
+
+BUILDING_USEFUL_LIFE = {
+    "wood": 22,
+    "light_steel": 19,
+    "steel": 34,
+    "rc": 47,
+    "src": 47
+}
+
+NON_BUSINESS_DEPRECIATION_RATE = {
+    "wood": Decimal("0.031"),
+    "light_steel": Decimal("0.036"),
+    "steel": Decimal("0.025"),
+    "rc": Decimal("0.015"),
+    "src": Decimal("0.015")
+}
 #================================================
 
 # 複利計算関数
@@ -844,5 +861,84 @@ def calculate_real_estate_sale(
             else None
         ),
         "tax_calculation_status": tax_calculation_status
+    }
+#================================================
+
+# 建物の減価償却累計額と未償却残高の計算関数
+def calculate_building_depreciation(
+    building_original_cost: Any,
+    building_structure: str,
+    building_acquisition_date: str | date | datetime,
+    property_usage: str,
+    building_useful_life: Any | None = None
+) -> dict:
+    original_cost = to_decimal(building_original_cost)
+    structure = str(building_structure or "").strip().lower()
+    usage = str(property_usage or "").strip().lower()
+
+    if original_cost <= 0:
+        raise ValueError("building_original_costは0より大きくしてください")
+    if structure not in BUILDING_USEFUL_LIFE:
+        raise ValueError("対応していないbuilding_structureです")
+    if usage not in {"owner_occupied", "business"}:
+        raise ValueError("property_usageはowner_occupiedまたはbusinessにしてください")
+
+    useful_life = (
+        to_decimal(building_useful_life)
+        if building_useful_life is not None
+        else Decimal(BUILDING_USEFUL_LIFE[structure])
+    )
+    if useful_life <= 0:
+        raise ValueError("建物の耐用年数は1年以上で指定してください")
+
+    try:
+        acquired_date = parse_date(building_acquisition_date)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "building_acquisition_dateはYYYY-MM-DD形式にしてください"
+        ) from error
+
+    jst = timezone(timedelta(hours=9))
+    calculation_date = datetime.now(jst).date()
+    if acquired_date > calculation_date:
+        raise ValueError("building_acquisition_dateは本日以前にしてください")
+
+    elapsed_days = (calculation_date - acquired_date).days
+    elapsed_years = Decimal(elapsed_days) / Decimal("365.25")
+
+    if usage == "owner_occupied":
+        depreciation_rate = NON_BUSINESS_DEPRECIATION_RATE[structure]
+        accumulated_depreciation = (
+            original_cost
+            * Decimal("0.9")
+            * depreciation_rate
+            * elapsed_years
+        )
+        accumulated_depreciation = min(
+            accumulated_depreciation,
+            original_cost * Decimal("0.95")
+        )
+    else:
+        annual_depreciation = original_cost / useful_life
+        accumulated_depreciation = min(
+            annual_depreciation * elapsed_years,
+            original_cost
+        )
+
+    building_tax_basis = original_cost - accumulated_depreciation
+
+    return {
+        "building_original_cost": round_to_integer(original_cost),
+        "building_structure": structure,
+        "building_acquisition_date": acquired_date.isoformat(),
+        "property_usage": usage,
+        "building_useful_life": float(useful_life),
+        "calculation_date": calculation_date.isoformat(),
+        "elapsed_days": elapsed_days,
+        "elapsed_years": float(elapsed_years),
+        "accumulated_depreciation": round_to_integer(
+            accumulated_depreciation
+        ),
+        "building_tax_basis": round_to_integer(building_tax_basis)
     }
 #================================================
