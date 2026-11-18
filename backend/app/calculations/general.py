@@ -874,14 +874,24 @@ def calculate_building_depreciation(
 ) -> dict:
     original_cost = to_decimal(building_original_cost)
     structure = str(building_structure or "").strip().lower()
+    
     usage = str(property_usage or "").strip().lower()
+    usage_aliases = {
+        "owner_occupied": "owner_occupied",
+        "non_business": "owner_occupied",
+        "home": "owner_occupied",
+        "business": "business",
+        "investment": "business",
+        "rental": "business"
+    }
+    usage = usage_aliases.get(usage)
 
     if original_cost <= 0:
         raise ValueError("building_original_costは0より大きくしてください")
     if structure not in BUILDING_USEFUL_LIFE:
         raise ValueError("対応していないbuilding_structureです")
-    if usage not in {"owner_occupied", "business"}:
-        raise ValueError("property_usageはowner_occupiedまたはbusinessにしてください")
+    if usage is None:
+        raise ValueError("対応していないproperty_usageです")
 
     useful_life = (
         to_decimal(building_useful_life)
