@@ -1,4 +1,6 @@
-from datetime import date
+import calendar
+
+from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any
 
@@ -28,6 +30,91 @@ def round_to_integer(value: Decimal) -> int:
             rounding=ROUND_HALF_UP
         )
     )
+#================================================
+
+# 日付をdate型へ変換する処理関数
+def parse_date(
+    value: str | date | datetime
+) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    return date.fromisoformat(
+        str(value).strip()
+    )
+#================================================
+
+# 年数を安全に加算する処理関数
+def add_years_safely(
+    original_date: date,
+    years: int
+) -> date:
+    """
+    2月29日など、加算先の年に同日が存在しない場合は、
+    その月の最終日へ補正する。
+    """
+    target_year = original_date.year + years
+    target_month = original_date.month
+
+    last_day = calendar.monthrange(
+        target_year,
+        target_month
+    )[1]
+
+    target_day = min(
+        original_date.day,
+        last_day
+    )
+
+    return date(
+        target_year,
+        target_month,
+        target_day
+    )
+#================================================
+
+# 個人の不動産保有期間を判定する処理関数
+def determine_individual_holding_type(
+    acquisition_date: str | date | datetime,
+    sale_date: str | date | datetime
+) -> str:
+    """
+    個人の土地建物譲渡について、
+    売却年1月1日時点の所有期間が
+    5年を超えるかで判定する。
+    """
+    try:
+        acquired = parse_date(acquisition_date)
+        sold = parse_date(sale_date)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "acquisition_dateとsale_dateは"
+            "YYYY-MM-DD形式にしてください"
+        ) from error
+
+    if sold < acquired:
+        raise ValueError(
+            "sale_dateがacquisition_dateより前です"
+        )
+
+    sale_year_start = date(
+        sold.year,
+        1,
+        1
+    )
+
+    five_year_anniversary = add_years_safely(
+        acquired,
+        5
+    )
+
+    if five_year_anniversary < sale_year_start:
+        return "long_term"
+
+    return "short_term"
 #================================================
 
 # 複利計算関数
@@ -356,8 +443,8 @@ def calculate_fire_insurance_refund(
 
     if contract_start_date and cancellation_date:
         try:
-            start_date = date.fromisoformat(contract_start_date)
-            end_date = date.fromisoformat(cancellation_date)
+            start_date = parse_date(contract_start_date)
+            end_date = parse_date(cancellation_date)
         except (TypeError, ValueError) as error:
             raise ValueError(
                 "保険日付はYYYY-MM-DD形式にしてください"
@@ -422,5 +509,340 @@ def calculate_fire_insurance_refund(
         "cancellation_date_defaulted": bool(
             cancellation_date_defaulted
         )
+    }
+#================================================
+
+# 不動産売却計算関数
+def calculate_real_estate_sale(
+    *,
+    owner_type: str,
+    sale_price: Any,
+    loan_balance: Any = 0,
+
+    # 土地の税務上の取得費
+    land_acquisition_cost: Any = 0,
+
+    # 建物の取得価額と減価償却累計額
+    building_acquisition_cost: Any = 0,
+    accumulated_depreciation: Any = 0,
+
+    # 建物未償却残高・建物簿価
+    # 入力されている場合は減価償却を再計算せず、
+    # この金額をそのまま建物の税務上の残高として使用する
+    building_tax_basis: Any | None = None,
+
+    # 取得費に含める購入時経費等
+    acquisition_related_costs: Any = 0,
+    total_acquisition_cost: Any = 0,
+
+    # 仲介手数料
+    brokerage_fee: Any | None = None,
+
+    # 売却のために直接要した譲渡費用
+    transfer_expenses: Any = 0,
+
+    # 抵当権抹消など、現金手残りから控除する費用
+    other_cash_expenses: Any = 0,
+
+    # 個人の場合に使用
+    acquisition_date: str | date | datetime | None = None,
+    sale_date: str | date | datetime | None = None,
+
+    holding_period_type: str | None = None,
+
+    # 該当する特例が確認できている場合のみ入力
+    special_deduction: Any = 0,
+
+    # 法人の場合のみ任意指定
+    corporate_effective_tax_rate: Any | None = None,
+
+    # 取得費不明時の概算取得費を利用する場合
+    use_deemed_acquisition_cost: bool = False,
+
+    # 概算取得費率。通常は売却価額の5%
+    deemed_acquisition_cost_rate: Any = "0.05"
+    ) -> dict:
+    """
+    不動産売却の概算計算。
+
+    owner_type:
+        "individual" または "corporate"
+
+    注意:
+    ・個人の通常の土地建物譲渡を想定。
+    ・法人税額は会社全体の所得等に左右されるため、
+      実効税率が指定された場合だけ概算する。
+    ・消費税、特例、損益通算、欠損金、圧縮記帳等は
+      この関数では自動判定しない。
+    """
+
+    owner_type = owner_type.strip().lower()
+
+    if owner_type not in {
+        "individual",
+        "corporate"
+    }:
+        raise ValueError("owner_typeはindividualまたはcorporateを指定してください")
+
+    sale_price_d = to_decimal(sale_price)
+    loan_balance_d = to_decimal(loan_balance)
+
+    land_cost_d = to_decimal(land_acquisition_cost)
+    building_cost_d = to_decimal(building_acquisition_cost)
+    depreciation_d = to_decimal(accumulated_depreciation)
+    acquisition_costs_d = to_decimal(acquisition_related_costs)
+    transfer_expenses_d = to_decimal(transfer_expenses)
+
+    # 仲介手数料が未入力なら法定上限額で試算
+    if brokerage_fee is None:
+        brokerage_fee_d = (sale_price_d * Decimal("0.03") + Decimal("60000")) * Decimal("1.10")
+        brokerage_fee_method = ("statutory_max_estimate")
+    else:
+        brokerage_fee_d = to_decimal(brokerage_fee)
+        brokerage_fee_method = ("specified")
+
+    other_cash_expenses_d = to_decimal(other_cash_expenses)
+    special_deduction_d = to_decimal(special_deduction)
+
+    validation_values = {
+        "sale_price": sale_price_d,
+        "loan_balance": loan_balance_d,
+        "land_acquisition_cost": land_cost_d,
+        "building_acquisition_cost": building_cost_d,
+        "accumulated_depreciation": depreciation_d,
+        "acquisition_related_costs": acquisition_costs_d,
+        "brokerage_fee": brokerage_fee_d,
+        "transfer_expenses": transfer_expenses_d,
+        "other_cash_expenses": other_cash_expenses_d,
+        "special_deduction": special_deduction_d
+    }
+    
+    for field_name, field_value in validation_values.items():
+        if field_value < 0:
+            raise ValueError(
+                f"{field_name}は0以上にしてください"
+            )
+
+    if depreciation_d > building_cost_d:
+        raise ValueError(
+            "減価償却累計額が建物取得価額を超えています"
+        )
+
+    # 建物の税務上の未償却残高
+    if building_tax_basis is not None:
+        # ユーザーが建物未償却残高・建物簿価を明示した場合
+        # すでに減価償却後の金額なので再計算しない
+        building_tax_basis_d = to_decimal(
+            building_tax_basis
+        )
+
+        if building_tax_basis_d < Decimal("0"):
+            raise ValueError(
+                "building_tax_basisは0以上にしてください"
+            )
+
+    else:
+        # 建物未償却残高が未入力の場合だけ、
+        # 建物取得価額から減価償却累計額を差し引く
+        building_tax_basis_d = (
+            building_cost_d
+            - depreciation_d
+        )
+
+    total_acquisition_cost_d = to_decimal(total_acquisition_cost)
+    if total_acquisition_cost_d > Decimal("0"):
+        actual_acquisition_basis = (total_acquisition_cost_d)
+    else:
+        actual_acquisition_basis = (
+            land_cost_d
+            + building_tax_basis_d
+            + acquisition_costs_d
+        )
+
+    deemed_rate_d = to_decimal(
+        deemed_acquisition_cost_rate
+    )
+    if not (
+        Decimal("0")
+        <= deemed_rate_d
+        <= Decimal("1")
+    ):
+        raise ValueError(
+            "deemed_acquisition_cost_rateは"
+            "0から1の範囲で指定してください"
+        )
+
+    # 取得費不明時などに使う概算取得費
+    deemed_acquisition_basis = (
+        sale_price_d
+        * deemed_rate_d
+    )
+
+    if use_deemed_acquisition_cost:
+        acquisition_basis = (
+            deemed_acquisition_basis
+        )
+        acquisition_basis_method = (
+            "deemed_5_percent"
+        )
+    else:
+        acquisition_basis = (
+            actual_acquisition_basis
+        )
+        acquisition_basis_method = "actual"
+
+    # 特別控除前の譲渡損益
+    capital_gain_before_deduction = (
+        sale_price_d
+        - acquisition_basis
+        - brokerage_fee_d
+        - transfer_expenses_d
+    )
+
+    # 特別控除は譲渡益を超えて控除しない
+    applied_special_deduction = min(
+        max(
+            special_deduction_d,
+            Decimal("0")
+        ),
+        max(
+            capital_gain_before_deduction,
+            Decimal("0")
+        )
+    )
+
+    taxable_gain = max(
+        capital_gain_before_deduction
+        - applied_special_deduction,
+        Decimal("0")
+    )
+
+    holding_type = None
+    tax_rate = None
+    estimated_tax = None
+    tax_calculation_status = None
+
+    if owner_type == "individual":
+        if sale_date is not None:
+            holding_type = (
+                determine_individual_holding_type(
+                    acquisition_date,
+                    sale_date
+                )
+            )
+
+        elif holding_period_type in {
+            "long_term",
+            "short_term"
+        }:
+            holding_type = holding_period_type
+
+        else:
+            holding_type = None
+
+        if taxable_gain <= Decimal("0"):
+            estimated_tax = Decimal("0")
+            tax_calculation_status = "no_taxable_gain"
+        elif holding_type == "long_term":
+            tax_rate = Decimal("0.20315")
+            estimated_tax = taxable_gain * tax_rate
+            tax_calculation_status = "individual_estimated"
+        elif holding_type == "short_term":
+            tax_rate = Decimal("0.3963")
+            estimated_tax = taxable_gain * tax_rate
+            tax_calculation_status = "individual_estimated"
+        else:
+            tax_calculation_status = "holding_period_not_determined"
+
+    else:
+        if taxable_gain <= Decimal("0"):
+            estimated_tax = Decimal("0")
+            tax_calculation_status = "no_taxable_gain"
+
+        elif corporate_effective_tax_rate is None:
+            tax_calculation_status = (
+                "corporate_tax_not_calculated"
+            )
+
+        else:
+            tax_rate = to_decimal(
+                corporate_effective_tax_rate
+            )
+
+            if not (
+                Decimal("0")
+                <= tax_rate
+                <= Decimal("1")
+            ):
+                raise ValueError(
+                    "corporate_effective_tax_rateは"
+                    "0から1の範囲で指定してください"
+                )
+
+            estimated_tax = (
+                taxable_gain
+                * tax_rate
+            )
+
+            tax_calculation_status = (
+                "corporate_effective_rate_estimate"
+            )
+
+    # 税引前の現金手残り
+    cash_before_tax = (
+        sale_price_d
+        - loan_balance_d
+        - brokerage_fee_d
+        - transfer_expenses_d
+        - other_cash_expenses_d
+    )
+
+    # 税額を計算できる場合だけ税引後を算出
+    if estimated_tax is None:
+        cash_after_tax = None
+    else:
+        cash_after_tax = (
+            cash_before_tax
+            - estimated_tax
+        )
+
+    return {
+        "owner_type": owner_type,
+        "holding_type": holding_type,
+        "acquisition_basis_method": acquisition_basis_method,
+        "sale_price": round_to_integer(sale_price_d),
+        "loan_balance": round_to_integer(loan_balance_d),
+        "land_acquisition_cost": round_to_integer(land_cost_d),
+        "building_acquisition_cost": round_to_integer(building_cost_d),
+        "accumulated_depreciation": round_to_integer(depreciation_d),
+        "building_tax_basis": round_to_integer(building_tax_basis_d),
+        "acquisition_related_costs": round_to_integer(acquisition_costs_d),
+        "brokerage_fee": round_to_integer(brokerage_fee_d),
+        "brokerage_fee_method": brokerage_fee_method,
+        "actual_acquisition_basis": round_to_integer(actual_acquisition_basis),
+        "deemed_acquisition_basis": round_to_integer(deemed_acquisition_basis),
+        "applied_acquisition_basis": round_to_integer(acquisition_basis),
+        "transfer_expenses": round_to_integer(transfer_expenses_d),
+        "other_cash_expenses": round_to_integer(other_cash_expenses_d),
+        "capital_gain_before_deduction": round_to_integer(capital_gain_before_deduction),
+        "special_deduction": round_to_integer(applied_special_deduction),
+        "taxable_gain": round_to_integer(taxable_gain),
+        "tax_rate": (
+            float(tax_rate)
+            if tax_rate is not None
+            else None
+        ),
+        "estimated_tax": (
+            round_to_integer(estimated_tax)
+            if estimated_tax is not None
+            else None
+        ),
+        "cash_before_tax": round_to_integer(cash_before_tax),
+        "cash_after_tax": (
+            round_to_integer(cash_after_tax)
+            if cash_after_tax is not None
+            else None
+        ),
+        "tax_calculation_status": tax_calculation_status
     }
 #================================================

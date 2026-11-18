@@ -141,3 +141,56 @@ class FireInsuranceRefundResponse(BaseModel):
     status: Literal["success"]
     calculation_type: Literal["fire_insurance_refund"]
     result: FireInsuranceRefundResult
+
+class RealEstateSaleRequest(BaseModel):
+    owner_type: Literal["individual", "corporate"]
+    sale_price: float
+    loan_balance: float = 0
+    land_acquisition_cost: float = 0
+    building_acquisition_cost: float = 0
+    accumulated_depreciation: float = 0
+    building_tax_basis: float | None = None
+    acquisition_related_costs: float = 0
+    total_acquisition_cost: float = 0
+    brokerage_fee: float | None = None
+    transfer_expenses: float = 0
+    other_cash_expenses: float = 0
+    acquisition_date: str | None = None
+    sale_date: str | None = None
+    holding_period_type: Literal["long_term", "short_term"] | None = None
+    special_deduction: float = 0
+    corporate_effective_tax_rate: float | None = None
+    use_deemed_acquisition_cost: bool = False
+    deemed_acquisition_cost_rate: float = 0.05
+
+class RealEstateSaleResult(BaseModel):
+    owner_type: str
+    holding_type: str | None
+    acquisition_basis_method: str
+    sale_price: int
+    loan_balance: int
+    land_acquisition_cost: int
+    building_acquisition_cost: int
+    accumulated_depreciation: int
+    building_tax_basis: int
+    acquisition_related_costs: int
+    brokerage_fee: int
+    brokerage_fee_method: str
+    actual_acquisition_basis: int
+    deemed_acquisition_basis: int
+    applied_acquisition_basis: int
+    transfer_expenses: int
+    other_cash_expenses: int
+    capital_gain_before_deduction: int
+    special_deduction: int
+    taxable_gain: int
+    tax_rate: float | None
+    estimated_tax: int | None
+    cash_before_tax: int
+    cash_after_tax: int | None
+    tax_calculation_status: str | None
+
+class RealEstateSaleResponse(BaseModel):
+    status: Literal["success"]
+    calculation_type: Literal["real_estate_sale"]
+    result: RealEstateSaleResult

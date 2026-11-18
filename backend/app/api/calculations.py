@@ -4,6 +4,7 @@ from backend.app.calculations.general import (
     calculate_fire_insurance_refund,
     calculate_loan_payment,
     calculate_percentage_calculation,
+    calculate_real_estate_sale,
     calculate_recurring_investment,
     calculate_simple_interest,
 )
@@ -16,6 +17,8 @@ from backend.app.schemas.calculations import (
     LoanPaymentResponse,
     PercentageCalculationRequest,
     PercentageCalculationResponse,
+    RealEstateSaleRequest,
+    RealEstateSaleResponse,
     RecurringInvestmentRequest,
     RecurringInvestmentResponse,
     SimpleInterestRequest,
@@ -204,3 +207,39 @@ def fire_insurance_refund(request: FireInsuranceRefundRequest):
             status_code=400,
             detail=str(error)
         ) from error
+
+@router.post(
+    "/real-estate-sale",
+    response_model=RealEstateSaleResponse,
+    responses={400: {"model": ErrorResponse, "description": "計算条件が不正な場合"}}
+)
+def real_estate_sale(request: RealEstateSaleRequest):
+    try:
+        result = calculate_real_estate_sale(
+            owner_type=request.owner_type,
+            sale_price=request.sale_price,
+            loan_balance=request.loan_balance,
+            land_acquisition_cost=request.land_acquisition_cost,
+            building_acquisition_cost=request.building_acquisition_cost,
+            accumulated_depreciation=request.accumulated_depreciation,
+            building_tax_basis=request.building_tax_basis,
+            acquisition_related_costs=request.acquisition_related_costs,
+            total_acquisition_cost=request.total_acquisition_cost,
+            brokerage_fee=request.brokerage_fee,
+            transfer_expenses=request.transfer_expenses,
+            other_cash_expenses=request.other_cash_expenses,
+            acquisition_date=request.acquisition_date,
+            sale_date=request.sale_date,
+            holding_period_type=request.holding_period_type,
+            special_deduction=request.special_deduction,
+            corporate_effective_tax_rate=request.corporate_effective_tax_rate,
+            use_deemed_acquisition_cost=request.use_deemed_acquisition_cost,
+            deemed_acquisition_cost_rate=request.deemed_acquisition_cost_rate
+        )
+        return {
+            "status": "success",
+            "calculation_type": "real_estate_sale",
+            "result": result
+        }
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
