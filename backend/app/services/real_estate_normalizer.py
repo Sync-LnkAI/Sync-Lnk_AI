@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from decimal import Decimal
 
@@ -40,7 +41,7 @@ CONFIRMABLE_FIELDS = {
     "acquisition_related_costs",
 }
 
-# 
+# 不動産売却の正規化処理関数
 def normalize_real_estate_sale_arguments(
     arguments: dict,
     apply_defaults: bool = True
@@ -558,3 +559,358 @@ def get_real_estate_sale_missing_fields(
     # 重複を除き、追加順を維持
     return list(dict.fromkeys(missing_fields))
 # ==========================================
+
+# 日本語の金額表記を円単位の数値文字列へ変換する関数
+def normalize_japanese_number_text(
+    value: str
+) -> str:
+    """
+    日本語の金額表記を円単位の数値文字列へ変換する。
+
+    対応例:
+        "50,000,000円" -> "50000000"
+        "5000万円" -> "50000000"
+        "5,000万" -> "50000000"
+        "1.5億円" -> "150000000"
+        "30%" -> "0.3"
+
+    「億」と「万」を組み合わせた
+    「1億5000万円」のような表記にも対応する。
+    """
+    text = (
+        str(value)
+        .strip()
+        .replace("　", "")
+        .replace(" ", "")
+        .replace(",", "")
+        .replace("￥", "")
+        .replace("¥", "")
+        .replace("円", "")
+    )
+
+    if not text:
+        raise ValueError(
+            "数値が入力されていません"
+        )
+
+    # パーセント表記
+    if text.endswith("%"):
+        percent_text = text[:-1]
+
+        if not percent_text:
+            raise ValueError(
+                "パーセントの数値が入力されていません"
+            )
+
+        return str(
+            Decimal(percent_text)
+            / Decimal("100")
+        )
+
+    total = Decimal("0")
+    remaining_text = text
+
+    # 億単位
+    if "億" in remaining_text:
+        oku_parts = remaining_text.split("億")
+
+        if len(oku_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        oku_text = oku_parts[0]
+        remaining_text = oku_parts[1]
+
+        if not oku_text:
+            oku_text = "1"
+
+        total += (
+            Decimal(oku_text)
+            * Decimal("100000000")
+        )
+
+    # 万単位
+    if "万" in remaining_text:
+        man_parts = remaining_text.split("万")
+
+        if len(man_parts) != 2:
+            raise ValueError(
+                f"数値形式を解釈できません: {value}"
+            )
+
+        man_text = man_parts[0]
+        remaining_text = man_parts[1]
+
+        if not man_text:
+            man_text = "1"
+
+        total += (
+            Decimal(man_text)
+            * Decimal("10000")
+        )
+
+    # 億・万より下の円単位
+    if remaining_text:
+        total += Decimal(
+            remaining_text
+        )
+
+    return str(total)
+#============================================
+
+# 不動産売却の明示的な金額を原文から抽出する関数
+def extract_explicit_real_estate_amounts(user_input: str) -> dict:
+    normalized_text = unicodedata.normalize(
+        "NFKC",
+        str(user_input or "")
+    )
+
+    normalized_text = (
+        normalized_text
+        .replace("，", ",")
+        .replace("：", ":")
+    )
+
+    number_part = (
+        r"[0-9][0-9,]*"
+        r"(?:\.[0-9]+)?"
+    )
+
+    amount_part = (
+        rf"{number_part}"
+        rf"(?:"
+        rf"億(?:{number_part}万)?|"
+        rf"万|"
+        rf"円"
+        rf")"
+    )
+
+    field_patterns = {
+        "sale_price": [
+            (
+                rf"(?:売却予定額|売却額|売却価格|売値)"
+                rf"\s*(?:は|が|を|で|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で|にて)?\s*"
+                rf"(?:売却予定|売却する|売却した|売却)"
+            )
+        ],
+        "loan_balance": [
+            (
+                rf"(?:"
+                rf"ローン(?:の)?残債|"
+                rf"ローン(?:の)?残高|"
+                rf"借入(?:金)?残高"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:の)?\s*"
+                rf"(?:ローン残債|ローン残高|借入残高)"
+            )
+        ],
+        "land_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"土地(?:の)?取得(?:費|価額|価格)?|"
+                rf"土地(?:の)?購入(?:費|価額|価格)?|"
+                rf"土地代"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"土地"
+                rf"\s*(?:は|が|を)?\s*"
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で)?\s*"
+                rf"(?:取得|購入)"
+            ),
+            (
+                rf"土地"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "building_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"建物(?:の)?取得(?:費|価額|価格)?|"
+                rf"建物(?:の)?購入(?:費|価額|価格)?|"
+                rf"建物代"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"建物"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+                rf"\s*(?:で)?\s*"
+                rf"(?:取得|購入)"
+            ),
+            (
+                rf"建物"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "building_tax_basis": [
+            (
+                rf"(?:"
+                rf"建物(?:の)?未償却残高|"
+                rf"建物(?:の)?簿価|"
+                rf"減価償却後(?:の)?建物残高"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "acquisition_related_costs": [
+            (
+                rf"(?:"
+                rf"購入時(?:の)?諸費用|"
+                rf"取得時(?:の)?諸費用|"
+                rf"取得関連費用"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?:"
+                rf"購入(?:時)?(?:の)?仲介手数料|"
+                rf"取得(?:時)?(?:の)?仲介手数料|"
+                rf"購入(?:時)?(?:の)?登記費用(?:等)?|"
+                rf"取得(?:時)?(?:の)?登記費用(?:等)?|"
+                rf"不動産取得税"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "total_acquisition_cost": [
+            (
+                rf"(?:"
+                rf"総取得費|"
+                rf"取得費総額|"
+                rf"取得価額合計"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "brokerage_fee": [
+            (
+                rf"(?:"
+                rf"売却(?:時)?(?:の)?仲介手数料|"
+                rf"今回(?:の)?売却(?:の)?仲介手数料"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            ),
+            (
+                rf"(?<!購入)(?<!取得)"
+                rf"仲介手数料"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "transfer_expenses": [
+            (
+                rf"(?:"
+                rf"譲渡費用|"
+                rf"売却時(?:の)?諸費用"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ],
+        "other_cash_expenses": [
+            (
+                rf"(?:"
+                rf"その他(?:の)?現金支出|"
+                rf"その他(?:の)?支出"
+                rf")"
+                rf"\s*(?:は|が|を|:)?\s*"
+                rf"(?P<amount>{amount_part})"
+            )
+        ]
+    }
+
+    extracted_amounts = {}
+
+    for field_name, patterns in field_patterns.items():
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                normalized_text,
+                flags=re.IGNORECASE
+            )
+
+            if not match:
+                continue
+
+            amount_text = match.group("amount")
+
+            try:
+                extracted_amounts[field_name] = to_decimal(
+                    normalize_japanese_number_text(amount_text)
+                )
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                pass
+
+            break
+
+    purchase_cost_pattern = (
+        rf"(?:"
+        rf"購入(?:時)?(?:の)?仲介手数料|"
+        rf"取得(?:時)?(?:の)?仲介手数料|"
+        rf"購入(?:時)?(?:の)?登記費用(?:等)?|"
+        rf"取得(?:時)?(?:の)?登記費用(?:等)?|"
+        rf"不動産取得税"
+        rf")"
+        rf"\s*(?:は|が|を|:)?\s*"
+        rf"(?P<amount>{amount_part})"
+    )
+
+    purchase_cost_matches = list(
+        re.finditer(
+            purchase_cost_pattern,
+            normalized_text,
+            flags=re.IGNORECASE
+        )
+    )
+
+    if purchase_cost_matches:
+        purchase_cost_total = Decimal("0")
+
+        for match in purchase_cost_matches:
+            try:
+                purchase_cost_total += to_decimal(
+                    normalize_japanese_number_text(match.group("amount"))
+                )
+            except (
+                ValueError,
+                TypeError,
+                ArithmeticError
+            ):
+                continue
+
+        extracted_amounts["acquisition_related_costs"] = purchase_cost_total
+
+        # 購入時の仲介手数料を
+        # 売却時仲介手数料として扱わない
+        extracted_amounts.pop("brokerage_fee", None)
+
+    return extracted_amounts
+#==============================================
