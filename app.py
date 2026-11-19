@@ -18697,6 +18697,13 @@ with all_tabs[0]:
                             debug_text("DEBUG calculation_tool", calculation_tool)
 
                             if (
+                                contains_real_estate_hint
+                                and has_calculation_request_phrase
+                            ):
+                                calculation_tool = "real_estate_sale"
+                                tool_route_confidence = 1.0
+
+                            if (
                                 calculation_tool == "none"
                                 and (
                                     requires_estimation
