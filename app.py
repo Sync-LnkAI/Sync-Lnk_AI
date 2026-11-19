@@ -21456,6 +21456,24 @@ with all_tabs[0]:
                                     "total_acquisition_cost",
                                     None
                                 )
+                            
+                            building_tax_basis_expressions = {
+                                "未償却残高",
+                                "建物簿価",
+                                "建物の簿価",
+                                "減価償却後の建物残高"
+                            }
+
+                            building_tax_basis_is_explicit = any(
+                                expression in user_input
+                                for expression in building_tax_basis_expressions
+                            )
+
+                            if (
+                                selected_case_resume_arguments is None
+                                and not building_tax_basis_is_explicit
+                            ):
+                                current_arguments.pop("building_tax_basis", None)
 
                             if "DEBUG previous_arguments" in locals():
                                 debug_json(
