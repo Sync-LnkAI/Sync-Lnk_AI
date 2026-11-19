@@ -97,7 +97,7 @@ def generate_ai_response(
     response_format_json: bool = False,
     model_name: str | None = None,
     openai_client: Any = None,
-    genai_module: Any = None
+    gemini_client: Any = None
 ) -> dict:
     selected_provider = str(provider or "").strip().lower()
 
