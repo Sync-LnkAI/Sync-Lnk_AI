@@ -38,6 +38,10 @@ from backend.app.services.real_estate_normalizer import (
     normalize_real_estate_sale_arguments,
 )
 
+from backend.app.services.real_estate_extractor import (
+    extract_real_estate_sale_parameters as extract_real_estate_sale_parameters_service,
+)
+
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -20707,10 +20711,14 @@ with all_tabs[0]:
                                     }
                                 else:
                                     calculation_extraction_result = (
-                                        extract_real_estate_sale_parameters(
+                                        extract_real_estate_sale_parameters_service(
                                             user_input=user_input,
                                             recent_history="",
-                                            calculation_pending=calculation_pending
+                                            calculation_pending=calculation_pending,
+                                            generate_response=generate_ai_response,
+                                            calculate_cost=calculate_ai_cost,
+                                            provider=BACKGROUND_PROVIDER,
+                                            model_name=SEARCH_MODEL_NAME
                                         )
                                     )
                                     calculation_extraction_result[
