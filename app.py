@@ -33,6 +33,7 @@ from backend.app.calculations.general import (
 from backend.app.services.real_estate_normalizer import (
     extract_explicit_real_estate_amounts,
     extract_simple_real_estate_amount_update,
+    extract_simple_real_estate_usage_update,
     get_real_estate_sale_missing_fields,
     normalize_real_estate_sale_arguments,
 )
@@ -9204,66 +9205,6 @@ def extract_monthly_recurring_investment_conditions(value: str):
         "contribution_timing": None
     }
 #============================================
-
-# 建物の利用区分の単一変更をPythonで判定する関数
-def extract_simple_real_estate_usage_update(user_input: str) -> dict:
-    
-    normalized_text = unicodedata.normalize(
-        "NFKC",
-        str(user_input or "")
-    ).strip()
-
-    normalized_text = (
-        normalized_text
-        .replace(" ", "")
-        .replace("　", "")
-    )
-
-    ambiguous_phrases = (
-        "以前は",
-        "現在は",
-        "途中で",
-        "兼",
-        "一部",
-        "併用",
-        "転用"
-    )
-
-    if any(phrase in normalized_text for phrase in ambiguous_phrases):
-        return {}
-
-    owner_occupied_patterns = (
-        r"^(?:建物(?:の)?利用区分(?:を|は)?)?"
-        r"(?:非業務用|自宅|自宅用|居住用|"
-        r"マイホーム|別荘|セカンドハウス|"
-        r"貸していない空き家|自己使用)"
-        r"(?:にして|へ変更|に変更|です|にする)?[。.]?$"
-    )
-
-    investment_patterns = (
-        r"^(?:建物(?:の)?利用区分(?:を|は)?)?"
-        r"(?:業務用|投資用|賃貸用|収益物件|"
-        r"事業用|店舗|事務所|"
-        r"業務用の賃貸物件)"
-        r"(?:にして|へ変更|に変更|です|にする)?[。.]?$"
-    )
-
-    if re.fullmatch(
-        owner_occupied_patterns,
-        normalized_text,
-        flags=re.IGNORECASE
-    ):
-        return {"property_usage": "owner_occupied"}
-
-    if re.fullmatch(
-        investment_patterns,
-        normalized_text,
-        flags=re.IGNORECASE
-    ):
-        return {"property_usage": "investment"}
-
-    return {}
-#==============================================
 
 def to_decimal(value: Number) -> Decimal:
     """
