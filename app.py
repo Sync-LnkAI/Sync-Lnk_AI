@@ -32,6 +32,7 @@ from backend.app.calculations.general import (
 
 from backend.app.services.real_estate_normalizer import (
     extract_explicit_real_estate_amounts,
+    extract_simple_real_estate_amount_update,
     get_real_estate_sale_missing_fields,
     normalize_real_estate_sale_arguments,
 )
@@ -9203,105 +9204,6 @@ def extract_monthly_recurring_investment_conditions(value: str):
         "contribution_timing": None
     }
 #============================================
-
-# 単純な金額変更だけをPythonで確定できるか判定する関数
-def extract_simple_real_estate_amount_update(user_input: str) -> dict:
-
-    normalized_text = unicodedata.normalize(
-        "NFKC",
-        str(user_input or "")
-    ).strip()
-
-    if not normalized_text:
-        return {}
-
-    segments = [
-        segment.strip()
-        for segment in re.split(r"[、,\n]+", normalized_text)
-        if segment.strip()
-    ]
-
-    if not segments:
-        return {}
-
-    number_part = (
-        r"[0-9][0-9,]*"
-        r"(?:\.[0-9]+)?"
-    )
-    amount_part = (
-        rf"{number_part}"
-        rf"(?:"
-        rf"億(?:{number_part}万)?円?|"
-        rf"万円?|"
-        rf"円"
-        rf")"
-    )
-
-    field_labels = (
-        r"売却予定額|売却額|売却価格|売値|"
-        r"ローン(?:の)?残債|ローン(?:の)?残高|"
-        r"借入(?:金)?残高|"
-        r"土地(?:の)?取得(?:費|価額|価格)?|"
-        r"土地(?:の)?購入(?:費|価額|価格)?|土地代|"
-        r"建物(?:の)?取得(?:費|価額|価格)?|"
-        r"建物(?:の)?購入(?:費|価額|価格)?|建物代|"
-        r"購入時(?:の)?諸費用|取得時(?:の)?諸費用|"
-        r"取得関連費用|総取得費|取得費総額|"
-        r"取得価額合計|仲介手数料|譲渡費用|"
-        r"売却時(?:の)?諸費用|"
-        r"その他(?:の)?現金支出|その他(?:の)?支出"
-    )
-
-    simple_update_pattern = (
-        rf"^(?:{field_labels})"
-        rf"\s*(?:は|が|を|で|:)?\s*"
-        rf"{amount_part}"
-        rf"\s*(?:"
-        rf"にして|へ変更|に変更|でお願いします|"
-        rf"です|にする|とする"
-        rf")?\s*[。.]?$"
-    )
-
-    extracted_arguments = {}
-
-    for segment in segments:
-        if not re.fullmatch(
-            simple_update_pattern,
-            segment,
-            flags=re.IGNORECASE
-        ):
-            return {}
-
-        segment_amounts = (extract_explicit_real_estate_amounts(segment))
-
-        if len(segment_amounts) != 1:
-            return {}
-
-        field_name, amount = next(
-            iter(segment_amounts.items())
-        )
-
-        if field_name in extracted_arguments:
-            return {}
-
-        extracted_arguments[field_name] = amount
-
-    if not extracted_arguments:
-        return {}
-
-    if "loan_balance" in extracted_arguments:
-        extracted_arguments[
-            "loan_balance_confirmed"
-        ] = True
-
-    for field_name in ACQUISITION_COMPONENT_FIELDS:
-        if field_name in extracted_arguments:
-            extracted_arguments[
-                f"{field_name}_confirmed"
-            ] = True
-
-    return extracted_arguments
-#==============================================
 
 # 建物の利用区分の単一変更をPythonで判定する関数
 def extract_simple_real_estate_usage_update(user_input: str) -> dict:
