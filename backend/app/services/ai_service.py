@@ -13,9 +13,7 @@ def generate_gpt_response(
     selected_model = model_name or "gpt-4o-mini"
 
     if client is None:
-        raise RuntimeError(
-            "OpenAIクライアントが初期化されていません"
-        )
+        raise RuntimeError("OpenAIクライアントが初期化されていません")
 
     response = client.chat.completions.create(
         model=selected_model,
@@ -55,54 +53,36 @@ def generate_gpt_response(
 # Gemini呼び出し関数
 def generate_gemini_response(
     *,
-    genai_module: Any,
+    client: Any,
     system_instruction: str,
     user_prompt: str,
     response_format_json: bool = False,
     model_name: str | None = None
 ) -> dict:
-    selected_model = model_name or "gemini-3.5-flash-lite"
+    selected_model = model_name or "gemini-3.1-flash-lite"
 
-    if genai_module is None:
-        raise RuntimeError(
-            "Geminiクライアントが初期化されていません"
-        )
+    if client is None:
+        raise RuntimeError("Geminiクライアントが初期化されていません")
 
-    generation_config = {}
-
+    config = {}
+    if system_instruction and system_instruction.strip():
+        config["system_instruction"] = system_instruction
     if response_format_json:
-        generation_config["response_mime_type"] = "application/json"
+        config["response_mime_type"] = "application/json"
 
-    model_kwargs = {"model_name": selected_model}
-
-    if system_instruction and str(system_instruction).strip():
-        model_kwargs["system_instruction"] = system_instruction
-
-    model = genai_module.GenerativeModel(**model_kwargs)
-
-    response = model.generate_content(
-        [{"role": "user", "parts": [user_prompt]}],
-        generation_config=generation_config
+    response = client.models.generate_content(
+        model=selected_model,
+        contents=user_prompt,
+        config=config
     )
-
-    in_tokens = 0
-    out_tokens = 0
-
-    if (
-        hasattr(response, "usage_metadata")
-        and response.usage_metadata
-    ):
-        in_tokens = (
-            response.usage_metadata.prompt_token_count or 0
-        )
-        out_tokens = (
-            response.usage_metadata.candidates_token_count or 0
-        )
+    usage = getattr(response, "usage_metadata", None)
 
     return {
         "text": response.text or "",
-        "in_tokens": in_tokens,
-        "out_tokens": out_tokens,
+        "in_tokens": getattr(usage, "prompt_token_count", 0) or 0
+        if usage else 0,
+        "out_tokens": getattr(usage, "candidates_token_count", 0) or 0
+        if usage else 0,
         "provider": "gemini",
         "model_name": selected_model
     }
@@ -132,14 +112,12 @@ def generate_ai_response(
 
     if selected_provider == "gemini":
         return generate_gemini_response(
-            genai_module=genai_module,
+            client=gemini_client,
             system_instruction=system_instruction,
             user_prompt=user_prompt,
             response_format_json=response_format_json,
             model_name=model_name
         )
 
-    raise ValueError(
-        f"未対応のAIプロバイダーです: {provider}"
-    )
+    raise ValueError(f"未対応のAIプロバイダーです: {provider}")
 #==============================================

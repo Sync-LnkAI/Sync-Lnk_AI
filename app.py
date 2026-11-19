@@ -46,6 +46,8 @@ from backend.app.services.ai_service import (
     generate_ai_response as generate_ai_response_service,
 )
 
+from backend.app.services.ai_clients import get_gemini_client
+
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -98,10 +100,15 @@ genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 def generate_real_estate_ai_response(**kwargs):
+    provider = str(kwargs.get("provider", "")).lower()
     return generate_ai_response_service(
         **kwargs,
         openai_client=openai_client,
-        genai_module=genai
+        gemini_client=(
+            get_gemini_client()
+            if provider == "gemini"
+            else None
+        )
     )
 
 # ==========================================
