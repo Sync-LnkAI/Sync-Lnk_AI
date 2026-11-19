@@ -1,6 +1,48 @@
 from typing import Any
 
 
+USD_TO_JPY = 160
+
+LITE_INPUT_PRICE_PER_MILLION = 0.30
+LITE_OUTPUT_PRICE_PER_MILLION = 2.50
+BACKGROUND_INPUT_PRICE_PER_MILLION = 0.25
+BACKGROUND_OUTPUT_PRICE_PER_MILLION = 1.50
+GPT4O_MINI_INPUT_PRICE_PER_MILLION = 0.15
+GPT4O_MINI_OUTPUT_PRICE_PER_MILLION = 0.60
+
+PRICE_GEMINI_CHAT_IN = LITE_INPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+PRICE_GEMINI_CHAT_OUT = LITE_OUTPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+PRICE_GEMINI_BACKGROUND_IN = BACKGROUND_INPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+PRICE_GEMINI_BACKGROUND_OUT = BACKGROUND_OUTPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+PRICE_GPT_IN = GPT4O_MINI_INPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+PRICE_GPT_OUT = GPT4O_MINI_OUTPUT_PRICE_PER_MILLION / 1_000_000 * USD_TO_JPY
+
+
+# 計算のコスト算出関数
+def calculate_ai_cost(
+    provider: str,
+    in_tokens: int,
+    out_tokens: int,
+    is_chat: bool = False
+) -> float:
+    provider = str(provider).lower()
+
+    if provider == "gpt":
+        cost = in_tokens * PRICE_GPT_IN + out_tokens * PRICE_GPT_OUT
+    elif is_chat:
+        cost = (
+            in_tokens * PRICE_GEMINI_CHAT_IN
+            + out_tokens * PRICE_GEMINI_CHAT_OUT
+        )
+    else:
+        cost = (
+            in_tokens * PRICE_GEMINI_BACKGROUND_IN
+            + out_tokens * PRICE_GEMINI_BACKGROUND_OUT
+        )
+
+    return round(cost, 6)
+#==============================================
+
 # ChatGPT呼び出し関数
 def generate_gpt_response(
     *,

@@ -220,3 +220,21 @@ class BuildingDepreciationResponse(BaseModel):
     status: Literal["success"]
     calculation_type: Literal["building_depreciation"]
     result: BuildingDepreciationResult
+
+class RealEstateExtractRequest(BaseModel):
+    user_input: str
+    recent_history: str = ""
+    calculation_pending: bool = False
+
+class RealEstateExtractResult(BaseModel):
+    should_calculate: bool
+    arguments: dict
+    extraction_status: str
+    in_tokens: int
+    out_tokens: int
+    cost: float
+
+class RealEstateExtractResponse(BaseModel):
+    status: Literal["success"]
+    extraction_type: Literal["real_estate_sale"]
+    result: RealEstateExtractResult
