@@ -21222,6 +21222,14 @@ with all_tabs[0]:
                                     ] = current_arguments[
                                         "acquisition_date"
                                     ]
+                                
+                                if (
+                                    current_arguments.get("building_acquisition_date")
+                                    and not current_arguments.get("acquisition_date")
+                                ):
+                                    current_arguments["acquisition_date"] = (
+                                        current_arguments["building_acquisition_date"]
+                                    )
 
                                 if "DEBUG current_arguments" in locals():
                                     debug_json(
