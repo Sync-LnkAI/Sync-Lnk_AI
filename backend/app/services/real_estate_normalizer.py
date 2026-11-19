@@ -4,10 +4,13 @@ from decimal import Decimal
 from backend.app.calculations.general import parse_date, to_decimal
 
 REAL_ESTATE_SALE_ALLOWED_FIELDS = {
-    "owner_type", "sale_price", "loan_balance",
-    "land_acquisition_cost", "building_acquisition_cost",
+    "owner_type", "sale_price",
+    "loan_balance", "loan_balance_confirmed",
+    "land_acquisition_cost", "land_acquisition_cost_confirmed",
+    "building_acquisition_cost","building_acquisition_cost_confirmed",
     "accumulated_depreciation", "building_tax_basis",
-    "acquisition_related_costs", "total_acquisition_cost",
+    "acquisition_related_costs", "acquisition_related_costs_confirmed",
+    "total_acquisition_cost",
     "brokerage_fee", "transfer_expenses", "other_cash_expenses",
     "acquisition_date", "sale_date", "holding_period_type",
     "special_deduction", "corporate_effective_tax_rate",
