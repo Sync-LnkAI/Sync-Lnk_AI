@@ -42,6 +42,10 @@ from backend.app.services.real_estate_extractor import (
     extract_real_estate_sale_parameters as extract_real_estate_sale_parameters_service,
 )
 
+from backend.app.services.ai_service import (
+    generate_ai_response as generate_ai_response_service,
+)
+
 # 日本時間（UTC+9時間）
 JST = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -92,6 +96,13 @@ supabase = init_supabase()
 
 genai.configure(api_key=GEMINI_API_KEY)
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
+
+def generate_real_estate_ai_response(**kwargs):
+    return generate_ai_response_service(
+        **kwargs,
+        openai_client=openai_client,
+        genai_module=genai
+    )
 
 # ==========================================
 # AI構成
@@ -20156,7 +20167,7 @@ with all_tabs[0]:
                                             user_input=user_input,
                                             recent_history="",
                                             calculation_pending=calculation_pending,
-                                            generate_response=generate_ai_response,
+                                            generate_response=generate_real_estate_ai_response,
                                             calculate_cost=calculate_ai_cost,
                                             provider=BACKGROUND_PROVIDER,
                                             model_name=SEARCH_MODEL_NAME
