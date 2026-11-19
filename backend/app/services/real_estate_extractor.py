@@ -548,7 +548,8 @@ def extract_real_estate_sale_parameters(
                 "extraction_error",
             "in_tokens": 0,
             "out_tokens": 0,
-            "cost": 0.0
+            "cost": 0.0,
+            "error": f"{type(extraction_error).__name__}: {extraction_error}"
         }
 
     except Exception as unexpected_error:
@@ -565,6 +566,7 @@ def extract_real_estate_sale_parameters(
                 "extraction_error",
             "in_tokens": 0,
             "out_tokens": 0,
-            "cost": 0.0
+            "cost": 0.0,
+            "error": f"{type(unexpected_error).__name__}: {unexpected_error}"
         }
 #==============================================
