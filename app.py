@@ -20194,11 +20194,10 @@ with all_tabs[0]:
                                         "extraction_source"
                                     ] = "ai"
 
-                                if "DEBUG calculation_extraction_result" in locals():
-                                    debug_json(
-                                        "DEBUG calculation_extraction_result",
-                                        calculation_extraction_result
-                                    )
+                                debug_json(
+                                    "DEBUG calculation_extraction_result",
+                                    calculation_extraction_result
+                                )
 
                                 if calculation_pending:
                                     should_calculate_now = bool(
