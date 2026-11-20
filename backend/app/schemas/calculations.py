@@ -250,8 +250,9 @@ class RealEstateCalculateFromTextResponse(BaseModel):
     extraction_type: Literal["real_estate_sale"]
     arguments: dict
     missing_fields: list[str]
+    missing_field_labels: list[str]
+    follow_up_message: str | None = None
     result: RealEstateSaleResult | None = None
     in_tokens: int
     out_tokens: int
     cost: float
-

@@ -36,6 +36,33 @@ from backend.app.services.real_estate_normalizer import (
 
 router = APIRouter(prefix="/real-estate", tags=["real-estate"])
 
+MISSING_FIELD_LABELS = {
+    "owner_type": "売却者が個人か法人か",
+    "sale_price": "売却予定額または売却額",
+    "holding_period_type": "取得日と売却日、または長期・短期の区分",
+    "loan_balance": "ローン残債（無ければ0円）",
+    "land_acquisition_cost": "土地の取得価額（土地がない場合は0円）",
+    "building_acquisition_cost": "建物の取得価額（建物がない場合は0円）",
+    "acquisition_related_costs": "購入時諸費用",
+    "property_usage": "建物の利用区分",
+    "building_structure": "建物構造",
+    "building_acquisition_type": "建物を新築または中古で取得したか",
+    "building_useful_life": "申告で使用している建物の耐用年数",
+    "building_acquisition_date": "建物取得年月"
+}
+def build_follow_up_message(missing_fields: list[str]) -> str | None:
+    labels = [
+        MISSING_FIELD_LABELS.get(field, field)
+        for field in missing_fields
+    ]
+    if not labels:
+        return None
+
+    lines = ["以下の確認が必要な項目について教えてください。"]
+    lines.extend(f"・{label}" for label in labels)
+    return "\n".join(lines)
+# ======================================================
+
 def generate_backend_ai_response(**kwargs):
     provider = str(kwargs.get("provider", "")).lower()
     return generate_ai_response(
@@ -151,6 +178,8 @@ def calculate_real_estate_from_text(
                 "extraction_type": "real_estate_sale",
                 "arguments": {},
                 "missing_fields": [],
+                "missing_field_labels": [],
+                "follow_up_message": None,
                 "result": None,
                 "in_tokens": in_tokens,
                 "out_tokens": out_tokens,
@@ -187,11 +216,18 @@ def calculate_real_estate_from_text(
         missing_fields = get_real_estate_sale_missing_fields(arguments)
 
         if missing_fields:
+            missing_field_labels = [
+                MISSING_FIELD_LABELS.get(field, field)
+                for field in missing_fields
+            ]
+
             return {
                 "status": "missing_fields",
                 "extraction_type": "real_estate_sale",
                 "arguments": arguments,
                 "missing_fields": missing_fields,
+                "missing_field_labels": missing_field_labels,
+                "follow_up_message": build_follow_up_message(missing_fields),
                 "result": None,
                 "in_tokens": in_tokens,
                 "out_tokens": out_tokens,
@@ -235,6 +271,8 @@ def calculate_real_estate_from_text(
             "extraction_type": "real_estate_sale",
             "arguments": arguments,
             "missing_fields": [],
+            "missing_field_labels": [],
+            "follow_up_message": None,
             "result": result,
             "in_tokens": in_tokens,
             "out_tokens": out_tokens,
