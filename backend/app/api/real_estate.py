@@ -29,10 +29,12 @@ from backend.app.services.real_estate_normalizer import (
 )
 import inspect
 from backend.app.services.real_estate_normalizer import (
+    extract_explicit_real_estate_amounts,
     extract_simple_real_estate_amount_update,
     get_real_estate_sale_missing_fields,
     normalize_real_estate_sale_arguments,
 )
+
 
 router = APIRouter(prefix="/real-estate", tags=["real-estate"])
 
@@ -222,6 +224,22 @@ def calculate_real_estate_from_text(
             for key, value in extracted.get("arguments", {}).items()
             if value is not None and value != ""
         })
+        explicit_amounts = extract_explicit_real_estate_amounts(
+            request.user_input
+        )
+        merged.update(explicit_amounts)
+
+        if "loan_balance" in explicit_amounts:
+            merged["loan_balance_confirmed"] = True
+
+        for field in (
+            "land_acquisition_cost",
+            "building_acquisition_cost",
+            "acquisition_related_costs",
+        ):
+            if field in explicit_amounts:
+                merged[f"{field}_confirmed"] = True
+
         if request.calculation_pending:
             simple_update = extract_simple_real_estate_amount_update(
                 request.user_input
