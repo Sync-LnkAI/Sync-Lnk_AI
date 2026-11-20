@@ -238,3 +238,20 @@ class RealEstateExtractResponse(BaseModel):
     status: Literal["success"]
     extraction_type: Literal["real_estate_sale"]
     result: RealEstateExtractResult
+
+class RealEstateCalculateFromTextRequest(BaseModel):
+    user_input: str
+    recent_history: str = ""
+    calculation_pending: bool = False
+    previous_arguments: dict = {}
+
+class RealEstateCalculateFromTextResponse(BaseModel):
+    status: Literal["success", "missing_fields", "not_applicable"]
+    extraction_type: Literal["real_estate_sale"]
+    arguments: dict
+    missing_fields: list[str]
+    result: RealEstateSaleResult | None = None
+    in_tokens: int
+    out_tokens: int
+    cost: float
+
