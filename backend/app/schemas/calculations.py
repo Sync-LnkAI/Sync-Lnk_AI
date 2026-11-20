@@ -252,6 +252,7 @@ class RealEstateCalculateFromTextResponse(BaseModel):
     missing_fields: list[str]
     missing_field_labels: list[str]
     follow_up_message: str | None = None
+    result_message: str | None = None
     result: RealEstateSaleResult | None = None
     in_tokens: int
     out_tokens: int

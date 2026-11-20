@@ -63,6 +63,35 @@ def build_follow_up_message(missing_fields: list[str]) -> str | None:
     return "\n".join(lines)
 # ======================================================
 
+# 計算結果から日本語メッセージを作る関数
+def build_result_message(result: dict) -> str:
+    holding_label = (
+        "長期譲渡所得"
+        if result.get("holding_type") == "long_term"
+        else "短期譲渡所得"
+    )
+
+    lines = [
+        "計算結果は以下になりました。",
+        "",
+        f"・保有期間：{holding_label}",
+        f"・売却価格：{result['sale_price']:,}円",
+        f"・土地取得価額：{result['land_acquisition_cost']:,}円",
+        f"・建物取得価額：{result['building_acquisition_cost']:,}円",
+        f"・建物未償却残高：{result['building_tax_basis']:,}円",
+        f"・購入時諸費用：{result['acquisition_related_costs']:,}円",
+        f"・計算採用取得費：{result['applied_acquisition_basis']:,}円",
+        f"・売却時仲介手数料：{result['brokerage_fee']:,}円",
+        f"・課税譲渡所得：{result['taxable_gain']:,}円",
+        f"・概算税額：{result['estimated_tax']:,}円",
+        f"・税引前手残り：{result['cash_before_tax']:,}円",
+        f"・税引後手残り：{result['cash_after_tax']:,}円",
+        "",
+        "この結果は入力条件に基づく概算です。"
+    ]
+    return "\n".join(lines)
+# ======================================================
+
 def generate_backend_ai_response(**kwargs):
     provider = str(kwargs.get("provider", "")).lower()
     return generate_ai_response(
@@ -180,6 +209,7 @@ def calculate_real_estate_from_text(
                 "missing_fields": [],
                 "missing_field_labels": [],
                 "follow_up_message": None,
+                "result_message": None,
                 "result": None,
                 "in_tokens": in_tokens,
                 "out_tokens": out_tokens,
@@ -228,6 +258,7 @@ def calculate_real_estate_from_text(
                 "missing_fields": missing_fields,
                 "missing_field_labels": missing_field_labels,
                 "follow_up_message": build_follow_up_message(missing_fields),
+                "result_message": None,
                 "result": None,
                 "in_tokens": in_tokens,
                 "out_tokens": out_tokens,
@@ -273,6 +304,7 @@ def calculate_real_estate_from_text(
             "missing_fields": [],
             "missing_field_labels": [],
             "follow_up_message": None,
+            "result_message": build_result_message(result),
             "result": result,
             "in_tokens": in_tokens,
             "out_tokens": out_tokens,
