@@ -19,9 +19,34 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   bool _calculationPending = false;
   bool _isLoading = false;
 
+  bool _isFinishCommand(String text) {
+    final normalized = text.replaceAll(RegExp(r'\s+'), '');
+
+    return normalized == '計算終了' || normalized == '計算を終了' || normalized == '終了';
+  }
+
+  void _finishCalculation({bool addUserMessage = false}) {
+    setState(() {
+      if (addUserMessage) {
+        _messages.add('あなた: 計算終了');
+      }
+
+      _previousArguments.clear();
+      _calculationPending = false;
+      _messages.add('ハヤト: 計算を終了しました。');
+    });
+
+    _controller.clear();
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isLoading) return;
+
+    if (_calculationPending && _isFinishCommand(text)) {
+      _finishCalculation(addUserMessage: true);
+      return;
+    }
 
     setState(() {
       _messages.add('あなた: $text');
@@ -48,12 +73,25 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
 
       setState(() {
         _messages.add('ハヤト: ${reply ?? '回答を取得できませんでした。'}');
-        _calculationPending = response.status == 'missing_fields';
+
+        if (response.status == 'missing_fields' ||
+            response.status == 'success') {
+          _calculationPending = true;
+        } else {
+          _calculationPending = false;
+          _previousArguments.clear();
+        }
       });
     } catch (error) {
-      setState(() => _messages.add('エラー: $error'));
+      setState(() {
+        _messages.add('エラー: $error');
+      });
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -69,6 +107,22 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       appBar: AppBar(title: const Text('不動産売却計算')),
       body: Column(
         children: [
+          if (_calculationPending)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Row(
+                children: [
+                  const Expanded(child: Text('計算を継続中です。条件の追加・変更ができます。')),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: _isLoading ? null : () => _finishCalculation(),
+                    child: const Text('計算終了'),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -88,10 +142,13 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
                     controller: _controller,
                     minLines: 1,
                     maxLines: 4,
+                    enabled: !_isLoading,
                     onSubmitted: (_) => _send(),
-                    decoration: const InputDecoration(
-                      hintText: '不動産売却の条件を入力',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: _calculationPending
+                          ? '条件の追加・変更、または「計算終了」と入力'
+                          : '不動産売却の条件を入力',
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -99,7 +156,11 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
                 IconButton(
                   onPressed: _isLoading ? null : _send,
                   icon: _isLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Icon(Icons.send),
                 ),
               ],
