@@ -257,3 +257,48 @@ class RealEstateCalculateFromTextResponse(BaseModel):
     in_tokens: int
     out_tokens: int
     cost: float
+
+class CalculationCaseCandidate(BaseModel):
+    case_id: str
+    case_name: str
+    case_type: str
+    updated_at: str
+
+class CalculationCaseCandidateResponse(BaseModel):
+    status: Literal["success"]
+    candidates: list[CalculationCaseCandidate]
+
+class CalculationCaseDetail(BaseModel):
+    case_id: str
+    case_name: str
+    case_type: str
+    case_status: str
+    property_usage: str | None = None
+    case_data: dict
+    created_at: str
+    updated_at: str
+    expires_at: str | None = None
+
+class CalculationCaseDetailResponse(BaseModel):
+    status: Literal["success"]
+    case: CalculationCaseDetail
+
+class CalculationCaseCreateRequest(BaseModel):
+    case_type: str
+    property_usage: str
+    case_data: dict
+
+class CalculationCaseCreateResponse(BaseModel):
+    status: Literal["success"]
+    case_id: str
+    case: CalculationCaseDetail
+
+class CalculationCaseUpdateRequest(BaseModel):
+    case_data: dict
+    case_name: str | None = None
+    case_status: str | None = None
+    property_usage: str | None = None
+
+class CalculationCaseUpdateResponse(BaseModel):
+    status: Literal["success"]
+    case_id: str

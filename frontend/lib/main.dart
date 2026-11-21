@@ -1,8 +1,21 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'screens/real_estate_chat_screen.dart';
+import 'config/app_config.dart';
+import 'screens/login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (AppConfig.supabaseUrl.isEmpty || AppConfig.supabaseAnonKey.isEmpty) {
+    throw StateError('SUPABASE_URLまたはSUPABASE_ANON_KEYが設定されていません');
+  }
+
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    publishableKey: AppConfig.supabaseAnonKey,
+  );
+
   runApp(const MyApp());
 }
 
@@ -15,11 +28,9 @@ class MyApp extends StatelessWidget {
       title: 'My AI Concierge',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const RealEstateChatScreen(),
+      home: const LoginScreen(),
     );
   }
 }

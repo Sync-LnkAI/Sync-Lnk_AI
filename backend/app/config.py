@@ -1,10 +1,10 @@
 import os
 
-
 AI_CONFIGURATION = os.getenv("AI_CONFIGURATION", "hybrid").strip().lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY_PRO", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
 def get_background_ai_config() -> tuple[str, str]:
     if AI_CONFIGURATION == "gemini":
