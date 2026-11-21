@@ -11,6 +11,7 @@ class RealEstateChatScreen extends StatefulWidget {
 
 class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   final _controller = TextEditingController();
+  final _scrollController = ScrollController();
   final _messages = <String>[];
   final _previousArguments = <String, dynamic>{};
 
@@ -18,6 +19,19 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
 
   bool _calculationPending = false;
   bool _isLoading = false;
+  String? _lastFailedInput;
+
+  Future<void> _scrollToBottom() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted || !_scrollController.hasClients) return;
+
+    await _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 
   bool _isFinishCommand(String text) {
     final normalized = text.replaceAll(RegExp(r'\s+'), '');
@@ -39,24 +53,34 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
     _controller.clear();
   }
 
+  void _retryLastRequest() {
+    if (_lastFailedInput == null || _isLoading) return;
+    _send();
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _isLoading) return;
+    final retryText = text.isEmpty ? _lastFailedInput : null;
+    final inputText = retryText ?? text;
+    if (inputText.isEmpty || _isLoading) return;
 
-    if (_calculationPending && _isFinishCommand(text)) {
+    if (_calculationPending && _isFinishCommand(inputText)) {
       _finishCalculation(addUserMessage: true);
       return;
     }
 
     setState(() {
-      _messages.add('あなた: $text');
+      if (retryText == null) {
+        _messages.add('あなた: $inputText');
+      }
       _isLoading = true;
     });
+    _scrollToBottom();
     _controller.clear();
 
     try {
       final response = await _api.calculateFromText(
-        userInput: text,
+        userInput: inputText,
         calculationPending: _calculationPending,
         previousArguments: _previousArguments,
       );
@@ -64,6 +88,8 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       _previousArguments
         ..clear()
         ..addAll(response.arguments);
+
+      _lastFailedInput = null;
 
       final reply = response.status == 'missing_fields'
           ? response.followUpMessage
@@ -82,10 +108,15 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
           _previousArguments.clear();
         }
       });
+      _scrollToBottom();
     } catch (error) {
+      debugPrint('不動産計算APIエラー: $error');
+
       setState(() {
-        _messages.add('エラー: $error');
+        _lastFailedInput = inputText;
+        _messages.add('ハヤト: 通信できませんでした。接続を確認して、再試行してください。');
       });
+      _scrollToBottom();
     } finally {
       if (mounted) {
         setState(() {
@@ -98,6 +129,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -125,14 +157,33 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
             ),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
+              reverse: true,
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
-              itemBuilder: (_, index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_messages[index]),
-              ),
+              itemBuilder: (_, index) {
+                final messageIndex = _messages.length - 1 - index;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(_messages[messageIndex]),
+                );
+              },
             ),
           ),
+          if (_lastFailedInput != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : _retryLastRequest,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('再試行'),
+                ),
+              ),
+            ),
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
