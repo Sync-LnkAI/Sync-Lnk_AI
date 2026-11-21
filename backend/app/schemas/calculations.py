@@ -302,3 +302,10 @@ class CalculationCaseUpdateRequest(BaseModel):
 class CalculationCaseUpdateResponse(BaseModel):
     status: Literal["success"]
     case_id: str
+
+class UserSettingsResponse(BaseModel):
+    status: Literal["success"]
+    theme_color: str
+    concierge_name: str
+    user_name: str
+    user_honorific: str

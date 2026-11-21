@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../config/app_config.dart';
 import '../services/calculation_case_api_service.dart';
 import '../services/real_estate_api_service.dart';
+import '../services/user_settings_api_service.dart';
+import '../theme/app_color_theme.dart';
 
 class RealEstateChatScreen extends StatefulWidget {
   const RealEstateChatScreen({super.key});
@@ -16,10 +18,17 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   final _scrollController = ScrollController();
   final _messages = <String>[];
   final _previousArguments = <String, dynamic>{};
-
   final _api = RealEstateApiService(baseUrl: AppConfig.apiBaseUrl);
-
   final _caseApi = CalculationCaseApiService(baseUrl: AppConfig.apiBaseUrl);
+  final _settingsApi = UserSettingsApiService(baseUrl: AppConfig.apiBaseUrl);
+
+  String _themeColor = 'パステル';
+  String _conciergeName = 'コンシェルジュ';
+  String _userName = 'ユーザー';
+  String _userHonorific = 'さん';
+  AppColorTheme get _colorTheme => AppColorTheme.fromName(_themeColor);
+  String get _displayUserName =>
+      _userHonorific == '（呼び捨て/なし）' ? _userName : '$_userName$_userHonorific';
 
   bool _calculationPending = false;
   bool _isLoading = false;
@@ -30,6 +39,28 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   bool _selectingCase = false;
   String? _activeCaseId;
   bool _creatingNewCase = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSettings();
+  }
+
+  Future<void> _loadUserSettings() async {
+    try {
+      final settings = await _settingsApi.getSettings();
+      if (!mounted) return;
+
+      setState(() {
+        _themeColor = settings['theme_color']?.toString() ?? 'パステル';
+        _conciergeName = settings['concierge_name']?.toString() ?? 'コンシェルジュ';
+        _userName = settings['user_name']?.toString() ?? 'ユーザー';
+        _userHonorific = settings['user_honorific']?.toString() ?? 'さん';
+      });
+    } catch (error) {
+      debugPrint('ユーザー設定取得エラー: $error');
+    }
+  }
 
   Future<void> _scrollToBottom() async {
     await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -58,7 +89,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   void _finishCalculation({bool addUserMessage = false}) {
     setState(() {
       if (addUserMessage) {
-        _messages.add('あなた: 計算終了');
+        _messages.add('$_displayUserName: 計算終了');
       }
 
       _previousArguments.clear();
@@ -67,7 +98,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       _creatingNewCase = false;
       _lastFailedInput = null;
       _calculationPending = false;
-      _messages.add('ハヤト: 計算を終了しました。');
+      _messages.add('$_conciergeName: 計算を終了しました。');
     });
 
     _controller.clear();
@@ -110,7 +141,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       _caseCandidates = candidates;
       _pendingCaseInput = userInput;
       _selectingCase = true;
-      _messages.add('ハヤト: ${lines.join('\n')}');
+      _messages.add('$_conciergeName: ${lines.join('\n')}');
     });
 
     _scrollToBottom();
@@ -129,8 +160,8 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
         selectedNumber < 1 ||
         selectedNumber > newCaseNumber) {
       setState(() {
-        _messages.add('あなた: $inputText');
-        _messages.add('ハヤト: 1から$newCaseNumberまでの番号を入力してください。');
+        _messages.add('$_displayUserName: $inputText');
+        _messages.add('$_conciergeName: 1から$newCaseNumberまでの番号を入力してください。');
       });
 
       _controller.clear();
@@ -144,7 +175,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       setState(() {
         _clearCaseSelection();
         _messages.add(
-          'ハヤト: 計算条件を確認できませんでした。'
+          '$_conciergeName: 計算条件を確認できませんでした。'
           'もう一度条件を入力してください。',
         );
       });
@@ -155,7 +186,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
     }
 
     setState(() {
-      _messages.add('あなた: $inputText');
+      _messages.add('$_displayUserName: $inputText');
       _isLoading = true;
     });
 
@@ -201,7 +232,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       setState(() {
         _clearCaseSelection();
         _calculationPending = true;
-        _messages.add('ハヤト: 「$caseName」の条件を読み込みました。');
+        _messages.add('$_conciergeName: 「$caseName」の条件を読み込みました。');
       });
 
       _scrollToBottom();
@@ -214,7 +245,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
 
       setState(() {
         _messages.add(
-          'ハヤト: 計算案件を読み込めませんでした。'
+          '$_conciergeName: 計算案件を読み込めませんでした。'
           '接続を確認して、もう一度お試しください。',
         );
       });
@@ -235,7 +266,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   }) async {
     if (addUserMessage) {
       setState(() {
-        _messages.add('あなた: $inputText');
+        _messages.add('$_displayUserName: $inputText');
       });
 
       _scrollToBottom();
@@ -282,7 +313,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       if (!mounted) return;
 
       setState(() {
-        _messages.add('ハヤト: ${reply ?? '回答を取得できませんでした。'}');
+        _messages.add('$_conciergeName: ${reply ?? '回答を取得できませんでした。'}');
 
         if (response.status == 'missing_fields' ||
             response.status == 'success') {
@@ -302,7 +333,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       setState(() {
         _lastFailedInput = inputText;
         _messages.add(
-          'ハヤト: 通信できませんでした。'
+          '$_conciergeName: 通信できませんでした。'
           '接続を確認して、再試行してください。',
         );
       });
@@ -332,7 +363,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       _isLoading = true;
 
       if (retryText == null) {
-        _messages.add('あなた: $inputText');
+        _messages.add('$_displayUserName: $inputText');
       }
     });
 
@@ -359,7 +390,7 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
       setState(() {
         _lastFailedInput = inputText;
         _messages.add(
-          'ハヤト: 通信できませんでした。'
+          '$_conciergeName: 通信できませんでした。'
           '接続を確認して、再試行してください。',
         );
       });
@@ -390,94 +421,119 @@ class _RealEstateChatScreenState extends State<RealEstateChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('不動産売却計算')),
-      body: Column(
-        children: [
-          if (_calculationPending)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: Theme.of(context).colorScheme.primaryContainer,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _colorTheme.backgroundColors,
+          ),
+        ),
+        child: Column(
+          children: [
+            if (_calculationPending)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                color: Theme.of(context).colorScheme.primaryContainer,
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('計算を継続中です。条件の追加・変更ができます。')),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _isLoading ? null : () => _finishCalculation(),
+                      child: const Text('計算終了'),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                reverse: true,
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (_, index) {
+                  final messageIndex = _messages.length - 1 - index;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _messages[messageIndex],
+                      style: TextStyle(color: _colorTheme.textColor),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_lastFailedInput != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _retryLastRequest,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('再試行'),
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      '計算を継続中です。'
-                      '条件の追加・変更ができます。',
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      minLines: 1,
+                      maxLines: 4,
+                      enabled: !_isLoading,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: _selectingCase
+                            ? '利用する案件の番号を入力'
+                            : _calculationPending
+                            ? '条件の追加・変更、または「計算終了」と入力'
+                            : '不動産売却の条件を入力',
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: _colorTheme.borderColor,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: _colorTheme.borderColor,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: _colorTheme.borderColor,
+                            width: 2,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: _isLoading ? null : () => _finishCalculation(),
-                    child: const Text('計算終了'),
+                  IconButton(
+                    color: _colorTheme.borderColor,
+                    onPressed: _isLoading ? null : _send,
+                    icon: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
                   ),
                 ],
               ),
             ),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              reverse: true,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (_, index) {
-                final messageIndex = _messages.length - 1 - index;
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(_messages[messageIndex]),
-                );
-              },
-            ),
-          ),
-          if (_lastFailedInput != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _retryLastRequest,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('再試行'),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    minLines: 1,
-                    maxLines: 4,
-                    enabled: !_isLoading,
-                    onSubmitted: (_) => _send(),
-                    decoration: InputDecoration(
-                      hintText: _selectingCase
-                          ? '利用する案件の番号を入力'
-                          : _calculationPending
-                          ? '条件の追加・変更、'
-                                'または「計算終了」と入力'
-                          : '不動産売却の条件を入力',
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _isLoading ? null : _send,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
